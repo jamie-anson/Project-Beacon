@@ -22,18 +22,27 @@ html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  color: var(--ink-900);
+  color: var(--ink-700); /* gray body for hierarchy */
   background: linear-gradient(180deg, var(--white), var(--sage-100));
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   line-height: 1.6;
   font-size: 18px;
 }
 
-h1, h2, h3 {
-  color: var(--ink-700);
+h1, h2 {
+  color: var(--sage-800); /* brand color for main headings */
   line-height: 1.2;
   margin: 0 0 0.5em;
   font-family: Merriweather, Georgia, serif;
+}
+
+/* h3 matches body font and color for subtle subheads */
+h3 {
+  color: var(--ink-700);
+  line-height: 1.4;
+  margin: 0 0 0.5em;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-weight: 700; /* keep emphasis while using body family */
 }
 
 p { margin: 0 0 1rem; }
@@ -86,22 +95,34 @@ ul { margin: 0 0 1rem 1.25rem; }
 }
 .hero-inner {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hero-logo {
+  height: 15vh; /* 15% of viewport height as requested */
+  width: auto;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
 }
 .hero-badge {
-  display: inline-block;
+  display: inline-block; /* shrink to text */
   background: rgba(23,94,84,0.1);
   color: var(--sage-800);
   border: 1px solid rgba(23,94,84,0.25);
   padding: 6px 10px;
   border-radius: 999px;
   font-size: 12px; /* 2px smaller */
-  margin-bottom: 14px; /* keeps it above title with spacing */
+  margin: 10px auto 0; /* below title with slight spacing */
+  max-width: 100%;
+  white-space: nowrap; /* keep as a single pill */
 }
 .hero h1 {
   font-size: clamp(32px, 6vw, 48px);
 }
 .hero-title {
-  display: inline-flex;
+  display: flex; /* block-level to stack under badge */
   align-items: center;
   justify-content: center;
   gap: 12px;
