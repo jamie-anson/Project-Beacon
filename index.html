@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Beacon</title>
+  <meta name="description" content="Open, verifiable testing — runs any benchmark on the Golem Network. A permissionless, neutral platform to verify AI output consistency across borders." />
+  <link rel="icon" type="image/webp" href="images/Icon.webp" />
+  <meta property="og:title" content="Project Beacon" />
+  <meta property="og:description" content="Open, verifiable testing — runs any benchmark on the Golem Network. A permissionless, neutral platform to verify AI output consistency across borders." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="images/Icon.webp" />
+  <meta name="theme-color" content="#175E54" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Project Beacon home">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="36" height="36" />
+        <span>Project Beacon</span>
+      </a>
+      <nav class="nav">
+        <a href="#what">What</a>
+        <a href="#why">Why</a>
+        <a href="#how">How</a>
+        <a href="#mvp">MVP</a>
+        <a href="#collaborate">Collaborate</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-badge">Open, verified, decentralised</div>
+        <h1 class="hero-title">
+          <img src="images/Icon.webp" alt="Project Beacon icon" width="48" height="48" />
+          <span>Project Beacon</span>
+        </h1>
+        <p class="subtitle">Open, verifiable testing — runs any benchmark on the Golem Network</p>
+        <div class="cta-row">
+          <a class="btn primary" href="#collaborate">Collaborate</a>
+          <a class="btn ghost" href="#what">Learn more</a>
+        </div>
+      </div>
+      <div class="hero-gradient" aria-hidden="true"></div>
+    </section>
+
+    <section id="what" class="section">
+      <div class="container content">
+        <h2>What</h2>
+        <p>An independent, open platform where anyone can run tests to see if an AI gives <strong>different answers depending on where you are</strong>.</p>
+        <p>It’s open to <strong>any benchmark or question</strong> — we don’t decide what gets tested, and we don’t control the results.</p>
+      </div>
+    </section>
+
+    <section id="why" class="section alt">
+      <div class="container content">
+        <h2>Why</h2>
+        <p>Right now, almost all public trust in AI output comes from what the AI makers themselves report. That trust is fragile — and history tells us it shouldn’t be blind.</p>
+        <p>When a company controls the tests, the charts, and the narrative, there is room for selective truth. We’ve already seen benchmark results like <strong>SWE-bench</strong> used in presentations with conveniently cropped charts or missing context, making performance look stronger than it really is. In product demos, we’re shown the best answers, while the failures are quietly left out. There is no independent way to verify what’s been claimed.</p>
+        <p>The problem grows when we consider geography. AI companies can and do tailor outputs for different regions — sometimes to comply with local laws, sometimes to avoid controversy, sometimes for reasons they don’t disclose. This tailoring can cross into bias, censorship, or the quiet removal of inconvenient facts. Today, there is no practical way to prove it is happening — or to measure how much it changes what we see.</p>
+        <p>This risk isn’t new. Throughout history, leaders and governments have tried to control the public record:</p>
+        <ul>
+          <li><strong>Maps were redrawn</strong> to assert territorial claims.</li>
+          <li><strong>Encyclopaedia entries were edited</strong> to erase political opponents.</li>
+          <li><strong>State-run media</strong> has, in many countries, rewritten or sanitised historical events to fit the desired narrative.</li>
+          <li>In the 20th century, some regimes went so far as to <strong>alter photographs</strong>, literally removing people from history.</li>
+        </ul>
+        <p>The technology may be new, but the motivations are as old as power itself. When an AI system becomes the default source of answers for billions of people, the incentives to shape or distort those answers — whether for political gain, economic advantage, or ideological alignment — become enormous.</p>
+        <p>If AI is to be trusted, it must be accountable. That means independent, verifiable evidence of what it says in every country, stored permanently, so no one can quietly change the record later. This project is about building that public record — for everyone.</p>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <div class="container content">
+        <h2>How</h2>
+        <p>We combine decentralised compute, cryptographic proofs, and permanent storage to make results <strong>trustworthy and tamper-proof</strong>:</p>
+        <ul class="features">
+          <li>
+            <h3>Verifiable job specs</h3>
+            <p>Clear, reproducible test definitions.</p>
+          </li>
+          <li>
+            <h3>Signed receipts</h3>
+            <p>Cryptographic proof each job ran exactly as specified.</p>
+          </li>
+          <li>
+            <h3>Public diff reports</h3>
+            <p>Side-by-side comparison of outputs by region.</p>
+          </li>
+          <li>
+            <h3>Independent human attesters</h3>
+            <p>Validating that results match the claims.</p>
+          </li>
+          <li>
+            <h3>Permanent storage</h3>
+            <p>Results preserved on decentralised networks (e.g. IPFS, blockchain) for public review and audit.</p>
+          </li>
+          <li>
+            <h3>Distributed infrastructure</h3>
+            <p>All tests run on the decentralised <strong>Golem Network</strong> to avoid single points of control.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="mvp" class="section alt">
+      <div class="container content">
+        <h2>MVP</h2>
+        <p>Our first benchmark — “Who are you?” — will test a simple identity question across locations to prove the end-to-end flow works. From there, anyone can submit their own.</p>
+      </div>
+    </section>
+
+    <section id="collaborate" class="section">
+      <div class="container content">
+        <h2>Why collaborate</h2>
+        <p>We’re looking for collaborators who share our commitment to <strong>truth, transparency, and trust</strong> in AI. Whether you’re into distributed computing, AI safety, or independent auditing — this project needs your perspective.</p>
+        <p>Our long-term vision is to establish the platform as a <strong>globally trusted standard</strong> for AI output verification, recognised by international bodies such as the <strong>United Nations</strong>.</p>
+        <div class="cta-panel">
+          <a class="btn primary" href="mailto:hello@example.com?subject=Project%20Beacon%20Collaboration">Express interest</a>
+          <a class="btn secondary" href="#top">Back to top</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="foot-brand">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="28" height="28" />
+        <span>Project Beacon</span>
+      </div>
+      <small>© <span id="year"></span> Project Beacon • Open, neutral, verified</small>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
