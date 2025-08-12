@@ -1,0 +1,11 @@
+:root {
+  --ifm-color-primary: #175E54;
+  --ifm-color-primary-dark: #135047;
+  --ifm-color-primary-darker: #10463E;
+  --ifm-color-primary-darkest: #0B302A;
+  --ifm-color-primary-light: #1D6E62;
+  --ifm-color-primary-lighter: #207A6E;
+  --ifm-color-primary-lightest: #2A9B8C;
+}
+
+.footer__link-item { font-family: var(--ifm-font-family-base); }

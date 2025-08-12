@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--no-audit --fund=false"
+
+# Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
+[[redirects]]
+  from = "/docs/*"
+  to = "/docs/index.html"
+  status = 200
+
+# Default root fallback for the one-pager (no SPA framework, just static)
+# No catch-all needed at root; index.html served by default.
