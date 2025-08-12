@@ -139,6 +139,25 @@ ul { margin: 0 0 1rem 1.25rem; }
   font-size: 18px;
   margin-top: 10px;
 }
+/* pill list under hero subtitle */
+.badge-strip {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 6px;
+  flex-wrap: wrap;
+}
+.badge-strip li {
+  background: rgba(23,94,84,0.08);
+  color: var(--sage-800);
+  border: 1px solid rgba(23,94,84,0.2);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
 .hero-gradient {
   position: absolute;
   inset: -20% -10% auto -10%;
@@ -199,6 +218,15 @@ ul { margin: 0 0 1rem 1.25rem; }
   color: var(--sage-800);
 }
 .btn.secondary:hover { background: var(--sage-100); }
+
+/* subtle text-style tertiary link button */
+.btn.tertiary {
+  background: transparent;
+  color: var(--ink-700);
+  border: none;
+  text-decoration: underline;
+}
+.btn.tertiary:hover { color: var(--sage-800); }
 
 .cta-row { margin-top: 22px; display: flex; gap: 12px; justify-content: center; }
 .cta-panel { margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; }

@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Project Beacon</title>
-  <meta name="description" content="Open, verifiable testing — runs any benchmark on the Golem Network. A permissionless, neutral platform to verify AI output consistency across borders." />
+  <meta name="description" content="Independent, user-verifiable AI benchmarks for capability, consistency, network integrity, and permanence. Trust AI with evidence, not assumptions." />
   <link rel="icon" type="image/webp" href="images/Icon.webp" />
   <meta property="og:title" content="Project Beacon" />
-  <meta property="og:description" content="Open, verifiable testing — runs any benchmark on the Golem Network. A permissionless, neutral platform to verify AI output consistency across borders." />
+  <meta property="og:description" content="Independent, user-verifiable AI benchmarks for capability, consistency, network integrity, and permanence." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="images/Icon.webp" />
   <meta name="theme-color" content="#175E54" />
@@ -29,6 +29,9 @@
         <a href="#what">What</a>
         <a href="#why">Why</a>
         <a href="#how">How</a>
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="#threats">Threat model</a>
+        <a href="#principles">Principles</a>
         <a href="#mvp">MVP</a>
         <a href="#collaborate">Collaborate</a>
       </nav>
@@ -40,8 +43,20 @@
       <div class="container hero-inner">
         <img class="hero-logo" src="images/Icon.webp" alt="Project Beacon logo" />
         <h1 class="hero-title"><span>Project Beacon</span></h1>
-        <div class="hero-badge">Open, verified, decentralised</div>
-        <p class="subtitle">Open, verifiable testing — runs any benchmark on the Golem Network</p>
+        <div class="hero-badge">Independent, verifiable, decentralised</div>
+        <p class="subtitle">Trust AI with evidence, not assumptions.</p>
+        <ul class="badge-strip" aria-label="Key focus areas">
+          <li>Capability</li>
+          <li>Network Integrity</li>
+          <li>Consistency</li>
+          <li>Policy Behavior</li>
+          <li>Permanence</li>
+        </ul>
+        <div class="cta-panel">
+          <a class="btn primary" href="#mvp">Run Benchmarks</a>
+          <a class="btn secondary" href="#benchmarks">View Methods</a>
+          <a class="btn tertiary" href="#collaborate">Contribute Tests</a>
+        </div>
       </div>
       <div class="hero-gradient" aria-hidden="true"></div>
     </section>
@@ -57,25 +72,30 @@
     <section id="why" class="section alt">
       <div class="container content">
         <h2>Why</h2>
-        <p>Right now, almost all public trust in AI output comes from what the AI makers themselves report. That trust is fragile — and history tells us it shouldn’t be blind.</p>
-        <p>When a company controls the tests, the charts, and the narrative, there is room for selective truth. We’ve already seen benchmark results like <strong>SWE-bench</strong> used in presentations with conveniently cropped charts or missing context, making performance look stronger than it really is. In product demos, we’re shown the best answers, while the failures are quietly left out. There is no independent way to verify what’s been claimed.</p>
-        <p>The problem grows when we consider geography. AI companies can and do tailor outputs for different regions — sometimes to comply with local laws, sometimes to avoid controversy, sometimes for reasons they don’t disclose. This tailoring can cross into bias, censorship, or the quiet removal of inconvenient facts. Today, there is no practical way to prove it is happening — or to measure how much it changes what we see.</p>
-        <p>This risk isn’t new. Throughout history, leaders and governments have tried to control the public record:</p>
         <ul>
-          <li><strong>Maps were redrawn</strong> to assert territorial claims.</li>
-          <li><strong>Encyclopaedia entries were edited</strong> to erase political opponents.</li>
-          <li><strong>State-run media</strong> has, in many countries, rewritten or sanitised historical events to fit the desired narrative.</li>
-          <li>In the 20th century, some regimes went so far as to <strong>alter photographs</strong>, literally removing people from history.</li>
+          <li><strong>Trust needs proof.</strong> Incentives, politics, and bad actors can distort reality. People deserve verifiable evidence.</li>
+          <li><strong>Power to the user.</strong> Everyone should be able to validate, diagnose, and question AI systems.</li>
+          <li><strong>Truth over narratives.</strong> Independent, repeatable tests show what models actually do.</li>
         </ul>
-        <p>The technology may be new, but the motivations are as old as power itself. When an AI system becomes the default source of answers for billions of people, the incentives to shape or distort those answers — whether for political gain, economic advantage, or ideological alignment — become enormous.</p>
-        <p>If AI is to be trusted, it must be accountable. That means independent, verifiable evidence of what it says in every country, stored permanently, so no one can quietly change the record later. This project is about building that public record — for everyone.</p>
+        <h3>The problem we’re solving</h3>
+        <ul>
+          <li><strong>Opacity:</strong> It’s hard to tell if a model is good, safe, or fair—and for whom.</li>
+          <li><strong>Inconsistency:</strong> Answers vary across locations, throttled networks, and policy settings.</li>
+          <li><strong>Control points:</strong> Vendors, states, and intermediaries can influence availability, speed, and output.</li>
+        </ul>
+        <h3>Who’s impacted</h3>
+        <ul>
+          <li><strong>People:</strong> Depend on AI for decisions, work, learning; deserve transparent behavior.</li>
+          <li><strong>Automation systems:</strong> Need consistent outputs; instability causes failures and cost.</li>
+          <li><strong>Robots:</strong> Physical systems require reliable perception and planning.</li>
+        </ul>
       </div>
     </section>
 
     <section id="how" class="section">
       <div class="container content">
         <h2>How</h2>
-        <p>We combine decentralised compute, cryptographic proofs, and permanent storage to make results <strong>trustworthy and tamper-proof</strong>:</p>
+        <p>We combine decentralised compute, cryptographic proofs, and permanent storage to make results <strong>trustworthy and tamper-evident</strong>:</p>
         <ul class="features">
           <li>
             <h3>Verifiable job specs</h3>
@@ -101,6 +121,44 @@
             <h3>Distributed infrastructure</h3>
             <p>All tests run on the decentralised <strong>Golem Network</strong> to avoid single points of control.</p>
           </li>
+        </ul>
+        <p><strong>Open methods • Real-world conditions • User-verifiable</strong></p>
+      </div>
+    </section>
+
+    <section id="benchmarks" class="section alt">
+      <div class="container content">
+        <h2>What we benchmark and test</h2>
+        <ul>
+          <li><strong>AI capability benchmarks:</strong> Standardized, task-based suites (e.g., SWE-bench-like) for reasoning, coding, and problem-solving.</li>
+          <li><strong>Network integrity tests:</strong> Latency, throughput, throttling detection, regional routing, and availability over time.</li>
+          <li><strong>Diagnostic probes:</strong> Model versioning, rate limits, policy toggles, and guardrail behavior.</li>
+          <li><strong>Answer consistency:</strong> Do users in different geographies get the same answers to the same questions?</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="threats" class="section">
+      <div class="container content">
+        <h2>Threat model</h2>
+        <ul>
+          <li><strong>AI companies:</strong> Are we getting the model we were sold? Which model is best for my use case and region? Is performance consistent?</li>
+          <li><strong>Nation states:</strong> Do geopolitics, sanctions, or wars change access, speed, or responses?</li>
+          <li><strong>Well-meaning politicians:</strong> Do policy presets constrain useful answers or inject ideological bias?</li>
+          <li><strong>Man-in-the-middle attackers:</strong> VPN/ISP throttling, logging, service spoofing, and DNS poisoning.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="principles" class="section alt">
+      <div class="container content">
+        <h2>Our principles</h2>
+        <ul>
+          <li><strong>Independence:</strong> No vendor pay-to-win. Methods are public; results are auditable.</li>
+          <li><strong>Reproducibility:</strong> Same test, same setup, same outcome—documented and verifiable.</li>
+          <li><strong>Neutrality:</strong> We measure; you decide. Clear metrics, no spin.</li>
+          <li><strong>Safety and inclusion:</strong> Benchmarks consider regional access, policy filters, and user needs.</li>
+          <li><strong>Permanence:</strong> Results, methods, and key metadata are cryptographically signed and anchored to a public ledger for tamper-evident provenance and long-term availability.</li>
         </ul>
       </div>
     </section>
@@ -131,7 +189,7 @@
         <img src="images/Icon.webp" alt="Project Beacon icon" width="28" height="28" />
         <span>Project Beacon</span>
       </div>
-      <small>© <span id="year"></span> Project Beacon • Open, neutral, verified</small>
+      <small>© <span id="year"></span> Project Beacon • Open, neutral, tamper-evident</small>
     </div>
   </footer>
 
