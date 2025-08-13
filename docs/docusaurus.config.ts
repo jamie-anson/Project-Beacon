@@ -1,5 +1,5 @@
 import type {Config} from '@docusaurus/types';
-import classic from '@docusaurus/preset-classic';
+import {themes as prismThemes} from 'prism-react-renderer';
 
 const SITE_URL = process.env.DEPLOY_PRIME_URL || process.env.URL || 'https://projectbeacon.netlify.app';
 const COMMIT = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT || 'dev';
@@ -29,7 +29,7 @@ const config: Config = {
 
   presets: [
     [
-      classic({
+      'classic', {
         docs: {
           path: 'docs',
           routeBasePath: '/',
@@ -55,7 +55,7 @@ const config: Config = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
-      }),
+      },
     ],
   ],
 
@@ -94,8 +94,8 @@ const config: Config = {
       copyright: `© ${new Date().getFullYear()} Project Beacon — Open, neutral, tamper-evident`,
     },
     prism: {
-      theme: require('prism-react-renderer/themes/github'),
-      darkTheme: require('prism-react-renderer/themes/dracula'),
+      theme: prismThemes.github,
+      darkTheme: prismThemes.dracula,
       additionalLanguages: ['json'],
     },
   },

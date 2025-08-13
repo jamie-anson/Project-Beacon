@@ -1,7 +1,8 @@
 ---
 slug: mvp-announcement
 title: MVP Launch — "Who are you?"
-authors: Project Beacon
+authors:
+  - name: Project Beacon
 tags: [mvp, announcement]
 ---
 

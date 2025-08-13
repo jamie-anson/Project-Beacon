@@ -26,17 +26,44 @@ async function main() {
   const headersPath = path.join(dist, '_headers');
   const headers = `
 /*
-  Cache-Control: public, max-age=600
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
 
 /docs/assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/images/*
+  Cache-Control: public, max-age=31536000, immutable
 `;
   await fs.writeFile(headersPath, headers.trimStart(), 'utf8');
 
   console.log('Static site copied to dist/.');
+
+  // Create serve.json for local SPA rewrites when using `npx serve`
+  const serveJson = {
+    cleanUrls: true,
+    rewrites: [
+      { source: '/docs', destination: '/docs/index.html' },
+      { source: '/docs/(.*)', destination: '/docs/index.html' },
+    ],
+  };
+  await fs.writeFile(path.join(dist, 'serve.json'), JSON.stringify(serveJson, null, 2));
+
+  // Copy a placeholder favicon.ico to reduce 404 noise (optional)
+  const favSrc = path.join(root, 'images', 'Icon.webp');
+  const favDst = path.join(dist, 'favicon.ico');
+  if (await fs.pathExists(favSrc)) {
+    await fs.copy(favSrc, favDst);
+  }
 }
 
 main().catch((err) => {
