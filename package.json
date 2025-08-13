@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "build:static": "node scripts/build-static.js",
-    "build:docs": "docusaurus build docs --out-dir dist/docs",
+    "build:docs": "docusaurus build docs --out-dir ../dist/docs",
     "build": "npm run build:static && npm run build:docs",
     "build:docs:standalone": "docusaurus build docs --out-dir dist-docs-standalone --base-url /",
     "version": "docusaurus docs:version 1.0.0",
