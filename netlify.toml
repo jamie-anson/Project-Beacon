@@ -1,5 +1,7 @@
 [build]
-  command = "npm run build"
+  # Build landing + docs into dist/, compute a deterministic pseudo-CID over dist/docs,
+  # then rebuild docs to embed COMMIT_REF and DOCS_BUILD_CID into the footer.
+  command = "npm run build && npm run postbuild:cid && DOCS_BUILD_CID=$(cat dist/docs-cid.txt) COMMIT_REF=${COMMIT_REF} npm run build:docs"
   publish = "dist"
 
 [build.environment]
