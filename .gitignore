@@ -1,0 +1,12 @@
+node_modules
+
+# Local Netlify folder
+.netlify
+
+# Build outputs (do not commit)
+dist/
+docs/.docusaurus/
+docs/dist/
+
+# OS files
+.DS_Store

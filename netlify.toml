@@ -1,0 +1,39 @@
+[build]
+  # Build landing + docs into dist/, compute a deterministic pseudo-CID over dist/docs,
+  # then rebuild docs to embed DOCS_BUILD_CID into the footer.
+  command = "npm run build && npm run postbuild:cid && DOCS_BUILD_CID=$(cat dist/docs-cid.txt) npm run build:docs"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--no-audit --fund=false"
+
+# Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
+[[redirects]]
+  from = "/docs/*"
+  to = "/docs/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/docs"
+  to = "/docs/index.html"
+  status = 200
+
+# Default root fallback for the one-pager (no SPA framework, just static)
+# No catch-all needed at root; index.html served by default.
+
+# Caching for built assets and security headers
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; frame-ancestors 'none'"
