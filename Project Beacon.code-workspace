@@ -1,0 +1,17 @@
+{
+  "folders": [
+    { "path": "Website" },
+    { "path": "runner-app" }
+  ],
+  "settings": {
+    // Add shared workspace settings here if needed
+  },
+  "extensions": {
+    "recommendations": [
+      "golang.go",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "github.vscode-gitlens"
+    ]
+  }
+}
