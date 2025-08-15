@@ -6,7 +6,20 @@
 .LSOverride
 Thumbs.db
 
-# IDE/editor
+# Editors/IDE
+.idea/
+.fleet/
+.history/
+.vim/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Env files
+.env
+.env.*
+**/.env
+**/.env.*
 .vscode/
 .idea/
 .fleet/
