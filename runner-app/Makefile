@@ -18,10 +18,17 @@ setup:
 	go mod download
 	@echo "Setup complete!"
 
-# Run development server
+# Run development server (loads .env if present)
 dev:
 	@echo "Starting development server..."
-	go run cmd/runner/main.go
+	@if [ -f .env ]; then \
+		set -a; \
+		. ./.env; \
+		set +a; \
+		go run cmd/runner/main.go; \
+	else \
+		go run cmd/runner/main.go; \
+	fi
 
 # Build the application
 build:
@@ -51,6 +58,16 @@ docker-up:
 docker-down:
 	@echo "Stopping Docker services..."
 	docker compose down
+
+# Start Redis service
+redis-up:
+	@echo "Starting Redis service..."
+	docker compose up -d redis
+
+# Stop Redis service
+redis-down:
+	@echo "Stopping Redis service..."
+	docker compose stop redis
 
 # Full Docker environment (including runner)
 docker-full:
