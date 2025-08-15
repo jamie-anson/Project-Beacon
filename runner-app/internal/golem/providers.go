@@ -9,9 +9,12 @@ import (
 
 // DiscoverProviders finds available providers matching the given constraints
 func (s *Service) DiscoverProviders(ctx context.Context, constraints models.ExecutionConstraints) ([]*Provider, error) {
-    // For MVP, we'll simulate provider discovery
-    // In production, this would call the actual Golem Network API
+    // If using SDK backend, delegate to SDK implementation
+    if s.backend == "sdk" {
+        return s.discoverProvidersSDK(ctx, constraints)
+    }
 
+    // Default: simulate provider discovery (mock backend)
     providers := s.generateMockProviders()
 
     // Build region->filters map so that filters apply only to regions that specify them

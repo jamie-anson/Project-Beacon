@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"os"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
@@ -20,6 +21,11 @@ func NewValidator() *Validator {
 func (v *Validator) ValidateJobSpec(jobspecJSON []byte) (*models.JobSpec, error) {
 	var jobspec models.JobSpec
 	
+	// Validate structure against JSON Schema first
+	if err := ValidateJSONSchema(jobspecJSON); err != nil {
+		return nil, err
+	}
+
 	// Parse JSON
 	if err := json.Unmarshal(jobspecJSON, &jobspec); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
@@ -35,9 +41,11 @@ func (v *Validator) ValidateJobSpec(jobspecJSON []byte) (*models.JobSpec, error)
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Verify Ed25519 signature
-	if err := jobspec.VerifySignature(); err != nil {
-		return nil, fmt.Errorf("signature verification failed: %w", err)
+	// Verify Ed25519 signature (enabled by default). Allow dev override via env.
+	if os.Getenv("VALIDATION_SKIP_SIGNATURE") != "true" {
+		if err := jobspec.VerifySignature(); err != nil {
+			return nil, fmt.Errorf("signature verification failed: %w", err)
+		}
 	}
 
 	return &jobspec, nil

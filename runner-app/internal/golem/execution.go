@@ -10,6 +10,11 @@ import (
 
 // ExecuteTask runs a benchmark task on a specific provider
 func (s *Service) ExecuteTask(ctx context.Context, provider *Provider, jobspec *models.JobSpec) (*TaskExecution, error) {
+    // If using SDK backend, delegate to SDK implementation
+    if s.backend == "sdk" {
+        return s.executeTaskSDK(ctx, provider, jobspec)
+    }
+
     execution := &TaskExecution{
         ID:         fmt.Sprintf("task_%d", time.Now().Unix()),
         JobSpecID:  jobspec.ID,
@@ -56,6 +61,16 @@ func (s *Service) simulateTaskExecution(ctx context.Context, execution *TaskExec
         // Generate mock output based on region
         output := s.generateMockOutput(execution.ProviderID, jobspec)
         execution.Output = output
+
+        // Populate process-like outputs (stdout/stderr/exit)
+        // Treat the text output as stdout
+        if m, ok := output.(map[string]interface{}); ok {
+            if to, ok := m["text_output"].(string); ok {
+                execution.Metadata["stdout"] = to
+            }
+        }
+        execution.Metadata["stderr"] = ""
+        execution.Metadata["exit_code"] = 0
 
         return nil
 

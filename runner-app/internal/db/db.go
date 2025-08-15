@@ -4,12 +4,30 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 )
 
 type DB struct {
 	*sql.DB
+}
+
+// runWithGolangMigrate runs migrations from the given path using golang-migrate.
+// path should be a directory containing versioned *.up.sql and *.down.sql files.
+func runWithGolangMigrate(dbURL, path string) error {
+    src := "file://" + path
+    m, err := migrate.New(src, dbURL)
+    if err != nil {
+        return fmt.Errorf("migrate init: %w", err)
+    }
+    if err := m.Up(); err != nil && err.Error() != "no change" {
+        return err
+    }
+    return nil
 }
 
 func Initialize() (*DB, error) {
@@ -19,7 +37,8 @@ func Initialize() (*DB, error) {
 		dbURL = "postgres://postgres:password@localhost:5432/beacon_runner?sslmode=disable"
 	}
 
-	db, err := sql.Open("postgres", dbURL)
+	// Use pgx stdlib driver for better perf/features while keeping database/sql API
+	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		fmt.Printf("Warning: Failed to open database: %v\n", err)
 		fmt.Println("Running in database-less mode for testing...")
@@ -32,11 +51,28 @@ func Initialize() (*DB, error) {
 		return &DB{nil}, nil // Return with nil DB for testing
 	}
 
-	// Run migrations
-	if err := runMigrations(db); err != nil {
-		fmt.Printf("Warning: Failed to run migrations: %v\n", err)
-		fmt.Println("Running in database-less mode for testing...")
-		return &DB{nil}, nil // Return with nil DB for testing
+	// Run migrations: prefer golang-migrate if enabled, otherwise fallback to inline
+	useM := strings.ToLower(os.Getenv("USE_MIGRATIONS"))
+	if useM == "1" || useM == "true" || useM == "yes" {
+		path := os.Getenv("MIGRATIONS_PATH")
+		if path == "" {
+			path = "migrations" // default relative directory
+		}
+		if err := runWithGolangMigrate(dbURL, path); err != nil {
+			fmt.Printf("Warning: golang-migrate failed: %v\n", err)
+			fmt.Println("Falling back to inline migrations...")
+			if err2 := runMigrations(db); err2 != nil {
+				fmt.Printf("Warning: Failed to run inline migrations: %v\n", err2)
+				fmt.Println("Running in database-less mode for testing...")
+				return &DB{nil}, nil
+			}
+		}
+	} else {
+		if err := runMigrations(db); err != nil {
+			fmt.Printf("Warning: Failed to run migrations: %v\n", err)
+			fmt.Println("Running in database-less mode for testing...")
+			return &DB{nil}, nil // Return with nil DB for testing
+		}
 	}
 
 	fmt.Println("Database connected successfully!")
@@ -93,6 +129,20 @@ func runMigrations(db *sql.DB) error {
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to create diffs table: %w", err)
+	}
+
+	// Create outbox table (for atomic DB + queue pattern)
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS outbox (
+			id BIGSERIAL PRIMARY KEY,
+			topic TEXT NOT NULL,
+			payload JSONB NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW(),
+			published_at TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create outbox table: %w", err)
 	}
 
 	return nil

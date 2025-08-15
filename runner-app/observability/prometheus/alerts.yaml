@@ -1,0 +1,58 @@
+groups:
+  - name: project-beacon-runner.rules
+    interval: 30s
+    rules:
+      # Dead-letter should be zero; alert on any increase
+      - alert: RunnerJobsDeadLetter
+        expr: increase(jobs_deadletter_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "Runner jobs moved to dead-letter"
+          description: "jobs_deadletter_total increased in the last 5m. Investigate worker failures or JobSpec issues."
+
+      # Retries spike indicates persistent fetch/processing issues
+      - alert: RunnerJobsRetriesHigh
+        expr: rate(jobs_retried_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Runner job retries elevated"
+          description: "jobs_retried_total rate > 0.5/s over 5m. Check DB/Redis health and worker logs."
+
+      # Outbox publish errors
+      - alert: RunnerOutboxPublishErrors
+        expr: rate(outbox_publish_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Outbox publish errors occurring"
+          description: "Errors when publishing messages from outbox to Redis detected over 5m."
+
+      # HTTP 5xx error rate
+      - alert: RunnerHTTP5xxHigh
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High 5xx error rate (>5%)"
+          description: "HTTP 5xx share exceeded 5% for 10m. Check API logs and dependencies."
+
+      # HTTP latency p95
+      - alert: RunnerHTTPLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High HTTP latency p95 (>500ms)"
+          description: "HTTP request latency p95 above 500ms for 10m. Investigate DB/Redis and CPU saturation."
