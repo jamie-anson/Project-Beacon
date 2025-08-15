@@ -7,12 +7,18 @@ async function main() {
   const dist = path.join(root, 'dist');
   await fs.emptyDir(dist);
 
-  // Copy landing page assets
-  const files = ['index.html', 'styles.css', 'script.js'];
-  for (const f of files) {
+  // Copy top-level HTML pages and core assets into dist/
+  // This ensures new pages like how-it-works.html are deployed.
+  const entries = await fs.readdir(root);
+  for (const f of entries) {
     const src = path.join(root, f);
-    if (await fs.pathExists(src)) {
-      await fs.copy(src, path.join(dist, f));
+    const stat = await fs.stat(src);
+    if (stat.isFile()) {
+      const isHTML = f.toLowerCase().endsWith('.html');
+      const isCoreAsset = f === 'styles.css' || f === 'script.js';
+      if (isHTML || isCoreAsset) {
+        await fs.copy(src, path.join(dist, f));
+      }
     }
   }
 
