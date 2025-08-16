@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,7 +14,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -30,6 +30,9 @@
         <a class="nav-link" href="how-it-works.html">How It Works</a>
         <a class="nav-link" href="/docs/">Docs</a>
       </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle Light/Dark">
+        🌙 Dark
+      </button>
     </div>
   </header>
 
@@ -47,7 +50,7 @@
     <section id="context" class="section">
       <div class="container content">
         <p class="separator">⸻</p>
-        <p><strong>AI is already being censored. We’re watching.</strong></p>
+        <h2>AI is already being censored. We’re watching.</h2>
         <p>Modern AI models aren’t neutral.<br/>They change their answers depending on who’s asking — and where.</p>
         <p>We’re not here to stop it.<br/>We’re here to expose it.</p>
         <p>Because the world deserves to know when the truth gets edited.</p>
@@ -112,13 +115,16 @@
       <div class="container content">
         <p class="separator">⸻</p>
         <h2>Who We Are</h2>
-        <ul class="list-as-p">
-          <li>🔷 The Octahedron stands for decentralisation — no single point of control.</li>
-          <li>👁 The Eye means we’re watching — not from above, but from everywhere.</li>
-        </ul>
+        <div class="who-pair">
+          <img class="who-logo" src="images/Icon.webp" alt="Project Beacon logo" />
+          <div class="who-copy">
+            <p>The Octahedron stands for decentralisation — no single point of control.</p>
+            <p>The Eye means we’re watching — not from above, but from everywhere.</p>
+          </div>
+        </div>
         <p>Together, they mean:<br/>We’re watching the watchers.</p>
         <p>We call ourselves <strong>D’Illuminati</strong> —<br/>Not a secret society pulling strings,<br/>but a global network pulling back the curtain.</p>
-        <p>Built on Golem Protocol.<br/>Powered by people.<br/>Forever.</p>
+        <p>Built on Golem Protocol.<br/>Powered by people.<br/><em>Forever.</em></p>
       </div>
     </section>
 
