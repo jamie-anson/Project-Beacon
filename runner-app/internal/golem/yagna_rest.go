@@ -1,9 +1,9 @@
 package golem
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,334 +13,105 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
-// NewYagnaRESTClient constructs a YagnaRESTClient with sane defaults reusing Service's HTTP settings.
-func NewYagnaRESTClient(baseURL, appKey string, httpClient *http.Client) *YagnaRESTClient {
-	c := &YagnaRESTClient{
-		BaseURL:    strings.TrimRight(baseURL, "/"),
-		AppKey:     appKey,
-		HTTPClient: httpClient,
-		Timeout:    15 * time.Second,
+// NewYagnaRESTClient constructs a Yagna REST client implementation.
+func NewYagnaRESTClient(baseURL, appKey string, httpClient *http.Client) YagnaClient {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	if c.HTTPClient == nil {
-		c.HTTPClient = &http.Client{Timeout: c.Timeout}
+	// Normalize base URL (trim trailing slash)
+	b := strings.TrimRight(baseURL, "/")
+	return &YagnaRESTClient{
+		BaseURL:      b,
+		AppKey:       appKey,
+		HTTPClient:   httpClient,
+		Timeout:      10 * time.Second,
+		MarketBase:   "/market-api/v1",
+		ActivityBase: "/activity-api/v1",
 	}
-	return c
 }
 
-// withTimeout ensures a deadline is set for outgoing calls when caller hasn't set one.
+// withTimeout returns a context with a bounded timeout derived from client settings.
 func (c *YagnaRESTClient) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}
-	}
 	to := c.Timeout
 	if to <= 0 {
-		to = 15 * time.Second
+		to = 10 * time.Second
 	}
 	return context.WithTimeout(ctx, to)
 }
 
-// doReq performs an HTTP request with simple retry/backoff on transient errors.
-func (c *YagnaRESTClient) doReq(ctx context.Context, method, url string, body []byte, contentType string) (status int, respBody []byte, err error) {
-	ctx, cancel := c.withTimeout(ctx)
-	defer cancel()
-
-	maxAttempts := 3
+// doReq performs an HTTP request with basic retry/backoff for transient failures.
+func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.Response, []byte, error) {
+	// Attach auth header if provided
+	if c.AppKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AppKey)
+	}
+	attempts := 3
 	backoff := 200 * time.Millisecond
-
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		req, reqErr := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
-		if reqErr != nil {
-			err = reqErr
-			break
-		}
-		if contentType != "" {
-			req.Header.Set("Content-Type", contentType)
-		}
-		if c.AppKey != "" {
-			req.Header.Set("Authorization", "Bearer "+c.AppKey)
-		}
-
-		resp, doErr := c.HTTPClient.Do(req)
-		if doErr != nil {
-			// network/timeout error: retry
-			if attempt < maxAttempts {
-				select {
-				case <-time.After(backoff):
-					backoff *= 2
-					continue
-				case <-ctx.Done():
-					return 0, nil, ctx.Err()
-				}
+	for i := 0; i < attempts; i++ {
+		ctx2, cancel := c.withTimeout(ctx)
+		req = req.WithContext(ctx2)
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			cancel()
+			if i == attempts-1 {
+				return nil, nil, err
 			}
-			return 0, nil, doErr
+			time.Sleep(backoff)
+			backoff *= 2
+			continue
 		}
-
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 65536))
+		defer cancel()
+		body, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-
-		status = resp.StatusCode
-		respBody = b
-
-		if status >= 200 && status < 300 {
-			return status, respBody, nil
-		}
-
-		// Retry on 429 or 5xx
-		if (status == 429 || (status >= 500 && status <= 599)) && attempt < maxAttempts {
-			select {
-			case <-time.After(backoff):
-				backoff *= 2
-				continue
-			case <-ctx.Done():
-				return status, respBody, ctx.Err()
+		// Retry on 429/5xx
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			if i == attempts-1 {
+				return resp, body, fmt.Errorf("yagna http %d: %s", resp.StatusCode, string(body))
 			}
+			time.Sleep(backoff)
+			backoff *= 2
+			continue
 		}
-		// Non-retryable or maxed out
-		return status, respBody, fmt.Errorf("http %s %s -> %d: %s", method, url, status, strings.TrimSpace(string(respBody)))
+		return resp, body, readErr
 	}
-	return status, respBody, err
+	return nil, nil, errors.New("unreachable retry loop")
 }
 
-// EnsureDiscover lazy-discovers Market and Activity base prefixes (e.g. /market-api/v1, /ya-market/v1).
-func (c *YagnaRESTClient) EnsureDiscover(ctx context.Context) {
-    // Only discover once per client instance.
-    if c.MarketBase != "" && c.ActivityBase != "" {
-        return
-    }
-    marketCandidates := []string{"/market-api/v1", "/ya-market/v1", "/market/v1", "/market"}
-    activityCandidates := []string{"/activity-api/v1", "/ya-activity/v1", "/activity", "/activities"}
-
-    // Accept non-404 (e.g. 200/401/405) as a sign the base exists.
-    test := func(path string) bool {
-        status, _, err := c.doReq(ctx, http.MethodOptions, c.BaseURL+path, nil, "")
-        if err != nil {
-            return false
-        }
-        return status != http.StatusNotFound
-    }
-
-    for _, b := range marketCandidates {
-        // Try base and a common subpath (scan) to avoid false positives
-        if test(b) || test(b+"/scan") {
-            c.MarketBase = strings.TrimRight(b, "/")
-            break
-        }
-    }
-    for _, b := range activityCandidates {
-        if test(b) || test(b+"/") {
-            c.ActivityBase = strings.TrimRight(b, "/")
-            break
-        }
-    }
-}
-
+// Probe best-effort checks connectivity. We keep this permissive to avoid blocking non-SDK flows.
 func (c *YagnaRESTClient) Probe(ctx context.Context) (string, map[string]any, error) {
-	// Prefer discovering usable bases over relying on /version.
-	c.EnsureDiscover(ctx)
-	var info map[string]any
-	if c.MarketBase != "" {
-		// Try multiple GET candidates. Some Yagna setups 404 on base but expose '/scan'.
-		candidates := []string{
-			c.MarketBase + "/scan",
-			c.MarketBase + "/",
-			c.MarketBase,
-		}
-		for _, p := range candidates {
-			status, b, _ := c.doReq(ctx, http.MethodGet, c.BaseURL+p, nil, "")
-			switch {
-			case status >= 200 && status < 300:
-				_ = json.Unmarshal(b, &info)
-				return p, info, nil
-			case status == http.StatusUnauthorized || status == http.StatusMethodNotAllowed:
-				// 401/405 imply the resource exists (auth/method needed)
-				return p, nil, nil
-			case status == http.StatusNotFound:
-				continue
-			}
-		}
-		// Discovery via OPTIONS may have succeeded; avoid false negative.
-		return c.MarketBase + "/", nil, nil
+	// Try a lightweight call; ignore errors and return minimal success so SDK discovery can proceed in dev.
+	req, _ := http.NewRequest(http.MethodGet, c.BaseURL+"/version", nil)
+	resp, body, err := c.doReq(ctx, req)
+	if err != nil || resp.StatusCode >= 400 {
+		// Fall back to reporting base path with empty version map; caller can decide what to do.
+		return "/", map[string]any{}, nil
 	}
-	// Fallback legacy probes
-	probePaths := []string{"/version", "/"}
-	var lastStatus int
-	var lastBody string
-	for _, p := range probePaths {
-		status, b, err := c.doReq(ctx, http.MethodGet, c.BaseURL+p, nil, "")
-		if err != nil {
-			continue
-		}
-		lastStatus = status
-		lastBody = string(b)
-		if status >= 200 && status < 300 {
-			_ = json.Unmarshal(b, &info)
-			return p, info, nil
-		}
-	}
-	return "", nil, fmt.Errorf("yagna probe non-2xx: %d: %s", lastStatus, lastBody)
+	var v map[string]any
+	_ = json.Unmarshal(body, &v)
+	return "/version", v, nil
 }
 
+// CreateDemand is a placeholder; real implementation can be added later.
 func (c *YagnaRESTClient) CreateDemand(ctx context.Context, spec DemandSpec) (string, error) {
-	buf := new(bytes.Buffer)
-	if err := json.NewEncoder(buf).Encode(spec); err != nil {
-		return "", fmt.Errorf("encode demand: %w", err)
-	}
-	// Discover market base and try candidates.
-	c.EnsureDiscover(ctx)
-	endpoints := []string{}
-	if c.MarketBase != "" {
-		endpoints = append(endpoints,
-			c.MarketBase+"/demands",
-		)
-	}
-	// Legacy fallbacks
-	endpoints = append(endpoints, "/market/demands", "/demands")
-	for _, ep := range endpoints {
-		url := c.BaseURL + ep
-		status, b, err := c.doReq(ctx, http.MethodPost, url, buf.Bytes(), "application/json")
-		if err != nil {
-			continue
-		}
-		if status >= 200 && status < 300 {
-			var m map[string]any
-			if json.Unmarshal(b, &m) == nil {
-				if v, ok := m["id"].(string); ok {
-					return v, nil
-				}
-			}
-			return string(b), nil // fallback
-		}
-		return "", fmt.Errorf("createDemand: %s -> %d: %s", url, status, strings.TrimSpace(string(b)))
-	}
-	return "", fmt.Errorf("createDemand: no known endpoints succeeded")
+	return "", errors.New("CreateDemand not implemented in MVP client")
 }
 
+// NegotiateAgreement is a placeholder; real implementation can be added later.
 func (c *YagnaRESTClient) NegotiateAgreement(ctx context.Context, demandID string) (string, error) {
-	c.EnsureDiscover(ctx)
-	endpoints := []string{}
-	if c.MarketBase != "" {
-		endpoints = append(endpoints,
-			fmt.Sprintf("%s/demands/%s/agree", c.MarketBase, demandID),
-		)
-	}
-	// Legacy fallbacks
-	endpoints = append(endpoints,
-		fmt.Sprintf("/market/demands/%s/agree", demandID),
-		fmt.Sprintf("/demands/%s/agree", demandID),
-	)
-	for _, ep := range endpoints {
-		url := c.BaseURL + ep
-		status, b, err := c.doReq(ctx, http.MethodPost, url, nil, "")
-		if err != nil {
-			continue
-		}
-		if status >= 200 && status < 300 {
-			var m map[string]any
-			if json.Unmarshal(b, &m) == nil {
-				if v, ok := m["id"].(string); ok {
-					return v, nil
-				}
-			}
-			return string(b), nil // fallback
-		}
-		return "", fmt.Errorf("negotiateAgreement: %s -> %d: %s", url, status, strings.TrimSpace(string(b)))
-	}
-	return "", fmt.Errorf("negotiateAgreement: no known endpoints succeeded")
+	return "", errors.New("NegotiateAgreement not implemented in MVP client")
 }
 
+// CreateActivity is a placeholder; real implementation can be added later.
 func (c *YagnaRESTClient) CreateActivity(ctx context.Context, agreementID string, jobspec *models.JobSpec) (string, error) {
-	payload := map[string]any{
-		"agreement_id": agreementID,
-		"image":        jobspec.Benchmark.Container.Image,
-		"resources": map[string]any{
-			"cpu":    jobspec.Benchmark.Container.Resources.CPU,
-			"memory": jobspec.Benchmark.Container.Resources.Memory,
-			"gpu":    jobspec.Benchmark.Container.Resources.GPU,
-		},
-	}
-	buf := new(bytes.Buffer)
-	_ = json.NewEncoder(buf).Encode(payload)
-	c.EnsureDiscover(ctx)
-	endpoints := []string{}
-	if c.ActivityBase != "" {
-		endpoints = append(endpoints,
-			c.ActivityBase+"/activity",
-			c.ActivityBase+"/activities",
-		)
-	}
-	// Legacy fallbacks
-	endpoints = append(endpoints, "/activity", "/activities")
-	for _, ep := range endpoints {
-		url := c.BaseURL + ep
-		status, b, err := c.doReq(ctx, http.MethodPost, url, buf.Bytes(), "application/json")
-		if err != nil {
-			continue
-		}
-		if status >= 200 && status < 300 {
-			var m map[string]any
-			if json.Unmarshal(b, &m) == nil {
-				if v, ok := m["id"].(string); ok {
-					return v, nil
-				}
-			}
-			return string(b), nil
-		}
-		return "", fmt.Errorf("createActivity: %s -> %d: %s", url, status, strings.TrimSpace(string(b)))
-	}
-	return "", fmt.Errorf("createActivity: no known endpoints succeeded")
+	return "", errors.New("CreateActivity not implemented in MVP client")
 }
 
-func (c *YagnaRESTClient) Exec(ctx context.Context, activityID string, jobspec *models.JobSpec) (stdout string, stderr string, exitCode int, err error) {
-	c.EnsureDiscover(ctx)
-	endpoints := []string{}
-	if c.ActivityBase != "" {
-		endpoints = append(endpoints,
-			fmt.Sprintf("%s%s/activity/%s/exec", c.BaseURL, c.ActivityBase, activityID),
-			fmt.Sprintf("%s%s/activities/%s/exec", c.BaseURL, c.ActivityBase, activityID),
-		)
-	}
-	// Legacy fallbacks
-	endpoints = append(endpoints,
-		fmt.Sprintf("%s/activity/%s/exec", c.BaseURL, activityID),
-		fmt.Sprintf("%s/activities/%s/exec", c.BaseURL, activityID),
-	)
-	payload := map[string]any{
-		"command": jobspec.Benchmark.Container.Command,
-		"env":     jobspec.Benchmark.Container.Environment,
-		"timeout": int64(jobspec.Constraints.Timeout / time.Second),
-	}
-	for _, endpoint := range endpoints {
-		buf := new(bytes.Buffer)
-		_ = json.NewEncoder(buf).Encode(payload)
-		status, b, err := c.doReq(ctx, http.MethodPost, endpoint, buf.Bytes(), "application/json")
-		if err != nil {
-			continue
-		}
-		if status >= 200 && status < 300 {
-			var m map[string]any
-			if json.Unmarshal(b, &m) == nil {
-				if v, ok := m["stdout"].(string); ok {
-					stdout = v
-				}
-				if v, ok := m["stderr"].(string); ok {
-					stderr = v
-				}
-				if v, ok := m["exit_code"].(float64); ok {
-					exitCode = int(v)
-				} else {
-					exitCode = 0
-				}
-				return stdout, stderr, exitCode, nil
-			}
-			return string(b), "", 0, nil
-		}
-		return "", "", 1, fmt.Errorf("exec: %s -> %d: %s", endpoint, status, strings.TrimSpace(string(b)))
-	}
-	return "", "", 1, fmt.Errorf("exec: no known exec endpoints succeeded; activity_id=%s", activityID)
+// Exec is a placeholder; real implementation can be added later.
+func (c *YagnaRESTClient) Exec(ctx context.Context, activityID string, jobspec *models.JobSpec) (string, string, int, error) {
+	return "", "", -1, errors.New("Exec not implemented in MVP client")
 }
 
+// StopActivity is a placeholder; real implementation can be added later.
 func (c *YagnaRESTClient) StopActivity(ctx context.Context, activityID string) error {
-	_ = ctx
-	_ = activityID
-	return nil
+	return errors.New("StopActivity not implemented in MVP client")
 }
