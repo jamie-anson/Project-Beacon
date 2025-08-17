@@ -1,0 +1,36 @@
+version: '3.9'
+
+services:
+  runner:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-jamie-anson}/runner-app:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - PORT=8090
+    ports:
+      - "8090:8090"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: beacon
+      POSTGRES_PASSWORD: beacon
+      POSTGRES_DB: beacon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_staging:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata_staging:

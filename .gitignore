@@ -83,3 +83,6 @@ runner-app/runner
 *.tar.gz
 *.zip
 
+# Accidental duplicate copies (e.g., "File 2.ext")
+* 2
+* 2.*
