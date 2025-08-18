@@ -5,7 +5,8 @@
   "scripts": {
     "build:static": "node scripts/build-static.js",
     "build:docs": "docusaurus build docs --out-dir ../dist/docs",
-    "build": "npm run build:static && npm run build:docs",
+    "build:docs:with-cid": "DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') docusaurus build docs --out-dir ../dist/docs",
+    "build": "npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid",
     "build:docs:standalone": "docusaurus build docs --out-dir dist-docs-standalone --base-url /",
     "version": "docusaurus docs:version 1.0.0",
     "dev:landing": "npx http-server -c-1 -p 3000 .",
@@ -14,18 +15,19 @@
     "validate:schemas": "node scripts/validate-schemas.js",
     "postbuild:cid": "node scripts/postbuild-pin.js"
   },
-  "dependencies": {},
   "devDependencies": {
     "@docusaurus/core": "^3.4.0",
     "@docusaurus/preset-classic": "^3.4.0",
-    "@docusaurus/types": "^3.4.0",
     "@docusaurus/theme-mermaid": "^3.4.0",
+    "@docusaurus/types": "^3.4.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
-    "prism-react-renderer": "^2.4.0",
+    "axios": "^1.11.0",
     "concurrently": "^8.2.2",
+    "form-data": "^4.0.4",
     "fs-extra": "^11.2.0",
     "http-server": "^14.1.1",
+    "prism-react-renderer": "^2.4.0",
     "typescript": "^5.4.5"
   }
 }

@@ -39,6 +39,16 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Observability',
+      collapsed: false,
+      items: [
+        'observability/observability',
+        'observability/alerts-playbook',
+        'observability/lgtm',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Using the Platform',
       collapsed: false,
       items: [

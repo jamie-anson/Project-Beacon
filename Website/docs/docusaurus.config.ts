@@ -86,8 +86,8 @@ const config: Config = {
         {
           title: 'Verification',
           items: [
-            {label: `Build commit: ${COMMIT.substring(0,7)}` , to: '#'},
-            {label: `Build CID: ${BUILD_CID}`, to: '#'},
+            {label: `Build commit: ${COMMIT.substring(0,7)}` , href: `https://github.com/jamie-anson/Project-Beacon/commit/${COMMIT}`},
+            {label: `Build CID: ${BUILD_CID}`, href: BUILD_CID.startsWith('pb-docs-') ? `https://github.com/jamie-anson/Project-Beacon/blob/main/Website/dist/docs-cid.txt` : `https://ipfs.io/ipfs/${BUILD_CID}`},
           ],
         },
       ],
