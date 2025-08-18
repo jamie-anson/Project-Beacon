@@ -66,8 +66,8 @@ jobs:
           path-to-deploy: Website/dist
           storacha-key: ${{ secrets.STORACHA_KEY }}
           storacha-proof: ${{ secrets.STORACHA_PROOF }}
-          pinata-jwt-token: ${{ secrets.PINATA_JWT }}
           github-token: ${{ github.token }}
+        continue-on-error: true
 
       - name: Update docs with IPFS CID and rebuild
         working-directory: ./Website
@@ -97,8 +97,8 @@ jobs:
           path-to-deploy: Website/dist
           storacha-key: ${{ secrets.STORACHA_KEY }}
           storacha-proof: ${{ secrets.STORACHA_PROOF }}
-          pinata-jwt-token: ${{ secrets.PINATA_JWT }}
           github-token: ${{ github.token }}
+        continue-on-error: true
           
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3.0
