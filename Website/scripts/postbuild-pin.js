@@ -61,7 +61,8 @@ async function pinToPinata(docsDir) {
   const jwt = process.env.PINATA_JWT;
   
   if (!jwt) {
-    console.warn('Pinata JWT not found (PINATA_JWT). Get JWT from https://app.pinata.cloud/keys');
+    console.error('PINATA_JWT secret not found. Set in GitHub repo secrets.');
+    console.error('Get JWT from: https://app.pinata.cloud/keys');
     return null;
   }
   
@@ -69,7 +70,7 @@ async function pinToPinata(docsDir) {
     console.log('Creating tarball for Pinata...');
     const tarPath = await createTarball(docsDir);
     
-    console.log('Uploading to Pinata...');
+    console.log('Uploading to Pinata v3 API...');
     const formData = new FormData();
     formData.append('file', fs.createReadStream(tarPath));
     formData.append('name', `project-beacon-docs-${Date.now()}`);
@@ -84,27 +85,31 @@ async function pinToPinata(docsDir) {
       'Authorization': `Bearer ${jwt}`
     };
     
-    console.log('Using Pinata v3 API');
-    console.log('JWT length:', jwt.length);
+    console.log('JWT configured, uploading...');
     
     const response = await axios.post('https://uploads.pinata.cloud/v3/files', formData, {
       headers,
       maxContentLength: Infinity,
-      maxBodyLength: Infinity
+      maxBodyLength: Infinity,
+      timeout: 60000
     });
     
     // Clean up tarball
     await fsp.unlink(tarPath);
     
     const cid = response.data.data.cid;
-    console.log(`Pinata CID: ${cid}`);
-    console.log(`Pinata gateway: https://gateway.pinata.cloud/ipfs/${cid}`);
+    console.log(`✅ Pinata CID: ${cid}`);
+    console.log(`🌐 Gateway: https://gateway.pinata.cloud/ipfs/${cid}`);
+    console.log(`🌐 IPFS.io: https://ipfs.io/ipfs/${cid}`);
     return cid;
   } catch (error) {
-    console.warn(`Pinata upload failed: ${error.message}`);
+    console.error(`❌ Pinata upload failed: ${error.message}`);
     if (error.response) {
-      console.warn('Response status:', error.response.status);
-      console.warn('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    if (error.code) {
+      console.error('Error code:', error.code);
     }
     return null;
   }
@@ -203,11 +208,10 @@ async function main() {
   // Try to get real IPFS CID first
   let cid = await pinToIPFS(docsDir);
   
-  // Fall back to pseudo-CID if IPFS unavailable
+  // Fail if no real CID available
   if (!cid) {
-    console.log('Generating pseudo-CID...');
-    cid = await generatePseudoCID(docsDir);
-    console.log(`Docs pseudo-CID: ${cid}`);
+    console.error('Failed to generate real IPFS CID. Check Pinata JWT or IPFS availability.');
+    process.exit(1);
   }
 
   await fsp.writeFile(outFile, `${cid}\n`, 'utf8');
