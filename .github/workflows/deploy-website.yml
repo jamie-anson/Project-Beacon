@@ -20,9 +20,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./Website
     
     steps:
       - name: Checkout
@@ -36,9 +33,11 @@ jobs:
           cache-dependency-path: './Website/package-lock.json'
           
       - name: Install dependencies
+        working-directory: ./Website
         run: npm ci --no-audit --fund=false
           
       - name: Build website
+        working-directory: ./Website
         run: |
           # Build static site and docs
           npm run build:static
@@ -64,13 +63,14 @@ jobs:
         uses: ipfs/ipfs-deploy-action@v1
         id: ipfs-deploy
         with:
-          path-to-deploy: dist
+          path-to-deploy: Website/dist
           storacha-key: ${{ secrets.STORACHA_KEY }}
           storacha-proof: ${{ secrets.STORACHA_PROOF }}
-          pinata-jwt: ${{ secrets.PINATA_JWT }}
+          pinata-jwt-token: ${{ secrets.PINATA_JWT }}
           github-token: ${{ github.token }}
 
       - name: Update docs with IPFS CID and rebuild
+        working-directory: ./Website
         run: |
           # Get CID from IPFS deploy action output
           DOCS_CID="${{ steps.ipfs-deploy.outputs.cid }}"
@@ -94,10 +94,10 @@ jobs:
         uses: ipfs/ipfs-deploy-action@v1
         id: ipfs-deploy-final
         with:
-          path-to-deploy: dist
+          path-to-deploy: Website/dist
           storacha-key: ${{ secrets.STORACHA_KEY }}
           storacha-proof: ${{ secrets.STORACHA_PROOF }}
-          pinata-jwt: ${{ secrets.PINATA_JWT }}
+          pinata-jwt-token: ${{ secrets.PINATA_JWT }}
           github-token: ${{ github.token }}
           
       - name: Deploy to Netlify
