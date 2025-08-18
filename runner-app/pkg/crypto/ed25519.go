@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 )
 
 // KeyPair represents an Ed25519 key pair
@@ -108,41 +109,69 @@ type SignableData struct {
 }
 
 // CreateSignableJobSpec creates a signable version of JobSpec (without signature/public_key)
-func CreateSignableJobSpec(jobspec interface{}) (map[string]interface{}, error) {
-	// Convert to map to manipulate fields
-	jsonBytes, err := json.Marshal(jobspec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal jobspec: %w", err)
+// It returns a STRUCT copy (not a map) so JSON field order is deterministic.
+func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
+	// Use reflection to create a shallow copy and zero out Signature/PublicKey if present
+	v := reflect.ValueOf(jobspec)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
-
-	var jobspecMap map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &jobspecMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal jobspec: %w", err)
+	if v.Kind() != reflect.Struct {
+		// Fallback to previous behavior, but still deterministic by re-marshaling into a generic struct-like map
+		// Note: callers should pass a struct pointer for deterministic signing.
+		var m map[string]interface{}
+		b, err := json.Marshal(jobspec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal jobspec: %w", err)
+		}
+		if err := json.Unmarshal(b, &m); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal jobspec: %w", err)
+		}
+		delete(m, "signature")
+		delete(m, "public_key")
+		return m, nil
 	}
-
-	// Remove signature and public_key fields for signing
-	delete(jobspecMap, "signature")
-	delete(jobspecMap, "public_key")
-
-	return jobspecMap, nil
+	t := v.Type()
+	copy := reflect.New(t).Elem()
+	copy.Set(v)
+	// Zero fields named "Signature" and "PublicKey" if they exist
+	if f := copy.FieldByName("Signature"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
+		f.SetString("")
+	}
+	if f := copy.FieldByName("PublicKey"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
+		f.SetString("")
+	}
+	return copy.Interface(), nil
 }
 
 // CreateSignableReceipt creates a signable version of Receipt (without signature/public_key)
-func CreateSignableReceipt(receipt interface{}) (map[string]interface{}, error) {
-	// Convert to map to manipulate fields
-	jsonBytes, err := json.Marshal(receipt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal receipt: %w", err)
+// It returns a STRUCT copy (not a map) so JSON field order is deterministic.
+func CreateSignableReceipt(receipt interface{}) (interface{}, error) {
+	v := reflect.ValueOf(receipt)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
-
-	var receiptMap map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &receiptMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal receipt: %w", err)
+	if v.Kind() != reflect.Struct {
+		var m map[string]interface{}
+		b, err := json.Marshal(receipt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal receipt: %w", err)
+		}
+		if err := json.Unmarshal(b, &m); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal receipt: %w", err)
+		}
+		delete(m, "signature")
+		delete(m, "public_key")
+		return m, nil
 	}
-
-	// Remove signature and public_key fields for signing
-	delete(receiptMap, "signature")
-	delete(receiptMap, "public_key")
-
-	return receiptMap, nil
+	t := v.Type()
+	copy := reflect.New(t).Elem()
+	copy.Set(v)
+	if f := copy.FieldByName("Signature"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
+		f.SetString("")
+	}
+	if f := copy.FieldByName("PublicKey"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
+		f.SetString("")
+	}
+	return copy.Interface(), nil
 }

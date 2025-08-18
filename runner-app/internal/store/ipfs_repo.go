@@ -23,6 +23,17 @@ type Execution struct {
 	IPFSPinnedAt sql.NullTime   `json:"ipfs_pinned_at"`
 }
 
+// UpdateExecutionCIDByID updates an execution's CID by its primary key ID
+func (r *IPFSRepo) UpdateExecutionCIDByID(executionID int, cid string) error {
+    query := `
+        UPDATE executions 
+        SET ipfs_cid = $1, ipfs_pinned_at = CURRENT_TIMESTAMP
+        WHERE id = $2`
+
+    _, err := r.db.Exec(query, cid, executionID)
+    return err
+}
+
 // IPFSBundle represents an IPFS bundle record
 type IPFSBundle struct {
 	ID             int       `json:"id"`
@@ -163,10 +174,53 @@ func (r *IPFSRepo) UpdateExecutionCID(executionID, cid string) error {
 	query := `
 		UPDATE executions 
 		SET ipfs_cid = $1, ipfs_pinned_at = CURRENT_TIMESTAMP
-		WHERE execution_id = $2`
+		WHERE id = $2`
 
 	_, err := r.db.Exec(query, cid, executionID)
 	return err
+}
+
+// GetExecutionsByJobSpecID retrieves all executions for a specific JobSpec ID
+func (r *IPFSRepo) GetExecutionsByJobSpecID(jobspecID string) ([]Execution, error) {
+	query := `
+		SELECT e.id, e.job_id, e.region, e.provider_id, e.status, e.started_at, e.completed_at,
+		       e.created_at, e.output_data, e.receipt_data, e.ipfs_cid, e.ipfs_pinned_at
+		FROM executions e
+		JOIN jobs j ON e.job_id = j.id
+		WHERE j.jobspec_id = $1
+		ORDER BY e.created_at DESC
+	`
+
+	rows, err := r.db.Query(query, jobspecID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var executions []Execution
+	for rows.Next() {
+		var exec Execution
+		err := rows.Scan(
+			&exec.ID,
+			&exec.JobID,
+			&exec.Region,
+			&exec.ProviderID,
+			&exec.Status,
+			&exec.StartedAt,
+			&exec.CompletedAt,
+			&exec.CreatedAt,
+			&exec.OutputData,
+			&exec.ReceiptData,
+			&exec.IPFSCid,
+			&exec.IPFSPinnedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		executions = append(executions, exec)
+	}
+
+	return executions, rows.Err()
 }
 
 // GetExecutionsByJobID retrieves all executions for a specific job ID

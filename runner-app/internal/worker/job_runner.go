@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
+	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
 	"github.com/jamie-anson/project-beacon-runner/internal/jobspec"
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -21,15 +22,17 @@ import (
 	JobsRepo  *store.JobsRepo
 	ExecRepo  *store.ExecutionsRepo
 	Golem     *golem.Service
+    Bundler  *ipfs.Bundler
 }
 
-func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service) *JobRunner {
+func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
 	return &JobRunner{
 		DB:       db,
 		Queue:    q,
 		JobsRepo: store.NewJobsRepo(db),
 		ExecRepo: store.NewExecutionsRepo(db),
 		Golem:    gsvc,
+		Bundler:  bundler,
 	}
 }
 
@@ -102,6 +105,17 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	_, err = w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, res.Execution.StartedAt, res.Execution.CompletedAt, outJSON, recJSON)
 	if err != nil {
 		return fmt.Errorf("insert execution: %w", err)
+	}
+
+	// Best-effort: trigger IPFS bundling and CID persistence after success
+	if w.Bundler != nil {
+		go func(jid string) {
+			ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if _, berr := w.Bundler.StoreBundle(ctx2, jid); berr != nil {
+				log.Printf("bundler error for job %s: %v", jid, berr)
+			}
+		}(spec.ID)
 	}
 
 	return nil

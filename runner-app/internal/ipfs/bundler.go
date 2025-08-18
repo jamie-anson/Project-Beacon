@@ -16,6 +16,19 @@ type Bundler struct {
 	ipfsRepo  *store.IPFSRepo
 }
 
+// getRegionsFromBundle extracts regions from the prepared bundle receipts
+func (b *Bundler) getRegionsFromBundle(bun *Bundle) []string {
+    regionSet := make(map[string]bool)
+    for _, r := range bun.Receipts {
+        regionSet[r.Region] = true
+    }
+    regions := make([]string, 0, len(regionSet))
+    for region := range regionSet {
+        regions = append(regions, region)
+    }
+    return regions
+}
+
 // NewBundler creates a new IPFS bundler
 func NewBundler(client *Client, ipfsRepo *store.IPFSRepo) *Bundler {
 	return &Bundler{
@@ -26,8 +39,8 @@ func NewBundler(client *Client, ipfsRepo *store.IPFSRepo) *Bundler {
 
 // CreateBundle creates a complete bundle from execution results
 func (b *Bundler) CreateBundle(ctx context.Context, jobID string) (*Bundle, error) {
-	// Get all executions for this job from IPFS repo
-	executions, err := b.ipfsRepo.GetExecutionsByJobID(jobID)
+	// Get all executions for this job from IPFS repo (by jobspec_id)
+	executions, err := b.ipfsRepo.GetExecutionsByJobSpecID(jobID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executions for job %s: %w", jobID, err)
 	}
@@ -103,6 +116,34 @@ func (b *Bundler) StoreBundle(ctx context.Context, jobID string) (string, error)
 	cid, err := b.client.AddAndPin(ctx, bundle)
 	if err != nil {
 		return "", fmt.Errorf("failed to store bundle in IPFS: %w", err)
+	}
+
+	// Persist bundle metadata and update executions' CID if repo is available
+	if b.ipfsRepo != nil {
+		now := time.Now().UTC()
+		gw := b.client.GetGatewayURL(cid)
+		regions := b.getRegionsFromBundle(bundle)
+
+		rec := &store.IPFSBundle{
+			JobID:          jobID,
+			CID:            cid,
+			BundleSize:     nil,
+			ExecutionCount: len(bundle.Receipts),
+			Regions:        regions,
+			PinnedAt:       &now,
+			GatewayURL:     &gw,
+		}
+		// best-effort insert
+		_ = b.ipfsRepo.CreateBundle(rec)
+
+		// update executions missing CID
+		if execs, err := b.ipfsRepo.GetExecutionsByJobSpecID(jobID); err == nil {
+			for _, e := range execs {
+				if !e.IPFSCid.Valid || e.IPFSCid.String == "" {
+					_ = b.ipfsRepo.UpdateExecutionCIDByID(e.ID, cid)
+				}
+			}
+		}
 	}
 
 	return cid, nil

@@ -17,7 +17,7 @@ CREATE TABLE ipfs_bundles (
     pinned_at TIMESTAMP,
     gateway_url TEXT,
     
-    FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+    FOREIGN KEY (job_id) REFERENCES jobs(jobspec_id) ON DELETE CASCADE
 );
 
 -- Create indexes for bundle lookups

@@ -12,11 +12,13 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/api"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
 )
 
 func main() {
@@ -65,8 +67,13 @@ func main() {
 		}
 		gsvc := golem.NewService(apiKey, network)
 
-		// Start JobRunner (Redis -> execute -> Postgres)
-		jr := worker.NewJobRunner(database.DB, q, gsvc)
+		// Initialize IPFS and Bundler for worker
+		ipfsClient := ipfs.NewFromEnv()
+		ipfsRepo := store.NewIPFSRepo(database.DB)
+		bundler := ipfs.NewBundler(ipfsClient, ipfsRepo)
+
+		// Start JobRunner (Redis -> execute -> Postgres -> IPFS bundling)
+		jr := worker.NewJobRunner(database.DB, q, gsvc, bundler)
 		go jr.Start(workerCtx)
 
 		// Start OutboxPublisher (Postgres outbox -> Redis)

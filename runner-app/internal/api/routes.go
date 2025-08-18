@@ -55,5 +55,9 @@ func SetupRoutes(r *gin.Engine, database *db.DB) {
 
 	// System endpoints
 	r.GET("/debug/yagna", server.debugYagna)
-	r.GET("/metrics", server.prometheusMetrics)
+
+	// WebSocket endpoint used by the Portal
+	r.GET("/ws", func(c *gin.Context) {
+		server.wsHub.ServeWS(c.Writer, c.Request)
+	})
 }
