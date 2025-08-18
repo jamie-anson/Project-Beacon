@@ -1,4 +1,9 @@
-name: Deploy Website to Netlify
+name: Deploy Website to IPFS and Netlify
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
 
 on:
   push:
@@ -32,31 +37,12 @@ jobs:
           
       - name: Install dependencies
         run: npm ci --no-audit --fund=false
-        
-      - name: Start IPFS for local pinning
-        run: |
-          # Use IPFS in a container for consistent CID generation
-          docker run -d --name ipfs-node \
-            -p 4001:4001 -p 5001:5001 -p 8080:8080 \
-            ipfs/kubo:latest
           
-          # Wait for IPFS to be ready
-          sleep 10
-          docker exec ipfs-node ipfs version
-          
-      - name: Build website and generate IPFS CID
-        env:
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+      - name: Build website
         run: |
           # Build static site and docs
           npm run build:static
           npm run build:docs
-          
-          # Generate CID (tries Pinata first, falls back to local IPFS)
-          npm run postbuild:cid
-          
-          # Rebuild docs with embedded CID
-          DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid
 
           # Build portal (Vite/React) and include it under dist/portal
           # Install portal dependencies (prefer ci if lockfile exists)
@@ -66,14 +52,53 @@ jobs:
             npm install --prefix portal --no-audit --fund=false
           fi
 
-          # Export env for Vite build so it can read docs CID and commit
-          export VITE_DOCS_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder')
+          # Export env for Vite build so it can read commit info
           export VITE_BUILD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
           npm run --prefix portal build
 
-          # Copy portal build output into Netlify publish folder
+          # Copy portal build output into publish folder
           mkdir -p dist/portal
           cp -R portal/dist/* dist/portal/
+
+      - name: Deploy to IPFS
+        uses: ipfs/ipfs-deploy-action@v1
+        id: ipfs-deploy
+        with:
+          path-to-deploy: dist
+          storacha-key: ${{ secrets.STORACHA_KEY }}
+          storacha-proof: ${{ secrets.STORACHA_PROOF }}
+          pinata-jwt: ${{ secrets.PINATA_JWT }}
+          github-token: ${{ github.token }}
+
+      - name: Update docs with IPFS CID and rebuild
+        run: |
+          # Get CID from IPFS deploy action output
+          DOCS_CID="${{ steps.ipfs-deploy.outputs.cid }}"
+          echo "IPFS CID: $DOCS_CID"
+          
+          # Write CID to file for docs build
+          echo "$DOCS_CID" > dist/docs-cid.txt
+          
+          # Rebuild docs with embedded CID
+          DOCS_BUILD_CID="$DOCS_CID" npm run build:docs:with-cid
+          
+          # Rebuild portal with CID
+          export VITE_DOCS_CID="$DOCS_CID"
+          export VITE_BUILD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+          npm run --prefix portal build
+          
+          # Copy updated portal
+          cp -R portal/dist/* dist/portal/
+
+      - name: Deploy updated site to IPFS (with embedded CID)
+        uses: ipfs/ipfs-deploy-action@v1
+        id: ipfs-deploy-final
+        with:
+          path-to-deploy: dist
+          storacha-key: ${{ secrets.STORACHA_KEY }}
+          storacha-proof: ${{ secrets.STORACHA_PROOF }}
+          pinata-jwt: ${{ secrets.PINATA_JWT }}
+          github-token: ${{ github.token }}
           
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3.0
@@ -81,16 +106,10 @@ jobs:
           publish-dir: './Website/dist'
           production-branch: main
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy from GitHub Actions"
+          deploy-message: "Deploy from GitHub Actions - IPFS CID: ${{ steps.ipfs-deploy-final.outputs.cid }}"
           enable-pull-request-comment: false
           enable-commit-comment: true
           overwrites-pull-request-comment: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          
-      - name: Cleanup
-        if: always()
-        run: |
-          docker stop ipfs-node || true
-          docker rm ipfs-node || true
