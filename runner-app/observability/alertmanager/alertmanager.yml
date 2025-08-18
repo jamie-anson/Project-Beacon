@@ -12,7 +12,7 @@ route:
 receivers:
 - name: 'web.hook'
   webhook_configs:
-  - url: 'http://127.0.0.1:5001/'
+  - url: 'http://host.docker.internal:5001/'
     send_resolved: true
 
 inhibit_rules:

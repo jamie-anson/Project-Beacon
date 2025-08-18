@@ -68,7 +68,7 @@ func NewAPIServer(database *db.DB) *APIServer {
 		
 		ipfsGateway := os.Getenv("IPFS_GATEWAY")
 		if ipfsGateway == "" {
-			ipfsGateway = "http://localhost:8080"
+			ipfsGateway = "http://localhost:8081"
 		}
 		
 		ipfsConfig := ipfs.Config{
