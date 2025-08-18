@@ -59,12 +59,18 @@ jobs:
           DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid
           
       - name: Deploy to Netlify
-        uses: netlify/actions/cli@master
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+          enable-pull-request-comment: false
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        with:
-          args: deploy --prod --dir=dist --message="Deploy from GitHub Actions"
           
       - name: Cleanup
         if: always()
