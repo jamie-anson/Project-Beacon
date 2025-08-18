@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -12,17 +13,21 @@ import (
 )
 
 // JobsService orchestrates validation + persistence + outbox
- type JobsService struct {
-	DB        *sql.DB
-	JobsRepo  *store.JobsRepo
-	Outbox    *store.OutboxRepo
- }
+type JobsService struct {
+	DB             *sql.DB
+	JobsRepo       *store.JobsRepo
+	ExecutionsRepo *store.ExecutionsRepo
+	DiffsRepo      *store.DiffsRepo
+	Outbox         *store.OutboxRepo
+}
 
 func NewJobsService(db *sql.DB) *JobsService {
 	return &JobsService{
-		DB:       db,
-		JobsRepo: store.NewJobsRepo(db),
-		Outbox:   store.NewOutboxRepo(db),
+		DB:             db,
+		JobsRepo:       store.NewJobsRepo(db),
+		ExecutionsRepo: store.NewExecutionsRepo(db),
+		DiffsRepo:      store.NewDiffsRepo(db),
+		Outbox:         store.NewOutboxRepo(db),
 	}
 }
 
@@ -66,5 +71,41 @@ func (s *JobsService) CreateJob(ctx context.Context, spec *models.JobSpec, jobsp
 	if err = tx.Commit(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// GetJob retrieves a job by ID with its current status
+func (s *JobsService) GetJob(ctx context.Context, jobspecID string) (*models.JobSpec, string, error) {
+	return s.JobsRepo.GetJobByID(ctx, jobspecID)
+}
+
+// RecordExecution records a completed execution with its receipt
+func (s *JobsService) RecordExecution(ctx context.Context, jobspecID string, receipt *models.Receipt) error {
+	// Verify the receipt signature
+	if err := receipt.VerifySignature(); err != nil {
+		return fmt.Errorf("receipt signature verification failed: %w", err)
+	}
+
+	// Create execution record
+	_, err := s.ExecutionsRepo.CreateExecution(ctx, jobspecID, receipt)
+	if err != nil {
+		return fmt.Errorf("failed to record execution: %w", err)
+	}
+
+	// Update job status based on execution results
+	var newStatus string
+	switch receipt.ExecutionDetails.Status {
+	case "completed":
+		newStatus = "running" // Still running if we have partial results
+	case "failed":
+		newStatus = "failed"
+	default:
+		newStatus = "running"
+	}
+
+	if err := s.JobsRepo.UpdateJobStatus(ctx, jobspecID, newStatus); err != nil {
+		return fmt.Errorf("failed to update job status: %w", err)
+	}
+
 	return nil
 }

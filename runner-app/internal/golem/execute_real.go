@@ -27,7 +27,12 @@ func (s *Service) executeTaskSDKReal(ctx context.Context, provider *Provider, jo
 		"yagna_url": strings.TrimRight(s.yagnaURL, "/"),
 	}
 
-	// 1) Create demand (scaffold)
+	// 0) Ensure wallet is ready for payments
+	if err := s.EnsureWalletReady(ctx); err != nil {
+		return s.execFailure("wallet_check", start, provider, jobspec, meta, err), nil
+	}
+
+	// 1) Create demand
 	dSpec := s.buildDemandSpec(provider, jobspec)
 	demandID, err := s.client.CreateDemand(ctx, dSpec)
 	if err != nil {
@@ -35,28 +40,28 @@ func (s *Service) executeTaskSDKReal(ctx context.Context, provider *Provider, jo
 	}
 	meta["demand_id"] = demandID
 
-	// 2) Negotiate agreement (scaffold)
+	// 2) Negotiate agreement
 	agreeID, err := s.client.NegotiateAgreement(ctx, demandID)
 	if err != nil {
 		return s.execFailure("negotiate_agreement", start, provider, jobspec, meta, err), nil
 	}
 	meta["agreement_id"] = agreeID
 
-	// 3) Create activity (scaffold)
+	// 3) Create activity
 	actID, err := s.client.CreateActivity(ctx, agreeID, jobspec)
 	if err != nil {
 		return s.execFailure("create_activity", start, provider, jobspec, meta, err), nil
 	}
 	meta["activity_id"] = actID
 
-	// 4) Execute container (scaffold)
+	// 4) Execute container
 	stdout, stderr, exitCode, err := s.client.Exec(ctx, actID, jobspec)
 	if err != nil {
 		meta["exit_code"] = exitCode
 		return s.execFailure("exec_container", start, provider, jobspec, meta, err), nil
 	}
 
-	// 5) Cleanup (best-effort scaffold)
+	// 5) Cleanup (best-effort)
 	_ = s.client.StopActivity(ctx, actID)
 
 	// Success

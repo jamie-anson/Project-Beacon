@@ -39,7 +39,7 @@ make docker-up
 make dev
 ```
 
-The API will be available at `http://localhost:8080`
+The API will be available at `http://localhost:8090`
 
 ### API Endpoints
 
@@ -61,6 +61,7 @@ The API will be available at `http://localhost:8080`
 │   ├── api/            # HTTP API handlers
 │   ├── jobspec/        # JobSpec validation and processing
 │   ├── golem/          # Golem Network integration
+│   │   └── client/     # Extracted Yagna REST client (interfaces + impl)
 │   ├── diff/           # Cross-region difference detection
 │   ├── storage/        # IPFS and database storage
 │   └── db/             # Database models and migrations
@@ -102,7 +103,7 @@ Environment variables:
 - `REDIS_URL` - Redis connection string  
 - `IPFS_API_URL` - IPFS API endpoint
 - `GOLEM_API_KEY` - Golem Network API key
-- `PORT` - HTTP server port (default: 8080)
+- `PORT` - HTTP server port (default: 8090)
 
 ## JobSpec Format
 

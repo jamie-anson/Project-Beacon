@@ -4,12 +4,12 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
-	pcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+    clientpkg "github.com/jamie-anson/project-beacon-runner/internal/golem/client"
 )
 
 // Service handles Golem Network integration
@@ -28,7 +28,9 @@ type Service struct {
 	// Feature flag: enable real demand/agreement/activity execution path
 	enableRealExec bool
 	// Transport client for Yagna REST (used when backend=="sdk")
-	client YagnaClient
+	client clientpkg.YagnaClient
+	// Wallet information for payments
+	walletInfo *WalletInfo
 }
 
 // Provider represents a Golem compute provider
@@ -65,49 +67,62 @@ type TaskExecution struct {
 	Metadata    map[string]interface{} `json:"metadata"`
 }
 
-// NewService creates a new Golem service instance
+// Config holds configuration for the Service
+type Config struct {
+	APIKey       string
+	Network      string
+	Timeout      time.Duration
+	SigningKey   ed25519.PrivateKey
+	Backend      string
+	YagnaURL     string
+	YagnaKey     string
+	HTTPClient   *http.Client
+	EnableRealExec bool
+	MarketBase   string
+	ActivityBase string
+}
+
+// NewService creates a new Golem service instance using environment-derived config.
 func NewService(apiKey, network string) *Service {
+	cfg := LoadConfigFromEnv(apiKey, network)
+	return NewServiceWithConfig(cfg)
+}
+
+// NewServiceWithConfig constructs Service from a provided Config without reading environment.
+func NewServiceWithConfig(cfg Config) *Service {
 	svc := &Service{
-		apiKey:    apiKey,
-		network:   network,
-		timeout:   30 * time.Minute,
-		providers: make(map[string]*Provider),
+		apiKey:       cfg.APIKey,
+		network:      cfg.Network,
+		timeout:      cfg.Timeout,
+		providers:    make(map[string]*Provider),
+		signingKey:   cfg.SigningKey,
+		backend:      cfg.Backend,
+		yagnaURL:     cfg.YagnaURL,
+		yagnaKey:     cfg.YagnaKey,
+		httpClient:   cfg.HTTPClient,
+		enableRealExec: cfg.EnableRealExec,
 	}
 
-	// Optionally load receipt signing private key from env (base64)
-	if keyB64 := os.Getenv("RECEIPT_PRIVATE_KEY"); keyB64 != "" {
-		if pk, err := pcrypto.PrivateKeyFromBase64(keyB64); err == nil {
-			svc.signingKey = pk
-		}
-	} else {
-		// Dev/test fallback: generate an ephemeral signing key so receipts are signed
-		if kp, err := pcrypto.GenerateKeyPair(); err == nil {
+	if svc.httpClient == nil {
+		svc.httpClient = &http.Client{Timeout: 15 * time.Second}
+	}
+
+	// Ensure we have a signing key; generate ephemeral if none provided
+	if svc.signingKey == nil {
+		if kp, err := crypto.GenerateKeyPair(); err == nil {
 			svc.signingKey = kp.PrivateKey
 		}
 	}
 
-	// Backend selection
-	if b := os.Getenv("GOLEM_BACKEND"); b != "" {
-		svc.backend = b
-	} else {
-		svc.backend = "mock"
-	}
-
-	// Yagna REST configuration (used when backend=="sdk")
-	if url := os.Getenv("YAGNA_API_URL"); url != "" {
-		svc.yagnaURL = url
-	} else {
-		svc.yagnaURL = "http://127.0.0.1:7465"
-	}
-	svc.yagnaKey = os.Getenv("YAGNA_APPKEY")
-	svc.httpClient = &http.Client{Timeout: 15 * time.Second}
-
 	// Initialize transport client for SDK backend usage
-	svc.client = NewYagnaRESTClient(svc.yagnaURL, svc.yagnaKey, svc.httpClient)
-
-	// Feature flag for real SDK execution path
-	if os.Getenv("GOLEM_ENABLE_REAL_EXEC") == "true" {
-		svc.enableRealExec = true
+	svc.client = clientpkg.NewYagnaRESTClient(svc.yagnaURL, svc.yagnaKey, svc.httpClient)
+	if yc, ok := svc.client.(*clientpkg.YagnaRESTClient); ok {
+		if cfg.MarketBase != "" {
+			yc.MarketBase = cfg.MarketBase
+		}
+		if cfg.ActivityBase != "" {
+			yc.ActivityBase = cfg.ActivityBase
+		}
 	}
 
 	return svc
@@ -132,11 +147,4 @@ func (s *Service) EstimateTaskCost(provider *Provider, jobspec *models.JobSpec) 
 }
 
 // Network returns the configured network (e.g., mainnet, testnet)
-func (s *Service) Network() string {
-    return s.network
-}
-
-// SigningKey returns the configured receipt signing private key (may be nil)
-func (s *Service) SigningKey() ed25519.PrivateKey {
-    return s.signingKey
-}
+// Accessors moved to service_config.go

@@ -21,6 +21,7 @@ import (
 
 type Config struct {
 	HTTPPort            string
+	DatabaseURL         string
 	DBTimeout           time.Duration
 	RedisTimeout        time.Duration
 	WorkerFetchTimeout  time.Duration
@@ -30,7 +31,8 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		HTTPPort:           getString("HTTP_PORT", ":8080"),
+		HTTPPort:           getString("HTTP_PORT", ":8090"),
+		DatabaseURL:        getString("DATABASE_URL", "postgres://postgres:password@localhost:5433/beacon_runner?sslmode=disable"),
 		DBTimeout:          time.Duration(getInt("DB_TIMEOUT_MS", 4000)) * time.Millisecond,
 		RedisTimeout:       time.Duration(getInt("REDIS_TIMEOUT_MS", 2000)) * time.Millisecond,
 		WorkerFetchTimeout: time.Duration(getInt("WORKER_FETCH_TIMEOUT_MS", 5000)) * time.Millisecond,

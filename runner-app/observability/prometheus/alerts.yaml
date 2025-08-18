@@ -56,3 +56,47 @@ groups:
         annotations:
           summary: "High HTTP latency p95 (>500ms)"
           description: "HTTP request latency p95 above 500ms for 10m. Investigate DB/Redis and CPU saturation."
+
+      # Golem execution failures
+      - alert: GolemExecutionFailureRateHigh
+        expr: sum(rate(golem_executions_total{status="failed"}[5m])) / sum(rate(golem_executions_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High Golem execution failure rate (>10%)"
+          description: "Golem execution failure rate exceeded 10% for 5m. Check Yagna daemon and provider availability."
+
+      # Wallet balance low
+      - alert: GolemWalletBalanceLow
+        expr: golem_wallet_balance_glm < 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "Golem wallet balance critically low"
+          description: "Wallet balance below 0.1 GLM. Fund wallet immediately to continue executions."
+
+      # Execution duration too high
+      - alert: GolemExecutionDurationHigh
+        expr: histogram_quantile(0.95, sum by (le, region) (rate(golem_execution_duration_seconds_bucket[5m]))) > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High Golem execution duration (>5min p95)"
+          description: "Execution duration p95 exceeded 5 minutes for region {{$labels.region}}. Check provider performance."
+
+      # No providers available
+      - alert: GolemProvidersUnavailable
+        expr: sum by (region) (golem_providers_available) == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "No Golem providers available"
+          description: "No providers available in region {{$labels.region}} for 5m. Check network connectivity and provider discovery."

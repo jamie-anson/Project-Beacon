@@ -67,15 +67,40 @@ func buildRegionFilters(filters []models.ProviderFilter) map[string][]models.Pro
 // based on filters defined for its region. If no filters exist for the region,
 // the provider is accepted by default.
 func providerMatchesRegionFilters(s *Service, provider *Provider, regionFilters map[string][]models.ProviderFilter) bool {
-    if filters, ok := regionFilters[provider.Region]; ok && len(filters) > 0 {
-        for _, filter := range filters {
-            if s.matchesProviderFilter(provider, filter) {
-                return true
-            }
-        }
+    filters, ok := regionFilters[provider.Region]
+    if !ok || len(filters) == 0 {
+        return true
+    }
+
+    // Aggregate region-wide blacklists/whitelists
+    bl := make(map[string]struct{})
+    wl := make(map[string]struct{})
+    for _, f := range filters {
+        for _, id := range f.Blacklist { bl[id] = struct{}{} }
+        for _, id := range f.Whitelist { wl[id] = struct{}{} }
+    }
+
+    // Region blacklist overrides everything
+    if _, banned := bl[provider.ID]; banned {
         return false
     }
-    return true
+
+    // If region whitelist exists and includes provider, accept immediately
+    if len(wl) > 0 {
+        if _, ok := wl[provider.ID]; ok {
+            return true
+        }
+        // If whitelist exists but provider not in it, still allow other filters to match
+        // (some filters may not specify whitelist and still be valid constraints)
+    }
+
+    // Accept if provider matches at least one filter's constraints
+    for _, filter := range filters {
+        if s.matchesProviderFilter(provider, filter) {
+            return true
+        }
+    }
+    return false
 }
 
 // matchesProviderFilter checks if a provider matches the given filter

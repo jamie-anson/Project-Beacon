@@ -12,9 +12,9 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/api"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
-	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
 )
@@ -34,7 +34,7 @@ func main() {
 	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 
 	// Initialize database (non-fatal if not available; db package handles fallback)
-	database, err := db.Initialize()
+	database, err := db.Initialize(cfg.DatabaseURL)
 	if err != nil {
 		logger.Warn().Err(err).Msg("database initialization warning")
 	}

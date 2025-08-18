@@ -30,11 +30,9 @@ func runWithGolangMigrate(dbURL, path string) error {
     return nil
 }
 
-func Initialize() (*DB, error) {
-	// Get database URL from environment or use default
-	dbURL := os.Getenv("DATABASE_URL")
+func Initialize(dbURL string) (*DB, error) {
 	if dbURL == "" {
-		dbURL = "postgres://postgres:password@localhost:5432/beacon_runner?sslmode=disable"
+		dbURL = "postgres://postgres:password@localhost:5433/beacon_runner?sslmode=disable"
 	}
 
 	// Use pgx stdlib driver for better perf/features while keeping database/sql API
@@ -146,4 +144,46 @@ func runMigrations(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// Job represents a stored job in the database
+type Job struct {
+	ID          int    `json:"id"`
+	JobSpecID   string `json:"jobspec_id"`
+	JobSpecJSON []byte `json:"jobspec_data"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// GetJob retrieves a job by its JobSpec ID
+func (db *DB) GetJob(jobSpecID string) (*Job, error) {
+	if db.DB == nil {
+		return nil, fmt.Errorf("database not available")
+	}
+
+	query := `
+		SELECT id, jobspec_id, jobspec_data, status, created_at, updated_at 
+		FROM jobs 
+		WHERE jobspec_id = $1
+	`
+	
+	var job Job
+	err := db.QueryRow(query, jobSpecID).Scan(
+		&job.ID,
+		&job.JobSpecID,
+		&job.JobSpecJSON,
+		&job.Status,
+		&job.CreatedAt,
+		&job.UpdatedAt,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("job not found: %s", jobSpecID)
+		}
+		return nil, fmt.Errorf("failed to retrieve job: %w", err)
+	}
+	
+	return &job, nil
 }
