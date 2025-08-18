@@ -57,6 +57,23 @@ jobs:
           
           # Rebuild docs with embedded CID
           DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid
+
+          # Build portal (Vite/React) and include it under dist/portal
+          # Install portal dependencies (prefer ci if lockfile exists)
+          if [ -f portal/package-lock.json ]; then
+            npm ci --prefix portal --no-audit --fund=false
+          else
+            npm install --prefix portal --no-audit --fund=false
+          fi
+
+          # Export env for Vite build so it can read docs CID and commit
+          export VITE_DOCS_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder')
+          export VITE_BUILD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+          npm run --prefix portal build
+
+          # Copy portal build output into Netlify publish folder
+          mkdir -p dist/portal
+          cp -R portal/dist/* dist/portal/
           
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3.0

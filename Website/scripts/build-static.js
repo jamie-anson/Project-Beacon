@@ -52,6 +52,15 @@ async function main() {
 `;
   await fs.writeFile(headersPath, headers.trimStart(), 'utf8');
 
+  // Write Netlify-style _redirects to support SPA fallbacks for docs and portal
+  const redirectsPath = path.join(dist, '_redirects');
+  const redirects = `
+  /docs/* /docs/index.html 200
+  /docs /docs/index.html 200
+  /portal/* /portal/index.html 200
+  `;
+  await fs.writeFile(redirectsPath, redirects.trimStart(), 'utf8');
+
   console.log('Static site copied to dist/.');
 
   // Create serve.json for local SPA rewrites when using `npx serve`
