@@ -1,0 +1,73 @@
+name: Deploy Website to Netlify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Website/**'
+      - '!Website/runner-app/**'  # Exclude runner-app from website deployments
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Website/**'
+      - '!Website/runner-app/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Website
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './Website/package-lock.json'
+          
+      - name: Install dependencies
+        run: npm ci --no-audit --fund=false
+        
+      - name: Start IPFS for local pinning
+        run: |
+          # Use IPFS in a container for consistent CID generation
+          docker run -d --name ipfs-node \
+            -p 4001:4001 -p 5001:5001 -p 8080:8080 \
+            ipfs/kubo:latest
+          
+          # Wait for IPFS to be ready
+          sleep 10
+          docker exec ipfs-node ipfs version
+          
+      - name: Build website and generate IPFS CID
+        env:
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+        run: |
+          # Build static site and docs
+          npm run build:static
+          npm run build:docs
+          
+          # Generate CID (tries Pinata first, falls back to local IPFS)
+          npm run postbuild:cid
+          
+          # Rebuild docs with embedded CID
+          DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid
+          
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        with:
+          args: deploy --prod --dir=dist --message="Deploy from GitHub Actions"
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop ipfs-node || true
+          docker rm ipfs-node || true

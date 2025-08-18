@@ -1,7 +1,6 @@
 [build]
-  # Build landing + docs into dist/, compute a deterministic pseudo-CID over dist/docs,
-  # then rebuild docs to embed DOCS_BUILD_CID into the footer.
-  command = "npm run build && npm run postbuild:cid && DOCS_BUILD_CID=$(cat dist/docs-cid.txt) npm run build:docs"
+  # Build landing + docs into dist/, generate IPFS CID, then rebuild docs with embedded CID
+  command = "npm run build:static && npm run build:docs && npm run postbuild:cid && DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid"
   publish = "dist"
 
 [build.environment]
