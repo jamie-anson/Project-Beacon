@@ -49,6 +49,43 @@ var (
 	JobsDeadLetterTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "jobs_deadletter_total", Help: "Jobs sent to dead-letter queue."},
 	)
+
+	OutboxUnpublishedCount = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "outbox_unpublished_count", Help: "Number of unpublished outbox messages."},
+	)
+	OutboxOldestUnpublishedAge = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "outbox_oldest_unpublished_age_seconds", Help: "Age in seconds of oldest unpublished outbox message."},
+	)
+
+	WebSocketConnections = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "websocket_connections", Help: "Current number of active WebSocket connections."},
+	)
+
+	WebSocketMessagesBroadcastTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "websocket_messages_broadcast_total", Help: "Total WebSocket messages broadcast to clients."},
+	)
+	WebSocketMessagesDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "websocket_messages_dropped_total", Help: "Total WebSocket messages dropped due to backpressure."},
+	)
+
+	// Runner-specific metrics
+	ExecutionDurationSeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "runner_execution_duration_seconds",
+			Help:    "Execution duration by region and status.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"region", "status"},
+	)
+
+	QueueLatencySeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "runner_queue_latency_seconds",
+			Help:    "Time spent in queue before a worker starts processing.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"region"},
+	)
 )
 
 func init() {
@@ -62,6 +99,13 @@ func init() {
 		JobsFailedTotal,
 		JobsRetriedTotal,
 		JobsDeadLetterTotal,
+		OutboxUnpublishedCount,
+		OutboxOldestUnpublishedAge,
+		WebSocketConnections,
+		WebSocketMessagesBroadcastTotal,
+		WebSocketMessagesDroppedTotal,
+		ExecutionDurationSeconds,
+		QueueLatencySeconds,
 	)
 }
 

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
@@ -49,12 +47,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - .env
     ports:
-      - "8090:8080"
+      - "${PORT:-8090}:8090"
     environment:
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/beacon_runner?sslmode=disable
-      - REDIS_URL=redis://redis:6379
-      - IPFS_API_URL=http://ipfs:5001
+      - HTTP_PORT=${HTTP_PORT:-:8090}
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@postgres:5432/beacon_runner?sslmode=disable}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - IPFS_NODE_URL=${IPFS_NODE_URL:-http://ipfs:5001}
+      - IPFS_GATEWAY=${IPFS_GATEWAY:-http://ipfs:8080}
+      - GOLEM_API_KEY=${GOLEM_API_KEY:-}
+      - GOLEM_NETWORK=${GOLEM_NETWORK:-testnet}
+      - JOBS_QUEUE_NAME=${JOBS_QUEUE_NAME:-jobs}
+      - USE_MIGRATIONS=${USE_MIGRATIONS:-1}
+      - MIGRATIONS_PATH=${MIGRATIONS_PATH:-migrations}
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,10 +69,7 @@ services:
         condition: service_healthy
       ipfs:
         condition: service_healthy
-    volumes:
-      - ./:/app
-    working_dir: /app
-    command: go run cmd/runner/main.go
+    command: ["/app/runner"]
 
 volumes:
   postgres_data:

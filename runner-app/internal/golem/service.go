@@ -33,17 +33,7 @@ type Service struct {
 	walletInfo *WalletInfo
 }
 
-// Provider represents a Golem compute provider
-type Provider struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Region   string            `json:"region"`
-	Status   string            `json:"status"` // online, offline, busy
-	Score    float64           `json:"score"`  // reputation score 0-1
-	Price    float64           `json:"price"`  // GLM per hour
-	Resources ProviderResources `json:"resources"`
-	Metadata map[string]interface{} `json:"metadata"`
-}
+// Provider type is defined in client.go to avoid duplication
 
 // ProviderResources represents available compute resources
 type ProviderResources struct {
@@ -139,11 +129,21 @@ func (s *Service) GetProvider(id string) (*Provider, error) {
 
 // EstimateTaskCost estimates the cost of running a task
 func (s *Service) EstimateTaskCost(provider *Provider, jobspec *models.JobSpec) (float64, error) {
-	// Simple cost estimation: price per hour * estimated execution time
-	estimatedHours := float64(jobspec.Constraints.Timeout) / float64(time.Hour)
-	cost := provider.Price * estimatedHours
-	
-	return cost, nil
+    // Simple cost estimation: price per hour * estimated execution time
+    estimatedHours := float64(jobspec.Constraints.Timeout) / float64(time.Hour)
+    if estimatedHours <= 0 {
+        // Default to 30 minutes if not specified
+        estimatedHours = 0.5
+    }
+
+    rate := provider.Pricing.CPUPerHour
+    if rate <= 0 {
+        // Fallback to legacy Price field used by mocks/tests
+        rate = provider.Price
+    }
+    cost := rate * estimatedHours
+
+    return cost, nil
 }
 
 // Network returns the configured network (e.g., mainnet, testnet)

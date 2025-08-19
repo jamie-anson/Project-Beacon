@@ -11,6 +11,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	wsHub "github.com/jamie-anson/project-beacon-runner/internal/websocket"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+	"github.com/jamie-anson/project-beacon-runner/internal/transparency"
 )
 
 // APIServer holds the dependencies for API handlers
@@ -22,11 +23,12 @@ type APIServer struct {
 	jobsSvc      *service.JobsService
 	jobsRepo     *store.JobsRepo
 	execsRepo    *store.ExecutionsRepo
-	ipfsRepo     *store.IPFSRepo
-	ipfsClient   *ipfs.Client
-	ipfsBundler  *ipfs.Bundler
-	q            *queue.Client // for health checks
-	wsHub        *wsHub.Hub
+	ipfsRepo        *store.IPFSRepo
+	transparencyRepo *store.TransparencyRepo
+	ipfsClient      *ipfs.Client
+	ipfsBundler     *ipfs.Bundler
+	q               *queue.Client // for health checks
+	wsHub           *wsHub.Hub
 }
 
 // NewAPIServer creates a new API server with dependencies
@@ -51,6 +53,7 @@ func NewAPIServer(database *db.DB) *APIServer {
 	var jobsRepo *store.JobsRepo
 	var execsRepo *store.ExecutionsRepo
 	var ipfsRepo *store.IPFSRepo
+	var transparencyRepo *store.TransparencyRepo
 	var ipfsClient *ipfs.Client
 	var ipfsBundler *ipfs.Bundler
 	
@@ -59,6 +62,7 @@ func NewAPIServer(database *db.DB) *APIServer {
 		jobsRepo = store.NewJobsRepo(database.DB)
 		execsRepo = store.NewExecutionsRepo(database.DB)
 		ipfsRepo = store.NewIPFSRepo(database.DB)
+		transparencyRepo = store.NewTransparencyRepo(database.DB)
 		
 		// Initialize IPFS client and bundler
 		ipfsNodeURL := os.Getenv("IPFS_NODE_URL")
@@ -89,19 +93,26 @@ func NewAPIServer(database *db.DB) *APIServer {
 	// Initialize WebSocket hub
 	hub := wsHub.NewHub()
 	go hub.Run()
+
+	// Wire transparency sinks
+	if transparencyRepo != nil {
+		transparency.SetRepo(transparencyRepo)
+	}
+	transparency.RegisterBroadcaster(hub.BroadcastMessage)
 	
 	return &APIServer{
-		golemService: golemService,
-		executor:     executor,
-		validator:    validator,
-		db:           database,
-		jobsSvc:      jobsSvc,
-		jobsRepo:     jobsRepo,
-		execsRepo:    execsRepo,
-		ipfsRepo:     ipfsRepo,
-		ipfsClient:   ipfsClient,
-		ipfsBundler:  ipfsBundler,
-		q:            q,
-		wsHub:        hub,
+		golemService:     golemService,
+		executor:         executor,
+		validator:        validator,
+		db:               database,
+		jobsSvc:          jobsSvc,
+		jobsRepo:         jobsRepo,
+		execsRepo:        execsRepo,
+		ipfsRepo:         ipfsRepo,
+		transparencyRepo: transparencyRepo,
+		ipfsClient:       ipfsClient,
+		ipfsBundler:      ipfsBundler,
+		q:                q,
+		wsHub:            hub,
 	}
 }

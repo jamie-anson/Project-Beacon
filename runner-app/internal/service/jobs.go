@@ -3,13 +3,19 @@ package service
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/internal/constants"
+
+	// OpenTelemetry
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // JobsService orchestrates validation + persistence + outbox
@@ -19,21 +25,34 @@ type JobsService struct {
 	ExecutionsRepo *store.ExecutionsRepo
 	DiffsRepo      *store.DiffsRepo
 	Outbox         *store.OutboxRepo
+	QueueName      string
 }
 
-func NewJobsService(db *sql.DB) *JobsService {
+// NewJobsServiceWithQueue creates a JobsService with an explicit queue name.
+func NewJobsServiceWithQueue(db *sql.DB, queueName string) *JobsService {
 	return &JobsService{
 		DB:             db,
 		JobsRepo:       store.NewJobsRepo(db),
 		ExecutionsRepo: store.NewExecutionsRepo(db),
 		DiffsRepo:      store.NewDiffsRepo(db),
 		Outbox:         store.NewOutboxRepo(db),
+		QueueName:      queueName,
 	}
+}
+
+// NewJobsService creates a JobsService using the default queue name.
+func NewJobsService(db *sql.DB) *JobsService {
+	return NewJobsServiceWithQueue(db, constants.JobsQueueName)
 }
 
 // CreateJob validates and persists a job, and writes an outbox message transactionally.
 // jobspecJSON is the canonical JSON to store and publish.
 func (s *JobsService) CreateJob(ctx context.Context, spec *models.JobSpec, jobspecJSON []byte) error {
+	tracer := otel.Tracer("runner/service/jobs")
+	ctx, span := tracer.Start(ctx, "JobsService.CreateJob", oteltrace.WithAttributes(
+		attribute.String("job.id", spec.ID),
+	))
+	defer span.End()
 	if s.DB == nil {
 		return errors.New("database not initialized")
 	}
@@ -55,16 +74,24 @@ func (s *JobsService) CreateJob(ctx context.Context, spec *models.JobSpec, jobsp
 	}
 
 	// Outbox payload: minimal envelope referring to job by ID
+	// Try to propagate request ID from context if present
+	var requestID string
+	if v := ctx.Value("request_id"); v != nil {
+		if s, ok := v.(string); ok {
+			requestID = s
+		}
+	}
 	envelope := map[string]interface{}{
 		"id":          spec.ID,
 		"enqueued_at": time.Now().UTC(),
 		"attempt":     0,
+		"request_id":  requestID,
 	}
 	payload, mErr := json.Marshal(envelope)
 	if mErr != nil {
 		return mErr
 	}
-	if err = s.Outbox.InsertTx(ctx, tx, "jobs", payload); err != nil {
+	if err = s.Outbox.InsertTx(ctx, tx, s.QueueName, payload); err != nil {
 		return err
 	}
 
@@ -76,11 +103,22 @@ func (s *JobsService) CreateJob(ctx context.Context, spec *models.JobSpec, jobsp
 
 // GetJob retrieves a job by ID with its current status
 func (s *JobsService) GetJob(ctx context.Context, jobspecID string) (*models.JobSpec, string, error) {
+	tracer := otel.Tracer("runner/service/jobs")
+	ctx, span := tracer.Start(ctx, "JobsService.GetJob", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+	))
+	defer span.End()
 	return s.JobsRepo.GetJobByID(ctx, jobspecID)
 }
 
 // RecordExecution records a completed execution with its receipt
 func (s *JobsService) RecordExecution(ctx context.Context, jobspecID string, receipt *models.Receipt) error {
+	tracer := otel.Tracer("runner/service/jobs")
+	ctx, span := tracer.Start(ctx, "JobsService.RecordExecution", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+		attribute.String("execution.status", receipt.ExecutionDetails.Status),
+	))
+	defer span.End()
 	// Verify the receipt signature
 	if err := receipt.VerifySignature(); err != nil {
 		return fmt.Errorf("receipt signature verification failed: %w", err)

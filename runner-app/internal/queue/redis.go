@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"time"
@@ -12,6 +13,20 @@ import (
 // Client wraps a Redis client for simple queue operations
 type Client struct {
 	redis *redis.Client
+}
+
+// advQueue is the minimal interface used by StartWorker for the advanced queue
+type advQueue interface {
+    Dequeue(ctx context.Context) (*JobMessage, error)
+    Fail(ctx context.Context, message *JobMessage, jobError error) error
+    Complete(ctx context.Context, message *JobMessage) error
+    RecoverStaleJobs(ctx context.Context) error
+    Close() error
+}
+
+// newAdvancedQueue is an overridable factory for tests
+var newAdvancedQueue = func(redisURL, queueName string) (advQueue, error) {
+    return NewRedisQueue(redisURL, queueName)
 }
 
 // Ping checks connectivity to Redis
@@ -58,10 +73,81 @@ func (c *Client) Enqueue(ctx context.Context, queue string, payload []byte) erro
 	return c.redis.RPush(ctx, queue, payload).Err()
 }
 
-// StartWorker starts a blocking consumer loop on a queue using BRPOP
-// handler should return nil on success; non-nil errors are logged and message is dropped for now.
-func (c *Client) StartWorker(ctx context.Context, queue string, handler func([]byte) error) {
-	log.Printf("queue worker started for '%s'", queue)
+// StartWorker starts a blocking consumer loop on a queue using BRPOP with retry support
+func (c *Client) StartWorker(ctx context.Context, queueName string, handler func([]byte) error) {
+	// Initialize advanced queue for retry/dead-letter support
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
+	
+	advancedQueue, err := newAdvancedQueue(redisURL, queueName)
+	if err != nil {
+		log.Printf("Failed to create advanced queue, falling back to simple mode: %v", err)
+		c.startSimpleWorker(ctx, queueName, handler)
+		return
+	}
+	defer advancedQueue.Close()
+
+	log.Printf("queue worker started for '%s' with retry support", queueName)
+	
+	// Start stale job recovery routine
+	if rq, ok := advancedQueue.(*RedisQueue); ok {
+		go c.startStaleJobRecovery(ctx, rq)
+	}
+	
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("queue worker stopping for '%s'", queueName)
+			return
+		default:
+		}
+
+		// Dequeue with retry support
+		message, err := advancedQueue.Dequeue(ctx)
+		if err != nil {
+			log.Printf("queue dequeue error: %v", err)
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		
+		if message == nil {
+			continue // No message available
+		}
+
+		// Process the job
+		var payload []byte
+		if message.Payload != nil {
+			// For new-style messages with structured payload
+			payloadJSON, _ := json.Marshal(message.Payload)
+			payload = payloadJSON
+		} else {
+			// For simple envelope messages (current format)
+			envelope := map[string]interface{}{
+				"id":          message.JobSpecID,
+				"enqueued_at": message.EnqueuedAt,
+				"attempt":     message.Attempts,
+			}
+			payload, _ = json.Marshal(envelope)
+		}
+
+		if err := handler(payload); err != nil {
+			log.Printf("queue handler error for job %s: %v", message.ID, err)
+			if failErr := advancedQueue.Fail(ctx, message, err); failErr != nil {
+				log.Printf("failed to handle job failure: %v", failErr)
+			}
+		} else {
+			if completeErr := advancedQueue.Complete(ctx, message); completeErr != nil {
+				log.Printf("failed to mark job as complete: %v", completeErr)
+			}
+		}
+	}
+}
+
+// startSimpleWorker provides fallback to simple BRPOP behavior
+func (c *Client) startSimpleWorker(ctx context.Context, queue string, handler func([]byte) error) {
+	log.Printf("queue worker started for '%s' (simple mode)", queue)
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,6 +173,23 @@ func (c *Client) StartWorker(ctx context.Context, queue string, handler func([]b
 		payload := []byte(res[1])
 		if err := handler(payload); err != nil {
 			log.Printf("queue handler error: %v", err)
+		}
+	}
+}
+
+// startStaleJobRecovery runs periodic recovery of stale processing jobs
+func (c *Client) startStaleJobRecovery(ctx context.Context, queue *RedisQueue) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := queue.RecoverStaleJobs(ctx); err != nil {
+				log.Printf("stale job recovery error: %v", err)
+			}
 		}
 	}
 }

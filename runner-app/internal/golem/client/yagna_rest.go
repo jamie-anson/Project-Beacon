@@ -17,6 +17,10 @@ import (
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 	logging "github.com/jamie-anson/project-beacon-runner/internal/logging"
+	// OpenTelemetry
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // NewYagnaRESTClient constructs a Yagna REST client implementation.
@@ -47,6 +51,12 @@ func (c *YagnaRESTClient) withTimeout(ctx context.Context) (context.Context, con
 
 // doReq performs an HTTP request with retry/backoff for transient failures and richer errors.
 func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.Response, []byte, error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.doReq", oteltrace.WithAttributes(
+		attribute.String("http.method", req.Method),
+		attribute.String("http.url", req.URL.String()),
+	))
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("method", req.Method).Str("url", req.URL.String()).Logger()
 	// Attach auth header if provided
 	if c.AppKey != "" {
@@ -66,15 +76,18 @@ func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.R
 				cancel()
 				// Map context errors to typed errors
 				if errors.Is(err, context.DeadlineExceeded) {
+					span.SetAttributes(attribute.String("error.type", "deadline_exceeded"))
 					logger.Warn().Err(err).Msg("http request deadline exceeded")
 					return nil, nil, fmt.Errorf("%w: %v", ErrTimeout, err)
 				}
 				if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+					span.SetAttributes(attribute.String("error.type", "canceled"))
 					logger.Warn().Err(err).Msg("http request canceled")
 					return nil, nil, fmt.Errorf("%w: %v", ErrCanceled, err)
 				}
 				lastErr = fmt.Errorf("http %s %s attempt=%d error=%w", req.Method, req.URL.String(), i+1, err)
 				if i == attempts-1 {
+					span.SetAttributes(attribute.String("error.type", "http_do"))
 					logger.Error().Err(err).Int("attempt", i+1).Msg("http request failed")
 					return nil, nil, lastErr
 				}
@@ -86,9 +99,11 @@ func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.R
 				case <-time.After(wait):
 				case <-ctx.Done():
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+						span.SetAttributes(attribute.String("error.type", "deadline_exceeded_backoff"))
 						logger.Warn().Err(ctx.Err()).Msg("ctx deadline while backing off")
 						return nil, nil, fmt.Errorf("%w: %v", ErrTimeout, ctx.Err())
 					}
+					span.SetAttributes(attribute.String("error.type", "canceled_backoff"))
 					logger.Warn().Err(ctx.Err()).Msg("ctx canceled while backing off")
 					return nil, nil, fmt.Errorf("%w: %v", ErrCanceled, ctx.Err())
 				}
@@ -98,6 +113,9 @@ func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.R
 			defer cancel()
 			body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 			_ = resp.Body.Close()
+			span.SetAttributes(
+				attribute.Int("http.status_code", resp.StatusCode),
+			)
 			// Retry on 429/5xx
 			if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
 				if i == attempts-1 {
@@ -111,9 +129,11 @@ func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.R
 				case <-time.After(wait):
 				case <-ctx.Done():
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+						span.SetAttributes(attribute.String("error.type", "deadline_exceeded_server_error"))
 						logger.Warn().Err(ctx.Err()).Msg("ctx deadline while backing off (server error)")
 						return resp, body, fmt.Errorf("%w: %v", ErrTimeout, ctx.Err())
 					}
+					span.SetAttributes(attribute.String("error.type", "canceled_server_error"))
 					logger.Warn().Err(ctx.Err()).Msg("ctx canceled while backing off (server error)")
 					return resp, body, fmt.Errorf("%w: %v", ErrCanceled, ctx.Err())
 				}
@@ -136,6 +156,9 @@ func (c *YagnaRESTClient) doReq(ctx context.Context, req *http.Request) (*http.R
 
 // Probe attempts to discover a responsive Market/Activity base and returns the hit path and version, if any.
 func (c *YagnaRESTClient) Probe(ctx context.Context) (string, map[string]any, error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.Probe")
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "probe").Logger()
 	// Candidate bases (Market preferred) — env overrides can pre-set MarketBase/ActivityBase.
 	marketCandidates := []string{
@@ -250,6 +273,9 @@ func (c *YagnaRESTClient) Probe(ctx context.Context) (string, map[string]any, er
 
 // CreateDemand creates a market demand for the given specification
 func (c *YagnaRESTClient) CreateDemand(ctx context.Context, spec DemandSpec) (string, error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.CreateDemand")
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "create_demand").Logger()
 	url := fmt.Sprintf("%s%s/demands", c.BaseURL, c.MarketBase)
 	
@@ -298,6 +324,11 @@ func (c *YagnaRESTClient) CreateDemand(ctx context.Context, spec DemandSpec) (st
 
 // NegotiateAgreement negotiates an agreement for the given demand
 func (c *YagnaRESTClient) NegotiateAgreement(ctx context.Context, demandID string) (string, error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.NegotiateAgreement", oteltrace.WithAttributes(
+		attribute.String("demand.id", demandID),
+	))
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "negotiate").Str("demand_id", demandID).Logger()
 	// Step 1: Get proposals for the demand
 	proposalsURL := fmt.Sprintf("%s%s/demands/%s/events", c.BaseURL, c.MarketBase, demandID)
@@ -427,6 +458,12 @@ func (c *YagnaRESTClient) NegotiateAgreement(ctx context.Context, demandID strin
 
 // CreateActivity creates an activity for the given agreement
 func (c *YagnaRESTClient) CreateActivity(ctx context.Context, agreementID string, jobspec *models.JobSpec) (string, error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.CreateActivity", oteltrace.WithAttributes(
+		attribute.String("agreement.id", agreementID),
+		attribute.String("job.id", jobspec.ID),
+	))
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "create_activity").Str("agreement_id", agreementID).Logger()
 	url := fmt.Sprintf("%s%s/activity", c.BaseURL, c.ActivityBase)
 	
@@ -478,6 +515,12 @@ func (c *YagnaRESTClient) CreateActivity(ctx context.Context, agreementID string
 
 // Exec executes the container command in the given activity
 func (c *YagnaRESTClient) Exec(ctx context.Context, activityID string, jobspec *models.JobSpec) (stdout string, stderr string, exitCode int, err error) {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.Exec", oteltrace.WithAttributes(
+		attribute.String("activity.id", activityID),
+		attribute.String("job.id", jobspec.ID),
+	))
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "exec").Str("activity_id", activityID).Logger()
 	url := fmt.Sprintf("%s%s/activity/%s/exec", c.BaseURL, c.ActivityBase, activityID)
 	
@@ -546,6 +589,11 @@ func (c *YagnaRESTClient) Exec(ctx context.Context, activityID string, jobspec *
 
 // StopActivity stops and releases the given activity
 func (c *YagnaRESTClient) StopActivity(ctx context.Context, activityID string) error {
+	tracer := otel.Tracer("runner/golem/yagna")
+	ctx, span := tracer.Start(ctx, "YagnaClient.StopActivity", oteltrace.WithAttributes(
+		attribute.String("activity.id", activityID),
+	))
+	defer span.End()
 	logger := logging.L().With().Str("component", "yagna_client").Str("op", "stop_activity").Str("activity_id", activityID).Logger()
 	url := fmt.Sprintf("%s%s/activity/%s", c.BaseURL, c.ActivityBase, activityID)
 	
@@ -625,6 +673,9 @@ func (c *YagnaRESTClient) generateHexActivityID(agreementID string) string {
 
 // GetWalletInfo retrieves wallet/account and balance info via payment API
 func (c *YagnaRESTClient) GetWalletInfo(ctx context.Context) (*WalletInfo, error) {
+    tracer := otel.Tracer("runner/golem/yagna")
+    ctx, span := tracer.Start(ctx, "YagnaClient.GetWalletInfo")
+    defer span.End()
     url := fmt.Sprintf("%s/payment-api/v1/requestorAccounts", c.BaseURL)
     req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     if err != nil { return nil, fmt.Errorf("create accounts request: %w", err) }
@@ -657,6 +708,9 @@ func (c *YagnaRESTClient) GetWalletInfo(ctx context.Context) (*WalletInfo, error
 
 // GetPaymentPlatforms lists the available requestor account platforms
 func (c *YagnaRESTClient) GetPaymentPlatforms(ctx context.Context) ([]PaymentPlatform, error) {
+    tracer := otel.Tracer("runner/golem/yagna")
+    ctx, span := tracer.Start(ctx, "YagnaClient.GetPaymentPlatforms")
+    defer span.End()
     url := fmt.Sprintf("%s/payment-api/v1/requestorAccounts", c.BaseURL)
     req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     if err != nil { return nil, fmt.Errorf("create platforms request: %w", err) }

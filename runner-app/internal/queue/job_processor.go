@@ -184,7 +184,7 @@ func (p *JobProcessor) validateJob(ctx context.Context, message *JobMessage) err
 }
 
 // cleanupJob handles job cleanup
-func (p *JobProcessor) cleanupJob(ctx context.Context, message *JobMessage) error {
+func (p *JobProcessor) cleanupJob(_ context.Context, message *JobMessage) error {
 	log.Printf("Cleaning up job %s", message.JobSpecID)
 	
 	// TODO: Implement cleanup logic (remove temporary files, etc.)

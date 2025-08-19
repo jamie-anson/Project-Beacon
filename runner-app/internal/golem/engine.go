@@ -36,6 +36,10 @@ type ExecutionSummary struct {
 	CompletedAt   time.Time                   `json:"completed_at"`
 	TotalDuration time.Duration               `json:"total_duration"`
 	TotalCost     float64                     `json:"total_cost"`
+	MaxCost       float64                     `json:"max_cost"`
+	SuccessRate   float64                     `json:"success_rate"`
+	PartialSuccess bool                       `json:"partial_success"`
+	Errors        []string                    `json:"errors,omitempty"`
 }
 
 // NewExecutionEngine creates a new execution engine

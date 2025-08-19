@@ -9,6 +9,11 @@ import (
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+
+	// OpenTelemetry
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // JobsRepo provides persistence operations for jobs
@@ -22,6 +27,11 @@ func NewJobsRepo(db *sql.DB) *JobsRepo {
 
 // CreateJob inserts a new job with validation
 func (r *JobsRepo) CreateJob(ctx context.Context, jobspec *models.JobSpec) error {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.CreateJob", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspec.ID),
+	))
+	defer span.End()
 	if r.DB == nil {
 		return errors.New("database connection is nil")
 	}
@@ -45,6 +55,12 @@ func (r *JobsRepo) CreateJob(ctx context.Context, jobspec *models.JobSpec) error
 
 // UpsertJobTx inserts/updates a job row inside an existing transaction
 func (r *JobsRepo) UpsertJobTx(ctx context.Context, tx *sql.Tx, jobspecID string, jobspecData []byte, status string) error {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.UpsertJobTx", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+		attribute.String("job.status", status),
+	))
+	defer span.End()
 	if tx == nil {
 		return errors.New("nil tx in UpsertJobTx")
 	}
@@ -59,6 +75,11 @@ func (r *JobsRepo) UpsertJobTx(ctx context.Context, tx *sql.Tx, jobspecID string
 
 // GetJobByID returns a complete JobSpec by ID
 func (r *JobsRepo) GetJobByID(ctx context.Context, jobspecID string) (*models.JobSpec, string, error) {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.GetJobByID", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+	))
+	defer span.End()
 	if r.DB == nil {
 		return nil, "", errors.New("database connection is nil")
 	}
@@ -99,6 +120,11 @@ func (r *JobsRepo) GetJob(ctx context.Context, jobspecID string) (id string, sta
 
 // ListRecentJobs lists recent jobs (simple placeholder, limit 50)
 func (r *JobsRepo) ListRecentJobs(ctx context.Context, limit int) (*sql.Rows, error) {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.ListRecentJobs", oteltrace.WithAttributes(
+		attribute.Int("limit", limit),
+	))
+	defer span.End()
 	if limit <= 0 {
 		limit = 50
 	}
@@ -107,6 +133,12 @@ func (r *JobsRepo) ListRecentJobs(ctx context.Context, limit int) (*sql.Rows, er
 
 // UpdateJobStatus updates the status of a job
 func (r *JobsRepo) UpdateJobStatus(ctx context.Context, jobspecID string, status string) error {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.UpdateJobStatus", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+		attribute.String("job.status", status),
+	))
+	defer span.End()
 	if r.DB == nil {
 		return errors.New("database connection is nil")
 	}
@@ -135,6 +167,12 @@ func (r *JobsRepo) UpdateJobStatus(ctx context.Context, jobspecID string, status
 
 // ListJobsByStatus returns jobs with a specific status
 func (r *JobsRepo) ListJobsByStatus(ctx context.Context, status string, limit int) ([]*models.JobSpec, error) {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.ListJobsByStatus", oteltrace.WithAttributes(
+		attribute.String("job.status", status),
+		attribute.Int("limit", limit),
+	))
+	defer span.End()
 	if r.DB == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -180,6 +218,11 @@ func (r *JobsRepo) ListJobsByStatus(ctx context.Context, status string, limit in
 
 // DeleteJob deletes a job by jobspec_id
 func (r *JobsRepo) DeleteJob(ctx context.Context, jobspecID string) error {
+	tracer := otel.Tracer("runner/store/jobs")
+	ctx, span := tracer.Start(ctx, "JobsRepo.DeleteJob", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+	))
+	defer span.End()
 	_, err := r.DB.ExecContext(ctx, `DELETE FROM jobs WHERE jobspec_id = $1`, jobspecID)
 	return err
 }

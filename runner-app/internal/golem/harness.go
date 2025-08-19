@@ -2,11 +2,15 @@ package golem
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+	"github.com/jamie-anson/project-beacon-runner/internal/transparency"
 )
 
 // ExecuteSingleRegion executes a JobSpec in a single target region using the best available provider.
@@ -61,6 +65,34 @@ func ExecuteSingleRegion(ctx context.Context, svc *Service, jobspec *models.JobS
 
 	// Build a minimal receipt using existing helper
 	receipt, _ := NewExecutionEngine(svc).generateReceipt(jobspec, exec, best)
+
+	// Append to transparency log (best-effort, non-fatal)
+	var (
+		outputHash  string
+		receiptHash string
+	)
+	if b, err := crypto.CanonicalJSON(exec.Output); err == nil {
+		h := sha256.Sum256(b)
+		outputHash = hex.EncodeToString(h[:])
+	}
+	if b, err := crypto.CanonicalJSON(receipt); err == nil {
+		h := sha256.Sum256(b)
+		receiptHash = hex.EncodeToString(h[:])
+	}
+
+	entry := transparency.LogEntry{
+		// LogIndex is assigned in Append
+		ExecutionID: hashStringToInt(exec.ID),
+		JobID:       jobspec.ID,
+		Region:      region,
+		ProviderID:  best.ID,
+		Status:      exec.Status,
+		OutputHash:  outputHash,
+		ReceiptHash: receiptHash,
+		// IPFSCID can be set later when bundling occurs
+		Timestamp:   time.Now().UTC(),
+	}
+	transparency.DefaultWriter.Append(entry)
 
 	return &ExecutionResult{
 		JobSpecID:  jobspec.ID,

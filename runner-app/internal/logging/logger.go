@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"os"
 	"strings"
 	"time"
@@ -37,3 +38,30 @@ func Init() zerolog.Logger {
 
 // L returns the global logger
 func L() zerolog.Logger { return log.Logger }
+
+// FromContext returns a logger enriched with correlation fields from context
+// Currently attaches request_id if present in context under key "request_id".
+func FromContext(ctx context.Context) zerolog.Logger {
+	l := log.Logger
+	if ctx == nil {
+		return l
+	}
+	if v := ctx.Value("request_id"); v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			l = l.With().Str("request_id", s).Logger()
+		}
+	}
+	return l
+}
+
+// WithFields attaches arbitrary string fields to the logger and returns it
+func WithFields(l zerolog.Logger, fields map[string]string) zerolog.Logger {
+	if len(fields) == 0 {
+		return l
+	}
+	ctx := l.With()
+	for k, v := range fields {
+		ctx = ctx.Str(k, v)
+	}
+	return ctx.Logger()
+}

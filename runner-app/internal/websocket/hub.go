@@ -2,12 +2,13 @@ package websocket
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/jamie-anson/project-beacon-runner/internal/logging"
+	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 )
 
 var upgrader = websocket.Upgrader{
@@ -28,6 +29,8 @@ type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
 	send chan []byte
+	// optional correlation id captured at handshake
+	requestID string
 }
 
 // Hub maintains the set of active clients and broadcasts messages to them
@@ -51,13 +54,16 @@ func NewHub() *Hub {
 
 // Run starts the hub's main loop
 func (h *Hub) Run() {
+	l := logging.L()
 	for {
 		select {
 		case client := <-h.register:
 			h.mutex.Lock()
 			h.clients[client] = true
 			h.mutex.Unlock()
-			log.Printf("WebSocket client connected. Total clients: %d", len(h.clients))
+			l2 := l.With().Str("request_id", client.requestID).Logger()
+			l2.Info().Int("clients", len(h.clients)).Msg("ws client connected")
+			metrics.WebSocketConnections.Inc()
 
 		case client := <-h.unregister:
 			h.mutex.Lock()
@@ -66,14 +72,19 @@ func (h *Hub) Run() {
 				close(client.send)
 			}
 			h.mutex.Unlock()
-			log.Printf("WebSocket client disconnected. Total clients: %d", len(h.clients))
+			l2 := l.With().Str("request_id", client.requestID).Logger()
+			l2.Info().Int("clients", len(h.clients)).Msg("ws client disconnected")
+			metrics.WebSocketConnections.Dec()
 
 		case message := <-h.broadcast:
 			h.mutex.RLock()
 			for client := range h.clients {
 				select {
 				case client.send <- message:
+					// delivered to client buffer
 				default:
+					// client's buffer full -> drop and unregister
+					metrics.WebSocketMessagesDroppedTotal.Inc()
 					delete(h.clients, client)
 					close(client.send)
 				}
@@ -85,29 +96,50 @@ func (h *Hub) Run() {
 
 // BroadcastMessage sends a message to all connected clients
 func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
-	message := Message{
-		Type: msgType,
-		Data: data,
-	}
-
+	l := logging.L()
+	message := Message{Type: msgType, Data: data}
 	jsonData, err := json.Marshal(message)
 	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
+		l.Error().Err(err).Msg("ws marshal message error")
 		return
 	}
 
 	select {
 	case h.broadcast <- jsonData:
+		metrics.WebSocketMessagesBroadcastTotal.Inc()
 	default:
-		log.Printf("WebSocket broadcast channel full, dropping message")
+		metrics.WebSocketMessagesDroppedTotal.Inc()
+		l.Error().Msg("ws broadcast channel full, dropping message")
+	}
+}
+
+// BroadcastMessageWithRequestID sends a message including request_id in the payload
+func (h *Hub) BroadcastMessageWithRequestID(requestID string, msgType string, data interface{}) {
+	l := logging.L()
+	payload := map[string]interface{}{"type": msgType, "data": data}
+	if requestID != "" {
+		payload["request_id"] = requestID
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		l.Error().Err(err).Str("request_id", requestID).Msg("ws marshal message error")
+		return
+	}
+	select {
+	case h.broadcast <- jsonData:
+		metrics.WebSocketMessagesBroadcastTotal.Inc()
+	default:
+		metrics.WebSocketMessagesDroppedTotal.Inc()
+		l.Error().Str("request_id", requestID).Msg("ws broadcast channel full, dropping message")
 	}
 }
 
 // ServeWS handles WebSocket requests from clients
 func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
+	l := logging.L()
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		l.Error().Err(err).Msg("ws upgrade error")
 		return
 	}
 
@@ -115,6 +147,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 		hub:  h,
 		conn: conn,
 		send: make(chan []byte, 256),
+		requestID: r.Header.Get("X-Request-ID"),
 	}
 
 	client.hub.register <- client
@@ -141,8 +174,10 @@ func (c *Client) readPump() {
 	for {
 		_, _, err := c.conn.ReadMessage()
 		if err != nil {
+			// Only log unexpected close errors
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				l := logging.L()
+				l.Error().Err(err).Str("request_id", c.requestID).Msg("ws read error")
 			}
 			break
 		}

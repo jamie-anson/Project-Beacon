@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.6-alpine AS builder
 
 # Install git and ca-certificates (needed for go modules)
 RUN apk add --no-cache git ca-certificates
@@ -34,7 +34,7 @@ COPY --from=builder /app/runner /app/runner
 RUN chown -R app:app /app
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8090
 
 # Drop privileges
 USER app

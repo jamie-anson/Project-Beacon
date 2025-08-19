@@ -61,10 +61,13 @@ type ScoringSpec struct {
 
 // ExecutionConstraints define where and how the benchmark should run
 type ExecutionConstraints struct {
-	Regions    []string          `json:"regions"`    // Required regions: ["US", "EU", "APAC"]
-	MinRegions int               `json:"min_regions"` // Minimum number of regions (default: 3)
-	Timeout    time.Duration     `json:"timeout"`    // Max execution time per region
-	Providers  []ProviderFilter  `json:"providers,omitempty"`
+	Regions         []string          `json:"regions"`         // Required regions: ["US", "EU", "APAC"]
+	MinRegions      int               `json:"min_regions"`     // Minimum number of regions (default: 3)
+	MinSuccessRate  float64           `json:"min_success_rate"` // Minimum success rate (0.0-1.0, default: 0.67)
+	Timeout         time.Duration     `json:"timeout"`         // Max execution time per region
+	ProviderTimeout time.Duration     `json:"provider_timeout"` // Max time per provider attempt
+	MaxCost         float64           `json:"max_cost,omitempty"` // Maximum total cost in GLM
+	Providers       []ProviderFilter  `json:"providers,omitempty"`
 }
 
 // ProviderFilter defines Golem provider selection criteria
@@ -210,8 +213,14 @@ func (js *JobSpec) Validate() error {
 	if js.Constraints.MinRegions < 1 {
 		js.Constraints.MinRegions = 3 // Default to 3 regions
 	}
+	if js.Constraints.MinSuccessRate == 0 {
+		js.Constraints.MinSuccessRate = 0.67 // Default to 67% success rate
+	}
 	if js.Constraints.Timeout == 0 {
 		js.Constraints.Timeout = 10 * time.Minute // Default timeout
+	}
+	if js.Constraints.ProviderTimeout == 0 {
+		js.Constraints.ProviderTimeout = 2 * time.Minute // Default provider timeout
 	}
 	if js.Benchmark.Input.Hash == "" {
 		return fmt.Errorf("input hash is required for integrity verification")

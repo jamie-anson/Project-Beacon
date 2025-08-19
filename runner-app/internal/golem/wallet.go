@@ -133,6 +133,7 @@ func (s *Service) getWalletInfoDirectly(ctx context.Context) (*WalletInfo, error
 }
 
 
+//lint:ignore U1000 kept for future CLI fallback parsing when JSON is unavailable
 // parseTextPaymentStatus parses the text output of yagna payment status
 func (s *Service) parseTextPaymentStatus(ctx context.Context) *WalletInfo {
 	cmd := exec.CommandContext(ctx, "/Users/Jammie/.local/bin/yagna", "payment", "status", "--network", "holesky")

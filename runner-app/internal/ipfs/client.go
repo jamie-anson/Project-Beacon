@@ -7,9 +7,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"net/http"
 	"time"
 
 	shell "github.com/ipfs/go-ipfs-api"
+	// OpenTelemetry
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // Client wraps IPFS operations for Project Beacon
@@ -78,6 +83,12 @@ func NewFromEnv() *Client {
 
 // AddBundle uploads a bundle to IPFS and returns the CID
 func (c *Client) AddBundle(ctx context.Context, bundle *Bundle) (string, error) {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.AddBundle", oteltrace.WithAttributes(
+		attribute.String("job.id", bundle.JobID),
+		attribute.String("execution.id", bundle.ExecutionID),
+	))
+	defer span.End()
 	// Serialize bundle to JSON
 	bundleData, err := json.MarshalIndent(bundle, "", "  ")
 	if err != nil {
@@ -96,6 +107,11 @@ func (c *Client) AddBundle(ctx context.Context, bundle *Bundle) (string, error) 
 
 // PinBundle pins a bundle to ensure it stays in IPFS
 func (c *Client) PinBundle(ctx context.Context, cid string) error {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.PinBundle", oteltrace.WithAttributes(
+		attribute.String("ipfs.cid", cid),
+	))
+	defer span.End()
 	err := c.shell.Pin(cid)
 	if err != nil {
 		return fmt.Errorf("failed to pin bundle %s: %w", cid, err)
@@ -105,6 +121,11 @@ func (c *Client) PinBundle(ctx context.Context, cid string) error {
 
 // GetBundle retrieves a bundle from IPFS by CID
 func (c *Client) GetBundle(ctx context.Context, cid string) (*Bundle, error) {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.GetBundle", oteltrace.WithAttributes(
+		attribute.String("ipfs.cid", cid),
+	))
+	defer span.End()
 	reader, err := c.shell.Cat(cid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve bundle %s: %w", cid, err)
@@ -126,6 +147,12 @@ func (c *Client) GetBundle(ctx context.Context, cid string) (*Bundle, error) {
 
 // AddAndPin combines adding and pinning a bundle in one operation
 func (c *Client) AddAndPin(ctx context.Context, bundle *Bundle) (string, error) {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.AddAndPin", oteltrace.WithAttributes(
+		attribute.String("job.id", bundle.JobID),
+		attribute.String("execution.id", bundle.ExecutionID),
+	))
+	defer span.End()
 	cid, err := c.AddBundle(ctx, bundle)
 	if err != nil {
 		return "", err
@@ -133,6 +160,15 @@ func (c *Client) AddAndPin(ctx context.Context, bundle *Bundle) (string, error) 
 
 	if err := c.PinBundle(ctx, cid); err != nil {
 		return cid, fmt.Errorf("bundle added but pinning failed: %w", err)
+	}
+
+	// Optionally also pin on Storacha if configured via environment variables.
+	// Best-effort: if Storacha pin fails, we do NOT fail the flow; record a span event and still return the CID.
+	if perr := pinWithStoracha(ctx, cid); perr != nil {
+		span.AddEvent("storacha_pin_failed", oteltrace.WithAttributes(
+			attribute.String("ipfs.cid", cid),
+			attribute.String("error", perr.Error()),
+		))
 	}
 
 	return cid, nil
@@ -143,14 +179,59 @@ func (c *Client) GetGatewayURL(cid string) string {
 	return fmt.Sprintf("%s/ipfs/%s", c.gateway, cid)
 }
 
+// pinWithStoracha posts the CID to an external Storacha pin endpoint if configured.
+// Environment variables:
+//   STORACHA_PIN_URL - full URL to the pin-by-CID endpoint
+//   STORACHA_TOKEN   - bearer token for authorization (optional if endpoint is public)
+// Behavior:
+//   - If STORACHA_PIN_URL is empty, this is a no-op and returns nil.
+//   - Sends POST with JSON body: {"cid": "<cid>"} and Content-Type: application/json
+//   - Adds Authorization: Bearer <token> header when STORACHA_TOKEN is set
+func pinWithStoracha(ctx context.Context, cid string) error {
+    pinURL := os.Getenv("STORACHA_PIN_URL")
+    if pinURL == "" {
+        return nil
+    }
+    payload := map[string]string{"cid": cid}
+    body, err := json.Marshal(payload)
+    if err != nil {
+        return fmt.Errorf("storacha: marshal payload: %w", err)
+    }
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, pinURL, bytes.NewReader(body))
+    if err != nil {
+        return fmt.Errorf("storacha: build request: %w", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+    if tok := os.Getenv("STORACHA_TOKEN"); tok != "" {
+        req.Header.Set("Authorization", "Bearer "+tok)
+    }
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return fmt.Errorf("storacha: request failed: %w", err)
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+        b, _ := io.ReadAll(resp.Body)
+        return fmt.Errorf("storacha: unexpected status %d: %s", resp.StatusCode, string(b))
+    }
+    return nil
+}
+
 // IsConnected checks if the IPFS node is reachable
 func (c *Client) IsConnected(ctx context.Context) bool {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.IsConnected")
+	defer span.End()
 	_, err := c.shell.ID()
 	return err == nil
 }
 
 // NodeInfo returns information about the connected IPFS node
 func (c *Client) NodeInfo(ctx context.Context) (map[string]interface{}, error) {
+	tracer := otel.Tracer("runner/ipfs")
+	ctx, span := tracer.Start(ctx, "IPFS.NodeInfo")
+	defer span.End()
 	info, err := c.shell.ID()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node info: %w", err)

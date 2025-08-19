@@ -16,6 +16,49 @@ type ExecutionsRepo struct {
 	DB *sql.DB
 }
 
+// ListExecutionsByJobSpecIDPaginated returns executions for a JobSpec with limit/offset
+func (r *ExecutionsRepo) ListExecutionsByJobSpecIDPaginated(ctx context.Context, jobspecID string, limit, offset int) ([]*models.Receipt, error) {
+    if r.DB == nil {
+        return nil, errors.New("database connection is nil")
+    }
+    if limit <= 0 {
+        limit = 20
+    }
+    if offset < 0 {
+        offset = 0
+    }
+
+    rows, err := r.DB.QueryContext(ctx, `
+        SELECT e.receipt_data
+        FROM executions e
+        JOIN jobs j ON e.job_id = j.id
+        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        ORDER BY e.created_at DESC
+        LIMIT $2 OFFSET $3
+    `, jobspecID, limit, offset)
+    if err != nil {
+        return nil, fmt.Errorf("failed to query executions: %w", err)
+    }
+    defer rows.Close()
+
+    var receipts []*models.Receipt
+    for rows.Next() {
+        var receiptJSON []byte
+        if err := rows.Scan(&receiptJSON); err != nil {
+            return nil, fmt.Errorf("failed to scan execution row: %w", err)
+        }
+        var receipt models.Receipt
+        if err := json.Unmarshal(receiptJSON, &receipt); err != nil {
+            return nil, fmt.Errorf("failed to unmarshal receipt: %w", err)
+        }
+        receipts = append(receipts, &receipt)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("error iterating execution rows: %w", err)
+    }
+    return receipts, nil
+}
+
 // GetReceiptByJobSpecID returns the latest Receipt for a JobSpec
 func (r *ExecutionsRepo) GetReceiptByJobSpecID(ctx context.Context, jobspecID string) (*models.Receipt, error) {
 	if r.DB == nil {

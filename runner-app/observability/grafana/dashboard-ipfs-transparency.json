@@ -1,0 +1,308 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Project Beacon - IPFS & Transparency Log",
+    "tags": ["project-beacon", "ipfs", "transparency"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "IPFS Bundle Creation Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(ipfs_bundles_created_total[5m])",
+            "legendFormat": "Bundles/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 1.0}
+              ]
+            },
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "IPFS Storage Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(ipfs_bundle_size_bytes)",
+            "legendFormat": "Total Storage"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-GrYlRd"
+            },
+            "unit": "bytes"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Transparency Log Growth",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "transparency_log_entries_total",
+            "legendFormat": "Total Entries"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Anchor Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(transparency_anchors_success_total[5m]) / rate(transparency_anchors_attempted_total[5m]) * 100",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 95}
+              ]
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 0
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "IPFS Bundle Creation Over Time",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(ipfs_bundles_created_total[1m])",
+            "legendFormat": "Bundle Creation Rate"
+          },
+          {
+            "expr": "rate(ipfs_pin_operations_total[1m])",
+            "legendFormat": "Pin Operations Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            },
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Transparency Log Integrity Status",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "transparency_log_integrity_valid",
+            "legendFormat": "Integrity Valid"
+          },
+          {
+            "expr": "transparency_log_verification_failures_total",
+            "legendFormat": "Verification Failures"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "IPFS Bundle Size Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(ipfs_bundle_size_bytes_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(ipfs_bundle_size_bytes_bucket[5m]))",
+            "legendFormat": "90th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(ipfs_bundle_size_bytes_bucket[5m]))",
+            "legendFormat": "99th percentile"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "bytes"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Anchor Latency by Strategy",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(anchor_duration_seconds_bucket{strategy=\"timestamp\"}[5m]))",
+            "legendFormat": "Timestamp (95th)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(anchor_duration_seconds_bucket{strategy=\"ethereum\"}[5m]))",
+            "legendFormat": "Ethereum (95th)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 9,
+        "title": "Storage Efficiency Metrics",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "avg_over_time(ipfs_bundle_size_bytes[1h])",
+            "legendFormat": "Avg Bundle Size",
+            "format": "table"
+          },
+          {
+            "expr": "sum(ipfs_bundles_created_total)",
+            "legendFormat": "Total Bundles",
+            "format": "table"
+          },
+          {
+            "expr": "sum(ipfs_bundle_size_bytes) / sum(ipfs_bundles_created_total)",
+            "legendFormat": "Size per Bundle",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "list",
+              "filterable": false
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {"id": "unit", "value": "bytes"}
+              ]
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "Transparency Log Health Alerts",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"project-beacon-runner\"} |= \"transparency\" |= \"ERROR\"",
+            "legendFormat": "Transparency Errors"
+          },
+          {
+            "expr": "{job=\"project-beacon-runner\"} |= \"ipfs\" |= \"ERROR\"",
+            "legendFormat": "IPFS Errors"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "job_id",
+          "type": "query",
+          "query": "label_values(job_id)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "region",
+          "type": "query", 
+          "query": "label_values(region)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Anchor Events",
+          "datasource": "prometheus",
+          "expr": "changes(transparency_anchors_success_total[1m]) > 0",
+          "titleFormat": "Anchor Success",
+          "textFormat": "New anchor created"
+        }
+      ]
+    }
+  }
+}

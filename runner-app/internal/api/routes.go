@@ -2,62 +2,50 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
+	"github.com/jamie-anson/project-beacon-runner/internal/config"
+	"github.com/jamie-anson/project-beacon-runner/internal/service"
 )
 
-// SetupRoutes configures all API routes
-func SetupRoutes(r *gin.Engine, database *db.DB) {
-	server := NewAPIServer(database)
-	
-	// API version group
-	v1 := r.Group("/api/v1")
+func SetupRoutes(jobsService *service.JobsService, cfg *config.Config) *gin.Engine {
+	r := gin.Default()
+
+	// Add middleware
+	r.Use(middleware.RequestID())
+	r.Use(middleware.ValidateJSON())
+	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.RateLimiting())
+
+	// Initialize handlers
+	jobsHandler := NewJobsHandler(jobsService)
+	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
+	transparencyHandler := NewTransparencyHandler()
+
+	// Health endpoints (no auth required)
+	health := r.Group("/health")
 	{
-		// Job management
-		v1.POST("/jobs", server.createJob)
-		v1.GET("/jobs/:id", server.getJob)
-		v1.GET("/jobs", server.listJobs)
-		v1.DELETE("/jobs/:id", server.deleteJob)
-		v1.GET("/diffs", server.listDiffs)
-		v1.GET("/diffs/:id", server.getDiff)
-		
-		// IPFS bundles
-		v1.POST("/jobs/:id/bundle", server.createIPFSBundle)
-		v1.GET("/bundles/:cid", server.getIPFSBundle)
-		v1.GET("/bundles", server.listIPFSBundles)
-
-		// Results API
-		v1.GET("/jobs/:id/results/latest", server.latestResult)
-
-		// Execution management
-		v1.POST("/jobs/:id/execute", server.executeJob)
-		v1.GET("/executions/:id", server.getExecution)
-		v1.GET("/executions", server.listExecutions)
-		v1.POST("/executions/:id/cancel", server.cancelExecution)
-
-		// Provider discovery
-		v1.POST("/providers/discover", server.discoverProviders)
-		v1.GET("/providers", server.listProviders)
-		v1.GET("/providers/:id", server.getProvider)
-
-		// Cost estimation
-		v1.POST("/jobs/estimate", server.estimateCost)
-
-		// Cross-region diff analysis
-		v1.GET("/executions/:id/diffs", server.getExecutionDiffs)
-		v1.POST("/diffs/analyze", server.analyzeDiffs)
-
-		// Health check
-		v1.GET("/health", server.healthCheck)
-
-		// Metrics summary (JSON)
-		v1.GET("/metrics/summary", server.metricsSummary)
+		health.GET("", healthHandler.GetHealth)
+		health.GET("/live", healthHandler.GetHealthLiveness)
+		health.GET("/ready", healthHandler.GetHealthReadiness)
 	}
 
-	// System endpoints
-	r.GET("/debug/yagna", server.debugYagna)
+	// API routes
+	v1 := r.Group("/api/v1")
+	{
+		jobs := v1.Group("/jobs")
+		{
+			jobs.POST("", middleware.ValidateJobSpec(), jobsHandler.CreateJob)
+			jobs.GET("/:id", jobsHandler.GetJob)
+			jobs.GET("", jobsHandler.ListJobs)
+		}
 
-	// WebSocket endpoint used by the Portal
-	r.GET("/ws", func(c *gin.Context) {
-		server.wsHub.ServeWS(c.Writer, c.Request)
-	})
+		transp := v1.Group("/transparency")
+		{
+			transp.GET("/root", transparencyHandler.GetRoot)
+			transp.GET("/proof", transparencyHandler.GetProof)
+			transp.GET("/bundles/:cid", transparencyHandler.GetBundle)
+		}
+	}
+
+	return r
 }

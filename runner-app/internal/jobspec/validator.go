@@ -83,9 +83,11 @@ func (v *Validator) CreateSampleJobSpec() *models.JobSpec {
 			},
 		},
 		Constraints: models.ExecutionConstraints{
-			Regions:    []string{"US", "EU", "APAC"},
-			MinRegions: 3,
-			Timeout:    10 * time.Minute,
+			Regions:         []string{"US", "EU", "APAC"},
+			MinRegions:      3,
+			MinSuccessRate:  0.67,
+			Timeout:         10 * time.Minute,
+			ProviderTimeout: 2 * time.Minute,
 		},
 		Metadata: map[string]interface{}{
 			"created_by": "project-beacon-test",

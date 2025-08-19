@@ -7,15 +7,20 @@ import (
     "time"
 
     "github.com/jamie-anson/project-beacon-runner/pkg/models"
+    "github.com/jamie-anson/project-beacon-runner/internal/logging"
 )
 
 // discoverProvidersSDK is the SDK-backed provider discovery
 func (s *Service) discoverProvidersSDK(ctx context.Context, constraints models.ExecutionConstraints) ([]*Provider, error) {
+    l := logging.FromContext(ctx)
+    l.Info().Msg("golem: probe yagna for providers")
     // Probe Yagna via transport client
     hitPath, version, err := s.client.Probe(ctx)
     if err != nil {
+        l.Error().Err(err).Msg("golem: probe failed")
         return nil, err
     }
+    l.Info().Interface("version", version).Str("probe_path", hitPath).Msg("golem: probe ok")
 
     // If real execution is enabled, create real SDK providers for each region
     if s.enableRealExec {
@@ -81,6 +86,9 @@ func (s *Service) discoverProvidersSDK(ctx context.Context, constraints models.E
 
 // executeTaskSDK executes the task using the real Golem SDK (stub for now)
 func (s *Service) executeTaskSDK(ctx context.Context, provider *Provider, jobspec *models.JobSpec) (*TaskExecution, error) {
+    l := logging.FromContext(ctx)
+    start := time.Now()
+    l.Info().Str("provider_id", provider.ID).Str("region", provider.Region).Str("job_id", jobspec.ID).Msg("golem: execute task (sdk)")
     // If feature flag is enabled, route to real implementation (to be filled)
     if s.enableRealExec {
         return s.executeTaskSDKReal(ctx, provider, jobspec)
@@ -90,6 +98,7 @@ func (s *Service) executeTaskSDK(ctx context.Context, provider *Provider, jobspe
     // before wiring full demand/agree/execute.
     hitPath, version, err := s.client.Probe(ctx)
     if err != nil {
+        l.Error().Err(err).Msg("golem: exec probe failed")
         return nil, fmt.Errorf("yagna exec probe failed: %w", err)
     }
 
@@ -117,6 +126,7 @@ func (s *Service) executeTaskSDK(ctx context.Context, provider *Provider, jobspe
             "note":      "placeholder execution; demand/agree/execute not yet implemented",
         },
     }
+    l.Info().Str("provider_id", provider.ID).Str("region", provider.Region).Str("job_id", jobspec.ID).Dur("duration", time.Since(start)).Msg("golem: execute task completed (sdk stub)")
     return exec, nil
 }
 

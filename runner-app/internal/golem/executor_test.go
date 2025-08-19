@@ -48,9 +48,11 @@ func TestExecuteMultiRegion(t *testing.T) {
 			},
 		},
 		Constraints: models.ExecutionConstraints{
-			Regions:    []string{"US", "EU", "APAC"},
-			MinRegions: 3,
-			Timeout:    5 * time.Minute,
+			Regions:        []string{"US", "EU", "APAC"},
+			MinRegions:     3,
+			MinSuccessRate: 0.000001,
+			ProviderTimeout: 10 * time.Second,
+			Timeout:        5 * time.Minute,
 		},
 	}
 	
@@ -153,8 +155,10 @@ func TestValidateExecution(t *testing.T) {
 	
 	jobspec := &models.JobSpec{
 		Constraints: models.ExecutionConstraints{
-			Regions:    []string{"US", "EU", "APAC"},
-			MinRegions: 2,
+			Regions:        []string{"US", "EU", "APAC"},
+			MinRegions:     2,
+			MinSuccessRate: 0.000001,
+			ProviderTimeout: 10 * time.Second,
 		},
 	}
 	
@@ -229,9 +233,11 @@ func TestEstimateExecutionCost(t *testing.T) {
 	
 	jobspec := &models.JobSpec{
 		Constraints: models.ExecutionConstraints{
-			Regions:    []string{"US", "EU"},
-			MinRegions: 2,
-			Timeout:    30 * time.Minute,
+			Regions:        []string{"US", "EU"},
+			MinRegions:     2,
+			MinSuccessRate: 0.000001,
+			ProviderTimeout: 10 * time.Second,
+			Timeout:        30 * time.Minute,
 		},
 	}
 	
@@ -365,9 +371,11 @@ func TestConcurrentExecution(t *testing.T) {
 				},
 			},
 			Constraints: models.ExecutionConstraints{
-				Regions:    []string{"US"},
-				MinRegions: 1,
-				Timeout:    5 * time.Minute,
+				Regions:        []string{"US"},
+				MinRegions:     1,
+				MinSuccessRate: 0.000001,
+				ProviderTimeout: 10 * time.Second,
+				Timeout:        5 * time.Minute,
 			},
 		},
 		{
@@ -383,9 +391,11 @@ func TestConcurrentExecution(t *testing.T) {
 				},
 			},
 			Constraints: models.ExecutionConstraints{
-				Regions:    []string{"EU"},
-				MinRegions: 1,
-				Timeout:    5 * time.Minute,
+				Regions:        []string{"EU"},
+				MinRegions:     1,
+				MinSuccessRate: 0.000001,
+				ProviderTimeout: 10 * time.Second,
+				Timeout:        5 * time.Minute,
 			},
 		},
 	}

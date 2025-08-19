@@ -36,3 +36,16 @@ func (r *OutboxRepo) MarkPublished(ctx context.Context, id int64) error {
 	_, err := r.DB.ExecContext(ctx, `UPDATE outbox SET published_at = NOW() WHERE id = $1`, id)
 	return err
 }
+
+// GetUnpublishedStats returns count and oldest age of unpublished messages
+func (r *OutboxRepo) GetUnpublishedStats(ctx context.Context) (count int, oldestAgeSeconds float64, err error) {
+	row := r.DB.QueryRowContext(ctx, `
+		SELECT 
+			COUNT(*) as count,
+			COALESCE(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))), 0) as oldest_age_seconds
+		FROM outbox 
+		WHERE published_at IS NULL
+	`)
+	err = row.Scan(&count, &oldestAgeSeconds)
+	return
+}

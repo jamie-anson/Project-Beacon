@@ -1,0 +1,44 @@
+{
+  "id": "job-002",
+  "version": "v0",
+  "benchmark": {
+    "name": "mvp-probe-second",
+    "description": "SDK probe execution-second",
+    "container": {
+      "image": "busybox",
+      "tag": "latest",
+      "command": [
+        "sh",
+        "-c",
+        "echo Beacon SDK path"
+      ],
+      "resources": {
+        "cpu": "1000m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "text": "who are you?"
+      },
+      "hash": "dummy-hash"
+    },
+    "scoring": {
+      "method": "custom",
+      "parameters": {}
+    },
+    "metadata": {}
+  },
+  "constraints": {
+    "regions": [
+      "US"
+    ],
+    "min_regions": 1,
+    "timeout": 600000000000
+  },
+  "metadata": {},
+  "created_at": "2025-08-14T10:40:00Z",
+  "signature": "6GTRPW72R1AvpDN2OKOjIQGWmg4CupzQqDrZcMoSs+nQW1zlUIu/+x8wgZ46UAsdEYD+4PHOO6HsKHyZ0mhzDQ==",
+  "public_key": "fGlWaegEZRqEgtLQWRYjCZEtMrwmJWfVUf8cHQLfm2M="
+}

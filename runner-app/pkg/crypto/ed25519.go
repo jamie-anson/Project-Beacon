@@ -1,12 +1,14 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 )
 
 // KeyPair represents an Ed25519 key pair
@@ -68,10 +70,10 @@ func PrivateKeyToBase64(key ed25519.PrivateKey) string {
 
 // SignJSON signs a JSON-serializable object with Ed25519
 func SignJSON(data interface{}, privateKey ed25519.PrivateKey) (string, error) {
-	// Serialize data to canonical JSON
-	jsonBytes, err := json.Marshal(data)
+	// Serialize data to canonical JSON (sorted map keys)
+	jsonBytes, err := CanonicalJSON(data)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal data: %w", err)
+		return "", fmt.Errorf("failed to canonicalize data: %w", err)
 	}
 
 	// Sign the JSON bytes
@@ -83,10 +85,10 @@ func SignJSON(data interface{}, privateKey ed25519.PrivateKey) (string, error) {
 
 // VerifyJSONSignature verifies an Ed25519 signature for JSON data
 func VerifyJSONSignature(data interface{}, signatureBase64 string, publicKey ed25519.PublicKey) error {
-	// Serialize data to canonical JSON
-	jsonBytes, err := json.Marshal(data)
+	// Serialize data to canonical JSON (sorted map keys)
+	jsonBytes, err := CanonicalJSON(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
+		return fmt.Errorf("failed to canonicalize data: %w", err)
 	}
 
 	// Decode signature
@@ -101,6 +103,73 @@ func VerifyJSONSignature(data interface{}, signatureBase64 string, publicKey ed2
 	}
 
 	return nil
+}
+
+// CanonicalJSON encodes any JSON-serializable value into deterministic JSON bytes.
+// It deep-converts to generic types and then emits objects with sorted keys.
+func CanonicalJSON(v interface{}) ([]byte, error) {
+	// First marshal/unmarshal to get generic map[string]interface{} / []interface{}
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("canonicalize: marshal: %w", err)
+	}
+	var any interface{}
+	if err := json.Unmarshal(raw, &any); err != nil {
+		return nil, fmt.Errorf("canonicalize: unmarshal: %w", err)
+	}
+	buf := &bytes.Buffer{}
+	if err := writeCanonical(buf, any); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// writeCanonical writes value to buf in canonical JSON form (sorted object keys).
+func writeCanonical(buf *bytes.Buffer, v interface{}) error {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		buf.WriteByte('{')
+		// sort keys
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for i, k := range keys {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			// write key
+			kb, _ := json.Marshal(k)
+			buf.Write(kb)
+			buf.WriteByte(':')
+			if err := writeCanonical(buf, val[k]); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte('}')
+		return nil
+	case []interface{}:
+		buf.WriteByte('[')
+		for i, elem := range val {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			if err := writeCanonical(buf, elem); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte(']')
+		return nil
+	default:
+		// primitives: reuse encoding/json for valid JSON representation
+		b, err := json.Marshal(val)
+		if err != nil {
+			return fmt.Errorf("canonicalize: marshal primitive: %w", err)
+		}
+		buf.Write(b)
+		return nil
+	}
 }
 
 // SignableData represents data that can be signed (excludes signature fields)
