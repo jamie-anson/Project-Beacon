@@ -86,3 +86,6 @@ runner-app/runner
 # Accidental duplicate copies (e.g., "File 2.ext")
 * 2
 * 2.*
+
+# IPFS CAR artifacts
+*.car
