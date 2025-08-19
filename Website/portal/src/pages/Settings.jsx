@@ -1,6 +1,6 @@
 import React from 'react';
 import { getIpfsGateway } from '../lib/api.js';
-import { useToast } from '../state/toast.js';
+import { useToast } from '../state/toast.jsx';
 
 export default function Settings() {
   const { add: addToast } = useToast();

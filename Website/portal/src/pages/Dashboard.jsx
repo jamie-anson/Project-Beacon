@@ -3,7 +3,7 @@ import { useQuery } from '../state/useQuery.js';
 import { getHealth, getExecutions, getDiffs, getTransparencyRoot, listJobs } from '../lib/api.js';
 import { Link } from 'react-router-dom';
 import useWs from '../state/useWs.js';
-import { useToast } from '../state/toast.js';
+import { useToast } from '../state/toast.jsx';
 import ActivityFeed from '../components/ActivityFeed.jsx';
 import CopyButton from '../components/CopyButton.jsx';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useToast } from '../state/toast.js';
+import { useToast } from '../state/toast.jsx';
 
 export default function Toasts() {
   const { toasts, remove } = useToast();
