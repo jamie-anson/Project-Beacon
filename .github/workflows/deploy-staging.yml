@@ -23,6 +23,14 @@ jobs:
         run: |
           test -f runner-app/docker-compose.staging.yml || { echo "runner-app/docker-compose.staging.yml not found"; exit 1; }
 
+      - name: Preflight DNS and SSH port
+        run: |
+          set -euo pipefail
+          echo "Checking DNS resolution for STAGING_HOST..."
+          getent hosts "${{ secrets.STAGING_HOST }}" || { echo "DNS not resolvable for STAGING_HOST: ${{ secrets.STAGING_HOST }}"; exit 1; }
+          echo "Checking TCP connectivity to port 22 on STAGING_HOST..."
+          timeout 5 bash -lc "</dev/tcp/${{ secrets.STAGING_HOST }}/22" || { echo "Port 22 not reachable on STAGING_HOST: ${{ secrets.STAGING_HOST }}"; exit 1; }
+
       - name: Copy compose to server
         uses: appleboy/scp-action@v0.1.7
         with:
