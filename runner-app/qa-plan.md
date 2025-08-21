@@ -1,170 +1,143 @@
-# Project Beacon Runner – QA Test Plan
+# Project Beacon Runner – QA & Coverage Plan
 
-Last updated: 2025-08-20
+Last updated: 2025-08-21
 Owner: QA Agent (you + me)
 Scope: `runner-app/`
-Status: ✅ **COMPLETED** - All test files implemented and QA plan objectives achieved
+Status: IN PROGRESS
 
-## Goals
-- Verify core flows end-to-end: API -> Queue -> Worker -> Golem -> Store -> IPFS -> Transparency.
-- Catch regressions quickly via layered tests (unit, integration, e2e/smoke).
-- Align with MVP success criteria (multi-region execution, receipts, diffs, permanence).
+## Objectives
+- Ensure core flows are correct and stable: API -> Queue -> Worker -> Golem -> Store -> IPFS -> Transparency.
+- Prevent regressions through layered tests (unit, integration, e2e/smoke) with CI enforcement.
+- Achieve and sustain coverage targets with per-package thresholds.
 
-## Conventions
-- Port: 8090 for API server (http://localhost:8090).
-- Terminal mapping:
-  - Terminal A: Yagna daemon
-  - Terminal B: Go API server
-  - Terminal C: Actions (curl, tests)
-  - Terminal D: Postgres + Redis (docker compose)
+## Coverage Targets
+- Overall repository: 85%+ within 2 sprints, 90% long-term.
+- Core packages (correctness/security critical): 90–95%
+  - `pkg/models/`, `pkg/crypto/`, `pkg/merkle/`, `internal/worker/`, `internal/service/`, `internal/jobspec/`
+- Supporting libraries: 80–85%
+  - `internal/diff/`, `internal/transparency/`, `internal/golem/`
+- Adapters/glue: 70–75%
+  - `internal/api/`, `internal/websocket/`, `internal/metrics/`
 
-## Test Levels
-- Unit: fast, isolated with fakes/mocks.
-- Integration: DB/Redis/sqlmock, in-memory queue, mock IPFS/Golem.
-- E2E: real Postgres/Redis (docker), API server, background workers, mock Golem adapter, optional real IPFS pin disabled.
+### Per-package explicit targets (overrides)
+- `internal/metrics/`: ≥ 90% (stability-critical for observability and regression detection)
 
-## Current Tests (inventory)
-- Models and signing: `pkg/models/jobspec_test.go` (validation, signing, JSON), receipts.
+## Phased Plan
+1) Baseline & CI gates (Week 1)
+   - Generate coverage profile and HTML report:
+     - `go test ./... -coverpkg=./... -coverprofile=coverage.out -count=1`
+     - `go tool cover -html=coverage.out -o coverage.html`
+   - CI coverage gates:
+    - Current CI gates (as of 2025-08-21): Overall ≥ 51%, Core ≥ 86%, Non-core ≥ 53% (temporary to keep CI green; will ratchet up).
+    - Next bump target (by 2025-08-28): Overall ≥ 55%, Core ≥ 90%, Non-core ≥ 60%.
+    - Source of truth: thresholds live in `.github/workflows/test-and-coverage.yml` (env: `OVERALL_MIN`, `CORE_MIN`, `NONCORE_MIN`). Keep this plan and workflow in sync.
+   - Always run race detector in CI: `go test -race ./...`.
+
+   - Temporary CI thresholds (ramping this sprint):
+    - Today (2025-08-21): Overall ≥ 51%, Core ≥ 86%, Non-core ≥ 53% [temporary]
+    - Next week (by 2025-08-28): Overall ≥ 55%, Core ≥ 90%, Non-core ≥ 60%
+    - Weeks 3–4: Overall ≥ 70–80%, Core ≥ 92–94%, Non-core ≥ 65–75%
+    - Post-sprint steady state: Overall ≥ 85%, Core ≥ 95%, Non-core ≥ 80%
+
+2) Targeted unit tests (Weeks 1–2)
+   - `internal/worker/`:
+     - `job_runner.go`: bad envelope, invalid jobspec, no regions, execute failure, persistence failure.
+     - `outbox_publisher.go`: retry/backoff, DLQ path, JSON wrap errors.
+   - `internal/service/`:
+     - Validation errors, repository failures, idempotency/transactional boundaries.
+   - `pkg/models/`: maintain >90% by covering any new branches.
+   - `internal/jobspec/`: parsing/normalization and malformed inputs.
+
+3) Integration & property tests (Weeks 2–3)
+   - End-to-end without external deps: enqueue → JobRunner execute single region → persist receipt → outbox publish.
+   - Property/Fuzz tests:
+     - `pkg/crypto`: signature round-trips, malformed inputs.
+     - `pkg/merkle`: tree building/verification for randomized inputs and edge cases.
+
+4) Deflaking & sustainability (Weeks 3–4)
+   - Stabilize flaky tests (prefer events over strict sleeps; deterministic fakes like in-memory queue or miniredis).
+   - Enforce per-PR coverage on new/changed lines.
+   - Publish coverage artifact (`coverage.html`) and PR comment; add badge.
+
+## Current Test Inventory
+- Models and signing: `pkg/models/jobspec_test.go` (validation, signing, JSON, receipts).
 - Integration sanity: `internal/integration/*.go` (JobSpec/Receipt/Diff JSON, config load/validate).
-- Golem module (mocked): `internal/golem/*_test.go` (service, executor, multi-region, provider filters, cost, receipts, concur exec, error paths).
+- Golem module (mocked): `internal/golem/*_test.go` (service, executor, multi-region, provider filters, cost, receipts, concurrent exec, error paths).
 - Circuit breaker: `internal/circuitbreaker/circuit_breaker_test.go`.
-- IPFS repo: `internal/store/ipfs_repo_test.go` (UpdateExecutionCID, GetExecutionsByJobSpecID).
+- IPFS repo: `internal/store/ipfs_repo_test.go`.
 
-## Gaps & New Test Design
-- API layer (missing):
-  - POST /api/jobs (submit jobspec)
-  - GET /api/jobs/:id (status)
-  - GET /api/jobs/:id/executions (history)
-  - GET /healthz, /readyz
-  - Error paths: invalid JSON, validation errors, 404s
-  - Middleware: auth (if any), rate-limit, recovery, logging
-- Queue/Worker integration:
-  - Enqueue -> JobRunner consumes -> ExecuteSingleRegion -> persist execution & receipt -> outbox row -> OutboxPublisher publishes
-  - Retry/backoff & DLQ semantics; stale job recovery
-- Persistence:
-  - JobsRepo, ExecutionsRepo, OutboxRepo (sqlmock + migration fixtures)
-  - Idempotency (same jobspec twice), unique constraints, pagination
-- IPFS integration:
-  - Mock client for add/pin -> CID stored via `IPFSRepo.UpdateExecutionCID`
-  - Failure paths: pin failure, network timeout
-- Cross-region diff engine:
-  - Deterministic diffs for known inputs; thresholds & classification; JSON roundtrip
-- Config & middleware:
-  - `internal/api/middleware/*`: auth required header, rate limits, circuit breaker integration
-  - Config override precedence (env > file > defaults)
-- Observability:
-  - Metrics exposed (Prometheus handlers) and critical counters increment on success/error
-  - Structured request/trace IDs propagate
-- External client protections:
-  - `internal/external/protected_client` timeouts/retries
+## Coverage Matrix (What to cover)
+- API handlers: happy-path + error-paths + auth + rate-limit.
+- Queue semantics: LPUSH/BRPOP, retries, DLQ, stale recovery.
+- Worker: single-region exec path, persist receipt, outbox publish.
+- Golem: provider filters, timeouts, partial failure, cost estimate.
+- Store: jobs/executions CRUD, joins, pagination, indexing.
+- IPFS: add/pin, CID persistence, failure handling.
+- Diff: text/struct diffs, thresholding, classification.
+- Config/middleware: load/validate, recovery, circuit breaker.
+- Observability: metrics/labels, health/ready endpoints.
 
-## Coverage Matrix (high level)
-- API handlers: happy-path + error-paths + auth + rate-limit
-- Queue semantics: LPUSH/BRPOP, retries, DLQ, visibility timeout (if applicable)
-- Worker: single-region exec path, persist receipt, outbox publish
-- Golem: provider discovery filters, timeouts, partial failure, cost estimate
-- Store: jobs/executions CRUD, joins, pagination, indexing
-- IPFS: add/pin, CID persistence, failure handling
-- Diff: text/struct diffs, thresholding, classification
-- Config/middleware: load/validate, recovery, circuit breaker
-- Observability: metrics/labels, health/ready endpoints
+## Metrics Testing Checklist
+- __Reset registry in tests__: Call `resetProm()` from `internal/metrics/collector_more_test.go` at the start of any test that resets or relies on the Prometheus default registry. This helper sets a fresh registry and calls `RegisterAll()` to re-register all collectors.
+- __Centralized registration__: Ensure `internal/metrics/metrics.go` `init()` calls `RegisterAll()`. Tests must never duplicate registration lists; always prefer `RegisterAll()`.
+- __Gin middleware tests__: Call `resetProm()` before constructing a Gin router that uses `GinMiddleware()` so metrics like `HTTPRequestsTotal` and `HTTPRequestDuration` exist in the default registry.
+- __Custom registries__: If a test needs a custom `prometheus.Registry`, set both `prometheus.DefaultRegisterer` and `prometheus.DefaultGatherer` to it, then call `RegisterAll()`.
+- __Assertions__: Validate presence of `http_requests_total` and label cardinality for dynamic/static paths, methods, and status codes; ensure histograms observe durations.
 
-## Proposed Test Files (stubs to add)
-- [x] internal/api/handlers_jobs_test.go
-- [x] internal/api/handlers_health_test.go
-- [x] internal/api/middleware/auth_test.go (security/validation tests exist)
-- [x] internal/queue/redis_queue_integration_test.go
-- [x] internal/queue/integration_test.go (comprehensive Redis integration tests)
-- [x] internal/worker/job_runner_integration_test.go
-- [x] internal/worker/outbox_publisher_test.go
-- [x] internal/store/jobs_repo_test.go
-- [x] internal/store/executions_repo_test.go
-- [x] internal/ipfs/client_test.go (mock)
-- [x] internal/diff/engine_test.go
-- [x] internal/config/config_test.go (override precedence)
-- [x] internal/external/protected_client_test.go (already exists – extend failures)
+## Prioritized Backlog (Tests to add)
+- Worker & Outbox (`internal/worker/*`): `NewJobRunner*`, `Start`, `handleEnvelope`, enqueueWithRetry; fake queue + stub repos; assert metrics/state.
+- Service (`internal/service/jobs.go`): invalid inputs, repo failures, idempotency.
+- Transparency (`internal/transparency/proof_generator.go`): `GenerateProof` vs `pkg/merkle` on tiny tree.
+- Crypto (`pkg/crypto/ed25519.go`): sign/verify round-trips; base64 decode errors; fuzz inputs.
+- Merkle (`pkg/merkle`): property tests for order, duplicates, empty leaves.
 
-## Targeted Coverage Improvements (Backlog)
-- WebSocket hub (`internal/websocket/hub.go`): cover `NewHub`, `Run`, `Broadcast*`, `ServeWS`, `readPump`/`writePump` using `httptest.NewServer` and a Gorilla WS client.
-- Worker & Outbox (`internal/worker/*`): cover `NewJobRunner*`, `Start`, `handleEnvelope`, outbox publisher helpers; use fake queue + stub repos; assert metrics and state transitions.
-- Transparency proof generator (`internal/transparency/proof_generator.go`): unit test `GenerateProof` against a tiny tree and verify consistency with `pkg/merkle`.
-- Crypto helpers (`pkg/crypto/ed25519.go`): round-trip sign/verify on small structs; base64 encode/decode helpers.
-- Model validators (`pkg/models/validator.go`): table-driven tests for `Validate*`, hash/compute helpers, and sanitize paths.
-
-## Optional CI Quality Gates
-- Coverage threshold (example):
-  - Terminal C:
-    ```bash
-    go test ./... -coverprofile=cover.out && go tool cover -func=cover.out
-    ```
-  - CI: fail if total coverage < desired threshold (e.g., 35–40% initially).
-- Race detector:
-  - Terminal C:
-    ```bash
-    go test ./... -race -count=1
-    ```
-- Flake sweep (smoke):
-  - Terminal C:
-    ```bash
-    for i in {1..5}; do go test ./... -count=1 || exit 1; done
-    ```
+## CI Quality Gates
+- Coverage gate:
+  - `go test -race -coverpkg=./... -coverprofile=coverage.out ./...`
+  - Parse `go tool cover -func=coverage.out` to enforce thresholds (overall + per-package).
+  - Upload `coverage.html` as artifact; comment summary on PR; badge on README.
+- Flake sweep (optional):
+  ```bash
+  for i in {1..5}; do go test ./... -count=1 || exit 1; done
+  ```
 
 ## E2E Smoke Scenarios
 1) Submit-and-complete single-region job
-- Pre: Postgres+Redis up (Terminal D), API on :8090 (B), yagna mock/disabled
-- Act: POST /api/jobs with valid jobspec
-- Assert: 202 + job_id; poll GET /api/jobs/:id until completed; GET executions returns >=1; receipts signed; metrics increment
+   - Pre: Postgres+Redis up, API on :8090, yagna mock/disabled
+   - Act: POST /api/jobs with valid jobspec
+   - Assert: 202 + job_id; poll GET /api/jobs/:id until completed; executions >=1; receipts signed; metrics increment
 
-2) Multi-region job with partial failure
-- Constraints require 3 regions; simulate 1 region timeout
-- Assert: job completes if >= MinRegions success; diff artifact created; classification set
+2) Multi-region with partial failure
+   - Constraints require 3 regions; simulate 1 region timeout
+   - Assert: completes if >= MinRegions success; diff artifact; classification set
 
 3) IPFS publish on completion
-- On completed execution, mock IPFS returns CID; verify CID persisted and visible in GET executions
+   - Mock IPFS returns CID; verify persisted CID in GET executions
 
 4) Retry & DLQ
-- Force transient error -> retry with backoff; after N attempts, move to DLQ; assert DLQ entry
+   - Force transient error -> retry with backoff; after N attempts, DLQ entry asserted
 
 5) Protection & limits
-- Missing auth -> 401; exceeded rate -> 429; healthz readyz 200
+   - Missing auth -> 401; exceeded rate -> 429; healthz/readyz 200
 
 ## Environment Setup (E2E)
-- Terminal D: `docker compose -f docker-compose.yml up -d postgres redis`
-- Terminal B: `HTTP_PORT=8090 DATABASE_URL=... REDIS_URL=... go run ./cmd/runner`
-- Terminal C: `go test ./...` or curl calls for smoke tests
+- `docker compose -f docker-compose.yml up -d postgres redis`
+- `HTTP_PORT=8090 DATABASE_URL=... REDIS_URL=... go run ./cmd/runner`
+- `go test ./...` or curl for smoke tests
 
 ## Acceptance Criteria per Flow
 - Submit job: 2xx on valid, 4xx on invalid; persisted Job row
-- Execute region: execution row + receipt JSON with signature verified
-- Outbox: row emitted then published to Redis queue; ack on success
+- Execute region: execution row + signed receipt; signature verifies
+- Outbox: row emitted then published; ack on success
 - IPFS: CID stored or error escalated; no silent drops
-- Diff: scores and classification deterministic for controlled inputs
+- Diff: scores/classification deterministic for controlled inputs
 
-## Work Plan & Tracking
-- ✅ High priority (COMPLETED)
-  - ✅ API handler tests (submit/status/executions/health)
-  - ✅ Queue->Worker integration (retry/DLQ)
-  - ✅ E2E smoke test 1 and 3 (submit-and-complete, IPFS persist)
-- ✅ Medium (COMPLETED)
-  - ✅ Golem failure modes; persistence repos; protected client
-- ✅ Low (COMPLETED)
-  - ✅ Diff engine scenarios; full observability assertions
-
-## Milestones Checklist
-- [x] API: handlers basic happy-path
-- [x] API: error-paths + middleware
-- [x] Queue/Worker: happy-path + retry + DLQ
-- [x] Store: repos CRUD + pagination
-- [x] IPFS: mock client + CID persistence
-- [x] Golem: filters, partial failure, cost + timeouts
-- [x] E2E: submit-and-complete job
-- [x] E2E: IPFS publish on completion
-- [x] E2E: retry & DLQ
-- [x] Observability: metrics + healthz/readyz
-- [x] Transparency: root/proof/bundle endpoints smoke-tested
-- [x] Protections: rate limiting 429 behavior verified
+## Milestones
+- Week 1: CI gates at 50% overall; core 85%; add critical worker/service unit tests.
+- Week 2: Raise to 60% overall; core 90%; add E2E job flow tests.
+- Weeks 3–4: Property/fuzz tests; raise to 75–80% overall; core 92–95%; deflake and finalize.
 
 ## Notes
-- Keep tests hermetic by default; gate network-dependent tests with build tags or env flags.
-- Use sqlmock for DB unit tests; for e2e prefer real Postgres/Redis with docker compose.
-- For port 8090, ensure tests and docs reference `http://localhost:8090` consistently.
+- Prefer hermetic tests; gate network-dependent tests via build tags/env.
+- Use `sqlmock` for DB unit tests; use real Postgres/Redis for e2e.
+- Standardize on `http://localhost:8090` for docs/tests.
