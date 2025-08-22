@@ -1,4 +1,4 @@
-.PHONY: help setup dev build test clean docker-up docker-down run-runner cover cover-html race cover-check
+.PHONY: help setup dev build test clean docker-up docker-down run-runner cover cover-html race cover-check port addr base
 
 # Default test timeout (can be overridden: `make test TIMEOUT=1m`)
 TIMEOUT ?= 10m
@@ -14,6 +14,9 @@ help:
 	@echo "  docker-up  - Start all services with Docker Compose"
 	@echo "  docker-down- Stop all Docker services"
 	@echo "  run-runner - Start runner container with auto port failover (8090->8091)"
+	@echo "  port       - Print active HTTP port from .runner-http.addr"
+	@echo "  addr       - Print active bound addr from .runner-http.addr"
+	@echo "  base       - Print base URL using .runner-http.addr (http://localhost:<port>)"
 
 # Setup development environment
 setup:
@@ -140,3 +143,24 @@ run-runner:
 		PORT=8090 docker compose up -d runner; \
 	fi
 	@echo "Runner container started!"
+
+# Print the active HTTP port (reads .runner-http.addr written by the server)
+port:
+	@if [ -f .runner-http.addr ]; then \
+	  PORT=$$(grep -oE '[0-9]+$$' .runner-http.addr); \
+	  if [ -n "$$PORT" ]; then echo $$PORT; else echo "could not parse port from .runner-http.addr"; fi; \
+	else \
+	  echo ".runner-http.addr not found. Start the server first."; \
+	fi
+
+# Print the active addr (host:port)
+addr:
+	@if [ -f .runner-http.addr ]; then \
+	  cat .runner-http.addr; \
+	else \
+	  echo ".runner-http.addr not found. Start the server first."; \
+	fi
+
+# Print the base URL using helper script
+base:
+	@./scripts/runner-port.sh --base

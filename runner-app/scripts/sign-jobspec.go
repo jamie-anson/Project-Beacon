@@ -5,14 +5,13 @@ package main
 
 import (
 	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
-	beaconcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
@@ -52,33 +51,50 @@ func main() {
 		spec.Benchmark.Container.Tag = *newTag
 	}
 
+	// Ensure fields match server preprocessing before signing
+	if spec.CreatedAt.IsZero() {
+		spec.CreatedAt = time.Now()
+	}
+	if spec.Version == "" {
+		spec.Version = "v0.1.0"
+	}
+	// Mirror defaults applied in models.JobSpec.Validate() which server calls BEFORE VerifySignature
+	if spec.Constraints.MinSuccessRate == 0 {
+		spec.Constraints.MinSuccessRate = 0.67
+	}
+	if spec.Constraints.ProviderTimeout == 0 {
+		spec.Constraints.ProviderTimeout = 2 * time.Minute
+	}
+
+	validator := models.NewJobSpecValidator()
+	validator.SanitizeJobSpec(&spec)
+
+	// Validate prior to signing (server does this as well)
+	if err := spec.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "pre-sign validate failed: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Zero signature fields before signing
 	spec.Signature = ""
 	spec.PublicKey = ""
 
-
-	// Make signable view
-	signable, err := beaconcrypto.CreateSignableJobSpec(&spec)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create signable view: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Generate ephemeral keypair and sign
-	pub, priv, err := ed25519.GenerateKey(nil)
+	// Generate ephemeral keypair and sign using the same method as server
+	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to generate key: %v\n", err)
 		os.Exit(1)
 	}
-	sig, err := beaconcrypto.SignJSON(signable, priv)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to sign: %v\n", err)
+	if err := spec.Sign(priv); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to sign jobspec: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Inject signature and public key
-	spec.Signature = sig
-	spec.PublicKey = base64.StdEncoding.EncodeToString(pub)
+	// Safety check: self-verify before writing
+	if err := spec.VerifySignature(); err != nil {
+		fmt.Fprintf(os.Stderr, "self-verify failed: %v\n", err)
+		os.Exit(1)
+	}
 
 	outBytes, err := json.MarshalIndent(spec, "", "  ")
 	if err != nil {
@@ -90,5 +106,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Confirm output and show key material (public key already embedded by Sign())
 	fmt.Printf("wrote signed jobspec to %s\n", *out)
+	fmt.Printf("PublicKey: %s\n", spec.PublicKey)
+	fmt.Printf("Signature: %s\n", spec.Signature)
 }

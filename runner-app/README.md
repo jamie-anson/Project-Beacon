@@ -39,17 +39,23 @@ make docker-up
 make dev
 ```
 
-The API will be available at `http://localhost:8090`
+The API will be available at `http://localhost:8090` (fallback may choose another port if 8090 is busy; see Ports & Discovery below).
 
 ### API Endpoints
 
-- `GET /health` - Health check
+- `GET /health` - Aggregate health
+- `GET /health/live` - Liveness probe
+- `GET /health/ready` - Readiness probe
 - `POST /api/v1/jobs` - Create new benchmark job
 - `GET /api/v1/jobs` - List all jobs
 - `GET /api/v1/jobs/:id` - Get specific job
 - `POST /api/v1/jobs/:id/execute` - Execute job across regions
 - `GET /api/v1/jobs/:id/executions` - Get job executions
 - `GET /api/v1/jobs/:id/diffs` - Get cross-region diffs
+  
+- Admin (token required unless running in Gin debug mode):
+  - `GET /admin/port` → `{ addr, strategy }`
+  - `GET /admin/hints` → `{ base_url, resolved_addr, strategy }`
 
 ## Development
 
@@ -103,7 +109,42 @@ Environment variables:
 - `REDIS_URL` - Redis connection string  
 - `IPFS_API_URL` - IPFS API endpoint
 - `GOLEM_API_KEY` - Golem Network API key
-- `PORT` - HTTP server port (default: 8090)
+- `HTTP_PORT` - HTTP server port in ":<port>" form (default: ":8090")
+- `PORT_STRATEGY` - one of `strict`, `fallback`, or `ephemeral` (default: `fallback` for dev)
+- `PORT_RANGE` - fallback scan range, e.g. `8090-8099`
+- `RUNNER_HTTP_ADDR_FILE` - path to write the resolved addr (default: `.runner-http.addr`)
+- `ADMIN_TOKEN` - token required for admin endpoints (public only in Gin debug mode)
+
+### Ports, Strategies, and Discovery
+
+- Strategies (`PORT_STRATEGY`):
+  - `strict` (prod/staging): bind exactly `HTTP_PORT` or fail.
+  - `fallback` (default dev): try `:8090`, scan `PORT_RANGE` on conflict.
+  - `ephemeral` (tests/CI): bind to `:0`.
+
+- Addr file (`RUNNER_HTTP_ADDR_FILE`, default `.runner-http.addr`) is written in all modes with the resolved `host:port`.
+
+- Make targets and helper script:
+  - `make port` → prints port from `.runner-http.addr`
+  - `make addr` → prints `host:port`
+  - `make base` → prints `http://localhost:<port>`
+  - `./scripts/runner-port.sh --port|--addr|--base [--file <path>]`
+
+- Examples (Terminal labels):
+  - Terminal B (server, dev default 8090):
+    ```bash
+    PORT_STRATEGY=fallback HTTP_PORT=:8090 PORT_RANGE=8090-8099 make dev
+    ```
+  - Terminal B (ephemeral + addr file):
+    ```bash
+    ADMIN_TOKEN=dev-token PORT_STRATEGY=ephemeral RUNNER_HTTP_ADDR_FILE=.runner-http.addr make dev
+    ```
+  - Terminal C (actions):
+    ```bash
+    BASE=$(make base)
+    curl -sS "$BASE/health/ready"
+    curl -sS -H "X-Admin-Token: dev-token" "$BASE/admin/hints"
+    ```
 
 ## JobSpec Format
 

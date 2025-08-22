@@ -20,6 +20,22 @@ func routerWithTransparency() *gin.Engine {
     return r
 }
 
+func TestTransparency_GetRoot_OK(t *testing.T) {
+    r := routerWithTransparency()
+
+    req := httptest.NewRequest(http.MethodGet, "/root", nil)
+    w := httptest.NewRecorder()
+
+    r.ServeHTTP(w, req)
+
+    if w.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if w.Body.Len() == 0 {
+        t.Fatalf("expected non-empty body")
+    }
+}
+
 func TestTransparency_GetProof_MissingIndex(t *testing.T) {
     r := routerWithTransparency()
 

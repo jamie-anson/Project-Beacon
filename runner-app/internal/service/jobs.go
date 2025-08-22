@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jamie-anson/project-beacon-runner/pkg/models"
-	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/internal/cache"
 	"github.com/jamie-anson/project-beacon-runner/internal/constants"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 
 	// OpenTelemetry
 	"go.opentelemetry.io/otel"
@@ -26,6 +27,7 @@ type JobsService struct {
 	DiffsRepo      *store.DiffsRepo
 	Outbox         *store.OutboxRepo
 	QueueName      string
+	Cache          cache.Cache
 }
 
 // NewJobsServiceWithQueue creates a JobsService with an explicit queue name.
@@ -43,6 +45,11 @@ func NewJobsServiceWithQueue(db *sql.DB, queueName string) *JobsService {
 // NewJobsService creates a JobsService using the default queue name.
 func NewJobsService(db *sql.DB) *JobsService {
 	return NewJobsServiceWithQueue(db, constants.JobsQueueName)
+}
+
+// SetCache allows wiring a cache after construction
+func (s *JobsService) SetCache(c cache.Cache) {
+	s.Cache = c
 }
 
 // CreateJob validates and persists a job, and writes an outbox message transactionally.
@@ -108,7 +115,31 @@ func (s *JobsService) GetJob(ctx context.Context, jobspecID string) (*models.Job
 		attribute.String("job.id", jobspecID),
 	))
 	defer span.End()
-	return s.JobsRepo.GetJobByID(ctx, jobspecID)
+	// Try cache first
+	if s.Cache != nil {
+		if b, ok, _ := s.Cache.Get(ctx, "job:"+jobspecID); ok {
+			var cached struct {
+				Spec   models.JobSpec `json:"spec"`
+				Status string         `json:"status"`
+			}
+			if err := json.Unmarshal(b, &cached); err == nil {
+				return &cached.Spec, cached.Status, nil
+			}
+		}
+	}
+
+	spec, status, err := s.JobsRepo.GetJobByID(ctx, jobspecID)
+	if err != nil {
+		return nil, "", err
+	}
+	if s.Cache != nil && spec != nil {
+		payload, _ := json.Marshal(struct {
+			Spec   *models.JobSpec `json:"spec"`
+			Status string         `json:"status"`
+		}{Spec: spec, Status: status})
+		_ = s.Cache.Set(ctx, "job:"+jobspecID, payload, 30*time.Second)
+	}
+	return spec, status, nil
 }
 
 // RecordExecution records a completed execution with its receipt
@@ -145,5 +176,36 @@ func (s *JobsService) RecordExecution(ctx context.Context, jobspecID string, rec
 		return fmt.Errorf("failed to update job status: %w", err)
 	}
 
+	// Best-effort cache invalidation via short TTL; explicit delete if available
+	if s.Cache != nil {
+		_ = s.Cache.Set(ctx, "job:"+jobspecID, nil, 1*time.Nanosecond)
+		_ = s.Cache.Set(ctx, "job:"+jobspecID+":latest_receipt", nil, 1*time.Nanosecond)
+	}
 	return nil
+}
+
+// GetLatestReceiptCached returns the latest receipt using cache when possible
+func (s *JobsService) GetLatestReceiptCached(ctx context.Context, jobspecID string) (*models.Receipt, error) {
+	tracer := otel.Tracer("runner/service/jobs")
+	ctx, span := tracer.Start(ctx, "JobsService.GetLatestReceiptCached", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+	))
+	defer span.End()
+	if s.Cache != nil {
+		if b, ok, _ := s.Cache.Get(ctx, "job:"+jobspecID+":latest_receipt"); ok {
+			var rec models.Receipt
+			if err := json.Unmarshal(b, &rec); err == nil {
+				return &rec, nil
+			}
+		}
+	}
+	rec, err := s.ExecutionsRepo.GetReceiptByJobSpecID(ctx, jobspecID)
+	if err != nil {
+		return nil, err
+	}
+	if s.Cache != nil && rec != nil {
+		b, _ := json.Marshal(rec)
+		_ = s.Cache.Set(ctx, "job:"+jobspecID+":latest_receipt", b, 15*time.Second)
+	}
+	return rec, nil
 }

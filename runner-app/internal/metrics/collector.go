@@ -9,6 +9,16 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 )
 
+// Small interfaces to allow testing without a real DB
+type ipfsRepoIface interface {
+    ListBundles(limit, offset int) ([]store.IPFSBundle, error)
+}
+
+type transparencyRepoIface interface {
+    GetLogSize() (int64, error)
+    VerifyLogIntegrity() (bool, error)
+}
+
 // Collector manages all Project Beacon metrics
 type Collector struct {
 	// IPFS Metrics
@@ -31,14 +41,14 @@ type Collector struct {
 	bundleCompressionRatio prometheus.Histogram
 	retentionCompliance   prometheus.Gauge
 
-	// Repository dependencies
-	ipfsRepo        *store.IPFSRepo
-	transparencyRepo *store.TransparencyRepo
+	// Repository dependencies (interfaces for testability)
+	ipfsRepo        ipfsRepoIface
+	transparencyRepo transparencyRepoIface
 }
 
 // NewCollector creates a new metrics collector
 func NewCollector(ipfsRepo *store.IPFSRepo, transparencyRepo *store.TransparencyRepo) *Collector {
-	return &Collector{
+	c := &Collector{
 		// IPFS Metrics
 		ipfsBundlesCreated: promauto.NewCounter(prometheus.CounterOpts{
 			Name: "ipfs_bundles_created_total",
@@ -105,9 +115,15 @@ func NewCollector(ipfsRepo *store.IPFSRepo, transparencyRepo *store.Transparency
 			Help: "Ratio of data meeting retention requirements",
 		}),
 
-		ipfsRepo:        ipfsRepo,
-		transparencyRepo: transparencyRepo,
 	}
+	// Only assign interface fields when concrete repos are non-nil to avoid typed-nil interface values
+	if ipfsRepo != nil {
+		c.ipfsRepo = ipfsRepo
+	}
+	if transparencyRepo != nil {
+		c.transparencyRepo = transparencyRepo
+	}
+	return c
 }
 
 // RecordIPFSBundleCreated records a new IPFS bundle creation

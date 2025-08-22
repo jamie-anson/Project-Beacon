@@ -22,6 +22,7 @@ type cmdErr interface{ Err() error }
 type simpleAdapter interface {
 	LPush(ctx context.Context, key string, values ...interface{}) cmdErr
 	ZAdd(ctx context.Context, key string, members ...*redis.Z) cmdErr
+	ZRem(ctx context.Context, key string, members ...interface{}) cmdErr
 	Del(ctx context.Context, keys ...string) cmdErr
 }
 
@@ -104,6 +105,13 @@ func (q *RedisQueue) del(ctx context.Context, keys ...string) cmdErr {
 		return q.testAdapter.Del(ctx, keys...)
 	}
 	return q.client.Del(ctx, keys...)
+}
+
+func (q *RedisQueue) zrem(ctx context.Context, key string, members ...interface{}) cmdErr {
+	if q.testAdapter != nil {
+		return q.testAdapter.ZRem(ctx, key, members...)
+	}
+	return q.client.ZRem(ctx, key, members...)
 }
 
 // Enqueue adds a job to the queue
@@ -218,7 +226,7 @@ func (q *RedisQueue) dequeueRetry(ctx context.Context) (*JobMessage, error) {
 	}
 
 	// Remove from retry queue
-	if err := q.client.ZRem(ctx, q.retryQueue, results[0]).Err(); err != nil {
+	if err := q.zrem(ctx, q.retryQueue, results[0]).Err(); err != nil {
 		span.RecordError(err)
 		return nil, fmt.Errorf("failed to remove job from retry queue: %w", err)
 	}

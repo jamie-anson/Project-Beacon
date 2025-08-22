@@ -88,7 +88,11 @@ var (
 	)
 )
 
-func init() {
+func init() { RegisterAll() }
+
+// RegisterAll registers all metrics on the current default Prometheus registry.
+// Tests that replace prometheus.DefaultRegisterer/DefaultGatherer should call this.
+func RegisterAll() {
 	prometheus.MustRegister(
 		HTTPRequestsTotal,
 		HTTPRequestDuration,

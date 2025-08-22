@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Coverage thresholds (see qa-plan.md). Bump periodically as we improve.
-      OVERALL_MIN: '0.51'
-      CORE_MIN: '0.86'
-      NONCORE_MIN: '0.53'
+      OVERALL_MIN: '0.55'
+      CORE_MIN: '0.90'
+      NONCORE_MIN: '0.60'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

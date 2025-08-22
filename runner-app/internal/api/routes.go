@@ -17,9 +17,10 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config) *gin.Engi
 	r.Use(middleware.RateLimiting())
 
 	// Initialize handlers
-	jobsHandler := NewJobsHandler(jobsService)
+	jobsHandler := NewJobsHandler(jobsService, cfg)
 	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
 	transparencyHandler := NewTransparencyHandler()
+	adminHandler := NewAdminHandler(cfg)
 
 	// Health endpoints (no auth required)
 	health := r.Group("/health")
@@ -45,6 +46,22 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config) *gin.Engi
 			transp.GET("/proof", transparencyHandler.GetProof)
 			transp.GET("/bundles/:cid", transparencyHandler.GetBundle)
 		}
+	}
+
+	// Admin routes (protected)
+	admin := r.Group("/admin", adminAuthMiddleware())
+	{
+		admin.GET("/flags", adminHandler.GetFlags)
+		admin.PUT("/flags", adminHandler.UpdateFlags)
+		admin.GET("/config", adminHandler.GetConfig)
+	}
+	// In debug mode, expose /admin/port without auth to aid discovery; otherwise keep it protected
+	if gin.Mode() == gin.DebugMode {
+		r.GET("/admin/port", adminHandler.GetPortInfo)
+		r.GET("/admin/hints", adminHandler.GetHints)
+	} else {
+		admin.GET("/port", adminHandler.GetPortInfo)
+		admin.GET("/hints", adminHandler.GetHints)
 	}
 
 	return r

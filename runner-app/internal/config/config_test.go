@@ -48,14 +48,14 @@ func TestConfig_LoadFromEnv_RequiredFields(t *testing.T) {
     // Load() provides defaults; required-field errors should be validated on explicit configs.
     // This test ensures Validate() flags missing fields when not provided.
     t.Run("missing database url", func(t *testing.T) {
-        cfg := &Config{RedisURL: "redis://localhost:6379"}
+        cfg := &Config{RedisURL: "redis://localhost:6379", HTTPPort: ":8090", DBTimeout: 4*time.Second, RedisTimeout: 2*time.Second, WorkerFetchTimeout: 5*time.Second, OutboxTick: 2*time.Second, JobsQueueName: "jobs"}
         err := cfg.Validate()
         require.Error(t, err)
         assert.Contains(t, err.Error(), "DATABASE_URL is required")
     })
 
     t.Run("missing redis url", func(t *testing.T) {
-        cfg := &Config{DatabaseURL: "postgres://localhost/test"}
+        cfg := &Config{DatabaseURL: "postgres://localhost/test", HTTPPort: ":8090", DBTimeout: 4*time.Second, RedisTimeout: 2*time.Second, WorkerFetchTimeout: 5*time.Second, OutboxTick: 2*time.Second, JobsQueueName: "jobs"}
         err := cfg.Validate()
         require.Error(t, err)
         assert.Contains(t, err.Error(), "REDIS_URL is required")
@@ -63,33 +63,51 @@ func TestConfig_LoadFromEnv_RequiredFields(t *testing.T) {
 }
 
 func TestConfig_Validation_Success(t *testing.T) {
-	config := &Config{
-		DatabaseURL: "postgres://localhost/test",
-		RedisURL:    "redis://localhost:6379",
-	}
+    config := &Config{
+        DatabaseURL: "postgres://localhost/test",
+        RedisURL:    "redis://localhost:6379",
+        HTTPPort:    ":8090",
+        DBTimeout: 4*time.Second, 
+        RedisTimeout: 2*time.Second, 
+        WorkerFetchTimeout: 5*time.Second, 
+        OutboxTick: 2*time.Second,
+        JobsQueueName: "jobs",
+    }
 
-	err := config.Validate()
-	require.NoError(t, err)
+    err := config.Validate()
+    require.NoError(t, err)
 }
 
 func TestConfig_Validation_MissingDatabase(t *testing.T) {
-	config := &Config{
-		RedisURL: "redis://localhost:6379",
-	}
+    config := &Config{
+        RedisURL: "redis://localhost:6379",
+        HTTPPort: ":8090",
+        DBTimeout: 4*time.Second, 
+        RedisTimeout: 2*time.Second, 
+        WorkerFetchTimeout: 5*time.Second, 
+        OutboxTick: 2*time.Second,
+        JobsQueueName: "jobs",
+    }
 
-	err := config.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "DATABASE_URL is required")
+    err := config.Validate()
+    require.Error(t, err)
+    assert.Contains(t, err.Error(), "DATABASE_URL is required")
 }
 
 func TestConfig_Validation_MissingRedis(t *testing.T) {
-	config := &Config{
-		DatabaseURL: "postgres://localhost/test",
-	}
+    config := &Config{
+        DatabaseURL: "postgres://localhost/test",
+        HTTPPort:    ":8090",
+        DBTimeout: 4*time.Second, 
+        RedisTimeout: 2*time.Second, 
+        WorkerFetchTimeout: 5*time.Second, 
+        OutboxTick: 2*time.Second,
+        JobsQueueName: "jobs",
+    }
 
-	err := config.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "REDIS_URL is required")
+    err := config.Validate()
+    require.Error(t, err)
+    assert.Contains(t, err.Error(), "REDIS_URL is required")
 }
 
 func TestConfig_HTTPPortFormatting(t *testing.T) {
@@ -118,6 +136,57 @@ func TestConfig_TimeoutDefaults(t *testing.T) {
 	assert.Equal(t, 2000*time.Millisecond, config.OutboxTick)
 }
 
+
+func TestConfig_PortRange_ParsingAndValidation(t *testing.T) {
+	t.Run("defaults when unset", func(t *testing.T) {
+		cleanupEnv()
+		cfg := Load()
+		require.NoError(t, cfg.Validate())
+		assert.Equal(t, 8090, cfg.PortRangeStart)
+		assert.Equal(t, 8099, cfg.PortRangeEnd)
+	})
+
+	t.Run("parses valid range env", func(t *testing.T) {
+		cleanupEnv()
+		os.Setenv("PORT_RANGE", "9000-9002")
+		defer cleanupEnv()
+		cfg := Load()
+		require.NoError(t, cfg.Validate())
+		assert.Equal(t, 9000, cfg.PortRangeStart)
+		assert.Equal(t, 9002, cfg.PortRangeEnd)
+	})
+
+	t.Run("invalid range tokens fall back to defaults", func(t *testing.T) {
+		cleanupEnv()
+		os.Setenv("PORT_RANGE", "abc-def")
+		defer cleanupEnv()
+		cfg := Load()
+		require.NoError(t, cfg.Validate())
+		assert.Equal(t, 8090, cfg.PortRangeStart)
+		assert.Equal(t, 8099, cfg.PortRangeEnd)
+	})
+
+	t.Run("range start > end triggers validation error", func(t *testing.T) {
+		cfg := &Config{DatabaseURL: "postgres://localhost/test", RedisURL: "redis://localhost:6379", HTTPPort: ":8090", DBTimeout: 4*time.Second, RedisTimeout: 2*time.Second, WorkerFetchTimeout: 5*time.Second, OutboxTick: 2*time.Second, JobsQueueName: "jobs", PortRangeStart: 9002, PortRangeEnd: 9000}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "start must be <= end")
+	})
+
+	t.Run("range out of bounds triggers validation error", func(t *testing.T) {
+		cfg := &Config{DatabaseURL: "postgres://localhost/test", RedisURL: "redis://localhost:6379", HTTPPort: ":8090", DBTimeout: 4*time.Second, RedisTimeout: 2*time.Second, WorkerFetchTimeout: 5*time.Second, OutboxTick: 2*time.Second, JobsQueueName: "jobs", PortRangeStart: 70000, PortRangeEnd: 70010}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "within 1-65535")
+	})
+}
+
+func TestConfig_PortStrategy_Validation(t *testing.T) {
+	cfg := &Config{DatabaseURL: "postgres://localhost/test", RedisURL: "redis://localhost:6379", HTTPPort: ":8090", DBTimeout: 4*time.Second, RedisTimeout: 2*time.Second, WorkerFetchTimeout: 5*time.Second, OutboxTick: 2*time.Second, JobsQueueName: "jobs", PortStrategy: "invalid-mode"}
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "PORT_STRATEGY must be one of")
+}
 
 // Helper functions
 

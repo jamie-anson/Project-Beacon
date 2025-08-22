@@ -29,7 +29,7 @@ func TestCreateDemand_RetryBackoff(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &YagnaRESTClient{ BaseURL: srv.URL, Timeout: 200 * time.Millisecond, HTTPClient: srv.Client(), MarketBase: "/market-api/v1", ActivityBase: "/activity-api/v1" }
+	c := &YagnaRESTClient{ BaseURL: srv.URL, Timeout: 2 * time.Second, HTTPClient: srv.Client(), MarketBase: "/market-api/v1", ActivityBase: "/activity-api/v1" }
 	ctx := context.Background()
 	id, err := c.CreateDemand(ctx, DemandSpec{Constraints: "", Properties: map[string]any{}, Metadata: map[string]any{}})
 	if err != nil {

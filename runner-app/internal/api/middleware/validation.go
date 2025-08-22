@@ -115,21 +115,3 @@ type ValidationError struct {
 func (e *ValidationError) Error() string {
 	return e.Field + ": " + e.Message
 }
-
-// RequestID middleware adds unique request ID for tracing
-func RequestID() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		requestID := c.GetHeader("X-Request-ID")
-		if requestID == "" {
-			requestID = generateRequestID()
-		}
-		c.Set("request_id", requestID)
-		c.Header("X-Request-ID", requestID)
-		c.Next()
-	}
-}
-
-// generateRequestID creates a simple request ID (in production, use UUID)
-func generateRequestID() string {
-	return "req_" + strings.ReplaceAll(strings.ReplaceAll(json.Number("1234567890").String(), ".", ""), "-", "")[:8]
-}

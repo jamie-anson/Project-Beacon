@@ -6,6 +6,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
 	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
+	"github.com/jamie-anson/project-beacon-runner/internal/cache"
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -82,6 +83,13 @@ func NewAPIServer(database *db.DB) *APIServer {
 		
 		ipfsClient = ipfs.NewClient(ipfsConfig)
 		ipfsBundler = ipfs.NewBundler(ipfsClient, ipfsRepo)
+
+        // Wire Redis cache for hot reads
+        if jobsSvc != nil {
+            if rc, err := cache.NewRedisCacheFromEnv("beacon:"); err == nil {
+                jobsSvc.SetCache(rc)
+            }
+        }
 	}
 	
 	// Initialize queue client for health checks

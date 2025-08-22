@@ -119,7 +119,11 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		// Persist failed execution row with error details in output
 		out := map[string]any{"error": err.Error()}
 		outJSON, _ := json.Marshal(out)
-		_, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, "failed", time.Now().UTC(), time.Now().UTC(), outJSON, nil)
+		// res may be nil on error; avoid dereference and use safe defaults
+		providerID := ""
+		startedAt := time.Now().UTC()
+		completedAt := startedAt
+		_, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, region, "failed", startedAt, completedAt, outJSON, nil)
 		// Metrics: failed execution
 		metrics.ExecutionDurationSeconds.WithLabelValues(region, "failed").Observe(time.Since(execStart).Seconds())
 		metrics.JobsFailedTotal.Inc()
@@ -131,11 +135,14 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	recJSON, _ := json.Marshal(res.Receipt)
 
 	status := "completed"
+	var startedAt, completedAt time.Time
 	if res.Execution != nil {
 		status = res.Execution.Status
+		startedAt = res.Execution.StartedAt
+		completedAt = res.Execution.CompletedAt
 	}
 
-	_, err = w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, res.Execution.StartedAt, res.Execution.CompletedAt, outJSON, recJSON)
+	_, err = w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, startedAt, completedAt, outJSON, recJSON)
 	if err != nil {
 		return fmt.Errorf("insert execution: %w", err)
 	}

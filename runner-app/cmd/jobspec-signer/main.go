@@ -18,6 +18,7 @@ func main() {
 		privateKey   = flag.String("key", "", "Base64-encoded private key (or set PRIVATE_KEY env var)")
 		generateKey  = flag.Bool("generate-key", false, "Generate a new key pair and exit")
 		validateOnly = flag.Bool("validate", false, "Only validate the JobSpec without signing")
+		verifyOnly   = flag.Bool("verify", false, "Verify an already signed JobSpec and exit")
 	)
 	flag.Parse()
 
@@ -56,6 +57,14 @@ func main() {
 	summary := validator.ExtractJobSpecSummary(&jobspec)
 	summaryJSON, _ := json.MarshalIndent(summary, "", "  ")
 	fmt.Printf("JobSpec Summary:\n%s\n\n", summaryJSON)
+
+	if *verifyOnly {
+		if err := jobspec.VerifySignature(); err != nil {
+			log.Fatalf("Signature verification failed: %v", err)
+		}
+		fmt.Println("✅ Signature verification passed")
+		return
+	}
 
 	if *validateOnly {
 		fmt.Println("✅ Validation complete (no signing requested)")

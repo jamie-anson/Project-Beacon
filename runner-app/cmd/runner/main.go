@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,6 +23,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/transparency"
+	"github.com/jamie-anson/project-beacon-runner/internal/serverbind"
 	wsHub "github.com/jamie-anson/project-beacon-runner/internal/websocket"
 
 	// OpenTelemetry
@@ -133,23 +135,39 @@ func main() {
 		go op.Start(workerCtx)
 	}
 
-	// Start server in goroutine
+	// Start server in goroutine with helper-driven listener-first binding
 	go func() {
-		addr1 := cfg.HTTPPort
-		logger.Info().Str("addr", addr1).Msg("Starting Project Beacon Runner")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			// If primary port is busy and it's the default :8090, retry on :8091
-			if addr1 == ":8090" && (strings.Contains(err.Error(), "address already in use") || strings.Contains(err.Error(), "bind")) {
-				addr2 := ":8091"
-				logger.Warn().Err(err).Str("from", addr1).Str("to", addr2).Msg("Port busy, retrying on fallback port")
-				srv.Addr = addr2
-				logger.Info().Str("addr", addr2).Msg("Starting Project Beacon Runner")
-				if err2 := srv.ListenAndServe(); err2 != nil && err2 != http.ErrServerClosed {
-					logger.Fatal().Err(err2).Msg("Failed to start server on fallback port")
-				}
+		desired := cfg.HTTPPort
+		strategy := strings.ToLower(strings.TrimSpace(cfg.PortStrategy))
+
+		ln, resolved, err := serverbind.ResolveAndListen(strategy, desired, cfg.PortRangeStart, cfg.PortRangeEnd)
+		if err != nil {
+			// Strategy-specific messaging
+			if strategy == "strict" {
+				logger.Fatal().Err(err).Str("addr", desired).Msg("Failed to bind in strict mode")
 				return
 			}
-			logger.Fatal().Err(err).Msg("Failed to start server")
+			if strategy == "ephemeral" {
+				logger.Fatal().Err(err).Str("addr", ":0").Msg("Failed to bind in ephemeral mode")
+				return
+			}
+			logger.Fatal().Err(err).Str("addr", desired).Msg("Failed to bind in fallback mode")
+			return
+		}
+
+		cfg.ResolvedAddr = resolved
+		_ = serverbind.WriteAddrFile(cfg.AddrFile, resolved)
+		logger.Info().
+			Str("addr", resolved).
+			Str("strategy", strategy).
+			Str("addr_file", cfg.AddrFile).
+			Msg("Project Beacon Runner started")
+		if _, port, err := net.SplitHostPort(resolved); err == nil && port != "" {
+			logger.Info().Msg("Hint: curl http://localhost:" + port + "/health ; curl -H 'X-Admin-Token: $ADMIN_TOKEN' http://localhost:" + port + "/admin/port")
+		}
+
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			logger.Fatal().Err(err).Msg("Server error")
 		}
 	}()
 

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -8,21 +10,25 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+	beaconcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
 )
 
 // JobsHandler handles job-related requests
 type JobsHandler struct {
 	jobsService *service.JobsService
+	cfg         *config.Config
 }
 
 // NewJobsHandler creates a new jobs handler
-func NewJobsHandler(jobsService *service.JobsService) *JobsHandler {
+func NewJobsHandler(jobsService *service.JobsService, cfg *config.Config) *JobsHandler {
 	return &JobsHandler{
 		jobsService: jobsService,
+		cfg:         cfg,
 	}
 }
 
@@ -40,11 +46,89 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 
 	// Validate spec
 	validator := models.NewJobSpecValidator()
-	if err := validator.ValidateAndVerify(&spec); err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	// DEBUG: pre-verify canonical signable JSON using current and v1 encoders
+	if spec.Signature != "" && spec.PublicKey != "" {
+		if signable, derr := beaconcrypto.CreateSignableJobSpec(&spec); derr == nil {
+			var lenCurrent, lenV1 int
+			var eq bool
+			if canonCurrent, cerr := beaconcrypto.CanonicalJSON(signable); cerr == nil {
+				lenCurrent = len(canonCurrent)
+				if canonV1, verr := beaconcrypto.CanonicalizeJobSpecV1(&spec); verr == nil {
+					lenV1 = len(canonV1)
+					eq = string(canonCurrent) == string(canonV1)
+				} else {
+					l.Warn().Err(verr).Msg("debug: v1 canonicalization failed")
+				}
+				l.Info().Int("canon_current_len", lenCurrent).Int("canon_v1_len", lenV1).Bool("canon_equal", eq).Msg("debug: jobspec canonicalization compare (current vs v1)")
+			} else {
+				l.Warn().Err(cerr).Msg("debug: failed to canonicalize signable jobspec (current)")
+			}
+		} else {
+			l.Warn().Err(derr).Msg("debug: failed to build signable jobspec")
+		}
+	} else {
+		l.Info().Msg("debug: missing signature or public key prior to verify")
 	}
+    // Trust evaluation (allowlist). Enforce if enabled via cfg.TrustEnforce.
+    if spec.PublicKey != "" {
+        if reg, terr := config.GetTrustedKeys(); terr != nil {
+            l.Warn().Err(terr).Msg("trusted-keys: load error")
+        } else if reg != nil {
+            entry := reg.ByPublicKey(spec.PublicKey)
+            status, reason := config.EvaluateKeyTrust(entry, time.Now().UTC())
+            if entry != nil {
+                l.Info().Str("trust_status", status).Str("reason", reason).Str("kid", entry.KID).Msg("trusted-keys: evaluation")
+            } else {
+                l.Info().Str("trust_status", status).Str("reason", reason).Msg("trusted-keys: evaluation")
+            }
+            if h.cfg != nil && h.cfg.TrustEnforce {
+                if status != "trusted" {
+                    code := "trust_violation:" + status
+                    c.JSON(http.StatusBadRequest, gin.H{"error": "untrusted signing key: " + reason, "error_code": code})
+                    return
+                }
+            }
+        }
+    }
+
+	if err := validator.ValidateAndVerify(&spec); err != nil {
+        // Map errors to clearer taxonomy
+        msg := err.Error()
+        code := "validation_error"
+        switch {
+        case strings.Contains(msg, "signature is required"):
+            code = "missing_field:signature"
+        case strings.Contains(msg, "public key is required"):
+            code = "missing_field:public_key"
+        case strings.Contains(msg, "invalid public key"):
+            code = "invalid_encoding:public_key"
+        case strings.Contains(msg, "canonicalize") || strings.Contains(msg, "canonicalization"):
+            code = "canonicalization_error"
+        case strings.Contains(msg, "signature verification failed"):
+            code = "signature_mismatch"
+        }
+        l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
+        c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
+        return
+    }
+
+    // Shadow verification using v1 canonicalization (non-fatal)
+    if spec.PublicKey != "" && spec.Signature != "" {
+        if pk, pkErr := beaconcrypto.PublicKeyFromBase64(spec.PublicKey); pkErr == nil {
+            if canonV1, cErr := beaconcrypto.CanonicalizeJobSpecV1(&spec); cErr == nil {
+                if sig, sErr := base64.StdEncoding.DecodeString(spec.Signature); sErr == nil {
+                    v := ed25519.Verify(pk, canonV1, sig)
+                    l.Info().Bool("shadow_v1_verify_ok", v).Int("canon_v1_len", len(canonV1)).Msg("debug: shadow v1 signature verify")
+                } else {
+                    l.Warn().Err(sErr).Msg("debug: shadow v1: failed to decode signature base64")
+                }
+            } else {
+                l.Warn().Err(cErr).Msg("debug: shadow v1: canonicalization error")
+            }
+        } else {
+            l.Warn().Err(pkErr).Msg("debug: shadow v1: invalid public key")
+        }
+    }
 
 	// Marshal canonical JSON for persistence/outbox
 	jobspecJSON, err := json.Marshal(&spec)
@@ -106,17 +190,17 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 	if include == "executions" || include == "all" || include == "latest" {
 		if h.jobsService.ExecutionsRepo != nil {
 			if include == "latest" {
-				rec, lerr := h.jobsService.ExecutionsRepo.GetReceiptByJobSpecID(c.Request.Context(), jobID)
-				if lerr != nil {
-					// If no receipt yet, still return job with empty executions
-					l.Info().Str("job_id", jobID).Msg("no latest receipt yet")
-					c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": []interface{}{}})
-					return
-				}
-				l.Info().Str("job_id", jobID).Msg("returning latest receipt")
-				c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": []interface{}{rec}})
-				return
-			}
+                rec, lerr := h.jobsService.GetLatestReceiptCached(c.Request.Context(), jobID)
+                if lerr != nil {
+                    // If no receipt yet, still return job with empty executions
+                    l.Info().Str("job_id", jobID).Msg("no latest receipt yet")
+                    c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": []interface{}{}})
+                    return
+                }
+                l.Info().Str("job_id", jobID).Msg("returning latest receipt")
+                c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": []interface{}{rec}})
+                return
+            }
 
 			// Pagination params for executions list
 			execLimit := 20
@@ -158,7 +242,7 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 // ListJobs handles job listing requests
 func (h *JobsHandler) ListJobs(c *gin.Context) {
 	l := logging.FromContext(c.Request.Context())
-	if h.jobsService == nil || h.jobsService.JobsRepo == nil {
+	if h.jobsService == nil || h.jobsService.DB == nil || h.jobsService.JobsRepo == nil {
 		l.Error().Msg("persistence unavailable")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "persistence unavailable"})
 		return

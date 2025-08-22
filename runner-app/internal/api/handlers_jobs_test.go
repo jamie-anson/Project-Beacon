@@ -23,7 +23,389 @@ func newTestRouter() *gin.Engine {
     return SetupRoutes(service.NewJobsService(nil), cfg)
 }
 
+// Contract: X-Request-ID header must be present on success responses
+func TestRequestIDHeader_OnCreateJob_Success(t *testing.T) {
+    t.Parallel()
+    // sqlmock DB for happy path
+    db, mock, err := sqlmock.New()
+    if err != nil { t.Fatalf("sqlmock.New: %v", err) }
+    defer db.Close()
+
+    mock.ExpectBegin()
+    mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO jobs (jobspec_id, jobspec_data, status)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (jobspec_id)
+        DO UPDATE SET jobspec_data = EXCLUDED.jobspec_data, status = EXCLUDED.status, updated_at = NOW()`)).
+        WithArgs("job-reqid-ok", sqlmock.AnyArg(), "created").
+        WillReturnResult(sqlmock.NewResult(0, 1))
+    mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO outbox (topic, payload) VALUES ($1, $2)`)).
+        WithArgs("jobs", sqlmock.AnyArg()).
+        WillReturnResult(sqlmock.NewResult(1, 1))
+    mock.ExpectCommit()
+
+    r := newTestRouterWithDB(db)
+    js := buildSignedJobSpec(t, "job-reqid-ok")
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+
+    if w.Code != http.StatusAccepted {
+        t.Fatalf("expected 202, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if rid := w.Header().Get("X-Request-ID"); rid == "" {
+        t.Fatalf("expected X-Request-ID header to be set on success response")
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+// Contract: X-Request-ID echoes client-provided value
+func TestRequestIDHeader_Echo_OnClientProvided(t *testing.T) {
+    t.Parallel()
+    db, mock, err := sqlmock.New()
+    if err != nil { t.Fatalf("sqlmock.New: %v", err) }
+    defer db.Close()
+
+    mock.ExpectBegin()
+    mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO jobs (jobspec_id, jobspec_data, status)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (jobspec_id)
+        DO UPDATE SET jobspec_data = EXCLUDED.jobspec_data, status = EXCLUDED.status, updated_at = NOW()`)).
+        WithArgs("job-reqid-echo", sqlmock.AnyArg(), "created").
+        WillReturnResult(sqlmock.NewResult(0, 1))
+    mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO outbox (topic, payload) VALUES ($1, $2)`)).
+        WithArgs("jobs", sqlmock.AnyArg()).
+        WillReturnResult(sqlmock.NewResult(1, 1))
+    mock.ExpectCommit()
+
+    r := newTestRouterWithDB(db)
+    js := buildSignedJobSpec(t, "job-reqid-echo")
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("X-Request-ID", "client-req-123")
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+
+    if w.Code != http.StatusAccepted {
+        t.Fatalf("expected 202, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if rid := w.Header().Get("X-Request-ID"); rid != "client-req-123" {
+        t.Fatalf("expected X-Request-ID to echo client value, got %q", rid)
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+// Contract: X-Request-ID must be present on error responses (500)
+func TestRequestIDHeader_OnListJobs_Error(t *testing.T) {
+    t.Parallel()
+    db, mock, err := sqlmock.New()
+    if err != nil { t.Fatalf("sqlmock.New: %v", err) }
+    defer db.Close()
+
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
+        WithArgs(50).
+        WillReturnError(sql.ErrConnDone)
+
+    r := newTestRouterWithDB(db)
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+
+    if w.Code != http.StatusInternalServerError {
+        t.Fatalf("expected 500, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if rid := w.Header().Get("X-Request-ID"); rid == "" {
+        t.Fatalf("expected X-Request-ID header to be set on error response")
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+func TestCreateJob_SignatureMismatch_400(t *testing.T) {
+    t.Parallel()
+    r := newTestRouter()
+    js := buildSignedJobSpec(t, "job-badsig")
+    // Tamper after signing to force signature mismatch
+    js.Benchmark.Name = "Tampered"
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusBadRequest {
+        t.Fatalf("expected 400, got %d; body=%s", w.Code, w.Body.String())
+    }
+    var resp map[string]interface{}
+    _ = json.Unmarshal(w.Body.Bytes(), &resp)
+    if ec, _ := resp["error_code"].(string); ec != "signature_mismatch" {
+        t.Fatalf("expected error_code signature_mismatch, got %v", resp)
+    }
+}
+
+func TestCreateJob_InvalidPublicKey_400(t *testing.T) {
+    t.Parallel()
+    r := newTestRouter()
+    // Build a minimally valid spec then inject invalid public key and a dummy signature
+    js := buildSignedJobSpec(t, "job-badpk")
+    js.PublicKey = "!!not-base64!!"
+    js.Signature = "YWJj" // base64("abc"), value irrelevant; pk parse should fail first
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusBadRequest {
+        t.Fatalf("expected 400, got %d; body=%s", w.Code, w.Body.String())
+    }
+    var resp map[string]interface{}
+    _ = json.Unmarshal(w.Body.Bytes(), &resp)
+    if ec, _ := resp["error_code"].(string); ec != "invalid_encoding:public_key" {
+        t.Fatalf("expected error_code invalid_encoding:public_key, got %v", resp)
+    }
+}
+
+func TestCreateJob_BadContentType_400(t *testing.T) {
+    t.Parallel()
+    r := newTestRouter()
+    js := buildSignedJobSpec(t, "job-bad-ct")
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "text/plain") // should be application/json
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusBadRequest {
+        t.Fatalf("expected 400 for bad content type, got %d; body=%s", w.Code, w.Body.String())
+    }
+}
+
+func TestListJobs_ScanError_500(t *testing.T) {
+    t.Parallel()
+    db, mock, err := sqlmock.New()
+    if err != nil { t.Fatalf("sqlmock.New: %v", err) }
+    defer db.Close()
+
+    // Return a row with wrong created_at type to force scan error
+    rows := sqlmock.NewRows([]string{"jobspec_id", "status", "created_at"}).
+        AddRow("job-x", "queued", "not-a-time")
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
+        WithArgs(50).
+        WillReturnRows(rows)
+
+    r := newTestRouterWithDB(db)
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusInternalServerError {
+        t.Fatalf("expected 500 on scan error, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+func TestGetJob_IncludeExecutions_FallbackHardError_500(t *testing.T) {
+    t.Parallel()
+    // sqlmock DB
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("sqlmock.New: %v", err)
+    }
+    defer db.Close()
+
+    // Stored JobSpec row
+    stored := buildSignedJobSpec(t, "job-exec-fb-err")
+    storedJSON, _ := json.Marshal(stored)
+    jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
+        AddRow(storedJSON, "created", time.Now(), time.Now())
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_data, status, created_at, updated_at 
+        FROM jobs 
+        WHERE jobspec_id = $1`)).
+        WithArgs("job-exec-fb-err").
+        WillReturnRows(jobRows)
+
+    // Paginated error
+    mock.ExpectQuery(regexp.QuoteMeta(`
+        SELECT e.receipt_data
+        FROM executions e
+        JOIN jobs j ON e.job_id = j.id
+        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        ORDER BY e.created_at DESC
+        LIMIT $2 OFFSET $3
+    `)).
+        WithArgs("job-exec-fb-err", 20, 0).
+        WillReturnError(sql.ErrConnDone)
+
+    // Fallback non-paginated also errors -> handler should return 500
+    mock.ExpectQuery(regexp.QuoteMeta(`
+        SELECT e.receipt_data
+        FROM executions e
+        JOIN jobs j ON e.job_id = j.id
+        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        ORDER BY e.created_at DESC
+    `)).
+        WithArgs("job-exec-fb-err").
+        WillReturnError(sql.ErrConnDone)
+
+    r := newTestRouterWithDB(db)
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-exec-fb-err?include=executions", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusInternalServerError {
+        t.Fatalf("expected 500, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+func TestListJobs_PersistenceUnavailable_503(t *testing.T) {
+    t.Parallel()
+    r := newTestRouter() // JobsService created with nil DB -> JobsRepo nil
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusServiceUnavailable {
+        t.Fatalf("expected 503, got %d; body=%s", w.Code, w.Body.String())
+    }
+}
+
+func TestGetJob_IncludeLatest_DBErrorReturnsEmpty(t *testing.T) {
+    t.Parallel()
+    // sqlmock DB
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("sqlmock.New: %v", err)
+    }
+    defer db.Close()
+
+    // Stored JobSpec
+    stored := buildSignedJobSpec(t, "job-latest-err")
+    storedJSON, _ := json.Marshal(stored)
+    jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
+        AddRow(storedJSON, "created", time.Now(), time.Now())
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_data, status, created_at, updated_at 
+        FROM jobs 
+        WHERE jobspec_id = $1`)).
+        WithArgs("job-latest-err").
+        WillReturnRows(jobRows)
+
+    // Latest query returns an error -> handler should still return 200 with empty executions
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT e.receipt_data
+        FROM executions e
+        JOIN jobs j ON e.job_id = j.id
+        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        ORDER BY e.created_at DESC
+        LIMIT 1`)).
+        WithArgs("job-latest-err").
+        WillReturnError(sql.ErrConnDone)
+
+    r := newTestRouterWithDB(db)
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-latest-err?include=latest", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
+    }
+    var resp struct {
+        Executions []json.RawMessage `json:"executions"`
+    }
+    if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+        t.Fatalf("unmarshal: %v; body=%s", err, w.Body.String())
+    }
+    if len(resp.Executions) != 0 {
+        t.Fatalf("expected empty executions on latest error, got %d", len(resp.Executions))
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+func TestGetJob_IncludeExecutions_InvalidPagination_UsesDefaults(t *testing.T) {
+    t.Parallel()
+    // sqlmock DB
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("sqlmock.New: %v", err)
+    }
+    defer db.Close()
+
+    // Stored JobSpec
+    stored := buildSignedJobSpec(t, "job-bad-pg")
+    storedJSON, _ := json.Marshal(stored)
+    jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
+        AddRow(storedJSON, "created", time.Now(), time.Now())
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_data, status, created_at, updated_at 
+        FROM jobs 
+        WHERE jobspec_id = $1`)).
+        WithArgs("job-bad-pg").
+        WillReturnRows(jobRows)
+
+    // Invalid exec_limit and exec_offset should fall back to LIMIT 20 OFFSET 0
+    mock.ExpectQuery(regexp.QuoteMeta(`
+        SELECT e.receipt_data
+        FROM executions e
+        JOIN jobs j ON e.job_id = j.id
+        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        ORDER BY e.created_at DESC
+        LIMIT $2 OFFSET $3
+    `)).
+        WithArgs("job-bad-pg", 20, 0).
+        WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}))
+
+    r := newTestRouterWithDB(db)
+    req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-bad-pg?include=executions&exec_limit=-10&exec_offset=-5", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
+    }
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unmet expectations: %v", err)
+    }
+}
+
+func TestListJobs_InvalidLimit_UsesDefault(t *testing.T) {
+    t.Parallel()
+    cases := []string{"-10", "0", "999", "abc"}
+    for _, tc := range cases {
+        t.Run(tc, func(t *testing.T) {
+            t.Parallel()
+            db, mock, err := sqlmock.New()
+            if err != nil {
+                t.Fatalf("sqlmock.New: %v", err)
+            }
+            defer db.Close()
+
+            // Expect default 50
+            now := time.Now()
+            rows := sqlmock.NewRows([]string{"jobspec_id", "status", "created_at"}).
+                AddRow("job-x", "queued", now)
+            mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
+                WithArgs(50).
+                WillReturnRows(rows)
+
+            r := newTestRouterWithDB(db)
+            req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs?limit="+tc, nil)
+            w := httptest.NewRecorder()
+            r.ServeHTTP(w, req)
+            if w.Code != http.StatusOK {
+                t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
+            }
+            if err := mock.ExpectationsWereMet(); err != nil {
+                t.Fatalf("unmet expectations: %v", err)
+            }
+        })
+    }
+}
+
 func TestGetJob_IncludeExecutions_NoExecutions(t *testing.T) {
+    t.Parallel()
     // sqlmock DB
     db, mock, err := sqlmock.New()
     if err != nil {
@@ -77,6 +459,7 @@ func TestGetJob_IncludeExecutions_NoExecutions(t *testing.T) {
 
 
 func TestListJobs_HappyPathWithLimit(t *testing.T) {
+    t.Parallel()
     // sqlmock DB
     db, mock, err := sqlmock.New()
     if err != nil {
@@ -108,6 +491,7 @@ func TestListJobs_HappyPathWithLimit(t *testing.T) {
 }
 
 func TestListJobs_DBError(t *testing.T) {
+    t.Parallel()
     // sqlmock DB
     db, mock, err := sqlmock.New()
     if err != nil {
@@ -134,6 +518,7 @@ func TestListJobs_DBError(t *testing.T) {
 }
 
 func TestGetJob_IncludeExecutions_Paginated(t *testing.T) {
+    t.Parallel()
     // sqlmock DB
     db, mock, err := sqlmock.New()
     if err != nil {
@@ -181,6 +566,7 @@ func TestGetJob_IncludeExecutions_Paginated(t *testing.T) {
 }
 
 func TestGetJob_IncludeExecutions_FallbackToNonPaginated(t *testing.T) {
+    t.Parallel()
     // sqlmock DB
     db, mock, err := sqlmock.New()
     if err != nil {
@@ -266,6 +652,7 @@ func buildSignedJobSpec(t *testing.T, id string) models.JobSpec {
 }
 
 func TestCreateJob_InvalidJSON(t *testing.T) {
+    t.Parallel()
 	r := newTestRouter()
 	body := bytes.NewBufferString("{ not-json }")
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", body)
@@ -278,6 +665,7 @@ func TestCreateJob_InvalidJSON(t *testing.T) {
 }
 
 func TestCreateJob_UnsignedSpec_FailsValidation(t *testing.T) {
+    t.Parallel()
 	r := newTestRouter()
 	// Minimal but unsigned jobspec; ValidateAndVerify should reject signature missing
 	spec := models.JobSpec{
@@ -300,7 +688,22 @@ func TestCreateJob_UnsignedSpec_FailsValidation(t *testing.T) {
 	}
 }
 
+func TestCreateJob_PersistenceUnavailable_503(t *testing.T) {
+    t.Parallel()
+    r := newTestRouter() // JobsService DB is nil in this router
+    js := buildSignedJobSpec(t, "job-no-db")
+    b, _ := json.Marshal(js)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs", bytes.NewReader(b))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+    if w.Code != http.StatusServiceUnavailable {
+        t.Fatalf("expected 503, got %d; body=%s", w.Code, w.Body.String())
+    }
+}
+
 func TestGetJob_PersistenceUnavailable(t *testing.T) {
+    t.Parallel()
 	r := newTestRouter()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-123", nil)
 	w := httptest.NewRecorder()
@@ -311,6 +714,7 @@ func TestGetJob_PersistenceUnavailable(t *testing.T) {
 }
 
 func TestCreateJob_HappyPath202(t *testing.T) {
+    t.Parallel()
 	// sqlmock DB
 	db, mock, err := sqlmock.New()
 	if err != nil {

@@ -2,6 +2,7 @@ package models
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -251,8 +252,16 @@ func (js *JobSpec) VerifySignature() error {
 
 	// Verify signature
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-		return fmt.Errorf("signature verification failed: %w", err)
-	}
+        // Shadow check: if v1 canonicalization would verify, surface a helpful hint.
+        if canonV1, cErr := crypto.CanonicalizeJobSpecV1(js); cErr == nil {
+            if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
+                if ed25519.Verify(publicKey, canonV1, sigBytes) {
+                    return fmt.Errorf("signature verification failed: canonicalization mismatch (v1 would verify)")
+                }
+            }
+        }
+        return fmt.Errorf("signature verification failed: %w", err)
+    }
 
 	return nil
 }
