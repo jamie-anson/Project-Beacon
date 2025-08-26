@@ -3,16 +3,12 @@
 
 FROM grafana/alloy:latest
 
-# Copy Alloy config
+# Copy configuration
 COPY observability/alloy/config.alloy /etc/alloy/config.alloy
 
 # Expose Alloy UI on 12345 (optional)
 EXPOSE 12345
 
-# Run Alloy with our config; enable UI for troubleshooting
-ENTRYPOINT ["/entrypoint"]
-CMD [
-  "run",
-  "/etc/alloy/config.alloy",
-  "--server.http.listen-addr=0.0.0.0:12345"
-]
+# Use the standard entrypoint with proper arguments
+ENTRYPOINT ["/bin/alloy"]
+CMD ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
