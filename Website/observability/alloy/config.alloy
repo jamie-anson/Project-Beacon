@@ -1,0 +1,56 @@
+// Grafana Alloy config: scrape Beacon Runner and remote_write to Grafana Cloud
+// Docs: https://grafana.com/docs/alloy/latest/
+
+prometheus.scrape "beacon_runner" {
+  targets = [{
+    __address__     = env("SCRAPE_TARGET", "beacon-runner.fly.dev:443"),
+    __metrics_path__= env("SCRAPE_METRICS_PATH", "/metrics"),
+    __scheme__      = env("SCRAPE_SCHEME", "https"),
+  }]
+
+  scrape_interval = env("SCRAPE_INTERVAL", "15s")
+  scrape_timeout  = env("SCRAPE_TIMEOUT",  "10s")
+
+  // Relabel static labels
+  forward_to = [prometheus.relabel.labels.receiver]
+}
+
+prometheus.relabel "labels" {
+  rule {
+    target_label = "instance"
+    replacement  = env("SCRAPE_INSTANCE_LABEL", "beacon-runner")
+  }
+  rule {
+    target_label = "service"
+    replacement  = env("EXTERNAL_LABEL_SERVICE", "beacon-runner")
+  }
+  rule {
+    target_label = "cluster"
+    replacement  = env("EXTERNAL_LABEL_CLUSTER", "fly-deployment")
+  }
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = env("GC_REMOTE_WRITE_URL")
+
+    basic_auth {
+      username = env("GC_USERNAME")
+      password = env("GC_PASSWORD")
+    }
+
+    queue_config {
+      capacity              = int(env("RW_QUEUE_CAPACITY", "10000"))
+      max_samples_per_send  = int(env("RW_MAX_SAMPLES_PER_SEND", "2000"))
+      batch_send_deadline   = env("RW_BATCH_DEADLINE", "5s")
+    }
+
+    metadata_config {
+      send          = env("RW_METADATA_SEND", "true")
+      send_interval = env("RW_METADATA_SEND_INTERVAL", "30s")
+    }
+
+    remote_timeout = env("RW_REMOTE_TIMEOUT", "30s")
+  }
+}

@@ -69,6 +69,7 @@ const config: Config = {
       items: [
         {to: '/', label: 'Docs Home', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
+        {to: '/portal/overview', label: 'Portal', position: 'left'},
         {href: '/', label: 'Landing', position: 'right'},
       ],
     },

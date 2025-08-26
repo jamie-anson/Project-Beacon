@@ -81,6 +81,29 @@ Code refs:
 - `sessionStorage`:
   - `beacon:activity` — persisted Activity Feed events
 
+## Observability (Runner API)
+
+The Runner exposes health probes and Prometheus metrics for monitoring.
+
+Endpoints (default dev base: `http://localhost:8090`):
+
+- `GET /health` — aggregate health
+- `GET /health/live` — liveness probe
+- `GET /health/ready` — readiness probe
+- `GET /metrics` — Prometheus metrics
+- `GET /api/v1/metrics` — metrics alias under API namespace
+
+Examples:
+
+```bash
+curl -s http://localhost:8090/health | jq .
+curl -s http://localhost:8090/health/live | jq .
+curl -s -i http://localhost:8090/health/ready | sed -n '1,10p'
+
+curl -sI http://localhost:8090/metrics | sed -n '1,10p'
+curl -s http://localhost:8090/api/v1/metrics | head -n 20
+```
+
 ## Screenshots to Include
 
 - Dashboard showing:

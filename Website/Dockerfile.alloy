@@ -1,0 +1,18 @@
+# Minimal Grafana Alloy container for scraping Beacon Runner and remote_write to Grafana Cloud
+# Docs: https://grafana.com/docs/alloy/latest/
+
+FROM grafana/alloy:latest
+
+# Copy Alloy config
+COPY observability/alloy/config.alloy /etc/alloy/config.alloy
+
+# Expose Alloy UI on 12345 (optional)
+EXPOSE 12345
+
+# Run Alloy with our config; enable UI for troubleshooting
+ENTRYPOINT ["/entrypoint"]
+CMD [
+  "run",
+  "/etc/alloy/config.alloy",
+  "--server.http.listen-addr=0.0.0.0:12345"
+]

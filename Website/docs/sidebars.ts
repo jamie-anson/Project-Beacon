@@ -49,6 +49,16 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Runner Portal',
+      collapsed: false,
+      items: [
+        'portal/overview',
+        'portal/transparency-proofs',
+        'portal/settings-ipfs-gateway',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Using the Platform',
       collapsed: false,
       items: [

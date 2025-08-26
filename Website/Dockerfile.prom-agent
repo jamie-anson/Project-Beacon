@@ -1,0 +1,28 @@
+# Minimal Prometheus Agent image for Grafana Cloud remote_write
+# Uses Prometheus in agent mode (no local TSDB), forwarding samples to Grafana Cloud.
+# Reference: https://prometheus.io/docs/agent/agent/
+
+FROM prom/prometheus:v2.53.0
+
+USER root
+
+# Install envsubst for templating the config with secrets at runtime
+RUN apt-get update -y && apt-get install -y --no-install-recommends gettext-base ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy template and entrypoint
+COPY observability/prometheus/agent.yml.tmpl /etc/prometheus/agent.yml.tmpl
+COPY observability/prometheus/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Non-root run (match base image user)
+USER nobody
+
+# Run Prometheus in agent mode
+ENTRYPOINT ["/entrypoint.sh"]
+CMD [
+  "/bin/prometheus",
+  "--config.file=/etc/prometheus/prometheus.yml",
+  "--enable-feature=agent",
+  "--web.enable-lifecycle",
+  "--log.level=info"
+]
