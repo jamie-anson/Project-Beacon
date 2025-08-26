@@ -16,7 +16,7 @@ func TestHealthEndpoints_OK(t *testing.T) {
 		YagnaURL: "http://localhost:7465",
 		IPFSURL:  "http://localhost:5001",
 	}
-	r := SetupRoutes(service.NewJobsService(nil), cfg)
+	r := SetupRoutes(service.NewJobsService(nil), cfg, nil)
 
 	cases := []string{"/health", "/health/live", "/health/ready"}
 	for _, path := range cases {

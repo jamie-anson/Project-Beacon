@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -58,14 +59,13 @@ func GetTrustedKeys() (*trustedRegistry, error) {
 			trustedErr = fmt.Errorf("trusted keys: parse json: %w", err)
 			return
 		}
-		for _, e := range entries {
-			if e.PublicKey != "" {
-				trustedReg.byPubKey[e.PublicKey] = e
-			}
-			if e.KID != "" {
-				trustedReg.byKID[e.KID] = e
-			}
+		// Validate and build registry
+		reg, vErr := validateAndBuildRegistry(entries)
+		if vErr != nil {
+			trustedErr = vErr
+			return
 		}
+		trustedReg = reg
 	})
 	return trustedReg, trustedErr
 }
@@ -116,4 +116,63 @@ func (r *trustedRegistry) ByKID(kid string) *TrustedKey {
 	if r == nil { return nil }
 	if v, ok := r.byKID[kid]; ok { return &v }
 	return nil
+}
+
+// validateAndBuildRegistry validates entries and constructs the registry.
+func validateAndBuildRegistry(entries []TrustedKey) (*trustedRegistry, error) {
+    reg := &trustedRegistry{byPubKey: map[string]TrustedKey{}, byKID: map[string]TrustedKey{}}
+    seenKID := make(map[string]struct{})
+    seenPK := make(map[string]struct{})
+
+    for i, e := range entries {
+        // Required fields
+        if e.KID == "" {
+            return nil, fmt.Errorf("trusted keys: entry %d missing kid", i)
+        }
+        if e.PublicKey == "" {
+            return nil, fmt.Errorf("trusted keys: entry %d missing public_key (kid=%s)", i, e.KID)
+        }
+        // Status enum (optional defaults to active if empty elsewhere)
+        if e.Status != "" && e.Status != "active" && e.Status != "revoked" {
+            return nil, fmt.Errorf("trusted keys: entry %d invalid status %q (kid=%s)", i, e.Status, e.KID)
+        }
+        // Timestamp parse/ordering checks
+        var nb, na time.Time
+        var err error
+        if e.NotBefore != "" {
+            nb, err = time.Parse(time.RFC3339, e.NotBefore)
+            if err != nil {
+                return nil, fmt.Errorf("trusted keys: entry %d invalid not_before %q (kid=%s): %w", i, e.NotBefore, e.KID, err)
+            }
+        }
+        if e.NotAfter != "" {
+            na, err = time.Parse(time.RFC3339, e.NotAfter)
+            if err != nil {
+                return nil, fmt.Errorf("trusted keys: entry %d invalid not_after %q (kid=%s): %w", i, e.NotAfter, e.KID, err)
+            }
+        }
+        if !nb.IsZero() && !na.IsZero() && nb.After(na) {
+            return nil, fmt.Errorf("trusted keys: entry %d not_before after not_after (kid=%s)", i, e.KID)
+        }
+        // Base64 sanity check for public key
+        if _, err := base64.StdEncoding.DecodeString(e.PublicKey); err != nil {
+            if _, err2 := base64.RawStdEncoding.DecodeString(e.PublicKey); err2 != nil {
+                return nil, fmt.Errorf("trusted keys: entry %d invalid base64 public_key (kid=%s): %v", i, e.KID, err)
+            }
+        }
+        // Duplicate checks
+        if _, ok := seenKID[e.KID]; ok {
+            return nil, fmt.Errorf("trusted keys: duplicate kid %q", e.KID)
+        }
+        if _, ok := seenPK[e.PublicKey]; ok {
+            return nil, fmt.Errorf("trusted keys: duplicate public_key for kid %q", e.KID)
+        }
+        seenKID[e.KID] = struct{}{}
+        seenPK[e.PublicKey] = struct{}{}
+
+        // Add to registry
+        reg.byKID[e.KID] = e
+        reg.byPubKey[e.PublicKey] = e
+    }
+    return reg, nil
 }

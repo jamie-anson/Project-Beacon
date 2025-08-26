@@ -19,7 +19,7 @@ func TestContract_CreateJob_TrustEnforce_Untrusted_400(t *testing.T) {
     t.Parallel()
     // Router with TrustEnforce=true
     cfg := &config.Config{HTTPPort: "8090", TrustEnforce: true}
-    r := SetupRoutes(nil, cfg)
+    r := SetupRoutes(nil, cfg, nil)
 
     // Build a valid signed spec with a random key (not in allowlist)
     js := buildSignedJobSpec(t, "job-trust-bad")

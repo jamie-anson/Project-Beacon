@@ -41,7 +41,7 @@ func TestE2E_EphemeralMode_WritesAddrFile_AndEndpointsRespond(t *testing.T) {
 
 	// Router and server
 	jobsService := &service.JobsService{}
-	r := SetupRoutes(jobsService, cfg)
+	r := SetupRoutes(jobsService, cfg, nil)
 	srv := &http.Server{Handler: r}
 
 	// Bind ephemeral and write addr file

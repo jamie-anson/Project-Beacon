@@ -24,6 +24,7 @@ import (
 //   PORT_STRATEGY (default fallback)
 //   PORT_RANGE (default 8090-8099)
 //   RUNNER_HTTP_ADDR_FILE (default .runner-http.addr)
+//   RUNNER_SIG_BYPASS (default false)
 //
 // Logging config is handled in internal/logging.
 
@@ -50,6 +51,14 @@ type Config struct {
     // Signature trust enforcement
     TrustEnforce        bool
     TrustedKeysFile     string
+    TrustedKeysReload   time.Duration
+    // Development-only: bypass signature verification
+    SigBypass           bool
+
+    // Security settings
+    TimestampMaxSkew    time.Duration
+    TimestampMaxAge     time.Duration
+    ReplayProtectionEnabled bool
 
 	// Queue names
 	JobsQueueName       string
@@ -83,7 +92,7 @@ func Load() *Config {
 		}
 	}
 	addrFile := getString("RUNNER_HTTP_ADDR_FILE", ".runner-http.addr")
-	return &Config{
+	cfg := &Config{
 		HTTPPort:           httpPort,
 		PortStrategy:       portStrategy,
 		PortRangeStart:     rangeStart,
@@ -99,6 +108,11 @@ func Load() *Config {
 		UseMigrations:      getBool("USE_MIGRATIONS", true),
         TrustEnforce:       getBool("TRUST_ENFORCE", false),
         TrustedKeysFile:    getString("TRUSTED_KEYS_FILE", ""),
+        TrustedKeysReload:  time.Duration(getInt("TRUSTED_KEYS_RELOAD_SECONDS", 0)) * time.Second,
+        SigBypass:          getBool("RUNNER_SIG_BYPASS", false),
+        TimestampMaxSkew:   time.Duration(getInt("TIMESTAMP_MAX_SKEW_MINUTES", 5)) * time.Minute,
+        TimestampMaxAge:    time.Duration(getInt("TIMESTAMP_MAX_AGE_MINUTES", 10)) * time.Minute,
+        ReplayProtectionEnabled: getBool("REPLAY_PROTECTION_ENABLED", true),
 
 		// Queue names
 		JobsQueueName:      getString("JOBS_QUEUE_NAME", "jobs"),
@@ -111,6 +125,13 @@ func Load() *Config {
 		GolemAPIKey:        getString("GOLEM_API_KEY", ""),
 		GolemNetwork:       getString("GOLEM_NETWORK", "testnet"),
 	}
+
+    // In CI, hard-disable signature bypass regardless of env request
+    if os.Getenv("CI") == "true" {
+        cfg.SigBypass = false
+    }
+
+    return cfg
 }
 
 func getString(key, def string) string {

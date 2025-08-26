@@ -15,6 +15,14 @@ type Client struct {
 	redis *redis.Client
 }
 
+// GetRedisClient returns the underlying Redis client for security features
+func (c *Client) GetRedisClient() *redis.Client {
+	if c == nil {
+		return nil
+	}
+	return c.redis
+}
+
 // advQueue is the minimal interface used by StartWorker for the advanced queue
 type advQueue interface {
     Dequeue(ctx context.Context) (*JobMessage, error)

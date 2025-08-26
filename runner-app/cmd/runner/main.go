@@ -6,25 +6,29 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
-	"strings"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+
 	"github.com/jamie-anson/project-beacon-runner/internal/api"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/golem"
 	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
-	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
-	"github.com/jamie-anson/project-beacon-runner/internal/worker"
-	"github.com/jamie-anson/project-beacon-runner/internal/golem"
-	"github.com/jamie-anson/project-beacon-runner/internal/store"
-	"github.com/jamie-anson/project-beacon-runner/internal/service"
-	"github.com/jamie-anson/project-beacon-runner/internal/transparency"
+	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/serverbind"
+	"github.com/jamie-anson/project-beacon-runner/internal/service"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/internal/transparency"
 	wsHub "github.com/jamie-anson/project-beacon-runner/internal/websocket"
+	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 
 	// OpenTelemetry
 	"go.opentelemetry.io/otel"
@@ -33,7 +37,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -44,6 +47,27 @@ func main() {
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {
 		logger.Fatal().Err(err).Msg("invalid configuration")
+	}
+
+	// Materialize trusted keys from environment if provided (helps Fly deploys)
+	if path := os.Getenv("TRUSTED_KEYS_FILE"); path != "" {
+		if content := os.Getenv("TRUSTED_KEYS_JSON"); content != "" {
+			// Ensure parent dir exists
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				logger.Warn().Err(err).Str("path", path).Msg("failed to create parent dir for TRUSTED_KEYS_FILE")
+			} else {
+				// Basic sanity: must start with '{' or '['
+				if len(content) > 0 && (content[0] == '{' || content[0] == '[') {
+					if err := os.WriteFile(path, []byte(content), 0o640); err != nil {
+						logger.Warn().Err(err).Str("path", path).Msg("failed to write TRUSTED_KEYS_FILE")
+					} else {
+						logger.Info().Str("path", path).Msg("materialized trusted keys from env")
+					}
+				} else {
+					logger.Warn().Str("path", path).Msg("TRUSTED_KEYS_JSON does not look like JSON; skipping materialization")
+				}
+			}
+		}
 	}
 
 	// Initialize OpenTelemetry (optional, enabled when OTEL_EXPORTER_OTLP_ENDPOINT is set)
@@ -86,27 +110,46 @@ func main() {
 	}
 	transparency.RegisterBroadcaster(hub.BroadcastMessage)
 
-	// Setup routes with services and config
-	r = api.SetupRoutes(jobsService, cfg)
+	// Redis client for security features
+	q := queue.MustNewFromEnv()
+	var redisClient *redis.Client
+	if q != nil && q.GetRedisClient() != nil {
+		redisClient = q.GetRedisClient()
+	}
 
-	// Attach metrics middleware and endpoint to the final router
+	// Setup routes with services and config
+	r = api.SetupRoutes(jobsService, cfg, redisClient)
+
+	// Enable OpenTelemetry tracing for Gin routes
+	r.Use(otelgin.Middleware("runner-http"))
+
+	// Attach tracing middleware (Gin-aware) and metrics middleware
 	r.Use(metrics.GinMiddleware())
 	r.GET("/metrics", gin.WrapH(metrics.Handler()))
+	// Alias metrics under API namespace for observability tooling compatibility
+	r.GET("/api/v1/metrics", gin.WrapH(metrics.Handler()))
+	// Support HEAD requests (curl -I) for both metrics endpoints
+	r.HEAD("/metrics", gin.WrapH(metrics.Handler()))
+	r.HEAD("/api/v1/metrics", gin.WrapH(metrics.Handler()))
 
 	// Expose WebSocket endpoint
 	r.GET("/ws", func(c *gin.Context) {
 		hub.ServeWS(c.Writer, c.Request)
 	})
 
-	// Setup server (wrap handler with otelhttp for tracing)
+	// Setup server (handler is the Gin router; tracing via otelgin middleware)
 	srv := &http.Server{
 		Addr:    cfg.HTTPPort,
-		Handler: otelhttp.NewHandler(r, "runner-http"),
+		Handler: r,
 	}
 
 	// Redis client and background processes
 	workerCtx, workerCancel := context.WithCancel(context.Background())
-	q := queue.MustNewFromEnv()
+
+	// Start trusted keys hot-reloader if configured
+	if cfg.TrustedKeysFile != "" && cfg.TrustedKeysReload > 0 {
+		config.StartTrustedKeysReloader(workerCtx, cfg.TrustedKeysFile, cfg.TrustedKeysReload)
+	}
 
 	// Start structured workers if DB is available
 	if database != nil && database.DB != nil {

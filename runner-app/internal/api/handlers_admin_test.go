@@ -15,7 +15,7 @@ import (
 func newAdminTestRouter() *gin.Engine {
     cfg := &config.Config{HTTPPort: ":8090"}
     // JobsService can be nil; admin routes don't use it
-    return SetupRoutes(service.NewJobsService(nil), cfg)
+    return SetupRoutes(service.NewJobsService(nil), cfg, nil)
 }
 
 func TestAdmin_Unauthorized_WhenNoTokenConfigured(t *testing.T) {

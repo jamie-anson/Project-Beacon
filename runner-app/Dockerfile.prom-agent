@@ -1,0 +1,13 @@
+# Minimal Prometheus Agent image for scraping runner and remote_write to Grafana Cloud
+# Uses Prometheus in agent mode
+FROM prom/prometheus:v2.52.0
+
+# Copy agent config
+COPY observability/prometheus/agent.yml /etc/prometheus/agent.yml
+
+# Listen port is not required to be exposed; agent scrapes remote targets.
+# If you need to scrape over private networks, set up networking in your platform (e.g., Fly.io private networking).
+
+# Enable agent mode and point to config
+ENTRYPOINT ["/bin/prometheus"]
+CMD ["--enable-feature=agent","--config.file=/etc/prometheus/agent.yml","--storage.agent.retention.max-time=0s"]

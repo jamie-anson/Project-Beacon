@@ -1,4 +1,7 @@
-.PHONY: help setup dev build test clean docker-up docker-down run-runner cover cover-html race cover-check port addr base
+.PHONY: help setup dev build test clean docker-up docker-down run-runner cover cover-html race cover-check port addr base yagna-start yagna-stop yagna-status e2e
+
+# Use bash for advanced env handling (indirect expansion)
+SHELL := /bin/bash
 
 # Default test timeout (can be overridden: `make test TIMEOUT=1m`)
 TIMEOUT ?= 10m
@@ -13,10 +16,24 @@ help:
 	@echo "  clean      - Clean build artifacts"
 	@echo "  docker-up  - Start all services with Docker Compose"
 	@echo "  docker-down- Stop all Docker services"
+	@echo "  docker-dev - Docker mode: services + runner (uses port 8090)"
 	@echo "  run-runner - Start runner container with auto port failover (8090->8091)"
 	@echo "  port       - Print active HTTP port from .runner-http.addr"
 	@echo "  addr       - Print active bound addr from .runner-http.addr"
 	@echo "  base       - Print base URL using .runner-http.addr (http://localhost:<port>)"
+	@echo "  e2e        - Run end-to-end sign→submit test (requires Postgres & Redis running, API on :8090)"
+	@echo "  sign       - Sign a JobSpec JSON with dev key (usage: make sign IN=examples/foo.json [OUT=...])"
+	@echo "  verify     - Verify a signed JobSpec (usage: make verify IN=examples/foo.json.signed)"
+	@echo "  submit     - Submit a (signed) JobSpec to API (usage: make submit FILE=examples/foo.json.signed [URL=http://localhost:8090])"
+	@echo "  extract-pubkey - Print public key from signed file (usage: make extract-pubkey IN=...json.signed)"
+	@echo "  regen-examples - Regenerate signed example JobSpecs using sigtool"
+	@echo "  validate-examples - Validate example .signed files are parseable JSON"
+	@echo "  install-pre-commit - Install git pre-commit hook to validate examples"
+	@echo ""
+	@echo "Terminal-specific targets:"
+	@echo "  yagna-start - Terminal A: Start Yagna daemon"
+	@echo "  yagna-stop  - Terminal A: Stop Yagna daemon"
+	@echo "  yagna-status- Terminal A: Check Yagna daemon status"
 
 # Setup development environment
 setup:
@@ -28,12 +45,21 @@ setup:
 # Run development server (loads .env if present)
 dev:
 	@echo "Starting development server..."
+	@echo "Ensuring no Docker runner conflicts..."
+	@docker compose stop runner 2>/dev/null || true
 	@if [ -f .env ]; then \
-		set -a; \
-		. ./.env; \
-		set +a; \
+		echo "Loading .env (overriding shell env for dev)..."; \
+		while IFS= read -r line; do \
+			case "$$line" in ''|'#'*) continue ;; esac; \
+			key=$$(printf '%s' "$$line" | cut -d= -f1 | xargs); \
+			val=$$(printf '%s' "$$line" | cut -d= -f2-); \
+			if [ -z "$$key" ]; then continue; fi; \
+			export "$$key=$$val"; \
+		done < .env; \
 		go run cmd/runner/main.go; \
 	else \
+		DATABASE_URL="postgres://postgres:password@localhost:5433/beacon_runner?sslmode=disable" \
+		REDIS_URL="redis://localhost:6379" \
 		go run cmd/runner/main.go; \
 	fi
 
@@ -41,6 +67,14 @@ dev:
 build:
 	@echo "Building runner application..."
 	go build -o bin/runner cmd/runner/main.go
+	@echo "Building sigtool..."
+	go build -o sigtool cmd/sigtool/main.go
+
+# Paths and defaults for signing utilities
+SIGTOOL := $(CURDIR)/sigtool
+DEV_PRIV_KEY_FILE ?= $(CURDIR)/.dev/keys/private.key
+DEV_PRIV_KEY_B64 := $(shell tr -d '\n\r\t ' < "$(DEV_PRIV_KEY_FILE)" 2>/dev/null)
+API_URL ?= http://localhost:8090
 
 # Run tests
 test:
@@ -122,6 +156,13 @@ docker-full:
 	@echo "Starting full Docker environment..."
 	docker compose up --build
 
+# Docker mode: services + runner (stops local dev conflicts)
+docker-dev:
+	@echo "Starting Docker development mode..."
+	@echo "This will use Docker runner on port 8090"
+	docker compose up -d postgres redis ipfs
+	docker compose up --build runner
+
 # Database migration
 migrate:
 	@echo "Running database migrations..."
@@ -164,3 +205,92 @@ addr:
 # Print the base URL using helper script
 base:
 	@./scripts/runner-port.sh --base
+
+# End-to-end sign→submit test (requires API on :8090, Postgres & Redis running)
+e2e:
+	@echo "Running E2E: sign→submit..."
+	@chmod +x scripts/e2e-sign-submit.sh
+	@./scripts/e2e-sign-submit.sh
+
+# Sign a JobSpec JSON using dev private key (requires IN, optional OUT)
+# Usage: make sign IN=examples/jobspec-who-are-you.json [OUT=examples/jobspec-who-are-you.json.signed]
+sign: build
+	@if [ -z "$(IN)" ]; then echo "Error: IN=<input.json> is required"; exit 1; fi
+	@OUT_FILE=$$( [ -n "$(OUT)" ] && echo "$(OUT)" || echo "$(IN).signed" ); \
+	  if [ ! -f "$(DEV_PRIV_KEY_FILE)" ]; then echo "Error: dev private key not found at $(DEV_PRIV_KEY_FILE)"; exit 1; fi; \
+	  if [ ! -x "$(SIGTOOL)" ]; then echo "Error: sigtool not built"; exit 1; fi; \
+	  TMP=$$(mktemp); \
+	  jq '(.metadata.timestamp? |= empty) | (.metadata.nonce? |= empty)' "$(IN)" > "$$TMP"; \
+	  "$(SIGTOOL)" sign --private-key "$(DEV_PRIV_KEY_B64)" --input "$$TMP" --output "$$OUT_FILE"; \
+	  rm -f "$$TMP"; \
+	  echo "Signed -> $$OUT_FILE"
+
+# Verify a signed JobSpec
+# Usage: make verify IN=examples/jobspec-who-are-you.json.signed
+verify: build
+	@if [ -z "$(IN)" ]; then echo "Error: IN=<input.signed> is required"; exit 1; fi
+	@if [ ! -x "$(SIGTOOL)" ]; then echo "Error: sigtool not built"; exit 1; fi
+	@"$(SIGTOOL)" verify --input "$(IN)"
+
+# Extract public key from a signed JobSpec
+# Usage: make extract-pubkey IN=examples/jobspec-who-are-you.json.signed
+extract-pubkey: build
+	@if [ -z "$(IN)" ]; then echo "Error: IN=<input.signed> is required"; exit 1; fi
+	@if [ ! -x "$(SIGTOOL)" ]; then echo "Error: sigtool not built"; exit 1; fi
+	@"$(SIGTOOL)" extract-pubkey --input "$(IN)"
+
+# Submit a (signed) JobSpec to the API
+# Usage: make submit FILE=examples/jobspec-who-are-you.json.signed [URL=http://localhost:8090]
+submit:
+	@if [ -z "$(FILE)" ]; then echo "Error: FILE=<path to .json or .signed> is required"; exit 1; fi
+	@URL=$$( [ -n "$(URL)" ] && echo "$(URL)" || echo "$(API_URL)" ); \
+	  echo "Submitting $(FILE) -> $$URL/api/v1/jobs"; \
+	  curl -sS -D >(grep -E 'HTTP/|location' >&2) -H 'Content-Type: application/json' \
+	    --data-binary @"$(FILE)" "$$URL/api/v1/jobs" | jq .
+
+# Regenerate signed examples using current signing rules
+regen-examples:
+	@chmod +x scripts/regenerate_signed_examples.sh
+	@./scripts/regenerate_signed_examples.sh
+
+# Validate that signed examples are valid JSON
+validate-examples:
+	@echo "Validating example JSON..."
+	@for f in examples/*.signed; do \
+	  if [ -f "$$f" ]; then echo "Checking $$f"; jq -e . "$$f" >/dev/null; fi; \
+	done
+
+# Install git pre-commit hook
+install-pre-commit:
+	@echo "Installing pre-commit hook..."
+	@mkdir -p .git/hooks
+	@cp scripts/pre-commit-validate-examples.sh .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "Installed .git/hooks/pre-commit"
+
+# Terminal A: Yagna daemon management
+yagna-start:
+	@echo "Starting Yagna daemon (Terminal A)..."
+	@if command -v yagna >/dev/null 2>&1; then \
+		yagna service run --api-allow-origin='*' & \
+		echo "Yagna daemon started. Check status with 'make yagna-status'"; \
+	else \
+		echo "Error: yagna not found. Install with: curl -sSf https://join.golem.network/as-requestor | bash"; \
+		exit 1; \
+	fi
+
+yagna-stop:
+	@echo "Stopping Yagna daemon..."
+	@pkill -f "yagna service" || echo "No Yagna daemon running"
+
+yagna-status:
+	@echo "Yagna daemon status:"
+	@if pgrep -f "yagna service" >/dev/null; then \
+		echo "✓ Yagna daemon is running"; \
+		if command -v yagna >/dev/null 2>&1; then \
+			echo "API endpoint: http://localhost:7465"; \
+			yagna app-key list 2>/dev/null || echo "Run 'yagna app-key create requestor' to create API key"; \
+		fi; \
+	else \
+		echo "✗ Yagna daemon is not running"; \
+	fi

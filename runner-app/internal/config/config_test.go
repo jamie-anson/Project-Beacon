@@ -29,6 +29,23 @@ func TestConfig_LoadFromEnv_Success(t *testing.T) {
 	assert.Equal(t, "http://localhost:5001", config.IPFSURL)
 }
 
+func TestConfig_SigBypass_DisabledInCI(t *testing.T) {
+    // Ensure env starts clean
+    cleanupEnv()
+    // Request bypass but set CI=true
+    os.Setenv("RUNNER_SIG_BYPASS", "true")
+    os.Setenv("CI", "true")
+    // Also set required envs so Validate passes
+    os.Setenv("DATABASE_URL", "postgres://localhost/test")
+    os.Setenv("REDIS_URL", "redis://localhost:6379")
+    defer cleanupEnv()
+
+    cfg := Load()
+    require.NoError(t, cfg.Validate())
+    // Must be forced off in CI
+    assert.False(t, cfg.SigBypass, "SigBypass should be disabled when CI=true")
+}
+
 func TestConfig_LoadFromEnv_Defaults(t *testing.T) {
 	// Clear environment variables to test defaults
 	cleanupEnv()
@@ -188,17 +205,19 @@ func TestConfig_PortStrategy_Validation(t *testing.T) {
 	assert.Contains(t, err.Error(), "PORT_STRATEGY must be one of")
 }
 
+// (removed duplicate TestConfig_SigBypass_DisabledInCI definitions)
+
 // Helper functions
 
 func cleanupEnv() {
-	envVars := []string{
-		"HTTP_PORT", "DATABASE_URL", "REDIS_URL", "GOLEM_NETWORK",
-		"IPFS_URL", "REQUEST_TIMEOUT", "RATE_LIMIT_RPM", "ENABLE_METRICS",
-		"ENV", "LOG_LEVEL",
-	}
-	for _, env := range envVars {
-		os.Unsetenv(env)
-	}
+    envVars := []string{
+        "HTTP_PORT", "DATABASE_URL", "REDIS_URL", "GOLEM_NETWORK",
+        "IPFS_URL", "REQUEST_TIMEOUT", "RATE_LIMIT_RPM", "ENABLE_METRICS",
+        "ENV", "LOG_LEVEL", "RUNNER_SIG_BYPASS", "CI",
+    }
+    for _, env := range envVars {
+        os.Unsetenv(env)
+    }
 }
 
 func createTempConfigFile(t *testing.T, content string) string {

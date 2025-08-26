@@ -28,7 +28,7 @@ func TestGetJob_NotFound_Returns404(t *testing.T) {
         WithArgs("job-missing").
         WillReturnRows(sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}))
 
-    r := SetupRoutes(service.NewJobsService(db), &config.Config{HTTPPort: "8090"})
+    r := SetupRoutes(service.NewJobsService(db), &config.Config{HTTPPort: "8090"}, nil)
     req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-missing", nil)
     w := httptest.NewRecorder()
 
@@ -74,7 +74,7 @@ func TestGetJob_Latest_NoReceiptYet_ReturnsEmptyExecutions(t *testing.T) {
         WithArgs("job-latest-empty").
         WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}))
 
-    r := SetupRoutes(service.NewJobsService(db), &config.Config{HTTPPort: "8090"})
+    r := SetupRoutes(service.NewJobsService(db), &config.Config{HTTPPort: "8090"}, nil)
     req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-latest-empty?include=latest", nil)
     w := httptest.NewRecorder()
 

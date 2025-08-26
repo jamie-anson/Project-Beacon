@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 )
 
@@ -17,22 +16,8 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize v1: create signable: %w", err)
 	}
-	// Convert to generic map so we can drop keys regardless of struct tags
-	var generic interface{}
-	raw, err := json.Marshal(signable)
-	if err != nil {
-		return nil, fmt.Errorf("canonicalize v1: marshal signable: %w", err)
-	}
-	if err := json.Unmarshal(raw, &generic); err != nil {
-		return nil, fmt.Errorf("canonicalize v1: unmarshal signable: %w", err)
-	}
-	if m, ok := generic.(map[string]interface{}); ok {
-		delete(m, "signature")
-		delete(m, "public_key")
-		generic = m
-	}
-	// Encode deterministically
-	b, err := CanonicalJSON(generic)
+	// Encode deterministically using the signable struct directly (keys retained, zeroed)
+	b, err := CanonicalJSON(signable)
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize v1: encode: %w", err)
 	}

@@ -20,7 +20,7 @@ import (
 
 func newTestRouter() *gin.Engine {
     cfg := &config.Config{HTTPPort: "8090"}
-    return SetupRoutes(service.NewJobsService(nil), cfg)
+    return SetupRoutes(service.NewJobsService(nil), cfg, nil)
 }
 
 // Contract: X-Request-ID header must be present on success responses
@@ -624,7 +624,7 @@ func TestGetJob_IncludeExecutions_FallbackToNonPaginated(t *testing.T) {
 
 func newTestRouterWithDB(mockDB *sql.DB) *gin.Engine {
 	cfg := &config.Config{HTTPPort: "8090"}
-	return SetupRoutes(service.NewJobsService(mockDB), cfg)
+	return SetupRoutes(service.NewJobsService(mockDB), cfg, nil)
 }
 
 // buildSignedJobSpec creates a minimally valid, signed JobSpec for tests
@@ -744,6 +744,17 @@ func TestCreateJob_HappyPath202(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusAccepted {
 		t.Fatalf("expected 202, got %d; body=%s", w.Code, w.Body.String())
+	}
+	// Quick assertion: decode response body and verify expected fields
+	var okResp struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &okResp); err != nil {
+		t.Fatalf("unmarshal 202 response: %v; body=%s", err, w.Body.String())
+	}
+	if okResp.ID != "job-ok" || okResp.Status != "enqueued" {
+		t.Fatalf("unexpected 202 response: id=%q status=%q; body=%s", okResp.ID, okResp.Status, w.Body.String())
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

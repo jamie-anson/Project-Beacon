@@ -252,14 +252,28 @@ func (js *JobSpec) VerifySignature() error {
 
 	// Verify signature
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-        // Shadow check: if v1 canonicalization would verify, surface a helpful hint.
+        // Fallback: accept v1 canonicalization if it verifies (temporary compatibility)
         if canonV1, cErr := crypto.CanonicalizeJobSpecV1(js); cErr == nil {
             if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
                 if ed25519.Verify(publicKey, canonV1, sigBytes) {
-                    return fmt.Errorf("signature verification failed: canonicalization mismatch (v1 would verify)")
+                    fmt.Printf("COMPAT: JobSpec %s verified with v1 canonicalization (accepting; please re-sign/update)\n", js.ID)
+                    return nil
                 }
             }
         }
+        
+        // Backward compatibility: try v0 canonicalization
+        if canonV0, cErr := crypto.CanonicalizeJobSpecV0(js); cErr == nil {
+            if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
+                if ed25519.Verify(publicKey, canonV0, sigBytes) {
+                    // Log deprecation warning using fmt.Printf for now
+                    // TODO: Replace with proper structured logging when available
+                    fmt.Printf("DEPRECATED: JobSpec %s signed with v0 canonicalization - please re-sign with current method\n", js.ID)
+                    return nil // Accept v0 signature with warning
+                }
+            }
+        }
+        
         return fmt.Errorf("signature verification failed: %w", err)
     }
 

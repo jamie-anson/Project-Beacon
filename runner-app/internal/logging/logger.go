@@ -65,3 +65,12 @@ func WithFields(l zerolog.Logger, fields map[string]string) zerolog.Logger {
 	}
 	return ctx.Logger()
 }
+
+// DebugEnabled returns true when extra debug instrumentation should run.
+// Enabled if either DEBUG=true or LOG_LEVEL=debug.
+func DebugEnabled() bool {
+	if strings.EqualFold(os.Getenv("DEBUG"), "true") {
+		return true
+	}
+	return strings.EqualFold(os.Getenv("LOG_LEVEL"), "debug")
+}

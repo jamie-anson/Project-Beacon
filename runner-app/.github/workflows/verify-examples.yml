@@ -1,0 +1,54 @@
+name: Verify Signed Examples
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'examples/**'
+      - 'pkg/crypto/**'
+      - 'pkg/models/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'examples/**'
+      - 'pkg/crypto/**'
+      - 'pkg/models/**'
+
+jobs:
+  verify-examples:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify signed examples
+      run: |
+        echo "Verifying signed JobSpec examples..."
+        go run ./scripts/verify-examples.go ./examples
+        
+    - name: Test signature verification
+      run: |
+        echo "Running signature verification tests..."
+        go test ./pkg/crypto -v -run TestSign
+        go test ./pkg/models -v -run TestJobSpecSigningAndVerification
+        
+    - name: Validate example schema
+      run: |
+        echo "Validating example JobSpec schema..."
+        go run ./scripts/validate-examples-schema.go ./examples

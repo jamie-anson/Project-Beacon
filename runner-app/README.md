@@ -41,6 +41,14 @@ make dev
 
 The API will be available at `http://localhost:8090` (fallback may choose another port if 8090 is busy; see Ports & Discovery below).
 
+### Terminal labels
+
+- Terminal A: Yagna daemon
+- Terminal B: Go API server (local)
+- Terminal C: Actions (curl, tests)
+- Terminal D: Local infra (docker compose: Postgres/Redis)
+- Terminal E: Cloud ops (Fly/Neon/Upstash/Grafana Cloud)
+
 ### API Endpoints
 
 - `GET /health` - Aggregate health
@@ -56,6 +64,56 @@ The API will be available at `http://localhost:8090` (fallback may choose anothe
 - Admin (token required unless running in Gin debug mode):
   - `GET /admin/port` → `{ addr, strategy }`
   - `GET /admin/hints` → `{ base_url, resolved_addr, strategy }`
+
+## Observability
+
+Health probes and Prometheus metrics are exposed. Examples target `http://localhost:8090`.
+
+### Health
+
+```bash
+curl -s http://localhost:8090/health | jq .
+curl -s http://localhost:8090/health/live | jq .
+curl -s -i http://localhost:8090/health/ready | sed -n '1,10p'
+```
+
+### Metrics
+
+Prometheus text exposition format is available at both paths:
+
+- `/metrics`
+- `/api/v1/metrics` (alias under API namespace)
+
+```bash
+curl -sI http://localhost:8090/metrics | sed -n '1,10p'
+curl -s http://localhost:8090/api/v1/metrics | head -n 20
+```
+
+Tracing is enabled via Gin's OpenTelemetry middleware (`otelgin`). The OTLP exporter is used when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+
+## Signing and Security
+
+Project Beacon requires JobSpecs to be cryptographically signed. Trusted-keys allowlist, timestamp freshness, nonce replay protection, and unified error codes are implemented.
+
+- See detailed guide: `docs/signing.md`
+
+Quick submit example to the local server on `http://localhost:8090`:
+
+```bash
+curl -X POST http://localhost:8090/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d @examples/jobspec-who-are-you.json.signed
+```
+
+Common failure checks (expect 400 errors with structured codes):
+
+```bash
+# Missing nonce
+curl -sS -X POST http://localhost:8090/api/v1/jobs -H 'Content-Type: application/json' -d '{"id":"demo","version":"1.0","metadata":{"timestamp":"2025-08-22T14:50:32Z"},"signature":"","public_key":""}' | jq
+
+# Malformed timestamp
+curl -sS -X POST http://localhost:8090/api/v1/jobs -H 'Content-Type: application/json' -d '{"id":"demo","version":"1.0","metadata":{"timestamp":"2025/08/22 14:50:32","nonce":"n1"},"signature":"","public_key":""}' | jq
+```
 
 ## Development
 
@@ -114,6 +172,28 @@ Environment variables:
 - `PORT_RANGE` - fallback scan range, e.g. `8090-8099`
 - `RUNNER_HTTP_ADDR_FILE` - path to write the resolved addr (default: `.runner-http.addr`)
 - `ADMIN_TOKEN` - token required for admin endpoints (public only in Gin debug mode)
+
+Security and signing:
+
+- `TRUST_ENFORCE` - enable trusted-keys allowlist enforcement (bool)
+- `TRUSTED_KEYS_FILE` - path to trusted keys JSON file
+- `TRUSTED_KEYS_RELOAD_SECONDS` - optional hot-reload interval for trusted keys
+- `TIMESTAMP_MAX_SKEW_MINUTES` - allowed clock skew for timestamps
+- `TIMESTAMP_MAX_AGE_MINUTES` - maximum allowed age for timestamps
+- `REPLAY_PROTECTION_ENABLED` - enable nonce-based replay protection (requires Redis)
+- `RUNNER_SIG_BYPASS` - development-only signature verification bypass (never use in prod/CI)
+
+### Local env precedence (.env)
+
+- `make dev` now loads variables from `.env` and **overrides any existing shell environment variables** for the current make invocation. This makes local development reproducible regardless of your shell state.
+- To change a value, edit `.env`. To temporarily override, run `VAR=value make dev` and place the override later in `.env` if you want it persisted.
+
+### Debug logging gates
+
+Verbose debug instrumentation around canonicalization comparison and shadow v1 verification is gated behind a debug flag:
+
+- Set `DEBUG=true` (or `LOG_LEVEL=debug`) to enable these logs.
+- When not in debug, these logs are suppressed. The gating occurs in `internal/api/handlers_simple.go` using `logging.DebugEnabled()`.
 
 ### Ports, Strategies, and Discovery
 

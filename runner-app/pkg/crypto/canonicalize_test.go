@@ -6,7 +6,7 @@ import (
 )
 
 // helper struct simulating minimal JobSpec fields used by CreateSignableJobSpec via reflection
-// We keep field names "Signature" and "PublicKey" to ensure they are stripped.
+// We keep field names "Signature" and "PublicKey" to ensure they are zeroed (not stripped).
 type miniJobSpec struct {
 	ID        string                 `json:"id"`
 	Version   string                 `json:"version"`
@@ -35,7 +35,7 @@ func TestCanonicalizeGenericV1_SortsKeysAndIsDeterministic(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeJobSpecV1_StripsSignatureAndPublicKey(t *testing.T) {
+func TestCanonicalizeJobSpecV1_RetainsZeroedSignatureAndPublicKey(t *testing.T) {
 	js := miniJobSpec{
 		ID:      "job-1",
 		Version: "1",
@@ -47,9 +47,17 @@ func TestCanonicalizeJobSpecV1_StripsSignatureAndPublicKey(t *testing.T) {
 	}
 	b, err := CanonicalizeJobSpecV1(&js)
 	if err != nil { t.Fatalf("canon err: %v", err) }
-	// Ensure signature/public_key are absent in canonical bytes
+	// Ensure signature/public_key keys are present but zeroed in canonical bytes
 	var m map[string]interface{}
 	if err := json.Unmarshal(b, &m); err != nil { t.Fatalf("unmarshal canon: %v", err) }
-	if _, ok := m["signature"]; ok { t.Fatalf("signature should be excluded") }
-	if _, ok := m["public_key"]; ok { t.Fatalf("public_key should be excluded") }
+	if v, ok := m["signature"]; !ok {
+		t.Fatalf("signature key should be retained (zeroed)")
+	} else if s, ok2 := v.(string); !ok2 || s != "" {
+		t.Fatalf("signature should be empty string, got: %#v", v)
+	}
+	if v, ok := m["public_key"]; !ok {
+		t.Fatalf("public_key key should be retained (zeroed)")
+	} else if s, ok2 := v.(string); !ok2 || s != "" {
+		t.Fatalf("public_key should be empty string, got: %#v", v)
+	}
 }

@@ -84,7 +84,7 @@ func TestContract_Admin_Config_Auth(t *testing.T) {
         IPFSGateway: "https://ipfs.io/ipfs/",
         YagnaURL: "http://127.0.0.1:7465",
     }
-    r := SetupRoutes(nil, cfg)
+    r := SetupRoutes(nil, cfg, nil)
 
     // 401 when header missing
     req := httptest.NewRequest(http.MethodGet, "/admin/config", nil)
@@ -120,7 +120,7 @@ func TestContract_Admin_PortHints_Debug_Public(t *testing.T) {
     t.Cleanup(func(){ if old != "" { _ = os.Setenv("ADMIN_TOKEN", old) } })
 
     cfg := &config.Config{HTTPPort:"8090", PortStrategy:"fixed", ResolvedAddr:"0.0.0.0:8090"}
-    r := SetupRoutes(nil, cfg)
+    r := SetupRoutes(nil, cfg, nil)
 
     // /admin/port
     req := httptest.NewRequest(http.MethodGet, "/admin/port", nil)

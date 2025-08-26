@@ -61,7 +61,9 @@
   "metadata": {
     "requester": "project-beacon",
     "priority": "normal",
-    "tags": ["identity", "basic", "cross-region"]
+    "tags": ["identity", "basic", "cross-region"],
+    "timestamp": "2025-08-22T14:34:00Z",
+    "nonce": "who-are-you-v1-nonce-20250822143400"
   },
-  "created_at": "2025-08-17T13:00:00Z"
+  "created_at": "2025-08-22T14:34:00Z"
 }

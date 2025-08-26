@@ -2,12 +2,13 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 )
 
-func SetupRoutes(jobsService *service.JobsService, cfg *config.Config) *gin.Engine {
+func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client) *gin.Engine {
 	r := gin.Default()
 
 	// Add middleware
@@ -17,7 +18,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config) *gin.Engi
 	r.Use(middleware.RateLimiting())
 
 	// Initialize handlers
-	jobsHandler := NewJobsHandler(jobsService, cfg)
+	jobsHandler := NewJobsHandler(jobsService, cfg, redisClient)
 	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
 	transparencyHandler := NewTransparencyHandler()
 	adminHandler := NewAdminHandler(cfg)

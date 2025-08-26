@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
+	"github.com/jamie-anson/project-beacon-runner/internal/security"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 	beaconcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
@@ -20,15 +22,27 @@ import (
 
 // JobsHandler handles job-related requests
 type JobsHandler struct {
-	jobsService *service.JobsService
-	cfg         *config.Config
+	jobsService      *service.JobsService
+	cfg              *config.Config
+	replayProtection *security.ReplayProtection
+	rateLimiter      *security.RateLimiter
 }
 
 // NewJobsHandler creates a new jobs handler
-func NewJobsHandler(jobsService *service.JobsService, cfg *config.Config) *JobsHandler {
+func NewJobsHandler(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client) *JobsHandler {
+	var replayProtection *security.ReplayProtection
+	var rateLimiter *security.RateLimiter
+	
+	if redisClient != nil {
+		replayProtection = security.NewReplayProtection(redisClient, cfg.TimestampMaxAge)
+		rateLimiter = security.NewRateLimiter(redisClient)
+	}
+	
 	return &JobsHandler{
-		jobsService: jobsService,
-		cfg:         cfg,
+		jobsService:      jobsService,
+		cfg:              cfg,
+		replayProtection: replayProtection,
+		rateLimiter:      rateLimiter,
 	}
 }
 
@@ -46,29 +60,31 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 
 	// Validate spec
 	validator := models.NewJobSpecValidator()
-	// DEBUG: pre-verify canonical signable JSON using current and v1 encoders
-	if spec.Signature != "" && spec.PublicKey != "" {
-		if signable, derr := beaconcrypto.CreateSignableJobSpec(&spec); derr == nil {
-			var lenCurrent, lenV1 int
-			var eq bool
-			if canonCurrent, cerr := beaconcrypto.CanonicalJSON(signable); cerr == nil {
-				lenCurrent = len(canonCurrent)
-				if canonV1, verr := beaconcrypto.CanonicalizeJobSpecV1(&spec); verr == nil {
-					lenV1 = len(canonV1)
-					eq = string(canonCurrent) == string(canonV1)
-				} else {
-					l.Warn().Err(verr).Msg("debug: v1 canonicalization failed")
-				}
-				l.Info().Int("canon_current_len", lenCurrent).Int("canon_v1_len", lenV1).Bool("canon_equal", eq).Msg("debug: jobspec canonicalization compare (current vs v1)")
-			} else {
-				l.Warn().Err(cerr).Msg("debug: failed to canonicalize signable jobspec (current)")
-			}
-		} else {
-			l.Warn().Err(derr).Msg("debug: failed to build signable jobspec")
-		}
-	} else {
-		l.Info().Msg("debug: missing signature or public key prior to verify")
-	}
+    // DEBUG: pre-verify canonical signable JSON using current and v1 encoders (gated)
+    if logging.DebugEnabled() {
+        if spec.Signature != "" && spec.PublicKey != "" {
+            if signable, derr := beaconcrypto.CreateSignableJobSpec(&spec); derr == nil {
+                var lenCurrent, lenV1 int
+                var eq bool
+                if canonCurrent, cerr := beaconcrypto.CanonicalJSON(signable); cerr == nil {
+                    lenCurrent = len(canonCurrent)
+                    if canonV1, verr := beaconcrypto.CanonicalizeJobSpecV1(&spec); verr == nil {
+                        lenV1 = len(canonV1)
+                        eq = string(canonCurrent) == string(canonV1)
+                    } else {
+                        l.Debug().Err(verr).Msg("debug: v1 canonicalization failed")
+                    }
+                    l.Debug().Int("canon_current_len", lenCurrent).Int("canon_v1_len", lenV1).Bool("canon_equal", eq).Msg("debug: jobspec canonicalization compare (current vs v1)")
+                } else {
+                    l.Debug().Err(cerr).Msg("debug: failed to canonicalize signable jobspec (current)")
+                }
+            } else {
+                l.Debug().Err(derr).Msg("debug: failed to build signable jobspec")
+            }
+        } else {
+            l.Debug().Msg("debug: missing signature or public key prior to verify")
+        }
+    }
     // Trust evaluation (allowlist). Enforce if enabled via cfg.TrustEnforce.
     if spec.PublicKey != "" {
         if reg, terr := config.GetTrustedKeys(); terr != nil {
@@ -91,42 +107,120 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
         }
     }
 
-	if err := validator.ValidateAndVerify(&spec); err != nil {
-        // Map errors to clearer taxonomy
-        msg := err.Error()
-        code := "validation_error"
-        switch {
-        case strings.Contains(msg, "signature is required"):
-            code = "missing_field:signature"
-        case strings.Contains(msg, "public key is required"):
-            code = "missing_field:public_key"
-        case strings.Contains(msg, "invalid public key"):
-            code = "invalid_encoding:public_key"
-        case strings.Contains(msg, "canonicalize") || strings.Contains(msg, "canonicalization"):
-            code = "canonicalization_error"
-        case strings.Contains(msg, "signature verification failed"):
-            code = "signature_mismatch"
+    // Rate limiting check for signature failures
+    if h.rateLimiter != nil {
+        clientIP := c.ClientIP()
+        kid := spec.PublicKey
+        if err := h.rateLimiter.CheckSignatureFailureRate(c.Request.Context(), clientIP, kid); err != nil {
+            l.Warn().Str("client_ip", clientIP).Str("kid", kid).Msg("rate limit exceeded for signature failures")
+            c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded", "error_code": "rate_limit_exceeded"})
+            return
         }
-        l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
-        c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
-        return
     }
 
-    // Shadow verification using v1 canonicalization (non-fatal)
-    if spec.PublicKey != "" && spec.Signature != "" {
-        if pk, pkErr := beaconcrypto.PublicKeyFromBase64(spec.PublicKey); pkErr == nil {
-            if canonV1, cErr := beaconcrypto.CanonicalizeJobSpecV1(&spec); cErr == nil {
-                if sig, sErr := base64.StdEncoding.DecodeString(spec.Signature); sErr == nil {
-                    v := ed25519.Verify(pk, canonV1, sig)
-                    l.Info().Bool("shadow_v1_verify_ok", v).Int("canon_v1_len", len(canonV1)).Msg("debug: shadow v1 signature verify")
+    // Enforce presence of timestamp and nonce when trust enforcement is enabled
+    if h.cfg != nil && h.cfg.TrustEnforce {
+        // If replay protection is enabled but Redis is unavailable, fail fast
+        if h.cfg.ReplayProtectionEnabled && h.replayProtection == nil {
+            c.JSON(http.StatusServiceUnavailable, gin.H{"error": "replay protection unavailable", "error_code": "protection_unavailable:replay"})
+            return
+        }
+        if spec.Metadata == nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "missing metadata", "error_code": "missing_field:metadata"})
+            return
+        }
+        if tsVal, ok := spec.Metadata["timestamp"]; !ok || tsVal == nil || (func(v interface{}) bool { s, sok := v.(string); return !sok || strings.TrimSpace(s) == "" })(tsVal) {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "timestamp is required", "error_code": "missing_field:timestamp"})
+            return
+        }
+        if nonceVal, ok := spec.Metadata["nonce"]; !ok || nonceVal == nil || (func(v interface{}) bool { s, sok := v.(string); return !sok || strings.TrimSpace(s) == "" })(nonceVal) {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "nonce is required", "error_code": "missing_field:nonce"})
+            return
+        }
+    }
+
+    // Timestamp validation
+    if spec.Metadata != nil {
+        if tsVal, exists := spec.Metadata["timestamp"]; exists && h.cfg != nil && h.cfg.TimestampMaxSkew > 0 && h.cfg.TimestampMaxAge > 0 {
+            if tsStr, ok := tsVal.(string); ok {
+                if ts, err := time.Parse(time.RFC3339, tsStr); err == nil {
+                    if reason, terr := security.ValidateTimestampWithReason(ts, h.cfg.TimestampMaxSkew, h.cfg.TimestampMaxAge); terr != nil {
+                        l.Error().Err(terr).Str("reason", reason).Time("spec_timestamp", ts).Msg("timestamp validation failed")
+                        c.JSON(http.StatusBadRequest, gin.H{"error": "timestamp validation failed", "error_code": "timestamp_invalid", "details": gin.H{"reason": reason}})
+                        return
+                    }
                 } else {
-                    l.Warn().Err(sErr).Msg("debug: shadow v1: failed to decode signature base64")
+                    l.Error().Err(err).Str("timestamp", tsStr).Msg("invalid timestamp format")
+                    c.JSON(http.StatusBadRequest, gin.H{"error": "timestamp validation failed", "error_code": "timestamp_invalid", "details": gin.H{"reason": "format_invalid"}})
+                    return
+                }
+            }
+        }
+    }
+
+    // Replay protection (can be disabled via cfg.ReplayProtectionEnabled)
+    if h.replayProtection != nil && spec.Metadata != nil && (h.cfg == nil || h.cfg.ReplayProtectionEnabled) {
+        if nonceVal, exists := spec.Metadata["nonce"]; exists {
+            if nonceStr, ok := nonceVal.(string); ok && nonceStr != "" {
+                kid := spec.PublicKey
+                if err := h.replayProtection.CheckAndRecordNonce(c.Request.Context(), kid, nonceStr); err != nil {
+                    l.Error().Err(err).Str("kid", kid).Str("nonce", nonceStr).Msg("replay protection check failed")
+                    c.JSON(http.StatusBadRequest, gin.H{"error": "replay protection failed: " + err.Error(), "error_code": "replay_detected"})
+                    return
+                }
+            }
+        }
+    }
+    if h.cfg != nil && h.cfg.SigBypass {
+        l.Warn().Str("job_id", spec.ID).Msg("RUNNER_SIG_BYPASS enabled: skipping signature verification (dev only)")
+    } else {
+        if err := validator.ValidateAndVerify(&spec); err != nil {
+            // Map errors to clearer taxonomy
+            msg := err.Error()
+            code := "validation_error"
+            switch {
+            case strings.Contains(msg, "signature is required"):
+                code = "missing_field:signature"
+            case strings.Contains(msg, "public key is required"):
+                code = "missing_field:public_key"
+            case strings.Contains(msg, "invalid public key"):
+                code = "invalid_encoding:public_key"
+            case strings.Contains(msg, "canonicalize") || strings.Contains(msg, "canonicalization"):
+                code = "canonicalization_error"
+            case strings.Contains(msg, "signature verification failed"):
+                code = "signature_mismatch"
+            }
+            
+            // Record signature failure for rate limiting
+            if h.rateLimiter != nil && (code == "signature_mismatch" || code == "canonicalization_error") {
+                clientIP := c.ClientIP()
+                kid := spec.PublicKey // Use public key as identifier
+                h.rateLimiter.RecordSignatureFailure(c.Request.Context(), clientIP, kid)
+            }
+            
+            l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
+            c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
+            return
+        }
+    }
+
+    // Shadow verification using v1 canonicalization (non-fatal, gated)
+    if logging.DebugEnabled() {
+        if spec.PublicKey != "" && spec.Signature != "" {
+            if pk, pkErr := beaconcrypto.PublicKeyFromBase64(spec.PublicKey); pkErr == nil {
+                if canonV1, cErr := beaconcrypto.CanonicalizeJobSpecV1(&spec); cErr == nil {
+                    if sig, sErr := base64.StdEncoding.DecodeString(spec.Signature); sErr == nil {
+                        v := ed25519.Verify(pk, canonV1, sig)
+                        l.Debug().Bool("shadow_v1_verify_ok", v).Int("canon_v1_len", len(canonV1)).Msg("debug: shadow v1 signature verify")
+                    } else {
+                        l.Debug().Err(sErr).Msg("debug: shadow v1: failed to decode signature base64")
+                    }
+                } else {
+                    l.Debug().Err(cErr).Msg("debug: shadow v1: canonicalization error")
                 }
             } else {
-                l.Warn().Err(cErr).Msg("debug: shadow v1: canonicalization error")
+                l.Debug().Err(pkErr).Msg("debug: shadow v1: invalid public key")
             }
-        } else {
-            l.Warn().Err(pkErr).Msg("debug: shadow v1: invalid public key")
         }
     }
 

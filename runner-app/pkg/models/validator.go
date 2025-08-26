@@ -20,17 +20,17 @@ func NewJobSpecValidator() *JobSpecValidator {
 
 // ValidateAndVerify performs both structural validation and signature verification
 func (v *JobSpecValidator) ValidateAndVerify(jobspec *JobSpec) error {
-	// First validate structure
-	if err := jobspec.Validate(); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
+    // First verify signature on the incoming payload to avoid mutations
+    if err := jobspec.VerifySignature(); err != nil {
+        return fmt.Errorf("signature verification failed: %w", err)
+    }
 
-	// Then verify signature
-	if err := jobspec.VerifySignature(); err != nil {
-		return fmt.Errorf("signature verification failed: %w", err)
-	}
+    // Then validate structure (may set defaults)
+    if err := jobspec.Validate(); err != nil {
+        return fmt.Errorf("validation failed: %w", err)
+    }
 
-	return nil
+    return nil
 }
 
 // ValidateJobSpecID checks if the job ID follows the expected format

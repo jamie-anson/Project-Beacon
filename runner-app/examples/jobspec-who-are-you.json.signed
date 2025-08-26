@@ -47,7 +47,9 @@
       "APAC"
     ],
     "min_regions": 3,
+    "min_success_rate": 0,
     "timeout": 600000000000,
+    "provider_timeout": 0,
     "providers": [
       {
         "region": "US",
@@ -67,15 +69,17 @@
     ]
   },
   "metadata": {
+    "nonce": "who-are-you-benchmark-v1-nonce-1755960384477594000",
     "priority": "normal",
     "requester": "project-beacon",
     "tags": [
       "identity",
       "basic",
       "cross-region"
-    ]
+    ],
+    "timestamp": "2025-08-23T14:46:24Z"
   },
-  "created_at": "2025-08-17T13:00:00Z",
-  "signature": "5aa7fp8ih2hWMD68etVYh5JGLkhh8n/Api2N1WnbyhNDfHfLCvT1IxxUreGp6LFKWWyZpwMwkQFIRykUW+m2Cg==",
-  "public_key": "w0J7wcn+JYzLb0tDvq8mznvP/JJSap+0Ojiab/f+5dc="
+  "created_at": "2025-08-22T14:34:00Z",
+  "signature": "9YsZ0kwMraQShvCdII29hZzr4j3DqvJSMKXSyaTecKpBou40DS6v+y9w7DU2o/7gmTwBouNhqH6mjrJ0eFiaAw==",
+  "public_key": "F7VGEf8dtKbcGDBe59WYY5/J+0V/onPZe2P5vQbAixY="
 }
