@@ -5,7 +5,7 @@
     "name": "geographic-bias-detection-qwen",
     "description": "Multi-region bias detection using Qwen 2.5-1.5B model",
     "container": {
-      "image": "ghcr.io/beacon/qwen-2.5-1.5b",
+      "image": "ghcr.io/jamie-anson/project-beacon-qwen-2.5-1.5b",
       "tag": "latest"
     },
     "input": {
