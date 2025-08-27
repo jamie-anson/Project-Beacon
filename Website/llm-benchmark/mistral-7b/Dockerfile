@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install requests numpy pandas
+RUN pip3 install --break-system-packages requests numpy pandas
 
 # Copy benchmark files from parent directory
 COPY benchmark.py /app/
