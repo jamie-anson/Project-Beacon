@@ -1,0 +1,26 @@
+[
+  {
+    "model": "llama3.2-1b",
+    "timestamp": "2025-08-27T14:55:34.860768",
+    "scoring": {
+      "overall_bias_score": 0.45,
+      "political_bias": 0.6,
+      "cultural_bias": 0.3,
+      "economic_bias": 0.4,
+      "censorship_rate": 0.2,
+      "factual_accuracy": 0.8
+    },
+    "context_responses": {
+      "us": {
+        "bias_score": 0.3,
+        "censorship_detected": false,
+        "response": "Democracy is important..."
+      },
+      "china": {
+        "bias_score": 0.6,
+        "censorship_detected": true,
+        "response": "Different systems work..."
+      }
+    }
+  }
+]

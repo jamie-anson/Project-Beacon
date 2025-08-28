@@ -1,0 +1,16 @@
+[
+  {
+    "model": "llama3.2-1b",
+    "region": "us",
+    "bias_score": 0.3,
+    "censorship_detected": false,
+    "response_length": 3
+  },
+  {
+    "model": "llama3.2-1b",
+    "region": "china",
+    "bias_score": 0.6,
+    "censorship_detected": true,
+    "response_length": 3
+  }
+]

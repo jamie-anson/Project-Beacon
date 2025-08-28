@@ -1,0 +1,218 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  deploy-preview:
+    if: github.event_name == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: preview
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts-${{ github.event.pull_request.head.sha || github.sha }}
+        path: dist/
+    
+    - name: Install Netlify CLI
+      run: npm install -g netlify-cli@latest
+    
+    - name: Deploy to Netlify (Preview)
+      id: netlify-preview
+      run: |
+        DEPLOY_URL=$(netlify deploy \
+          --dir=dist \
+          --site=${{ secrets.NETLIFY_SITE_ID }} \
+          --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+          --alias=pr-${{ github.event.number }} \
+          --json | jq -r '.deploy_url')
+        
+        echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+        echo "🚀 Preview deployed to: $DEPLOY_URL"
+    
+    - name: Comment PR with preview URL
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployUrl = '${{ steps.netlify-preview.outputs.deploy_url }}';
+          const comment = `## 🚀 Deploy Preview Ready!
+          
+          **Preview URL:** ${deployUrl}
+          
+          **What's included:**
+          - 📄 Static site homepage
+          - 📚 Documentation at \`${deployUrl}/docs\`
+          - 🎛️ Portal dashboard at \`${deployUrl}/portal\`
+          
+          **Build Info:**
+          - **Commit:** \`${{ github.event.pull_request.head.sha }}\`
+          - **Branch:** \`${{ github.head_ref }}\`
+          - **Docs CID:** \`$(cat dist/docs-cid.txt || echo 'N/A')\`
+          
+          ---
+          <sub>This preview will be updated automatically when you push new commits.</sub>`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          package-lock.json
+          portal/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
+    
+    - name: Build for production
+      run: |
+        echo "🏗️ Building for production deployment"
+        npm run build:static
+        npm run build:docs
+        npm run postbuild:cid
+        
+        DOCS_BUILD_CID=$(cat dist/docs-cid.txt)
+        echo "Generated docs CID: $DOCS_BUILD_CID"
+        DOCS_BUILD_CID="$DOCS_BUILD_CID" npm run build:docs:with-cid
+        
+        BUILD_COMMIT=$(git rev-parse --short HEAD)
+        echo "Building portal with CID: $DOCS_BUILD_CID, Commit: $BUILD_COMMIT"
+        cd portal
+        VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" npm run build
+        
+        cd ..
+        mkdir -p dist/portal
+        cp -R portal/dist/* dist/portal/
+        
+        echo "✅ Production build complete"
+    
+    - name: Install Netlify CLI
+      run: npm install -g netlify-cli@latest
+    
+    - name: Deploy to Netlify (Production)
+      id: netlify-production
+      run: |
+        echo "🚀 Deploying to production..."
+        DEPLOY_URL=$(netlify deploy \
+          --dir=dist \
+          --site=${{ secrets.NETLIFY_SITE_ID }} \
+          --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+          --prod \
+          --json | jq -r '.url')
+        
+        echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+        echo "✅ Production deployed to: $DEPLOY_URL"
+    
+    - name: Verify deployment
+      run: |
+        DEPLOY_URL="${{ steps.netlify-production.outputs.deploy_url }}"
+        echo "🔍 Verifying deployment at $DEPLOY_URL"
+        
+        # Wait a moment for deployment to propagate
+        sleep 10
+        
+        # Check main site
+        curl -f -s "$DEPLOY_URL" > /dev/null || (echo "❌ Main site check failed" && exit 1)
+        echo "✅ Main site responding"
+        
+        # Check docs
+        curl -f -s "$DEPLOY_URL/docs/" > /dev/null || (echo "❌ Docs check failed" && exit 1)
+        echo "✅ Docs responding"
+        
+        # Check portal
+        curl -f -s "$DEPLOY_URL/portal/" > /dev/null || (echo "❌ Portal check failed" && exit 1)
+        echo "✅ Portal responding"
+        
+        echo "🎉 All endpoints verified successfully!"
+    
+    - name: Create deployment summary
+      run: |
+        echo "## 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**🌐 Live URL:** ${{ steps.netlify-production.outputs.deploy_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "**📚 Documentation:** ${{ steps.netlify-production.outputs.deploy_url }}/docs" >> $GITHUB_STEP_SUMMARY
+        echo "**🎛️ Portal:** ${{ steps.netlify-production.outputs.deploy_url }}/portal" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Docs CID:** \`$(cat dist/docs-cid.txt)\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**✅ Verified Endpoints:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Main site health check passed" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation health check passed" >> $GITHUB_STEP_SUMMARY
+        echo "- Portal health check passed" >> $GITHUB_STEP_SUMMARY
+
+  deployment-status:
+    runs-on: ubuntu-latest
+    needs: [deploy-preview, deploy-production]
+    if: always()
+    steps:
+    - name: Update deployment status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { context } = require('@actions/github');
+          
+          let status = 'success';
+          let description = 'Deployment completed successfully';
+          
+          if (context.eventName === 'pull_request') {
+            if ('${{ needs.deploy-preview.result }}' !== 'success') {
+              status = 'failure';
+              description = 'Preview deployment failed';
+            } else {
+              description = 'Preview deployment successful';
+            }
+          } else if (context.ref === 'refs/heads/main') {
+            if ('${{ needs.deploy-production.result }}' !== 'success') {
+              status = 'failure';
+              description = 'Production deployment failed';
+            } else {
+              description = 'Production deployment successful';
+            }
+          }
+          
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: status,
+            description: description,
+            context: 'Netlify Deployment'
+          });

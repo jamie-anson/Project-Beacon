@@ -1,0 +1,34 @@
+version: "3.9"
+
+volumes:
+  ollama-cache:
+    name: ollama-cache
+    external: true
+
+services:
+  llama:
+    image: beacon/llama-3.2-1b:latest
+    environment:
+      - BENCHMARK_MODE=simple
+    volumes:
+      - ollama-cache:/root/.ollama
+      - ./results:/tmp
+    profiles: [llama]
+
+  qwen:
+    image: beacon/qwen-2.5-1.5b:latest
+    environment:
+      - BENCHMARK_MODE=simple
+    volumes:
+      - ollama-cache:/root/.ollama
+      - ./results:/tmp
+    profiles: [qwen]
+
+  mistral:
+    image: beacon/mistral-7b:latest
+    environment:
+      - BENCHMARK_MODE=simple
+    volumes:
+      - ollama-cache:/root/.ollama
+      - ./results:/tmp
+    profiles: [mistral]

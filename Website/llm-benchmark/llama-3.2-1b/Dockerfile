@@ -7,12 +7,16 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --break-system-packages requests numpy pandas
+RUN pip3 install requests numpy pandas
 
-# Copy benchmark files from parent directory
+# Copy unified benchmark files from parent directory
 COPY benchmark.py /app/
 COPY questions.json /app/
+COPY questions-phase2.json /app/
 COPY scoring.py /app/
+COPY advanced-scoring.py /app/
+COPY response-clustering.py /app/
+COPY export-data.py /app/
 
 # Create entrypoint script
 RUN echo '#!/bin/bash\n\
@@ -49,8 +53,12 @@ WORKDIR /app
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s \
   CMD curl -f http://localhost:11434/api/tags || exit 1
 
+# Persist Ollama cache (models, keys) across runs
+VOLUME ["/root/.ollama"]
+
 # Expose Ollama port
 EXPOSE 11434
 
 # Run entrypoint
-CMD ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
+

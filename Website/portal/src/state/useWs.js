@@ -36,6 +36,7 @@ export default function useWs(path = '/ws', opts = {}) {
         }
       };
       ws.onerror = (e) => {
+        console.warn('WebSocket connection failed - backend may be offline');
         setError(e);
       };
       ws.onmessage = (evt) => {

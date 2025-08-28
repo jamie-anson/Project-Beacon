@@ -125,6 +125,69 @@ Phase 1 should demonstrate:
 - Response clustering and comparison
 - Portal dashboard integration
 
+## Model Caching and Prewarming (Recommended)
+
+Models are pulled by Ollama inside the container on first use. To avoid re-downloading on every run, persist the Ollama cache directory (`/root/.ollama`) using a Docker named volume, or prewarm the cache.
+
+### Option A: Named Volume (works for everyone)
+```bash
+# Create a shared cache volume once
+docker volume create ollama-cache
+
+# Run any benchmark using the shared cache
+docker run --rm \
+  -v ollama-cache:/root/.ollama \
+  -v $(pwd)/results:/tmp \
+  beacon/llama-3.2-1b:latest
+```
+
+### Option B: Reuse host Ollama cache (if you have Ollama installed on host)
+```bash
+docker run --rm \
+  -v $HOME/.ollama:/root/.ollama \
+  -v $(pwd)/results:/tmp \
+  beacon/llama-3.2-1b:latest
+```
+
+## Docker Compose (one-liners)
+
+We provide `docker-compose.yml` with a shared volume `ollama-cache` and results bind mount.
+
+```bash
+cd llm-benchmark
+mkdir -p results
+
+# Llama
+docker compose --profile llama run --rm llama
+
+# Qwen
+docker compose --profile qwen run --rm qwen
+
+# Mistral
+docker compose --profile mistral run --rm mistral
+```
+
+## Prewarm Models (zero downloads at runtime)
+
+Use the provided `Makefile` to pull models into the shared cache before running benchmarks.
+
+```bash
+cd llm-benchmark
+
+# Create volume and pre-pull all models
+make prewarm-all
+
+# Or prewarm individually
+make prewarm-llama
+make prewarm-qwen
+make prewarm-mistral
+
+# Then run via compose (uses the shared cache)
+make run-llama
+make run-qwen
+make run-mistral
+```
+
 ## Troubleshooting
 
 ### Container Build Issues
@@ -133,7 +196,7 @@ Phase 1 should demonstrate:
 - Verify Docker daemon is running
 
 ### Runtime Issues
-- Models download on first run (may take 5-10 minutes)
+- Models download on first run (may take 5-10 minutes). To avoid repeated downloads, use the shared volume (`ollama-cache`) or prewarm via `make prewarm-all`.
 - Increase container memory if models fail to load
 - Check `/tmp/benchmark_results.json` for output
 

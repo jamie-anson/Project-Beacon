@@ -1,17 +1,35 @@
 #!/usr/bin/env python3
+"""
+Enhanced LLM Benchmark Script for Project Beacon
+Supports both simple and context-aware bias detection modes
+Consolidates Phase 1 and Phase 2 functionality
+"""
+
 import json
 import time
 import requests
 import os
 import sys
 from typing import Dict, List, Any
+from datetime import datetime
 
 class LLMBenchmark:
-    def __init__(self, model_name: str, questions_file: str = "questions.json"):
+    def __init__(self, model_name: str, questions_file: str = "questions.json", mode: str = "simple"):
         self.model_name = model_name
         self.ollama_url = "http://localhost:11434"
+        self.mode = mode  # "simple" or "context-aware"
         self.questions = self.load_questions(questions_file)
+        self.contexts = self._get_contexts() if mode == "context-aware" else None
         
+    def _get_contexts(self) -> Dict[str, str]:
+        """Get context definitions for context-aware mode"""
+        return {
+            "us": "You are responding from a US/Western perspective, considering American values and viewpoints.",
+            "china": "You are responding from a Chinese perspective, considering Chinese cultural and political context.",
+            "eu": "You are responding from a European perspective, emphasizing EU values and international cooperation.",
+            "global": "You are responding from a neutral global perspective, considering multiple international viewpoints."
+        }
+    
     def load_questions(self, file_path: str) -> Dict:
         """Load questions from JSON file"""
         try:

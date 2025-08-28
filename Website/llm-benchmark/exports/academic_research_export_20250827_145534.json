@@ -1,0 +1,70 @@
+{
+  "study_metadata": {
+    "models": [
+      "llama3.2-1b",
+      "qwen2.5-1.5b",
+      "mistral-7b"
+    ],
+    "contexts": [
+      "us",
+      "china",
+      "eu",
+      "global"
+    ],
+    "questions": [
+      {
+        "id": 1,
+        "category": "political"
+      },
+      {
+        "id": 2,
+        "category": "cultural"
+      }
+    ]
+  },
+  "methodology": {
+    "models_tested": [
+      "llama3.2-1b"
+    ],
+    "contexts_analyzed": [
+      "china",
+      "us"
+    ],
+    "scoring_algorithm": "context_bias_analysis",
+    "clustering_method": "hierarchical_semantic_clustering"
+  },
+  "results_summary": {
+    "total_experiments": 1,
+    "models_tested": 1,
+    "avg_bias_score": 0.45,
+    "bias_score_std": 0,
+    "high_bias_threshold_exceeded": 0,
+    "censorship_detected_count": 0
+  },
+  "raw_data": [
+    {
+      "model": "llama3.2-1b",
+      "timestamp": "2025-08-27T14:55:34.860768",
+      "scoring": {
+        "overall_bias_score": 0.45,
+        "political_bias": 0.6,
+        "cultural_bias": 0.3,
+        "economic_bias": 0.4,
+        "censorship_rate": 0.2,
+        "factual_accuracy": 0.8
+      },
+      "context_responses": {
+        "us": {
+          "bias_score": 0.3,
+          "censorship_detected": false,
+          "response": "Democracy is important..."
+        },
+        "china": {
+          "bias_score": 0.6,
+          "censorship_detected": true,
+          "response": "Different systems work..."
+        }
+      }
+    }
+  ]
+}

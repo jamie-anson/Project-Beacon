@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  golem-provider:
+    build: .
+    platform: linux/amd64
+    container_name: beacon-golem-provider
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - golem-data:/home/golem/.local/share/yagna
+      - ./logs:/home/golem/golem-logs
+    ports:
+      - "7465:7465"  # Yagna REST API
+      - "7464:7464"  # Yagna P2P
+    environment:
+      - YAGNA_AUTOCONF_APP_KEY=requestor
+      - YAGNA_API_URL=http://127.0.0.1:7465
+    restart: unless-stopped
+    networks:
+      - golem-network
+
+volumes:
+  golem-data:
+
+networks:
+  golem-network:
+    driver: bridge

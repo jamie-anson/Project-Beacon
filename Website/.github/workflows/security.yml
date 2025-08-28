@@ -1,0 +1,222 @@
+name: Enhanced Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly security scans on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
+    
+    - name: Run npm audit
+      run: |
+        echo "🔍 Scanning root dependencies..."
+        npm audit --audit-level=moderate --json > audit-root.json || true
+        
+        echo "🔍 Scanning portal dependencies..."
+        cd portal
+        npm audit --audit-level=moderate --json > ../audit-portal.json || true
+        cd ..
+    
+    - name: Process audit results
+      run: |
+        echo "## 🔒 Security Audit Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Process root audit
+        if [ -f audit-root.json ]; then
+          HIGH_COUNT=$(cat audit-root.json | jq -r '.metadata.vulnerabilities.high // 0')
+          CRITICAL_COUNT=$(cat audit-root.json | jq -r '.metadata.vulnerabilities.critical // 0')
+          echo "**Root Dependencies:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $CRITICAL_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- High: $HIGH_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Process portal audit
+        if [ -f audit-portal.json ]; then
+          HIGH_COUNT=$(cat audit-portal.json | jq -r '.metadata.vulnerabilities.high // 0')
+          CRITICAL_COUNT=$(cat audit-portal.json | jq -r '.metadata.vulnerabilities.critical // 0')
+          echo "**Portal Dependencies:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $CRITICAL_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- High: $HIGH_COUNT" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for comprehensive scanning
+    
+    - name: Advanced secret detection
+      run: |
+        echo "🔍 Running comprehensive secret detection..."
+        
+        # Define patterns for common secrets
+        PATTERNS=(
+          "api[_-]?key[s]?\s*[:=]\s*['\"][^'\"]{10,}['\"]"
+          "secret[_-]?key[s]?\s*[:=]\s*['\"][^'\"]{10,}['\"]"
+          "password[s]?\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+          "token[s]?\s*[:=]\s*['\"][^'\"]{20,}['\"]"
+          "auth[_-]?token[s]?\s*[:=]\s*['\"][^'\"]{20,}['\"]"
+          "bearer\s+[a-zA-Z0-9_-]{20,}"
+          "sk-[a-zA-Z0-9]{20,}"  # OpenAI style keys
+          "pk_[a-zA-Z0-9]{20,}"  # Stripe style keys
+          "AKIA[0-9A-Z]{16}"     # AWS Access Keys
+        )
+        
+        FOUND_SECRETS=false
+        
+        for pattern in "${PATTERNS[@]}"; do
+          echo "Checking pattern: $pattern"
+          if grep -r -E -i "$pattern" --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.yml" --include="*.yaml" . \
+            | grep -v node_modules \
+            | grep -v ".git" \
+            | grep -v "package-lock.json" \
+            | grep -v ".github/workflows" \
+            | head -5; then
+            FOUND_SECRETS=true
+          fi
+        done
+        
+        if [ "$FOUND_SECRETS" = true ]; then
+          echo "❌ Potential secrets detected in codebase"
+          echo "## ⚠️ Security Alert: Potential Secrets Detected" >> $GITHUB_STEP_SUMMARY
+          echo "Review the scan output above for potential credential leaks." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ No secrets detected"
+          echo "## 🔒 Secret Scan: Clean" >> $GITHUB_STEP_SUMMARY
+          echo "No potential secrets found in codebase." >> $GITHUB_STEP_SUMMARY
+        fi
+
+  config-validation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate configuration files
+      run: |
+        echo "🔍 Validating configuration files..."
+        
+        # Validate netlify.toml
+        if [ -f netlify.toml ]; then
+          echo "✅ netlify.toml found"
+          
+          # Check required sections
+          grep -q "publish = \"dist\"" netlify.toml || (echo "❌ Missing publish directory" && exit 1)
+          
+          # Check security headers
+          SECURITY_HEADERS=(
+            "X-Frame-Options"
+            "X-Content-Type-Options"
+            "Referrer-Policy"
+            "X-XSS-Protection"
+          )
+          
+          echo "## 🛡️ Security Headers Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for header in "${SECURITY_HEADERS[@]}"; do
+            if grep -q "$header" netlify.toml; then
+              echo "✅ $header configured" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ $header not configured" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          # Validate redirects
+          if grep -q "^\[\[redirects\]\]" netlify.toml; then
+            echo "✅ Redirects configured" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No redirects configured" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+        else
+          echo "❌ netlify.toml not found"
+          exit 1
+        fi
+        
+        # Validate package.json files
+        echo "🔍 Validating package.json files..."
+        
+        # Root package.json
+        if [ -f package.json ]; then
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" || (echo "❌ Invalid root package.json" && exit 1)
+          echo "✅ Root package.json valid"
+        fi
+        
+        # Portal package.json
+        if [ -f portal/package.json ]; then
+          node -e "JSON.parse(require('fs').readFileSync('portal/package.json', 'utf8'))" || (echo "❌ Invalid portal package.json" && exit 1)
+          echo "✅ Portal package.json valid"
+        fi
+
+  build-security:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
+    
+    - name: Check for build-time security issues
+      run: |
+        echo "🔍 Checking build process security..."
+        
+        # Check for postinstall scripts that could be malicious
+        echo "Checking for potentially dangerous npm scripts..."
+        if grep -r "postinstall\|preinstall" package.json portal/package.json 2>/dev/null; then
+          echo "⚠️ Install scripts detected - manual review recommended"
+        else
+          echo "✅ No install scripts found"
+        fi
+        
+        # Verify build outputs don't contain sensitive data
+        echo "🏗️ Running test build to check outputs..."
+        npm run build:static
+        npm run build:docs
+        npm run postbuild:cid
+        
+        # Check built files for potential secrets
+        echo "🔍 Scanning build outputs for secrets..."
+        if find dist/ -name "*.js" -o -name "*.html" -o -name "*.css" | xargs grep -l -i -E "(api[_-]?key|secret|password|token)" 2>/dev/null; then
+          echo "⚠️ Potential secrets found in build output"
+          echo "## ⚠️ Build Security Warning" >> $GITHUB_STEP_SUMMARY
+          echo "Potential secrets detected in build artifacts. Review build process." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ Build outputs clean"
+          echo "## 🔒 Build Security: Clean" >> $GITHUB_STEP_SUMMARY
+          echo "No secrets detected in build artifacts." >> $GITHUB_STEP_SUMMARY
+        fi

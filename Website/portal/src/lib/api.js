@@ -1,31 +1,79 @@
 const API_BASE_V1 = '/api/v1';
 
+// Simple tab identifier for semi-stable idempotency keys
+function getTabId() {
+  try {
+    let id = sessionStorage.getItem('beacon:tab_id');
+    if (!id) {
+      id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem('beacon:tab_id', id);
+    }
+    return id;
+  } catch {
+    return 'tab-unknown';
+  }
+}
+
+function shortHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i) | 0;
+  // convert to unsigned and base36
+  return (h >>> 0).toString(36);
+}
+
+// Compute a deterministic idempotency key for a jobspec within a short time window (e.g., 60s)
+function computeIdempotencyKey(jobspec, windowSeconds = 60) {
+  const tab = getTabId();
+  const bucket = Math.floor(Date.now() / 1000 / windowSeconds); // time bucket
+  let specStr = '';
+  try { specStr = JSON.stringify(jobspec); } catch { specStr = String(jobspec || ''); }
+  const base = `${tab}:${bucket}:${specStr}`;
+  return `beacon-${shortHash(base)}`;
+}
+
 async function httpV1(path, opts = {}) {
-  const res = await fetch(`${API_BASE_V1}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.status === 204 ? null : res.json();
+  try {
+    const res = await fetch(`${API_BASE_V1}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.status === 204 ? null : res.json();
+  } catch (err) {
+    console.warn(`API call failed: ${API_BASE_V1}${path}`, err.message);
+    throw err;
+  }
 }
 
 async function httpRoot(path, opts = {}) {
-  const res = await fetch(`${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.status === 204 ? null : res.json();
+  try {
+    const res = await fetch(`${path}`, {
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.status === 204 ? null : res.json();
+  } catch (err) {
+    console.warn(`API call failed: ${path}`, err.message);
+    throw err;
+  }
 }
 
 // Health endpoints are mounted at root (/health)
 export const getHealth = () => httpRoot('/health');
 
 // Jobs API
-export const createJob = (jobspec) => httpV1('/jobs', {
-  method: 'POST',
-  body: JSON.stringify(jobspec),
-});
+export const createJob = (jobspec, opts = {}) => {
+  const key = opts.idempotencyKey || computeIdempotencyKey(jobspec);
+  return httpV1('/jobs', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': key },
+    body: JSON.stringify(jobspec),
+  });
+};
+
+// Export helper if callers want to pre-generate their own stable keys
+export const getIdempotencyKeyForJob = computeIdempotencyKey;
 
 export const getJob = ({ id, include, exec_limit, exec_offset }) => {
   const params = new URLSearchParams();
@@ -39,7 +87,11 @@ export const getJob = ({ id, include, exec_limit, exec_offset }) => {
 export const listJobs = ({ limit = 50 } = {}) => {
   const params = new URLSearchParams();
   params.set('limit', String(limit));
-  return httpV1(`/jobs?${params.toString()}`);
+  return httpV1(`/jobs?${params.toString()}`).then((data) => {
+    // Normalize to { jobs: [...] }
+    if (Array.isArray(data)) return { jobs: data };
+    return data;
+  });
 };
 
 // Transparency API
@@ -50,6 +102,24 @@ export const getTransparencyProof = ({ execution_id, ipfs_cid }) => {
   if (execution_id) params.set('execution_id', execution_id);
   if (ipfs_cid) params.set('ipfs_cid', ipfs_cid);
   return httpV1(`/transparency/proof?${params.toString()}`);
+};
+
+// Questions API (grouped by category)
+export const getQuestions = async () => {
+  const data = await httpV1('/questions');
+  // Normalize to { categories: { [cat]: [{question_id, question}] } }
+  if (data && data.categories) return data;
+  // If backend returns flat array, group here
+  if (Array.isArray(data)) {
+    const grouped = {};
+    for (const q of data) {
+      const cat = q.category || 'uncategorized';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push({ question_id: q.question_id, question: q.question });
+    }
+    return { categories: grouped };
+  }
+  return { categories: {} };
 };
 
 export function getIpfsGateway() {
@@ -72,6 +142,25 @@ export const bundleUrl = (cid) => {
 // Legacy/placeholder exports (may be removed once pages migrate)
 export const executeJob = (jobId) => httpV1(`/jobs/${jobId}/execute`, { method: 'POST' });
 
-export const getExecutions = ({ limit = 20 } = {}) => httpV1(`/executions?limit=${limit}`);
+export const getExecutions = ({ limit = 20 } = {}) =>
+  httpV1(`/executions?limit=${limit}`).then((data) => {
+    // Normalize to { executions: [...] } or [] depending on consumers
+    if (Array.isArray(data)) return data; // existing pages expect an array
+    if (data && Array.isArray(data.executions)) return data.executions;
+    return [];
+  });
 
-export const getDiffs = ({ limit = 20 } = {}) => httpV1(`/diffs?limit=${limit}`);
+export const getDiffs = ({ limit = 20 } = {}) =>
+  httpV1(`/diffs?limit=${limit}`).then((data) => {
+    // Normalize to array
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.diffs)) return data.diffs;
+    return [];
+  });
+
+// Geo API: country counts
+export const getGeo = async () => {
+  const data = await httpV1('/geo');
+  if (data && data.countries) return data;
+  return { countries: {} };
+};

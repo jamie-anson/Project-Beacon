@@ -1,13 +1,17 @@
 import React from 'react';
 import { Routes, Route, Link, NavLink } from 'react-router-dom';
 import Dashboard from './pages/Dashboard.jsx';
+import Home from './pages/Home.jsx';
 import Jobs from './pages/Jobs.jsx';
 import JobDetail from './pages/JobDetail.jsx';
 import CreateJob from './pages/CreateJob.jsx';
-import TemplateViewer from './pages/TemplateViewer.jsx';
-import Executions from './pages/Executions.jsx';
+import Questions from './pages/Questions.jsx';
+import WorldView from './pages/WorldView.jsx';
+import AIs from './pages/AIs.jsx';
 import Diffs from './pages/Diffs.jsx';
 import Settings from './pages/Settings.jsx';
+import BiasDetection from './pages/BiasDetection.jsx';
+import Executions from './pages/Executions.jsx';
 import useWs from './state/useWs.js';
 import { BUILD_CID, BUILD_COMMIT, shortCommit } from './lib/buildInfo.js';
 
@@ -22,11 +26,12 @@ function Layout({ children }) {
             <span className="text-slate-400">Portal</span>
           </Link>
           <nav className="flex items-center gap-4 text-sm">
-            <NavLink to="/" end className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
-            <NavLink to="/jobs" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Jobs</NavLink>
-            <NavLink to="/jobs/who-are-you" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Who are you?</NavLink>
-            <NavLink to="/executions" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Executions</NavLink>
-            <NavLink to="/diffs" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Diffs</NavLink>
+            <NavLink to="/" end className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Home</NavLink>
+            <NavLink to="/questions" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Questions</NavLink>
+            <NavLink to="/ais" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Models</NavLink>
+            <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Bias Detection</NavLink>
+            <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
+            <NavLink to="/results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Results</NavLink>
           </nav>
           <div className="ml-4 flex items-center gap-2 text-xs">
             <span
@@ -62,12 +67,17 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/new" element={<CreateJob />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
-        <Route path="/jobs/who-are-you" element={<TemplateViewer />} />
+        <Route path="/questions" element={<Questions />} />
+        <Route path="/bias-detection" element={<BiasDetection />} />
+        <Route path="/world" element={<WorldView />} />
+        <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />
+        <Route path="/results" element={<Diffs />} />
         <Route path="/diffs" element={<Diffs />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
