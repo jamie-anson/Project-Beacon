@@ -69,7 +69,7 @@
     ]
   },
   "metadata": {
-    "nonce": "who-are-you-benchmark-v1-nonce-1755960384477594000",
+    "nonce": "who-are-you-benchmark-v1-nonce-1756220313626879000",
     "priority": "normal",
     "requester": "project-beacon",
     "tags": [
@@ -77,9 +77,9 @@
       "basic",
       "cross-region"
     ],
-    "timestamp": "2025-08-23T14:46:24Z"
+    "timestamp": "2025-08-26T14:58:33Z"
   },
   "created_at": "2025-08-22T14:34:00Z",
-  "signature": "9YsZ0kwMraQShvCdII29hZzr4j3DqvJSMKXSyaTecKpBou40DS6v+y9w7DU2o/7gmTwBouNhqH6mjrJ0eFiaAw==",
+  "signature": "xu8cGUkoW0D+sMsRExO67Xno7ecpY59w+Te2Lxox5gq4lsYrJWeN+BIIsXGCbv+UO7xmve0Sz4r3B/Hey+cADA==",
   "public_key": "F7VGEf8dtKbcGDBe59WYY5/J+0V/onPZe2P5vQbAixY="
 }

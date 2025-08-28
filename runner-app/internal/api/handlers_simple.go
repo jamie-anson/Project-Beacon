@@ -237,15 +237,35 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "persistence unavailable"})
 		return
 	}
+    // Idempotency support
+    idemKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+    if idemKey != "" && h.jobsService != nil {
+        jobID, reused, ierr := h.jobsService.IdempotentCreateJob(c.Request.Context(), idemKey, &spec, jobspecJSON)
+        if ierr != nil {
+            l.Error().Err(ierr).Str("job_id", spec.ID).Msg("IdempotentCreateJob error")
+            c.JSON(http.StatusInternalServerError, gin.H{"error": ierr.Error()})
+            return
+        }
+        if reused {
+            l.Info().Str("job_id", jobID).Bool("idempotent", true).Msg("idempotent key reused; returning existing job")
+            c.JSON(http.StatusOK, gin.H{"id": jobID, "idempotent": true})
+            return
+        }
+        l.Info().Str("job_id", jobID).Msg("job enqueued (idempotent create)")
+        metrics.JobsEnqueuedTotal.Inc()
+        c.JSON(http.StatusAccepted, gin.H{"id": jobID, "status": "enqueued"})
+        return
+    }
 
-	if err := h.jobsService.CreateJob(c.Request.Context(), &spec, jobspecJSON); err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("CreateJob service error")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	l.Info().Str("job_id", spec.ID).Msg("job enqueued")
-	metrics.JobsEnqueuedTotal.Inc()
-	c.JSON(http.StatusAccepted, gin.H{"id": spec.ID, "status": "enqueued"})
+    // Non-idempotent path
+    if err := h.jobsService.CreateJob(c.Request.Context(), &spec, jobspecJSON); err != nil {
+        l.Error().Err(err).Str("job_id", spec.ID).Msg("CreateJob service error")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    l.Info().Str("job_id", spec.ID).Msg("job enqueued")
+    metrics.JobsEnqueuedTotal.Inc()
+    c.JSON(http.StatusAccepted, gin.H{"id": spec.ID, "status": "enqueued"})
 }
 
 // GetJob handles job retrieval requests

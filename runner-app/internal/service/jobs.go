@@ -26,20 +26,92 @@ type JobsService struct {
 	ExecutionsRepo *store.ExecutionsRepo
 	DiffsRepo      *store.DiffsRepo
 	Outbox         *store.OutboxRepo
+	IdempotencyRepo *store.IdempotencyRepo
 	QueueName      string
 	Cache          cache.Cache
 }
 
+// IdempotentCreateJob checks an idempotency key first; if it already maps to a job,
+// it returns the existing job ID without creating or enqueuing. Otherwise it creates
+// the job, records the key->job mapping, and enqueues in a single transaction.
+// Returns (jobID, reusedExisting, error).
+func (s *JobsService) IdempotentCreateJob(ctx context.Context, idemKey string, spec *models.JobSpec, jobspecJSON []byte) (string, bool, error) {
+    tracer := otel.Tracer("runner/service/jobs")
+    ctx, span := tracer.Start(ctx, "JobsService.IdempotentCreateJob", oteltrace.WithAttributes(
+        attribute.String("job.id", spec.ID),
+        attribute.String("idempotency.key", idemKey),
+    ))
+    defer span.End()
+    if s.DB == nil {
+        return "", false, errors.New("database not initialized")
+    }
+    // Fast path: if key already exists, return its job ID
+    if s.IdempotencyRepo != nil && idemKey != "" {
+        if existingID, ok, _ := s.IdempotencyRepo.GetByKey(ctx, idemKey); ok && existingID != "" {
+            return existingID, true, nil
+        }
+    }
+
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+
+    tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+    if err != nil {
+        return "", false, err
+    }
+    defer func() {
+        if err != nil {
+            _ = tx.Rollback()
+        }
+    }()
+
+    if err = s.JobsRepo.UpsertJobTx(ctx, tx, spec.ID, jobspecJSON, "created"); err != nil {
+        return "", false, err
+    }
+    if s.IdempotencyRepo != nil && idemKey != "" {
+        if err = s.IdempotencyRepo.PutTx(ctx, tx, idemKey, spec.ID); err != nil {
+            return "", false, err
+        }
+    }
+
+    // Outbox envelope (as in CreateJob)
+    var requestID string
+    if v := ctx.Value("request_id"); v != nil {
+        if s, ok := v.(string); ok {
+            requestID = s
+        }
+    }
+    envelope := map[string]interface{}{
+        "id":          spec.ID,
+        "enqueued_at": time.Now().UTC(),
+        "attempt":     0,
+        "request_id":  requestID,
+    }
+    payload, mErr := json.Marshal(envelope)
+    if mErr != nil {
+        return "", false, mErr
+    }
+    if err = s.Outbox.InsertTx(ctx, tx, s.QueueName, payload); err != nil {
+        return "", false, err
+    }
+
+    if err = tx.Commit(); err != nil {
+        return "", false, err
+    }
+    return spec.ID, false, nil
+}
+
 // NewJobsServiceWithQueue creates a JobsService with an explicit queue name.
 func NewJobsServiceWithQueue(db *sql.DB, queueName string) *JobsService {
-	return &JobsService{
-		DB:             db,
-		JobsRepo:       store.NewJobsRepo(db),
-		ExecutionsRepo: store.NewExecutionsRepo(db),
-		DiffsRepo:      store.NewDiffsRepo(db),
-		Outbox:         store.NewOutboxRepo(db),
-		QueueName:      queueName,
-	}
+    return &JobsService{
+        DB:             db,
+        JobsRepo:       store.NewJobsRepo(db),
+        ExecutionsRepo: store.NewExecutionsRepo(db),
+        DiffsRepo:      store.NewDiffsRepo(db),
+        Outbox:         store.NewOutboxRepo(db),
+        IdempotencyRepo: store.NewIdempotencyRepo(db),
+        QueueName:      queueName,
+    }
 }
 
 // NewJobsService creates a JobsService using the default queue name.

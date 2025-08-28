@@ -89,3 +89,6 @@ runner-app/runner
 
 # IPFS CAR artifacts
 *.car
+
+# Website proposal (temporary)
+Website/proposal/
