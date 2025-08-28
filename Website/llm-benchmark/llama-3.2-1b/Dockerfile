@@ -4,10 +4,15 @@ FROM ollama/ollama:latest
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install requests numpy pandas
+# Create and use a virtual environment to avoid PEP 668 issues
+RUN python3 -m venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir requests numpy pandas
 
 # Copy unified benchmark files from parent directory
 COPY benchmark.py /app/
