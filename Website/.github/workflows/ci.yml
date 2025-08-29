@@ -1,13 +1,27 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+    paths:
+      - 'portal/**'
+      - 'index.html'
+      - 'how-it-works.html'
+      - 'styles.css'
+      - 'script.js'
+      - '.github/workflows/ci.yml'
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - 'portal/**'
+      - 'index.html'
+      - 'how-it-works.html'
+      - 'styles.css'
+      - 'script.js'
+      - '.github/workflows/ci.yml'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20.x'
 
 jobs:
   build-and-test:
@@ -24,81 +38,40 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: |
-          package-lock.json
-          portal/package-lock.json
+        cache-dependency-path: portal/package-lock.json
     
-    - name: Install root dependencies
+    - name: Install dependencies (portal)
+      working-directory: portal
       run: npm ci
     
-    - name: Install portal dependencies
+    - name: Lint (if present)
+      working-directory: portal
+      run: npm run lint --if-present
+    
+    - name: Typecheck (if present)
+      working-directory: portal
+      run: npm run typecheck --if-present
+
+    - name: Unit tests (if present)
+      working-directory: portal
+      env:
+        CI: true
+      run: npm test --if-present --silent
+    
+    - name: Build (portal)
+      working-directory: portal
+      run: npm run build
+    
+    - name: Validate build artifacts (portal)
       run: |
-        cd portal
-        npm ci
+        test -f portal/dist/index.html || (echo "Missing portal/dist/index.html" && exit 1)
+        echo "✅ Portal build validated"
     
-    - name: Run linting
-      run: |
-        npm run lint || echo "Linting not configured, skipping"
-        cd portal && (npm run lint || echo "Portal linting not configured, skipping")
-    
-    - name: Run tests
-      run: |
-        npm test || echo "Tests not configured, skipping"
-        cd portal && (npm test || echo "Portal tests not configured, skipping")
-    
-    - name: Build static site
-      run: npm run build:static
-    
-    - name: Build docs
-      run: npm run build:docs
-    
-    - name: Generate docs CID
-      run: npm run postbuild:cid
-    
-    - name: Build docs with CID
-      run: |
-        DOCS_BUILD_CID=$(cat dist/docs-cid.txt)
-        echo "Generated docs CID: $DOCS_BUILD_CID"
-        DOCS_BUILD_CID="$DOCS_BUILD_CID" npm run build:docs:with-cid
-    
-    - name: Build portal
-      run: |
-        DOCS_BUILD_CID=$(cat dist/docs-cid.txt)
-        BUILD_COMMIT=$(git rev-parse --short HEAD)
-        echo "Building portal with CID: $DOCS_BUILD_CID, Commit: $BUILD_COMMIT"
-        cd portal
-        VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" npm run build
-    
-    - name: Assemble final build
-      run: |
-        mkdir -p dist/portal
-        cp -R portal/dist/* dist/portal/
-        echo "Build complete. Contents of dist/:"
-        ls -la dist/
-    
-    - name: Validate build artifacts
-      run: |
-        # Ensure critical files exist
-        test -f dist/index.html || (echo "Missing dist/index.html" && exit 1)
-        test -d dist/docs || (echo "Missing dist/docs directory" && exit 1)
-        test -d dist/portal || (echo "Missing dist/portal directory" && exit 1)
-        test -f dist/docs-cid.txt || (echo "Missing dist/docs-cid.txt" && exit 1)
-        
-        # Validate portal build
-        test -f dist/portal/index.html || (echo "Missing portal index.html" && exit 1)
-        
-        # Check CID was generated
-        CID=$(cat dist/docs-cid.txt)
-        echo "Generated CID: $CID"
-        [[ $CID =~ ^bafy[a-z0-9]{56}$ ]] || (echo "Invalid CID format: $CID" && exit 1)
-        
-        echo "✅ All build artifacts validated successfully"
-    
-    - name: Upload build artifacts
+    - name: Upload portal build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifacts-${{ github.sha }}
-        path: dist/
+        name: portal-dist-${{ github.sha }}
+        path: portal/dist/
         retention-days: 30
     
     - name: Upload build info
