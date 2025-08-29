@@ -36,7 +36,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	{
 		jobs := v1.Group("/jobs")
 		{
-			jobs.POST("", middleware.ValidateJobSpec(), jobsHandler.CreateJob)
+			jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
 			jobs.GET("/:id", jobsHandler.GetJob)
 			jobs.GET("", jobsHandler.ListJobs)
 		}

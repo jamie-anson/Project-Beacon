@@ -86,6 +86,36 @@ var (
 		},
 		[]string{"region"},
 	)
+
+	// Negotiation telemetry
+	OffersSeenTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "negotiation_offers_seen_total", Help: "Offers observed during negotiation."},
+		[]string{"region"},
+	)
+	OffersP0P2Total = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "negotiation_offers_matched_p0p2_total", Help: "Offers matching P0/P1/P2 levels."},
+		[]string{"region"},
+	)
+	OffersP3Total = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "negotiation_offers_p3_total", Help: "Offers requiring probe (P3)."},
+		[]string{"region"},
+	)
+	ProbesPassedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "negotiation_probes_passed_total", Help: "Preflight probes that verified region."},
+		[]string{"region"},
+	)
+	ProbesFailedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "negotiation_probes_failed_total", Help: "Preflight probes that failed or mismatched."},
+		[]string{"region"},
+	)
+	NegotiationDurationSeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "negotiation_duration_seconds",
+			Help:    "Negotiation duration by outcome.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"region", "outcome"},
+	)
 )
 
 func init() { RegisterAll() }
@@ -110,40 +140,46 @@ func RegisterAll() {
 		WebSocketMessagesDroppedTotal,
 		ExecutionDurationSeconds,
 		QueueLatencySeconds,
+		OffersSeenTotal,
+		OffersP0P2Total,
+		OffersP3Total,
+		ProbesPassedTotal,
+		ProbesFailedTotal,
+		NegotiationDurationSeconds,
 	)
 }
 
 // Summary returns a lightweight map of selected metric totals for API consumption.
 // It aggregates across labels where applicable.
 func Summary() (map[string]float64, error) {
-    out := map[string]float64{}
-    fams, err := prometheus.DefaultGatherer.Gather()
-    if err != nil {
-        return nil, err
-    }
-    want := map[string]struct{}{
-        "jobs_enqueued_total":         {},
-        "jobs_processed_total":        {},
-        "jobs_failed_total":           {},
-        "jobs_retried_total":          {},
-        "jobs_deadletter_total":       {},
-        "outbox_published_total":      {},
-        "outbox_publish_errors_total": {},
-    }
-    for _, mf := range fams {
-        name := mf.GetName()
-        if _, ok := want[name]; !ok {
-            continue
-        }
-        var sum float64
-        for _, m := range mf.Metric {
-            if m.GetCounter() != nil {
-                sum += m.GetCounter().GetValue()
-            }
-        }
-        out[name] = sum
-    }
-    return out, nil
+	out := map[string]float64{}
+	fams, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		return nil, err
+	}
+	want := map[string]struct{}{
+		"jobs_enqueued_total":         {},
+		"jobs_processed_total":        {},
+		"jobs_failed_total":           {},
+		"jobs_retried_total":          {},
+		"jobs_deadletter_total":       {},
+		"outbox_published_total":      {},
+		"outbox_publish_errors_total": {},
+	}
+	for _, mf := range fams {
+		name := mf.GetName()
+		if _, ok := want[name]; !ok {
+			continue
+		}
+		var sum float64
+		for _, m := range mf.Metric {
+			if m.GetCounter() != nil {
+				sum += m.GetCounter().GetValue()
+			}
+		}
+		out[name] = sum
+	}
+	return out, nil
 }
 
 // GinMiddleware records basic Prometheus metrics for HTTP requests.

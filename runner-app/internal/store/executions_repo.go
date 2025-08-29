@@ -176,7 +176,56 @@ func (r *ExecutionsRepo) GetLatestByJobSpecID(
 }
 
 func NewExecutionsRepo(db *sql.DB) *ExecutionsRepo {
-	return &ExecutionsRepo{DB: db}
+    return &ExecutionsRepo{DB: db}
+}
+
+// UpdateRegionVerification upserts region verification fields for an execution.
+// Pass sql.Null* with Valid=false to skip updating a particular field.
+// Note: requires columns to exist in the DB schema; compile-safe prior to migration.
+func (r *ExecutionsRepo) UpdateRegionVerification(
+    ctx context.Context,
+    executionID int64,
+    regionClaimed sql.NullString,
+    regionObserved sql.NullString,
+    regionVerified sql.NullBool,
+    verificationMethod sql.NullString,
+    evidenceRef sql.NullString,
+) error {
+    if r.DB == nil {
+        return errors.New("database connection is nil")
+    }
+    _, err := r.DB.ExecContext(ctx, `
+        UPDATE executions SET
+            region_claimed = COALESCE($2, region_claimed),
+            region_observed = COALESCE($3, region_observed),
+            region_verified = COALESCE($4, region_verified),
+            verification_method = COALESCE($5, verification_method),
+            preflight_evidence_ref = COALESCE($6, preflight_evidence_ref)
+        WHERE id = $1
+    `,
+        executionID,
+        nullStringOrNil(regionClaimed),
+        nullStringOrNil(regionObserved),
+        nullBoolOrNil(regionVerified),
+        nullStringOrNil(verificationMethod),
+        nullStringOrNil(evidenceRef),
+    )
+    return err
+}
+
+// Helpers to pass NULL when sql.Null* is invalid.
+func nullStringOrNil(v sql.NullString) interface{} {
+    if v.Valid {
+        return v.String
+    }
+    return nil
+}
+
+func nullBoolOrNil(v sql.NullBool) interface{} {
+    if v.Valid {
+        return v.Bool
+    }
+    return nil
 }
 
 // CreateExecution creates a new execution record from a Receipt

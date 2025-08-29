@@ -122,6 +122,19 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to add IPFS columns to executions: %w", err)
 	}
 
+	// Add region verification columns to executions (idempotent)
+	_, err = db.Exec(`
+		ALTER TABLE executions
+		ADD COLUMN IF NOT EXISTS region_claimed TEXT,
+		ADD COLUMN IF NOT EXISTS region_observed TEXT,
+		ADD COLUMN IF NOT EXISTS region_verified BOOLEAN,
+		ADD COLUMN IF NOT EXISTS verification_method TEXT,
+		ADD COLUMN IF NOT EXISTS preflight_evidence_ref TEXT
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to add region verification columns to executions: %w", err)
+	}
+
 	// Create ipfs_bundles table (idempotent)
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS ipfs_bundles (

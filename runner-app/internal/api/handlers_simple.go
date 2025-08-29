@@ -238,8 +238,8 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 		return
 	}
     // Idempotency support
-    idemKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
-    if idemKey != "" && h.jobsService != nil {
+    idemKey, hasKey := GetIdempotencyKey(c)
+    if hasKey && h.jobsService != nil {
         jobID, reused, ierr := h.jobsService.IdempotentCreateJob(c.Request.Context(), idemKey, &spec, jobspecJSON)
         if ierr != nil {
             l.Error().Err(ierr).Str("job_id", spec.ID).Msg("IdempotentCreateJob error")

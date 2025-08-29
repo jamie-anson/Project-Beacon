@@ -13,6 +13,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/rs/zerolog v1.33.0
@@ -82,6 +83,7 @@ require (
 	github.com/multiformats/go-multistream v0.4.1 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect

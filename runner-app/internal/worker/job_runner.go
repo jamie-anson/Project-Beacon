@@ -14,17 +14,33 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
+	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
+	"github.com/jamie-anson/project-beacon-runner/internal/geoip"
 )
 
 // JobRunner consumes job envelopes from Redis and executes single-region runs
+// Small interfaces for testability
+type jobsRepoIface interface {
+	GetJob(ctx context.Context, id string) (idOut string, status string, data []byte, createdAt, updatedAt sql.NullTime, err error)
+}
+
+type execRepoIface interface {
+	InsertExecution(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte) (int64, error)
+	UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error
+}
+
+// ProbeFactory constructs a preflight probe; injectable for tests.
+type ProbeFactory func() negotiation.PreflightProbe
+
 type JobRunner struct {
-	DB        *sql.DB
-	Queue     *queue.Client
-	JobsRepo  *store.JobsRepo
-	ExecRepo  *store.ExecutionsRepo
-	Golem     *golem.Service
-	Bundler   *ipfs.Bundler
-	QueueName string
+	DB           *sql.DB
+	Queue        *queue.Client
+	JobsRepo     jobsRepoIface
+	ExecRepo     execRepoIface
+	Golem        *golem.Service
+	Bundler      *ipfs.Bundler
+	QueueName    string
+	ProbeFactory ProbeFactory
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
@@ -142,7 +158,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		completedAt = res.Execution.CompletedAt
 	}
 
-	_, err = w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, startedAt, completedAt, outJSON, recJSON)
+	execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, startedAt, completedAt, outJSON, recJSON)
 	if err != nil {
 		return fmt.Errorf("insert execution: %w", err)
 	}
@@ -165,6 +181,38 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 				l2.Error().Err(berr).Str("job_id", jid).Msg("bundler error")
 			}
 		}(spec.ID)
+	}
+
+	// Preflight region verification (best-effort, non-fatal)
+	// Only attempt if we have an execution row id
+	if execID > 0 {
+		go func(executionID int64, claimed string) {
+			// Short timeout to avoid blocking worker
+			pctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			var probe negotiation.PreflightProbe
+			if w.ProbeFactory != nil {
+				probe = w.ProbeFactory()
+			} else {
+				probe = negotiation.NewPreflightProbe(negotiation.DefaultHTTPIPFetcher(5*time.Second), geoip.NewResolver())
+			}
+			observed, _, verr := probe.Verify(pctx, "")
+			if verr != nil {
+				// Log and continue; do not fail the job
+				l2 := logging.FromContext(ctx)
+				l2.Warn().Err(verr).Int64("execution_id", executionID).Msg("preflight verification skipped")
+				return
+			}
+			verified := (observed == claimed)
+			// Persist verification fields
+			_ = w.ExecRepo.UpdateRegionVerification(context.Background(), executionID,
+				sql.NullString{String: claimed, Valid: true},
+				sql.NullString{String: observed, Valid: true},
+				sql.NullBool{Bool: verified, Valid: true},
+				sql.NullString{String: "preflight-geoip", Valid: true},
+				sql.NullString{}, // evidence ref optional, not stored yet
+			)
+		}(execID, region)
 	}
 
 	return nil
