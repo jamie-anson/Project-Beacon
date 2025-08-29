@@ -1,0 +1,16 @@
+{
+  "constraints": "(& (golem.inf.mem.gib>=4) (golem.inf.cpu.threads>=2) (golem.inf.storage.gib>=10) (golem.runtime.name=\"wasmtime\"))",
+  "x_notes": {
+    "purpose": "CPU-only baseline; suitable for hosts without GPU",
+    "hardware_detected": {
+      "cpu_threads": 9,
+      "mem_gib": 5.3,
+      "storage_gib": 26.8,
+      "runtime": "wasmtime"
+    },
+    "tune": [
+      "Increase mem/cpu/storage as needed",
+      "Add region or runtime-specific constraints in your requestor"
+    ]
+  }
+}

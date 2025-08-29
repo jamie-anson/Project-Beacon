@@ -123,6 +123,39 @@ groups:
           summary: "No Golem providers available"
           description: "No providers available in region {{$labels.region}} for 5m. Check network connectivity and provider discovery."
 
+      # Zero progress - jobs enqueued but not processed
+      - alert: RunnerJobsZeroProgress
+        expr: increase(jobs_processed_total[15m]) == 0 and rate(jobs_enqueued_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Jobs enqueued but zero progress on processing"
+          description: "No jobs processed in 15m despite ongoing enqueues. Check worker health, DB connectivity, and queue processing."
+
+      # Rising job failures
+      - alert: RunnerJobsFailedRising
+        expr: rate(jobs_failed_total[5m]) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Job failure rate elevated (>0.2/s)"
+          description: "Job failure rate exceeded 0.2/s for 10m. Check execution errors, provider issues, and JobSpec validation."
+
+      # Negotiation failures elevated
+      - alert: NegotiationProbeFailuresHigh
+        expr: sum(rate(negotiation_probes_failed_total[5m])) / clamp_min(sum(rate(negotiation_probes_failed_total[5m])) + sum(rate(negotiation_probes_passed_total[5m])), 1) > 0.3 and sum(rate(negotiation_offers_seen_total[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: negotiation
+        annotations:
+          summary: "High negotiation probe failure rate (>30%)"
+          description: "Probe failure rate exceeded 30% for 10m with active offers. Check provider GeoIP verification and network connectivity."
+
   - name: project-beacon-ipfs-transparency
     interval: 30s
     rules:

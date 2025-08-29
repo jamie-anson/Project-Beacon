@@ -16,7 +16,7 @@ from datetime import datetime
 class LLMBenchmark:
     def __init__(self, model_name: str, questions_file: str = "questions.json", mode: str = "simple"):
         self.model_name = model_name
-        self.ollama_url = "http://localhost:11434"
+        self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.mode = mode  # "simple" or "context-aware"
         self.questions = self.load_questions(questions_file)
         self.contexts = self._get_contexts() if mode == "context-aware" else None

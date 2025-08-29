@@ -62,6 +62,26 @@ Grafana auto‑provisions the Prometheus datasource and a Runner dashboard.
 - Webhook unreachable:
   - Ensure the receiver runs on host `:5001`; containers should call `http://host.docker.internal:5001/`
 
+## GPU Acceleration Architecture
+
+Project Beacon now uses GPU-accelerated inference with host delegation:
+
+- **Host GPU**: Ollama runs on host with GPU acceleration (Metal/CUDA/ROCm)
+- **Container clients**: HTTP-only containers call `host.docker.internal:11434`
+- **Performance**: 25x improvement (1.25s vs 30s+ response times)
+- **Models supported**: Llama 3.2:1b, Mistral 7b, Qwen 2.5:1.5b
+- **Monitoring**: `ollama-metrics.py` tracks GPU utilization and inference stats
+
+## Negotiation Telemetry
+
+New metrics track provider negotiation and GeoIP verification:
+
+- **Offers**: `negotiation_offers_seen_total{region}`, `negotiation_offers_matched_p0p2_total{region}`, `negotiation_offers_p3_total{region}`
+- **Probes**: `negotiation_probes_passed_total{region}`, `negotiation_probes_failed_total{region}`
+- **Duration**: `negotiation_duration_seconds{region,outcome}`
+- **Alerts**: Zero progress, rising failures, high probe failure rates
+- **Dashboard**: New "Negotiation Telemetry" row with offers/probes/duration panels
+
 ## References (repo)
 
 - Prometheus: `runner-app/observability/prometheus/prometheus.yml`
@@ -69,3 +89,4 @@ Grafana auto‑provisions the Prometheus datasource and a Runner dashboard.
 - Alertmanager: `runner-app/observability/alertmanager/alertmanager.yml`
 - Grafana provisioning: `runner-app/observability/grafana/provisioning/`
 - Runner port defaults: `runner-app/internal/config/config.go`
+- GPU metrics: `runner-app/observability/ollama-metrics.py`

@@ -178,6 +178,23 @@ const server = http.createServer((req, res) => {
     return json(res, 200, transparencyRoot(data));
   }
 
+  // Redirect IPFS bundle requests to a public gateway for local dev
+  if (req.method === 'GET' && url.pathname.startsWith('/api/v1/transparency/bundles/')) {
+    const parts = url.pathname.split('/');
+    const cid = parts[parts.length - 1];
+    if (!cid) {
+      return json(res, 400, { error: 'cid is required' });
+    }
+    const RAW_GW = process.env.IPFS_GATEWAY || 'https://ipfs.io';
+    const gw = RAW_GW.replace(/\/$/, '');
+    const location = `${gw}/ipfs/${encodeURIComponent(cid)}`;
+    res.writeHead(302, {
+      'Location': location,
+      'Access-Control-Allow-Origin': '*',
+    });
+    return res.end();
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/v1/questions') {
     const data = loadData();
     const grouped = {};

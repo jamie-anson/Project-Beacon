@@ -6,6 +6,8 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--no-audit --fund=false"
+  # Default IPFS gateway for production portal links (overridable per-deploy)
+  VITE_IPFS_GATEWAY = "https://ipfs.io"
 
 # Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
 [[redirects]]

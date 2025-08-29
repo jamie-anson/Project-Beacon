@@ -1,0 +1,10 @@
+{
+  "constraints": "(& (golem.inf.mem.gib>=24) (golem.inf.cpu.threads>=8) (golem.inf.storage.gib>=40) ${GPU_VENDOR_EXPR} ${GPU_VRAM_EXPR})",
+  "x_notes": {
+    "tier": "NVIDIA GPU — 24+ GiB VRAM",
+    "placeholders": {
+      "GPU_VENDOR_EXPR": "Replace with expression matching NVIDIA vendor",
+      "GPU_VRAM_EXPR": "Replace with expression asserting >= 24 GiB VRAM"
+    }
+  }
+}

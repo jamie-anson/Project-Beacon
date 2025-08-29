@@ -15,6 +15,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'technical-overview/architecture',
+        'technical-overview/gpu-acceleration',
         'technical-overview/governance',
       ],
     },
@@ -54,6 +55,7 @@ const sidebars = {
       items: [
         'using-the-platform/submit-a-benchmark',
         'using-the-platform/run-a-benchmark',
+        'using-the-platform/gpu-setup',
         'using-the-platform/attest-a-result',
       ],
     },
