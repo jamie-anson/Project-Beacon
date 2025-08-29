@@ -39,6 +39,17 @@ jobs:
       working-directory: portal
       run: npm run build
 
+    - name: Deploy portal to IPFS (Storacha)
+      id: ipfs_portal_preview
+      uses: ipfs/ipfs-deploy-action@v1
+      with:
+        path-to-deploy: portal/dist
+        storacha-key: ${{ secrets.STORACHA_KEY }}
+        storacha-proof: ${{ secrets.STORACHA_PROOF }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        set-github-status: 'true'
+        set-pr-comment: 'false'
+
     - name: Install Netlify CLI
       run: npm install -g netlify-cli@latest
     
@@ -60,6 +71,7 @@ jobs:
       with:
         script: |
           const deployUrl = '${{ steps.netlify-preview.outputs.deploy_url }}';
+          const cid = '${{ steps.ipfs_portal_preview.outputs.cid }}';
           const comment = `## 🚀 Deploy Preview Ready!
 
           **Preview URL:** ${deployUrl}
@@ -71,6 +83,8 @@ jobs:
           **Build Info:**
           - **Commit:** \`${{ github.event.pull_request.head.sha }}\`
           - **Branch:** \`${{ github.head_ref }}\`
+          - **Portal CID:** \`${cid}\`
+          - **Gateway:** https://ipfs.io/ipfs/${cid}
 
           ---
           <sub>This preview updates automatically on new commits.</sub>`;
@@ -146,6 +160,17 @@ jobs:
         mkdir -p dist/portal
         cp -R portal/dist/* dist/portal/
         echo "✅ Docs rebuilt with CID and portal built"
+
+    - name: Deploy portal to IPFS (Storacha)
+      id: ipfs_portal_prod
+      uses: ipfs/ipfs-deploy-action@v1
+      with:
+        path-to-deploy: portal/dist
+        storacha-key: ${{ secrets.STORACHA_KEY }}
+        storacha-proof: ${{ secrets.STORACHA_PROOF }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        set-github-status: 'true'
+        set-pr-comment: 'false'
     
     - name: Install Netlify CLI
       run: npm install -g netlify-cli@latest
@@ -197,6 +222,8 @@ jobs:
         echo "**Build Details:**" >> $GITHUB_STEP_SUMMARY
         echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Docs CID:** \`$(cat dist/docs-cid.txt)\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Portal CID:** ${{ steps.ipfs_portal_prod.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Gateway (Portal):** https://ipfs.io/ipfs/${{ steps.ipfs_portal_prod.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**✅ Verified Endpoints:**" >> $GITHUB_STEP_SUMMARY
