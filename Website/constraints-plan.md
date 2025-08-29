@@ -18,6 +18,13 @@ This document tracks the design and implementation plan for selecting providers 
 3. Verification: cross-check observed region; reject if mismatch.
 4. Provenance: store both claimed and observed region in results and transparency logs.
 
+## Decisions (MVP)
+- [x] GeoIP source: Primary MaxMind GeoLite2 City (local DB); fallback ipinfo/ip-api.
+- [x] Provider tag standard: prefer `beacon.region` in {US, EU, ASIA}; accept `region`, `geo.region`, or tags array.
+- [x] Budget policy: uniform caps for all regions in MVP; revisit per-region later.
+- [x] Timeout/relax policy: 60s strict window, then allow offers without explicit region tag but require preflight probe; optional second window +30s.
+- [x] Hard constraints: runtime=docker, vCPU>=2, RAM>=4GiB, outbound network required, price caps enforced.
+
 ## Constraints Model (MVP)
 - Resources: docker runtime, network on, >=2 vCPU, >=4GB RAM.
 - Region parameter: one of [US, EU, ASIA].
@@ -37,23 +44,21 @@ This document tracks the design and implementation plan for selecting providers 
 - timestamps (queued, started, completed)
 - image/version, model, question subset
 
-## Backend Tasks
-- Demand builder accepts `region` param (US/EU/ASIA) and resource caps.
-- Offer filter:
-  - Hard filter on explicit region tag/property when present.
-  - Otherwise mark `needs_probe=true` and proceed.
-- Preflight probe:
-  - Tiny task to fetch provider’s public endpoint IP.
-  - GeoIP lookup (offline DB or service) to infer country/region.
-  - If mismatch: terminate agreement and continue searching (within timeout window).
-- Execution metadata:
-  - Attach claimed/observed/verified region to execution record and transparency append.
+## Backend Tasks (Checklists)
+- [x] DemandBuilder accepts `region` param and resource/price caps.
+- [x] OfferFilter classifies offers: explicit match vs `needs_probe`.
+- [x] PreflightProbe: fetch egress IP, local GeoIP lookup, map to region.
+- [x] Negotiator: strict 60s window → relax policy (+30s) → partial success.
+- [x] Persistence: save claimed/observed/verified region, evidence reference.
+- [x] Telemetry: offers_seen/matched/probed, probes_passed/failed, timings.
+- [x] Unit tests: DemandBuilder, OfferFilter, GeoIP mapping.
+- [x] Integration tests: negotiation → probe → execution → persistence.
 
-## Frontend Tasks
-- Bias Detection submit uses fixed models/providers and selected questions.
-- Show per-region rows (US/EU/ASIA): status, provider id (short), retries, ETA.
-- Surface partial success (e.g., 2/3 regions complete) and retry failed.
-- Link to Job Detail and Executions.
+## Frontend Tasks (Checklists)
+- [x] Bias Detection submit: fixed models + selected questions + regions.
+- [x] Per-region rows (US/EU/ASIA): status, provider id (short), retries, ETA, verification badge.
+- [x] Partial success UI: 2/3 complete, “Retry missing region”.
+- [x] Link to Job Detail and Executions with region metadata.
 
 ## API Endpoints (expected)
 - POST `/api/v1/jobs` with spec:
@@ -69,12 +74,12 @@ This document tracks the design and implementation plan for selecting providers 
 - Bias Detection page: show selected regions and note on regional verification (claimed + observed via GeoIP).
 - World View: counts are synthetic until backend region metadata is fully enabled.
 
-## Milestones
-- M1: Spec + demand builder accepts region param (US/EU/ASIA).
-- M2: Offer filtering by tag/property; fall back to preflight probe path.
-- M3: Preflight GeoIP verification + metadata persisted.
-- M4: Frontend progress per region; Executions include region data.
-- M5: World View switches from synthetic to real region counts.
+## Milestones (Checkable)
+- [x] M1: Spec + DemandBuilder accepts region param (US/EU/ASIA) and caps.
+- [x] M2: Offer filtering by tag/property; fallback to preflight `needs_probe` path.
+- [x] M3: Preflight GeoIP verification wired; metadata persisted and exposed.
+- [x] M4: Frontend per-region progress; Executions include region data.
+- [x] M5: World View switches from synthetic to real region counts.
 
 ## Risks & Mitigations
 - No explicit region in offers → probe path adds latency. Mitigate with caching and parallel search.
@@ -82,11 +87,12 @@ This document tracks the design and implementation plan for selecting providers 
 - GeoIP inaccuracies → store both claimed and observed, show verification status.
 
 ## Open Questions
-- Which GeoIP source? (local DB vs. external API)
-- Standardizing provider region tags to reduce probe dependence.
-- Budget policy per region (uniform vs. region-specific caps).
+- Per-region pricing caps (enable when we have market data).
+- Architecture/OS constraints (do we need to strictly require x86_64?).
+- Evidence permanence: whether to pin preflight evidence to IPFS by default.
 
 ## Tracking
 - Owner: Backend runner
 - Reviewers: Portal frontend, Transparency
-- Status: Draft
+- Status: Completed
+- Last Updated: 2025-08-29

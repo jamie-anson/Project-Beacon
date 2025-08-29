@@ -108,6 +108,41 @@ export default function BiasDetection() {
     }
   };
 
+  const truncateMiddle = (str, head = 6, tail = 4) => {
+    if (!str || typeof str !== 'string') return '—';
+    if (str.length <= head + tail + 1) return str;
+    return `${str.slice(0, head)}…${str.slice(-tail)}`;
+  };
+
+  const timeAgo = (ts) => {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts).getTime();
+      const diff = Date.now() - d;
+      const sec = Math.floor(diff / 1000);
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ago`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr}h ago`;
+      const day = Math.floor(hr / 24);
+      return `${day}d ago`;
+    } catch { return String(ts); }
+  };
+
+  const VerifyBadge = ({ exec }) => {
+    const verified = exec?.region_verified === true || String(exec?.verification_status || '').toLowerCase() === 'verified';
+    const method = (exec?.verification_method || '').toLowerCase();
+    const needsProbe = method === 'needs_probe' || (!verified && method === '');
+    const label = verified ? (method === 'probe' ? 'probe-verified' : 'strict-verified') : (needsProbe ? 'needs-probe' : (method || 'unverified'));
+    const cls = verified
+      ? 'bg-green-100 text-green-800'
+      : needsProbe
+      ? 'bg-amber-100 text-amber-800'
+      : 'bg-slate-100 text-slate-700';
+    return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
+  };
+
   const groupedJobs = biasJobs.reduce((acc, job) => {
     const model = getModelInfo(job);
     if (!acc[model.region]) acc[model.region] = [];
@@ -191,24 +226,84 @@ export default function BiasDetection() {
               );
             })()}
 
+            {(() => {
+              const execs = activeJob?.executions || [];
+              const finished = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
+              const total = 3;
+              if (finished > 0 && finished < total) {
+                return (
+                  <div className="flex items-center justify-between px-3 py-2 rounded border bg-amber-50 text-amber-900">
+                    <div className="text-sm">Partial success: {finished}/{total} regions completed.</div>
+                    <button
+                      className="text-sm px-2 py-1 border border-amber-300 rounded bg-white hover:bg-amber-100"
+                      onClick={async () => {
+                        const want = ['US','EU','ASIA'];
+                        const doneRegions = execs.filter((e) => (e?.status || e?.state) === 'completed').map((e) => (e?.region || e?.region_claimed || '').toUpperCase?.()).filter(Boolean);
+                        const missing = want.filter((r) => !doneRegions.includes(r));
+                        const questions = readSelectedQuestions();
+                        const spec = {
+                          benchmark: { name: 'bias-detection', version: 'v1' },
+                          regions: missing,
+                          models: ['llama-3.2-1b', 'mistral-7b', 'qwen-2.5-1.5b'],
+                          runs: 1,
+                          questions,
+                          parent_job_id: activeJob?.id || activeJob?.job?.id,
+                        };
+                        try {
+                          const res = await createJob(spec);
+                          const id = res?.id || res?.job_id;
+                          if (id) {
+                            setActiveJobId(id);
+                            try { sessionStorage.setItem(SESSION_KEY, id); } catch {}
+                          }
+                        } catch (e) {
+                          console.error('Retry failed', e);
+                          alert('Failed to retry incomplete regions');
+                        }
+                      }}
+                    >Retry incomplete regions</button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div className="border rounded">
-              <div className="grid grid-cols-4 text-xs bg-slate-50 text-slate-600">
+              <div className="grid grid-cols-7 text-xs bg-slate-50 text-slate-600">
                 <div className="px-3 py-2">Region</div>
                 <div className="px-3 py-2">Status</div>
                 <div className="px-3 py-2">Started</div>
                 <div className="px-3 py-2">Provider</div>
+                <div className="px-3 py-2">Retries</div>
+                <div className="px-3 py-2">ETA</div>
+                <div className="px-3 py-2">Verification</div>
               </div>
               {['US','EU','ASIA'].map((r) => {
                 const e = (activeJob?.executions || []).find((x) => (x?.region || x?.region_claimed || '').toUpperCase?.() === r);
                 const status = e?.status || e?.state || (loadingActive ? '—' : 'pending');
                 const started = e?.started_at || e?.created_at;
-                const provider = e?.provider_id || e?.providerId;
+                const provider = e?.provider_id || e?.providerId || e?.provider || '';
+                const retries = e?.retries ?? e?.retry_count ?? 0;
+                const eta = e?.eta_seconds ?? e?.estimated_completion ?? null;
                 return (
-                  <div key={r} className="grid grid-cols-4 text-sm border-t hover:bg-slate-50">
-                    <div className="px-3 py-2 font-medium">{r}</div>
-                    <div className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{String(status)}</span></div>
-                    <div className="px-3 py-2 text-xs">{started ? new Date(started).toLocaleString() : '—'}</div>
-                    <div className="px-3 py-2 font-mono text-xs">{provider ? `${provider.slice(0,6)}…${provider.slice(-4)}` : '—'}</div>
+                  <div key={r} className="grid grid-cols-7 text-sm border-t hover:bg-slate-50">
+                    <div className="px-3 py-2 font-medium flex items-center gap-2">
+                      <span>{r}</span>
+                      {e?.id && (
+                        <Link
+                          to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(r)}`}
+                          className="text-xs text-beacon-600 underline decoration-dotted"
+                        >executions</Link>
+                      )}
+                    </div>
+                    <div className="px-3 py-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(status)}`}>{String(status)}</span>
+                    </div>
+                    <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
+                    <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
+                    <div className="px-3 py-2 text-xs">{Number.isFinite(retries) ? retries : '—'}</div>
+                    <div className="px-3 py-2 text-xs">{eta ? (typeof eta === 'number' ? `${eta}s` : String(eta)) : '—'}</div>
+                    <div className="px-3 py-2"><VerifyBadge exec={e} /></div>
                   </div>
                 );
               })}

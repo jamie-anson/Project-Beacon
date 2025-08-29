@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { getGeo } from '../lib/api.js';
+import { getGeo, getExecutions } from '../lib/api.js';
 import { useQuery } from '../state/useQuery.js';
 
 // Minimal ISO2 -> ECharts world map name mapping for countries we synthesize
@@ -31,14 +31,42 @@ export default function WorldView() {
   const [echarts, setEcharts] = useState(null);
   const [worldGeo, setWorldGeo] = useState(null);
 
-  const { data, loading, error, refetch } = useQuery('geo:countries', getGeo, { interval: 30000 });
+  const { data: geoData, loading: loadingGeo, error: geoError, refetch: refetchGeo } = useQuery('geo:countries', getGeo, { interval: 30000 });
+  const { data: execData, loading: loadingExec, error: execError, refetch: refetchExec } = useQuery('executions:world', () => getExecutions({ limit: 200 }), { interval: 30000 });
+
+  // Aggregate executions -> countries when geo is empty
+  const aggregatedCountries = useMemo(() => {
+    const list = Array.isArray(execData) ? execData : [];
+    const acc = {};
+    for (const e of list) {
+      // Prefer explicit country codes if present, else map region to a representative ISO2
+      const cc = (e?.country_code || e?.geo?.country_code || e?.region_observed_country || '').toUpperCase?.();
+      let iso2 = cc && /^[A-Z]{2}$/.test(cc) ? cc : null;
+      if (!iso2) {
+        const region = (e?.region_observed || e?.region || e?.region_claimed || '').toUpperCase?.();
+        if (region === 'US') iso2 = 'US';
+        else if (region === 'EU') iso2 = 'DE';
+        else if (region === 'ASIA') iso2 = 'CN';
+      }
+      if (!iso2) continue;
+      acc[iso2] = (acc[iso2] || 0) + 1;
+    }
+    return acc;
+  }, [execData]);
+
+  const { countries, source } = useMemo(() => {
+    const c = geoData?.countries || {};
+    const nonEmpty = c && Object.keys(c).length > 0;
+    if (nonEmpty) return { countries: c, source: 'backend' };
+    return { countries: aggregatedCountries, source: 'executions' };
+  }, [geoData, aggregatedCountries]);
+
   const seriesData = useMemo(() => {
-    const countries = data?.countries || {};
-    return Object.entries(countries).map(([code, value]) => ({
+    return Object.entries(countries || {}).map(([code, value]) => ({
       name: ISO2_TO_NAME[code] || code,
       value,
     }));
-  }, [data]);
+  }, [countries]);
 
   useEffect(() => {
     let mounted = true;
@@ -157,8 +185,9 @@ export default function WorldView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">World View</h2>
-        <div className="flex items-center gap-2 text-sm">
-          <button onClick={refetch} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
+        <div className="flex items-center gap-3 text-sm text-slate-600">
+          <span className="text-xs px-2 py-0.5 rounded bg-slate-100">source: {source}</span>
+          <button onClick={() => { refetchGeo(); refetchExec(); }} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
         </div>
       </div>
 
@@ -176,20 +205,22 @@ export default function WorldView() {
         </ul>
         <p className="mt-2">
           This map summarizes where responses are attributed across countries so you can spot geographic patterns
-          in performance or behavior. Counts are synthetic for demo purposes and do not represent real user data.
+          in performance or behavior. {source === 'backend' ? 'Counts provided by the backend geo endpoint.' : 'Counts derived from recent executions.'}
         </p>
       </div>
 
-      {loading && <div className="text-sm text-slate-500">Loading geo data…</div>}
-      {error && <div className="text-sm text-red-600">Failed to load geo data.</div>}
+      {(loadingGeo || loadingExec) && <div className="text-sm text-slate-500">Loading geo data…</div>}
+      {(geoError || execError) && <div className="text-sm text-red-600">Failed to load geo data.</div>}
 
       <div className="bg-white border rounded h-[560px]">
         <div ref={chartRef} className="w-full h-full" />
       </div>
 
-      <p className="text-xs text-slate-500">
-        Synthetic geo distribution for demo purposes. Replace with real origin metadata when available.
-      </p>
+      {source === 'backend' || Object.keys(countries || {}).length > 0 ? null : (
+        <p className="text-xs text-slate-500">
+          No geo data available yet.
+        </p>
+      )}
     </div>
   );
 }

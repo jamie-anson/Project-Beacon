@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
 import { getExecutions } from '../lib/api.js';
 import CopyButton from '../components/CopyButton.jsx';
@@ -48,15 +48,40 @@ function timeAgo(ts) {
 }
 
 export default function Executions() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const jobFilter = (params.get('job') || '').trim();
+  const regionFilter = (params.get('region') || '').trim().toUpperCase();
+
   const { data, loading, error } = useQuery('executions', () => getExecutions({ limit: 100 }), { interval: 5000 });
   const executions = Array.isArray(data) ? data : [];
+
+  const filtered = React.useMemo(() => {
+    return executions.filter((e) => {
+      const jobId = e?.job_id || e?.jobId || e?.job?.id;
+      const region = (e?.region || e?.region_claimed || '').toUpperCase?.();
+      const okJob = jobFilter ? String(jobId) === jobFilter : true;
+      const okRegion = regionFilter ? region === regionFilter : true;
+      return okJob && okRegion;
+    });
+  }, [executions, jobFilter, regionFilter]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Executions</h2>
-        <div className="text-sm text-slate-500">{loading ? 'Refreshing…' : error ? 'Backend unavailable' : `${executions.length} total`}</div>
+        <div className="text-sm text-slate-500">
+          {loading ? 'Refreshing…' : error ? 'Backend unavailable' : `${filtered.length}${(jobFilter || regionFilter) ? ` of ${executions.length}` : ''} shown`}
+        </div>
       </div>
+
+      {(jobFilter || regionFilter) && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">job: <code className="font-mono">{jobFilter || '—'}</code></span>
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">region: <code className="font-mono">{regionFilter || '—'}</code></span>
+          <Link to="/executions" className="text-beacon-600 underline decoration-dotted">Clear filters</Link>
+        </div>
+      )}
 
       {loading ? (
         <div className="bg-white border rounded overflow-hidden">
@@ -87,6 +112,8 @@ export default function Executions() {
         <div className="bg-white border rounded p-3 text-sm text-red-600">Backend unavailable - Executions service offline</div>
       ) : executions.length === 0 ? (
         <div className="bg-white border rounded p-3 text-sm text-slate-500">No executions yet.</div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white border rounded p-3 text-sm text-slate-500">No executions match current filters.</div>
       ) : (
         <div className="bg-white border rounded overflow-hidden">
           <table className="w-full text-sm">
@@ -100,7 +127,7 @@ export default function Executions() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {executions.map((e) => {
+              {filtered.map((e) => {
                 const id = e?.id || e?.execution_id || '—';
                 const jobId = e?.job_id || e?.jobId || e?.job?.id;
                 const status = e?.status || e?.state || 'unknown';
