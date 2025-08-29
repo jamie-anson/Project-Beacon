@@ -206,7 +206,7 @@ func main() {
 			Str("addr_file", cfg.AddrFile).
 			Msg("Project Beacon Runner started")
 		if _, port, err := net.SplitHostPort(resolved); err == nil && port != "" {
-			logger.Info().Msg("Hint: curl http://localhost:" + port + "/health ; curl -H 'X-Admin-Token: $ADMIN_TOKEN' http://localhost:" + port + "/admin/port")
+			logger.Info().Msg("Hint: curl http://localhost:" + port + "/health ; curl -H 'Authorization: Bearer $ADMIN_TOKEN' http://localhost:" + port + "/admin/port")
 		}
 
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {

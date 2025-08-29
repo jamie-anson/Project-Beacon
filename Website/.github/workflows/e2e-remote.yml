@@ -108,7 +108,7 @@ jobs:
           echo "job_file=/tmp/signed_job.json" >> "$GITHUB_OUTPUT"
 
       - name: Submit job (optional)
-        if: steps.signed_job.outcomes != 'skipped'
+        if: steps.signed_job.outcome != 'skipped'
         id: submit
         run: |
           set -euo pipefail
@@ -129,7 +129,7 @@ jobs:
           if [ -n "$jid" ]; then echo "job_id=${jid}" >> "$GITHUB_OUTPUT"; fi
 
       - name: Replay protection check (optional)
-        if: steps.signed_job.outcomes != 'skipped'
+        if: steps.signed_job.outcome != 'skipped'
         run: |
           set -euo pipefail
           url="${BASE_URL}${JOB_SUBMIT_PATH}"

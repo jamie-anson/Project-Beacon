@@ -12,11 +12,121 @@ const NUM_PORT = Number(RAW_PORT);
 const PORT = Number.isFinite(NUM_PORT) && NUM_PORT > 0 && NUM_PORT < 65536 ? NUM_PORT : 8787;
 const DATA_PATH = path.join(__dirname, '..', 'llm-benchmark', 'results', 'benchmark_results.json');
 
+// --- Minimal RBAC & Admin Config ---
+const DEFAULT_CONFIG = {
+  ipfs_gateway: process.env.IPFS_GATEWAY || 'https://ipfs.io',
+  transparency_log: {
+    enabled: true,
+    endpoint: process.env.TRANSPARENCY_ENDPOINT || 'https://transparency.projectbeacon.dev',
+  },
+  features: {
+    bias_dashboard: true,
+    provider_map: true,
+    ws_live_updates: true,
+  },
+  constraints: {
+    default_region: 'US', // US | EU | ASIA
+    max_cost: 5.0,
+    max_duration: 900,
+  },
+  security: {
+    require_signature: false,
+    allowed_submitter_keys: [],
+  },
+  display: {
+    maintenance_mode: false,
+    banner: '',
+  },
+};
+
+let CONFIG = { ...DEFAULT_CONFIG };
+
+function splitTokens(envName) {
+  return (process.env[envName] || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function roleFromToken(token) {
+  const admins = new Set(splitTokens('ADMIN_TOKENS'));
+  const operators = new Set(splitTokens('OPERATOR_TOKENS'));
+  const viewers = new Set(splitTokens('VIEWER_TOKENS'));
+  if (admins.has(token)) return 'admin';
+  if (operators.has(token)) return 'operator';
+  if (viewers.has(token)) return 'viewer';
+  return 'anonymous';
+}
+
+function getRole(req) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  let role = roleFromToken(token);
+  if (role === 'anonymous' && process.env.ALLOW_LOCAL_NOAUTH === 'true') {
+    const host = req.headers.host || '';
+    const ra = req.socket && req.socket.remoteAddress || '';
+    if (host.startsWith('localhost') || ra === '::1' || ra === '127.0.0.1') {
+      role = 'admin';
+    }
+  }
+  return role;
+}
+
+function canReadAdmin(role) {
+  return role === 'admin' || role === 'operator';
+}
+
+function canWriteAdmin(role) {
+  return role === 'admin';
+}
+
+function sanitizeConfig(update) {
+  const out = {};
+  if (!update || typeof update !== 'object') return out;
+  if (typeof update.ipfs_gateway === 'string') out.ipfs_gateway = update.ipfs_gateway;
+  if (update.transparency_log && typeof update.transparency_log === 'object') {
+    out.transparency_log = {
+      enabled: typeof update.transparency_log.enabled === 'boolean' ? update.transparency_log.enabled : DEFAULT_CONFIG.transparency_log.enabled,
+      endpoint: typeof update.transparency_log.endpoint === 'string' ? update.transparency_log.endpoint : DEFAULT_CONFIG.transparency_log.endpoint,
+    };
+  }
+  if (update.features && typeof update.features === 'object') {
+    out.features = {
+      bias_dashboard: typeof update.features.bias_dashboard === 'boolean' ? update.features.bias_dashboard : DEFAULT_CONFIG.features.bias_dashboard,
+      provider_map: typeof update.features.provider_map === 'boolean' ? update.features.provider_map : DEFAULT_CONFIG.features.provider_map,
+      ws_live_updates: typeof update.features.ws_live_updates === 'boolean' ? update.features.ws_live_updates : DEFAULT_CONFIG.features.ws_live_updates,
+    };
+  }
+  if (update.constraints && typeof update.constraints === 'object') {
+    const region = update.constraints.default_region;
+    out.constraints = {
+      default_region: ['US','EU','ASIA'].includes(region) ? region : DEFAULT_CONFIG.constraints.default_region,
+      max_cost: Number.isFinite(update.constraints.max_cost) ? update.constraints.max_cost : DEFAULT_CONFIG.constraints.max_cost,
+      max_duration: Number.isFinite(update.constraints.max_duration) ? update.constraints.max_duration : DEFAULT_CONFIG.constraints.max_duration,
+    };
+  }
+  if (update.security && typeof update.security === 'object') {
+    out.security = {
+      require_signature: typeof update.security.require_signature === 'boolean' ? update.security.require_signature : DEFAULT_CONFIG.security.require_signature,
+      allowed_submitter_keys: Array.isArray(update.security.allowed_submitter_keys) ? update.security.allowed_submitter_keys.filter(x => typeof x === 'string') : DEFAULT_CONFIG.security.allowed_submitter_keys,
+    };
+  }
+  if (update.display && typeof update.display === 'object') {
+    out.display = {
+      maintenance_mode: typeof update.display.maintenance_mode === 'boolean' ? update.display.maintenance_mode : DEFAULT_CONFIG.display.maintenance_mode,
+      banner: typeof update.display.banner === 'string' ? update.display.banner : DEFAULT_CONFIG.display.banner,
+    };
+  }
+  return out;
+}
+
 function json(res, status, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   });
   res.end(body);
 }
@@ -97,9 +207,57 @@ console.log(`[mock-backend] Booting... Node ${process.version} (env PORT=${RAW_P
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,PUT,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    });
+    return res.end();
+  }
+
   // Basic routing
   if (req.method === 'GET' && url.pathname === '/health') {
     return ok(res);
+  }
+
+  // Auth: whoami (role discovery)
+  if (req.method === 'GET' && url.pathname === '/auth/whoami') {
+    const role = getRole(req);
+    return json(res, 200, { role });
+  }
+
+  // Admin Config (read)
+  if (req.method === 'GET' && url.pathname === '/admin/config') {
+    const role = getRole(req);
+    if (!canReadAdmin(role)) return json(res, 403, { error: 'forbidden', role });
+    return json(res, 200, CONFIG);
+  }
+
+  // Admin Config (update)
+  if (req.method === 'PUT' && url.pathname === '/admin/config') {
+    const role = getRole(req);
+    if (!canWriteAdmin(role)) return json(res, 403, { error: 'forbidden', role });
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; if (body.length > 1e6) req.destroy(); });
+    req.on('end', () => {
+      let update = {};
+      try { update = body ? JSON.parse(body) : {}; } catch {}
+      const sanitized = sanitizeConfig(update);
+      // Merge deeply per known sections
+      CONFIG = {
+        ...CONFIG,
+        ...(sanitized.ipfs_gateway ? { ipfs_gateway: sanitized.ipfs_gateway } : {}),
+        transparency_log: { ...CONFIG.transparency_log, ...(sanitized.transparency_log || {}) },
+        features: { ...CONFIG.features, ...(sanitized.features || {}) },
+        constraints: { ...CONFIG.constraints, ...(sanitized.constraints || {}) },
+        security: { ...CONFIG.security, ...(sanitized.security || {}) },
+        display: { ...CONFIG.display, ...(sanitized.display || {}) },
+      };
+      return json(res, 200, { ok: true, config: CONFIG });
+    });
+    return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/v1/jobs') {

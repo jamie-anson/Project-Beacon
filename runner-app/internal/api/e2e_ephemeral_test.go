@@ -86,10 +86,10 @@ func TestE2E_EphemeralMode_WritesAddrFile_AndEndpointsRespond(t *testing.T) {
 		t.Fatalf("/health/live status=%d body=%s", resp.StatusCode, string(body))
 	}
 
-	// Hit /admin/port with token
-	_ = os.Setenv("ADMIN_TOKEN", "test-token")
+	// Hit /admin/port with RBAC Bearer token
+	_ = os.Setenv("ADMIN_TOKENS", "test-token")
 	req, _ := http.NewRequest("GET", base+"/admin/port", nil)
-	req.Header.Set("X-Admin-Token", "test-token")
+	req.Header.Set("Authorization", "Bearer test-token")
 	resp2, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET /admin/port: %v", err)
@@ -102,7 +102,7 @@ func TestE2E_EphemeralMode_WritesAddrFile_AndEndpointsRespond(t *testing.T) {
 
 	// Hit /admin/hints with token and validate contents
 	req3, _ := http.NewRequest("GET", base+"/admin/hints", nil)
-	req3.Header.Set("X-Admin-Token", "test-token")
+	req3.Header.Set("Authorization", "Bearer test-token")
 	resp3, err := http.DefaultClient.Do(req3)
 	if err != nil {
 		t.Fatalf("GET /admin/hints: %v", err)

@@ -18,7 +18,8 @@ jobs:
   deploy-preview:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    environment: preview
+    environment:
+      name: preview
     
     steps:
     - name: Checkout code
@@ -99,7 +100,8 @@ jobs:
   deploy-production:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
     
     steps:
     - name: Checkout code

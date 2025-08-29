@@ -26,32 +26,32 @@ func TestAdmin_Unauthorized_WhenNoTokenConfigured(t *testing.T) {
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
 
-    if w.Code != http.StatusUnauthorized {
-        t.Fatalf("expected 401 when ADMIN_TOKEN not set, got %d; body=%s", w.Code, w.Body.String())
+    if w.Code != http.StatusForbidden {
+        t.Fatalf("expected 403 when no auth provided, got %d; body=%s", w.Code, w.Body.String())
     }
 }
 
 func TestAdmin_Unauthorized_WrongToken(t *testing.T) {
-    t.Setenv("ADMIN_TOKEN", "super-secret")
+    t.Setenv("ADMIN_TOKENS", "super-secret")
     r := newAdminTestRouter()
 
     req := httptest.NewRequest(http.MethodGet, "/admin/config", nil)
-    // Wrong token header
-    req.Header.Set("X-Admin-Token", "wrong")
+    // Wrong token header via Authorization: Bearer
+    req.Header.Set("Authorization", "Bearer wrong")
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
 
-    if w.Code != http.StatusUnauthorized {
-        t.Fatalf("expected 401 for wrong token, got %d; body=%s", w.Code, w.Body.String())
+    if w.Code != http.StatusForbidden {
+        t.Fatalf("expected 403 for wrong token, got %d; body=%s", w.Code, w.Body.String())
     }
 }
 
 func TestAdmin_Authorized_CorrectToken_AllowsAccess(t *testing.T) {
-    t.Setenv("ADMIN_TOKEN", "super-secret")
+    t.Setenv("ADMIN_TOKENS", "super-secret")
     r := newAdminTestRouter()
 
     req := httptest.NewRequest(http.MethodGet, "/admin/flags", nil)
-    req.Header.Set("X-Admin-Token", "super-secret")
+    req.Header.Set("Authorization", "Bearer super-secret")
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
 
@@ -64,11 +64,11 @@ func TestAdmin_Authorized_CorrectToken_AllowsAccess(t *testing.T) {
 }
 
 func TestAdmin_UpdateFlags_InvalidJSON_Returns400(t *testing.T) {
-    t.Setenv("ADMIN_TOKEN", "super-secret")
+    t.Setenv("ADMIN_TOKENS", "super-secret")
     r := newAdminTestRouter()
 
     req := httptest.NewRequest(http.MethodPut, "/admin/flags", bytes.NewBufferString("{ not-json }"))
-    req.Header.Set("X-Admin-Token", "super-secret")
+    req.Header.Set("Authorization", "Bearer super-secret")
     req.Header.Set("Content-Type", "application/json")
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)

@@ -38,41 +38,34 @@ Simple checklist to get Beacon Runner live for initial network participants.
 - Grafana Cloud metrics
 - Load testing
 - Comprehensive monitoring
-- Advanced security hardening
-- Performance optimization
-- GPU optimisation
+ - Advanced security hardening
+ - Performance optimization
+ - GPU optimisation
+
+## Recently Resolved Blockers 
+
+- API endpoints returning empty — fixed. `/health` responds 200 OK with payload.
+- Job processing untested — verified end-to-end (submit → enqueue → retrieve → receipt).
+- Missing LLM benchmark containers — delivered (Llama 3.2-1B, Qwen 2.5-1.5B, Mistral 7B) with Ollama integration and local validation.
+- Provider region constraints — completed (M1–M6 implemented: region param, offer filtering, GeoIP preflight, metadata persistence, frontend progress, World View data).
+- Admin functionality defined and RBAC implemented — `/auth/whoami` and `/admin/config` (GET/PUT) secured via Authorization: Bearer tokens from `ADMIN_TOKENS`/`OPERATOR_TOKENS`; `/admin/port` and `/admin/hints` public only in debug mode.
 
 ## Current Blockers
 
-1. **API endpoints returning empty** - need to debug why `/health` is blank
-2. **Job processing untested** - need to verify complete flow works
-3. **Admin functionality unclear** - `/admin/config` needs investigation
-4. **Missing LLM benchmark containers** - no actual containers with LLM runtimes built
-   - Need Dockerfile with Ollama/transformers + Llama 3.2 model
-   - Need benchmark script that runs "Who are you?" inference
-   - Need to build and push to container registry
-   - Current container references are placeholder strings only
-
-5. **Provider region constraints incomplete** — implement selection and verification for US/EU/ASIA providers
-   - See `constraints-plan.md` for approach and milestones
-   - Demand builder accepts `region` param and resource caps
-   - Offer filtering by region tag/property; fallback preflight GeoIP verification
-   - Persist region metadata (claimed/observed/verified) and expose via API
+- None at this time.
 
 ### Provider Region Constraints — Checklist
 
-- [ ] M1: Demand builder accepts `region` param (US/EU/ASIA) and resource caps
-- [ ] M2: Offer filtering by explicit region tag/property when present
-- [ ] M3: Preflight GeoIP verification for offers without region; reject mismatches
-- [ ] M4: Persist region metadata (claimed/observed/verified) on executions and expose via API
-- [ ] M5: Frontend shows per-region progress on Bias Detection page
-- [ ] M6: World View switches from synthetic counts to backend-provided region data
-
-See `constraints-plan.md` for details and owners.
+- [x] M1: Demand builder accepts `region` param (US/EU/ASIA) and resource caps
+- [x] M2: Offer filtering by explicit region tag/property when present
+- [x] M3: Preflight GeoIP verification for offers without region; reject mismatches
+- [x] M4: Persist region metadata (claimed/observed/verified) on executions and expose via API
+- [x] M5: Frontend shows per-region progress on Bias Detection page
+- [x] M6: World View switches from synthetic counts to backend-provided region data
 
 ## MVP Success Definition
 
-✅ **Ready for MVP when:**
+ Ready for MVP when: 
 - External users can submit jobs
 - Jobs get processed and return receipts
 - Service doesn't crash under normal use

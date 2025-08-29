@@ -13,27 +13,27 @@ import (
     "github.com/jamie-anson/project-beacon-runner/internal/flags"
 )
 
-// Admin: unauthorized when ADMIN_TOKEN is unset
-func TestContract_Admin_Unauthorized_401(t *testing.T) {
-    // Ensure ADMIN_TOKEN is unset
-    old := os.Getenv("ADMIN_TOKEN")
-    _ = os.Unsetenv("ADMIN_TOKEN")
-    t.Cleanup(func(){ if old != "" { _ = os.Setenv("ADMIN_TOKEN", old) } })
+// Admin: forbidden when no Authorization bearer is provided and ADMIN_TOKENS is unset
+func TestContract_Admin_Unauthorized_403(t *testing.T) {
+    // Ensure ADMIN_TOKENS is unset
+    old := os.Getenv("ADMIN_TOKENS")
+    _ = os.Unsetenv("ADMIN_TOKENS")
+    t.Cleanup(func(){ if old != "" { _ = os.Setenv("ADMIN_TOKENS", old) } })
 
     r := newTestRouter()
     req := httptest.NewRequest(http.MethodGet, "/admin/flags", nil)
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
-    if w.Code != http.StatusUnauthorized { t.Fatalf("want 401, got %d; body=%s", w.Code, w.Body.String()) }
+    if w.Code != http.StatusForbidden { t.Fatalf("want 403, got %d; body=%s", w.Code, w.Body.String()) }
     if w.Header().Get("X-Request-ID") == "" { t.Fatalf("missing X-Request-ID header") }
 }
 
 // Admin: flags GET/PUT with token
 func TestContract_Admin_Flags_GetPut_200(t *testing.T) {
-    // Set admin token
-    old := os.Getenv("ADMIN_TOKEN")
-    _ = os.Setenv("ADMIN_TOKEN", "secret")
-    t.Cleanup(func(){ if old == "" { _ = os.Unsetenv("ADMIN_TOKEN") } else { _ = os.Setenv("ADMIN_TOKEN", old) } })
+    // Set admin token via ADMIN_TOKENS
+    old := os.Getenv("ADMIN_TOKENS")
+    _ = os.Setenv("ADMIN_TOKENS", "secret")
+    t.Cleanup(func(){ if old == "" { _ = os.Unsetenv("ADMIN_TOKENS") } else { _ = os.Setenv("ADMIN_TOKENS", old) } })
 
     // Reset flags and restore after
     orig := flags.Get()
@@ -44,7 +44,7 @@ func TestContract_Admin_Flags_GetPut_200(t *testing.T) {
 
     // GET /admin/flags
     req := httptest.NewRequest(http.MethodGet, "/admin/flags", nil)
-    req.Header.Set("X-Admin-Token", "secret")
+    req.Header.Set("Authorization", "Bearer secret")
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
     if w.Code != http.StatusOK { t.Fatalf("want 200, got %d; body=%s", w.Code, w.Body.String()) }
@@ -56,7 +56,7 @@ func TestContract_Admin_Flags_GetPut_200(t *testing.T) {
     // PUT /admin/flags toggle read_only_mode
     body := bytes.NewBufferString(`{"read_only_mode":true}`)
     req2 := httptest.NewRequest(http.MethodPut, "/admin/flags", body)
-    req2.Header.Set("X-Admin-Token", "secret")
+    req2.Header.Set("Authorization", "Bearer secret")
     req2.Header.Set("Content-Type", "application/json")
     w2 := httptest.NewRecorder()
     r.ServeHTTP(w2, req2)
@@ -67,11 +67,11 @@ func TestContract_Admin_Flags_GetPut_200(t *testing.T) {
     if !got2.ReadOnlyMode { t.Fatalf("expected read_only_mode=true after update, got %v", got2) }
 }
 
-// Admin: config 401 without header and 200 with token
+// Admin: config 403 without header and 200 with bearer token
 func TestContract_Admin_Config_Auth(t *testing.T) {
-    old := os.Getenv("ADMIN_TOKEN")
-    _ = os.Setenv("ADMIN_TOKEN", "secret")
-    t.Cleanup(func(){ if old == "" { _ = os.Unsetenv("ADMIN_TOKEN") } else { _ = os.Setenv("ADMIN_TOKEN", old) } })
+    old := os.Getenv("ADMIN_TOKENS")
+    _ = os.Setenv("ADMIN_TOKENS", "secret")
+    t.Cleanup(func(){ if old == "" { _ = os.Unsetenv("ADMIN_TOKENS") } else { _ = os.Setenv("ADMIN_TOKENS", old) } })
 
     cfg := &config.Config{
         HTTPPort: "8090",
@@ -86,16 +86,16 @@ func TestContract_Admin_Config_Auth(t *testing.T) {
     }
     r := SetupRoutes(nil, cfg, nil)
 
-    // 401 when header missing
+    // 403 when header missing
     req := httptest.NewRequest(http.MethodGet, "/admin/config", nil)
     w := httptest.NewRecorder()
     r.ServeHTTP(w, req)
-    if w.Code != http.StatusUnauthorized { t.Fatalf("want 401, got %d", w.Code) }
+    if w.Code != http.StatusForbidden { t.Fatalf("want 403, got %d", w.Code) }
     if w.Header().Get("X-Request-ID") == "" { t.Fatalf("missing X-Request-ID header on 401") }
 
-    // 200 with token
+    // 200 with bearer token
     req2 := httptest.NewRequest(http.MethodGet, "/admin/config", nil)
-    req2.Header.Set("X-Admin-Token", "secret")
+    req2.Header.Set("Authorization", "Bearer secret")
     w2 := httptest.NewRecorder()
     r.ServeHTTP(w2, req2)
     if w2.Code != http.StatusOK { t.Fatalf("want 200, got %d; body=%s", w2.Code, w2.Body.String()) }
