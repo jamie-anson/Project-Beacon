@@ -9,13 +9,14 @@ on:
     workflows: ["CI Pipeline"]
     types: [completed]
     branches: [ main ]
+  workflow_dispatch:
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20.x'
 
 jobs:
   deploy-preview:
-    if: github.event_name == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: preview
     
@@ -23,12 +24,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        name: build-artifacts-${{ github.event.pull_request.head.sha || github.sha }}
-        path: dist/
-    
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: portal/package-lock.json
+
+    - name: Install dependencies (portal)
+      working-directory: portal
+      run: npm ci
+
+    - name: Build (portal)
+      working-directory: portal
+      run: npm run build
+
     - name: Install Netlify CLI
       run: npm install -g netlify-cli@latest
     
@@ -36,7 +46,7 @@ jobs:
       id: netlify-preview
       run: |
         DEPLOY_URL=$(netlify deploy \
-          --dir=dist \
+          --dir=portal/dist \
           --site=${{ secrets.NETLIFY_SITE_ID }} \
           --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
           --alias=pr-${{ github.event.number }} \
@@ -51,21 +61,19 @@ jobs:
         script: |
           const deployUrl = '${{ steps.netlify-preview.outputs.deploy_url }}';
           const comment = `## 🚀 Deploy Preview Ready!
-          
+
           **Preview URL:** ${deployUrl}
-          
+
           **What's included:**
-          - 📄 Static site homepage
-          - 📚 Documentation at \`${deployUrl}/docs\`
-          - 🎛️ Portal dashboard at \`${deployUrl}/portal\`
-          
+          - 🎛️ Portal (Vite) at \`${deployUrl}\`
+          - 📄 Root static pages may not be part of preview unless included in portal build
+
           **Build Info:**
           - **Commit:** \`${{ github.event.pull_request.head.sha }}\`
           - **Branch:** \`${{ github.head_ref }}\`
-          - **Docs CID:** \`$(cat dist/docs-cid.txt || echo 'N/A')\`
-          
+
           ---
-          <sub>This preview will be updated automatically when you push new commits.</sub>`;
+          <sub>This preview updates automatically on new commits.</sub>`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
