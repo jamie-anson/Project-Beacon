@@ -1,0 +1,58 @@
+{
+  "id": "day1-live-test-2025-08-30",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Day-1 Live Test",
+    "description": "Live validation test for Day-1 Golem network launch",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'Day-1 LIVE TEST SUCCESS!' && echo 'Timestamp:' $(date) && echo 'Provider: 0x536ec34be8b1395d54f69b8895f902f9b65b235b' && echo 'Status: OPERATIONAL'"],
+      "environment": {
+        "TEST_TYPE": "day1_live_validation"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "test_message": "Day-1 live execution validation"
+      },
+      "hash": "sha256:day1-live-test-hash-2025-08-30"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "Day-1 LIVE TEST SUCCESS"
+      }
+    },
+    "metadata": {
+      "category": "validation",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 1.0,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.05
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "day1-live-test-nonce-1725037050000",
+    "priority": "high",
+    "requester": "day1-launch-team",
+    "tags": ["day1", "live", "validation", "launch"],
+    "timestamp": "2025-08-30T17:17:30Z"
+  }
+}

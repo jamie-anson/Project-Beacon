@@ -1,0 +1,71 @@
+{
+  "id": "day1-final-trusted-job-2025-08-30-19-10",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Day-1 Final Trusted Key Validation",
+    "description": "Final Day-1 launch validation with trusted signing key",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": [
+        "sh",
+        "-c",
+        "echo '🎉 FINAL TRUSTED KEY SUCCESS!' \u0026\u0026 echo 'Timestamp:' $(date) \u0026\u0026 echo 'Key ID: day1-launch-key' \u0026\u0026 echo 'Status: SIGNATURE VERIFIED' \u0026\u0026 echo 'Mission: Day-1 Launch Complete!'"
+      ],
+      "environment": {
+        "LAUNCH_DATE": "2025-08-30",
+        "TEST_TYPE": "final_trusted_validation"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Final trusted key validation for Day-1 launch"
+      },
+      "hash": "sha256:final-trusted-key-job-hash-2025-08-30-19-10"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "FINAL TRUSTED KEY SUCCESS"
+      }
+    },
+    "metadata": {
+      "category": "final_trusted_execution",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": [
+      "US"
+    ],
+    "min_regions": 1,
+    "timeout": 300000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "final-trusted-job-nonce-1725040901000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": [
+      "final_trusted_key",
+      "day1_launch",
+      "validation",
+      "golem"
+    ],
+    "timestamp": "2025-08-30T18:10:33Z"
+  },
+  "created_at": "0001-01-01T00:00:00Z",
+  "signature": "mfVfOaVIPf9vSJ4McTEKmWl2TpZ9u5soKEZM2wxvbNiJ5eCUI0f2N8j94Xm8bhAgWdeEGaQ5I41xcX92xjlbAw==",
+  "public_key": "/yRnRt4lvdGCweqHSJ3dM56YOZUBnsZM7BF/zQPWlO8="
+}
