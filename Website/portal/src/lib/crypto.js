@@ -96,6 +96,26 @@ export async function signJobSpec(jobSpec, privateKey) {
 }
 
 /**
+ * Compute SHA-256 hex digest of a string
+ * @param {string} str
+ * @returns {Promise<string>} lowercase hex string
+ */
+export async function sha256HexOfString(str) {
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(str);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const bytes = new Uint8Array(digest);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+    return hex;
+  } catch (e) {
+    console.warn('Failed to compute SHA-256:', e);
+    return '';
+  }
+}
+
+/**
  * Generate a random nonce for replay protection
  * @returns {string}
  */
@@ -171,10 +191,10 @@ export async function getOrCreateKeyPair() {
  */
 export async function signJobSpecForAPI(jobSpec, options = {}) {
   const { privateKey, publicKey, publicKeyB64 } = await getOrCreateKeyPair();
-  
+
   // Ensure metadata has required fields
   const now = new Date().toISOString();
-  const completeJobSpec = {
+  const baseSpec = {
     ...jobSpec,
     metadata: {
       ...jobSpec.metadata,
@@ -183,27 +203,49 @@ export async function signJobSpecForAPI(jobSpec, options = {}) {
     },
     created_at: now
   };
-  
-  // Sign the complete spec
-  const signature = await signJobSpec(completeJobSpec, privateKey);
-  
-  const result = {
-    ...completeJobSpec,
-    signature,
-    public_key: publicKeyB64
-  };
 
-  // Add wallet authentication if requested
+  // Optionally attach wallet_auth BEFORE signing
+  let signTarget = baseSpec;
   if (options.includeWalletAuth) {
     try {
       const { getWalletAuthPayload } = await import('./wallet.js');
       const walletAuth = await getWalletAuthPayload(publicKey);
-      Object.assign(result, walletAuth);
+      signTarget = { ...baseSpec, ...walletAuth };
+
+      // Validate and warn about wallet_auth expiry
+      const expiresIso = walletAuth?.wallet_auth?.expiresAt;
+      if (expiresIso) {
+        const expMs = Date.parse(expiresIso);
+        if (Number.isFinite(expMs)) {
+          const nowMs = Date.now();
+          const deltaSec = Math.round((expMs - nowMs) / 1000);
+          if (deltaSec <= 0) {
+            console.warn(`wallet_auth.expiresAt is EXPIRED by ${Math.abs(deltaSec)}s; submission may be rejected.`);
+          } else if (deltaSec <= 120) {
+            console.warn(`wallet_auth.expiresAt is expiring soon in ${deltaSec}s; consider refreshing auth to avoid rejection.`);
+          }
+        }
+      }
     } catch (error) {
-      console.warn('Failed to add wallet auth:', error);
-      // Continue without wallet auth - fallback to Ed25519 only
+      // If wallet auth is required for this flow, propagate the error so UI can inform the user
+      throw new Error(`Failed to obtain wallet authorization: ${error?.message || String(error)}`);
     }
   }
-  
-  return result;
+
+  // Canonicalize for signing and log canonical length + sha256 for correlation
+  const canonical = canonicalizeJobSpec(signTarget);
+  try {
+    const sha256 = await sha256HexOfString(canonical);
+    console.debug(`Canonical JSON length: ${canonical.length}; sha256: ${sha256}`);
+  } catch {}
+
+  // Sign the target spec (with wallet_auth if included)
+  const signature = await signJobSpec(signTarget, privateKey);
+
+  // Return the fully-signed payload including wallet_auth
+  return {
+    ...signTarget,
+    signature,
+    public_key: publicKeyB64
+  };
 }

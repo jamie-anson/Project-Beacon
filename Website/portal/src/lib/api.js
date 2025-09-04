@@ -33,6 +33,26 @@ function computeIdempotencyKey(jobspec, windowSeconds = 60) {
   return `beacon-${shortHash(base)}`;
 }
 
+// Determine whether to send the Idempotency-Key header.
+// Default: disabled unless explicitly enabled via env or localStorage.
+function isTruthy(v) {
+  try { return /^(1|true|yes|on)$/i.test(String(v || '')); } catch { return false; }
+}
+
+function shouldSendIdempotency() {
+  // Prefer build-time flag
+  try {
+    const envVal = import.meta?.env?.VITE_ENABLE_IDEMPOTENCY;
+    if (envVal != null) return isTruthy(envVal);
+  } catch {}
+  // Allow runtime toggle via localStorage for debugging
+  try {
+    const lsVal = localStorage.getItem('beacon:enable_idempotency');
+    if (lsVal != null) return isTruthy(lsVal);
+  } catch {}
+  return false;
+}
+
 async function httpV1(path, opts = {}) {
   const url = `${API_BASE_V1}${path.startsWith('/') ? path : '/' + path}`;
   try {
@@ -156,10 +176,16 @@ export const createJob = (jobspec, opts = {}) => {
     console.error('JSON serialization failed:', error);
     throw new Error(`Failed to serialize job payload: ${error.message}`);
   }
-  
+  // Conditionally include Idempotency-Key to accommodate runners without idempotency support
+  const headers = {};
+  const enableIdem = opts.forceIdempotency === true || (opts.forceIdempotency !== false && shouldSendIdempotency());
+  if (enableIdem) {
+    headers['Idempotency-Key'] = key;
+  }
+
   return httpV1('/jobs', {
     method: 'POST',
-    headers: { 'Idempotency-Key': key },
+    headers,
     body: bodyString,
   });
 };
