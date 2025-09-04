@@ -12,17 +12,11 @@ export default function useWs(path = '/ws', opts = {}) {
   const closedRef = useRef(false);
 
   const connect = useCallback(() => {
-    // Use environment variable for WebSocket base, fallback to same-origin
+    // Use environment variable for WebSocket base, fallback to direct runner
     let wsBase = import.meta.env?.VITE_WS_BASE;
     if (!wsBase || wsBase.trim() === '') {
-      try {
-        const loc = window.location;
-        const scheme = loc.protocol === 'https:' ? 'wss' : 'ws';
-        wsBase = `${scheme}://${loc.host}`;
-      } catch {
-        // As a very last resort, default to the deployed portal origin
-        wsBase = 'wss://projectbeacon.netlify.app';
-      }
+      // Default to direct runner WebSocket URL
+      wsBase = 'wss://beacon-runner-change-me.fly.dev';
     }
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
     let ws;
