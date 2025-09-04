@@ -1,0 +1,58 @@
+{
+  "id": "golem-e2e-test-abc123",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Golem Provider E2E Test",
+    "description": "End-to-end Golem provider execution validation",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'Golem provider test successful! Node: 0x536ec34be8b1395d54f69b8895f902f9b65b235b' && echo 'Timestamp:' $(date) && echo 'Status: FUNDED_AND_ACTIVE'"],
+      "environment": {
+        "TEST_TYPE": "golem_provider_validation"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "test_message": "Golem provider funding validation"
+      },
+      "hash": "sha256:golem-provider-test-hash"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "Golem provider test successful"
+      }
+    },
+    "metadata": {
+      "category": "validation",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 1.0,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.05
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "golem-provider-test-nonce-1725037710000",
+    "priority": "high",
+    "requester": "day1-launch-team",
+    "tags": ["golem", "provider", "validation", "funding"],
+    "timestamp": "2025-08-30T17:08:30Z"
+  }
+}

@@ -1,0 +1,23 @@
+# Compiled binaries
+jobspec-signer
+runner-app
+
+# Local job fixtures (do not commit)
+job-*.json
+job-*.json.signed
+
+# Local testing artifacts
+tmp/
+
+# Local plans (do not commit personal planning docs)
+*plan.md
+
+# Local deploy config (commit fly.toml.example instead)
+fly.toml
+
+# Local runtime address file
+.runner-http.addr
+
+# Coverage artifacts generated locally
+coverage*.html
+coverage-summary.txt

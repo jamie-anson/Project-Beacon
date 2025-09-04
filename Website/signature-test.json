@@ -1,0 +1,58 @@
+{
+  "id": "signature-verification-test-2025-08-31-01-12",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Signature Verification Test",
+    "description": "Test that signature verification is properly enforced in production",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'This should fail signature verification'"],
+      "environment": {
+        "TEST_TYPE": "signature_verification"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Testing signature verification enforcement"
+      },
+      "hash": "sha256:signature-test-hash-2025-08-31-01-12"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "signature test"
+      }
+    },
+    "metadata": {
+      "category": "security_test",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 0.9,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.8,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "signature-verification-test-1725149550000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": ["signature_test", "security_validation"],
+    "timestamp": "2025-08-31T00:12:30.000Z"
+  }
+}

@@ -1,0 +1,297 @@
+groups:
+  - name: project-beacon-runner.rules
+    interval: 30s
+    rules:
+      # Dead-letter should be zero; alert on any increase
+      - alert: RunnerJobsDeadLetter
+        expr: increase(jobs_deadletter_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "Runner jobs moved to dead-letter"
+          description: "jobs_deadletter_total increased in the last 5m. Investigate worker failures or JobSpec issues."
+
+      # Retries spike indicates persistent fetch/processing issues
+      - alert: RunnerJobsRetriesHigh
+        expr: rate(jobs_retried_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Runner job retries elevated"
+          description: "jobs_retried_total rate > 0.5/s over 5m. Check DB/Redis health and worker logs."
+
+      # Outbox publish errors
+      - alert: RunnerOutboxPublishErrors
+        expr: rate(outbox_publish_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Outbox publish errors occurring"
+          description: "Errors when publishing messages from outbox to Redis detected over 5m."
+
+      # Outbox stuck backlog (unpublished rows piling up)
+      - alert: RunnerOutboxBacklogHigh
+        expr: outbox_unpublished_count > 10
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Outbox backlog high (>10 unpublished for 10m)"
+          description: "Unpublished outbox rows remain above 10 for 10 minutes. Publisher may be stalled or Redis unavailable."
+
+      # Outbox items are old (not being drained)
+      - alert: RunnerOutboxOldestTooHigh
+        expr: outbox_oldest_unpublished_age_seconds > 600
+        for: 5m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "Old unpublished outbox items (>10m)"
+          description: "Oldest unpublished outbox item age exceeds 10 minutes. Investigate publisher, DB locks, or Redis connectivity."
+
+      # HTTP 5xx error rate
+      - alert: RunnerHTTP5xxHigh
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High 5xx error rate (>5%)"
+          description: "HTTP 5xx share exceeded 5% for 10m. Check API logs and dependencies."
+
+      # HTTP latency p95
+      - alert: RunnerHTTPLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High HTTP latency p95 (>500ms)"
+          description: "HTTP request latency p95 above 500ms for 10m. Investigate DB/Redis and CPU saturation."
+
+      # Golem execution failures
+      - alert: GolemExecutionFailureRateHigh
+        expr: sum(rate(golem_executions_total{status="failed"}[5m])) / sum(rate(golem_executions_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High Golem execution failure rate (>10%)"
+          description: "Golem execution failure rate exceeded 10% for 5m. Check Yagna daemon and provider availability."
+
+      # Wallet balance low
+      - alert: GolemWalletBalanceLow
+        expr: golem_wallet_balance_glm < 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "Golem wallet balance critically low"
+          description: "Wallet balance below 0.1 GLM. Fund wallet immediately to continue executions."
+
+      # Execution duration too high
+      - alert: GolemExecutionDurationHigh
+        expr: histogram_quantile(0.95, sum by (le, region) (rate(golem_execution_duration_seconds_bucket[5m]))) > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "High Golem execution duration (>5min p95)"
+          description: "Execution duration p95 exceeded 5 minutes for region {{$labels.region}}. Check provider performance."
+
+      # No providers available
+      - alert: GolemProvidersUnavailable
+        expr: sum by (region) (golem_providers_available) == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: runner
+        annotations:
+          summary: "No Golem providers available"
+          description: "No providers available in region {{$labels.region}} for 5m. Check network connectivity and provider discovery."
+
+      # Zero progress - jobs enqueued but not processed
+      - alert: RunnerJobsZeroProgress
+        expr: increase(jobs_processed_total[15m]) == 0 and rate(jobs_enqueued_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Jobs enqueued but zero progress on processing"
+          description: "No jobs processed in 15m despite ongoing enqueues. Check worker health, DB connectivity, and queue processing."
+
+      # Rising job failures
+      - alert: RunnerJobsFailedRising
+        expr: rate(jobs_failed_total[5m]) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: runner
+        annotations:
+          summary: "Job failure rate elevated (>0.2/s)"
+          description: "Job failure rate exceeded 0.2/s for 10m. Check execution errors, provider issues, and JobSpec validation."
+
+      # Negotiation failures elevated
+      - alert: NegotiationProbeFailuresHigh
+        expr: sum(rate(negotiation_probes_failed_total[5m])) / clamp_min(sum(rate(negotiation_probes_failed_total[5m])) + sum(rate(negotiation_probes_passed_total[5m])), 1) > 0.3 and sum(rate(negotiation_offers_seen_total[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: negotiation
+        annotations:
+          summary: "High negotiation probe failure rate (>30%)"
+          description: "Probe failure rate exceeded 30% for 10m with active offers. Check provider GeoIP verification and network connectivity."
+
+  - name: project-beacon-ipfs-transparency
+    interval: 30s
+    rules:
+      # IPFS Bundle Creation Issues
+      - alert: IPFSBundleCreationHigh
+        expr: rate(ipfs_bundles_created_total[5m]) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          service: ipfs
+        annotations:
+          summary: "High IPFS bundle creation rate"
+          description: "IPFS bundle creation rate exceeded 2/sec for 10m. Monitor storage capacity and performance."
+
+      - alert: IPFSBundleCreationStalled
+        expr: rate(ipfs_bundles_created_total[10m]) == 0 and rate(jobs_completed_total[10m]) > 0
+        for: 15m
+        labels:
+          severity: critical
+          service: ipfs
+        annotations:
+          summary: "IPFS bundle creation stalled"
+          description: "No IPFS bundles created in 10m despite completed jobs. Check IPFS node connectivity."
+
+      # IPFS Storage Issues
+      - alert: IPFSStorageCapacityHigh
+        expr: ipfs_storage_bytes_total > 50 * 1024 * 1024 * 1024  # 50GB
+        for: 5m
+        labels:
+          severity: warning
+          service: ipfs
+        annotations:
+          summary: "IPFS storage capacity high"
+          description: "IPFS storage usage exceeded 50GB. Consider cleanup or capacity expansion."
+
+      - alert: IPFSBundleSizeAnomalous
+        expr: histogram_quantile(0.95, rate(ipfs_bundle_size_bytes_bucket[5m])) > 100 * 1024 * 1024  # 100MB
+        for: 10m
+        labels:
+          severity: warning
+          service: ipfs
+        annotations:
+          summary: "Anomalously large IPFS bundles"
+          description: "95th percentile bundle size exceeded 100MB. Investigate bundle content or compression issues."
+
+      # IPFS Gateway Issues
+      - alert: IPFSGatewayLatencyHigh
+        expr: histogram_quantile(0.95, rate(ipfs_gateway_latency_seconds_bucket[5m])) > 10
+        for: 10m
+        labels:
+          severity: warning
+          service: ipfs
+        annotations:
+          summary: "High IPFS gateway latency"
+          description: "IPFS gateway latency p95 exceeded 10s. Check gateway health and network connectivity."
+
+      # Transparency Log Integrity Issues
+      - alert: TransparencyLogIntegrityBroken
+        expr: transparency_log_integrity_valid == 0
+        for: 0m
+        labels:
+          severity: critical
+          service: transparency
+        annotations:
+          summary: "Transparency log integrity compromised"
+          description: "Transparency log integrity validation failed. Immediate investigation required."
+
+      - alert: TransparencyLogVerificationFailures
+        expr: rate(transparency_log_verification_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: transparency
+        annotations:
+          summary: "Transparency log verification failures"
+          description: "Verification failures detected in transparency log. Check Merkle proof generation."
+
+      # Anchor Operation Issues
+      - alert: AnchorSuccessRateLow
+        expr: rate(transparency_anchors_success_total[10m]) / rate(transparency_anchors_attempted_total[10m]) < 0.8
+        for: 15m
+        labels:
+          severity: warning
+          service: anchoring
+        annotations:
+          summary: "Low anchor success rate"
+          description: "Anchor success rate below 80% for 15m. Check blockchain connectivity and wallet balance."
+
+      - alert: AnchorLatencyHigh
+        expr: histogram_quantile(0.95, rate(anchor_duration_seconds_bucket{strategy="ethereum"}[5m])) > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: anchoring
+        annotations:
+          summary: "High anchor latency for Ethereum"
+          description: "Ethereum anchor latency p95 exceeded 5 minutes. Check network congestion and gas prices."
+
+      - alert: AnchorOperationsStalled
+        expr: rate(transparency_anchors_attempted_total[30m]) == 0 and rate(transparency_log_entries_total[30m]) > 0
+        for: 30m
+        labels:
+          severity: critical
+          service: anchoring
+        annotations:
+          summary: "Anchor operations completely stalled"
+          description: "No anchor attempts in 30m despite new log entries. Check anchor service health."
+
+      # Storage Analytics Issues
+      - alert: StorageEfficiencyLow
+        expr: storage_efficiency_ratio < 0.5
+        for: 30m
+        labels:
+          severity: warning
+          service: storage
+        annotations:
+          summary: "Low storage efficiency"
+          description: "Storage efficiency below 50% for 30m. Review compression and deduplication strategies."
+
+      - alert: RetentionComplianceLow
+        expr: retention_compliance_ratio < 0.9
+        for: 60m
+        labels:
+          severity: warning
+          service: storage
+        annotations:
+          summary: "Low retention compliance"
+          description: "Data retention compliance below 90% for 1h. Review retention policies and cleanup processes."
+
+      # Cross-service Integration Issues
+      - alert: IPFSTransparencyLogMismatch
+        expr: abs(rate(ipfs_bundles_created_total[10m]) - rate(transparency_log_entries_total[10m])) > 0.1
+        for: 20m
+        labels:
+          severity: warning
+          service: integration
+        annotations:
+          summary: "IPFS and transparency log creation rate mismatch"
+          description: "Significant difference between IPFS bundle and transparency log entry creation rates. Check integration logic."

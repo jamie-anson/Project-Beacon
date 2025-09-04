@@ -1,0 +1,44 @@
+{
+  "id": "bad-job-001",
+  "version": "v0",
+  "benchmark": {
+    "name": "mvp-probe-second",
+    "description": "SDK probe execution-second",
+    "container": {
+      "image": "invalid/repository-does-not-exist",
+      "tag": "latest",
+      "command": [
+        "sh",
+        "-c",
+        "echo Beacon SDK path"
+      ],
+      "resources": {
+        "cpu": "1000m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "text": "who are you?"
+      },
+      "hash": "dummy-hash"
+    },
+    "scoring": {
+      "method": "custom",
+      "parameters": {}
+    },
+    "metadata": {}
+  },
+  "constraints": {
+    "regions": [
+      "US"
+    ],
+    "min_regions": 1,
+    "timeout": 600000000000
+  },
+  "metadata": {},
+  "created_at": "2025-08-14T10:40:00Z",
+  "signature": "cRkQxHmCVsc71VTDFQH73coL0Lkthnk+Eue2NbHpQOYG3mUMsQJDzhRDZdCTn9XrEb4hne3cdUsCUS264nwEAA==",
+  "public_key": "As65UOQmLAszHKgaIC8efQIUn3Z98sN36s4LjcfzYOk="
+}

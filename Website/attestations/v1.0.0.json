@@ -1,0 +1,13 @@
+{
+  "artifact": "docs",
+  "tag": "v1.0.0",
+  "commit": "25ccd3fa66601bebd7ac3ee865dd595f801c283e",
+  "pseudo_cid": "pb-docs-sha256-ce5c93f7e894133187da37ef6827c7041d09ceaea38adf745a400c6c426c2d3e",
+  "ipfs_cid": "QmXmDmdvD9pwebGMuS11GfgpzEW1ErVTvcaejiGhSEVNTo",
+  "timestamp": "2025-08-13T09:03:27Z",
+  "provenance": {
+    "site": "https://projectbeacon.netlify.app",
+    "build": "Netlify",
+    "path": "dist/docs/"
+  }
+}

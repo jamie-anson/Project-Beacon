@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [ ${1:-} = "-h" ] || [ $# -lt 1 ]; then
+  echo "Usage: $0 <jobspec.json> [out.signed]"
+  echo "Env: PRIVATE_KEY=<base64-ed25519>"
+  exit 1
+fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+IN="$1"
+OUT="${2:-}"
+CMD=(go run "${REPO_ROOT}/cmd/jobspec-signer" -input "$IN")
+if [ -n "$OUT" ]; then
+  CMD+=( -output "$OUT" )
+fi
+exec "${CMD[@]}"

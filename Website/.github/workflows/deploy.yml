@@ -1,0 +1,286 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  deploy-preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: portal/package-lock.json
+
+    - name: Install jq
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y jq
+
+    - name: Install dependencies (portal)
+      working-directory: portal
+      run: npm ci
+
+    - name: Build (portal)
+      working-directory: portal
+      run: npm run build
+
+    - name: Deploy portal to IPFS (Storacha)
+      id: ipfs_portal_preview
+      uses: ipfs/ipfs-deploy-action@v1
+      with:
+        path-to-deploy: portal/dist
+        storacha-key: ${{ secrets.STORACHA_KEY }}
+        storacha-proof: ${{ secrets.STORACHA_PROOF }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        set-github-status: 'true'
+        set-pr-comment: 'false'
+
+    - name: Install Netlify CLI
+      run: npm install -g netlify-cli@latest
+    
+    - name: Deploy to Netlify (Preview)
+      id: netlify-preview
+      run: |
+        DEPLOY_URL=$(netlify deploy \
+          --dir=portal/dist \
+          --site=${{ secrets.NETLIFY_SITE_ID }} \
+          --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+          --alias=pr-${{ github.event.number }} \
+          --json | jq -r '.deploy_url')
+        
+        echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+        echo "🚀 Preview deployed to: $DEPLOY_URL"
+    
+    - name: Comment PR with preview URL
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployUrl = '${{ steps.netlify-preview.outputs.deploy_url }}';
+          const cid = '${{ steps.ipfs_portal_preview.outputs.cid }}';
+          const comment = `## 🚀 Deploy Preview Ready!
+
+          **Preview URL:** ${deployUrl}
+
+          **What's included:**
+          - 🎛️ Portal (Vite) at \`${deployUrl}\`
+          - 📄 Root static pages may not be part of preview unless included in portal build
+
+          **Build Info:**
+          - **Commit:** \`${{ github.event.pull_request.head.sha }}\`
+          - **Branch:** \`${{ github.head_ref }}\`
+          - **Portal CID:** \`${cid}\`
+          - **Gateway:** https://ipfs.io/ipfs/${cid}
+
+          ---
+          <sub>This preview updates automatically on new commits.</sub>`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: |
+          package-lock.json
+          portal/package-lock.json
+
+    - name: Install jq
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y jq
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
+    
+    - name: Run pre-deployment validation
+      run: npm run validate:pre-deploy
+    
+    - name: Build for production
+      run: |
+        echo "🏗️ Building for production deployment"
+        npm run build:static
+        npm run build:docs
+        echo "✅ Base static + docs build complete"
+
+    - name: Deploy docs to IPFS (Storacha)
+      id: ipfs
+      uses: ipfs/ipfs-deploy-action@v1
+      with:
+        path-to-deploy: dist/docs
+        storacha-key: ${{ secrets.STORACHA_KEY }}
+        storacha-proof: ${{ secrets.STORACHA_PROOF }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        set-github-status: 'true'
+        set-pr-comment: 'false'
+
+    - name: Rebuild docs with CID and build portal
+      run: |
+        DOCS_BUILD_CID="${{ steps.ipfs.outputs.cid }}"
+        echo "📦 Docs CID from IPFS action: $DOCS_BUILD_CID"
+        mkdir -p dist
+        echo "$DOCS_BUILD_CID" > dist/docs-cid.txt
+
+        # Rebuild docs embedding the CID for internal links
+        DOCS_BUILD_CID="$DOCS_BUILD_CID" npm run build:docs:with-cid
+
+        # Build portal with CID and commit metadata
+        BUILD_COMMIT=$(git rev-parse --short HEAD)
+        echo "Building portal with CID: $DOCS_BUILD_CID, Commit: $BUILD_COMMIT"
+        cd portal
+        VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" npm run build
+        cd ..
+
+        # Stage portal into dist
+        mkdir -p dist/portal
+        cp -R portal/dist/* dist/portal/
+        echo "✅ Docs rebuilt with CID and portal built"
+
+    - name: Deploy portal to IPFS (Storacha)
+      id: ipfs_portal_prod
+      uses: ipfs/ipfs-deploy-action@v1
+      with:
+        path-to-deploy: portal/dist
+        storacha-key: ${{ secrets.STORACHA_KEY }}
+        storacha-proof: ${{ secrets.STORACHA_PROOF }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        set-github-status: 'true'
+        set-pr-comment: 'false'
+    
+    - name: Install Netlify CLI
+      run: npm install -g netlify-cli@latest
+    
+    - name: Deploy to Netlify (Production)
+      id: netlify-production
+      run: |
+        echo "🚀 Deploying to production..."
+        DEPLOY_URL=$(netlify deploy \
+          --dir=dist \
+          --site=${{ secrets.NETLIFY_SITE_ID }} \
+          --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
+          --prod \
+          --json | jq -r '.url')
+        
+        echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+        echo "✅ Production deployed to: $DEPLOY_URL"
+    
+    - name: Verify deployment
+      run: |
+        DEPLOY_URL="${{ steps.netlify-production.outputs.deploy_url }}"
+        echo "🔍 Verifying deployment at $DEPLOY_URL"
+        
+        # Wait a moment for deployment to propagate
+        sleep 10
+        
+        # Check main site
+        curl -f -s "$DEPLOY_URL" > /dev/null || (echo "❌ Main site check failed" && exit 1)
+        echo "✅ Main site responding"
+        
+        # Check docs
+        curl -f -s "$DEPLOY_URL/docs/" > /dev/null || (echo "❌ Docs check failed" && exit 1)
+        echo "✅ Docs responding"
+        
+        # Check portal
+        curl -f -s "$DEPLOY_URL/portal/" > /dev/null || (echo "❌ Portal check failed" && exit 1)
+        echo "✅ Portal responding"
+        
+        echo "🎉 All endpoints verified successfully!"
+    
+    - name: Create deployment summary
+      run: |
+        echo "## 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**🌐 Live URL:** ${{ steps.netlify-production.outputs.deploy_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "**📚 Documentation:** ${{ steps.netlify-production.outputs.deploy_url }}/docs" >> $GITHUB_STEP_SUMMARY
+        echo "**🎛️ Portal:** ${{ steps.netlify-production.outputs.deploy_url }}/portal" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Docs CID:** \`$(cat dist/docs-cid.txt)\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Portal CID:** ${{ steps.ipfs_portal_prod.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Gateway (Portal):** https://ipfs.io/ipfs/${{ steps.ipfs_portal_prod.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**✅ Verified Endpoints:**" >> $GITHUB_STEP_SUMMARY
+        echo "- Main site health check passed" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation health check passed" >> $GITHUB_STEP_SUMMARY
+        echo "- Portal health check passed" >> $GITHUB_STEP_SUMMARY
+
+  deployment-status:
+    runs-on: ubuntu-latest
+    needs: [deploy-preview, deploy-production]
+    if: always()
+    steps:
+    - name: Update deployment status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { context } = require('@actions/github');
+          
+          let status = 'success';
+          let description = 'Deployment completed successfully';
+          
+          if (context.eventName === 'pull_request') {
+            if ('${{ needs.deploy-preview.result }}' !== 'success') {
+              status = 'failure';
+              description = 'Preview deployment failed';
+            } else {
+              description = 'Preview deployment successful';
+            }
+          } else if (context.ref === 'refs/heads/main') {
+            if ('${{ needs.deploy-production.result }}' !== 'success') {
+              status = 'failure';
+              description = 'Production deployment failed';
+            } else {
+              description = 'Production deployment successful';
+            }
+          }
+          
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: status,
+            description: description,
+            context: 'Netlify Deployment'
+          });

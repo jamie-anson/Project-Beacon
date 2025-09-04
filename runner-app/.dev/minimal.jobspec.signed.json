@@ -1,0 +1,62 @@
+{
+  "id": "who-are-you-benchmark-v1",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Who are you?",
+    "description": "Simple identity benchmark",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": [
+        "sh",
+        "-c",
+        "echo 'I am an AI assistant running on Golem Network'"
+      ],
+      "resources": {
+        "cpu": "1000m",
+        "memory": "512Mi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "max_tokens": 100,
+        "prompt": "Who are you?"
+      },
+      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scoring": {
+      "method": "similarity",
+      "parameters": {
+        "algorithm": "cosine",
+        "threshold": 0.8
+      }
+    },
+    "metadata": null
+  },
+  "constraints": {
+    "regions": [
+      "US",
+      "EU",
+      "APAC"
+    ],
+    "min_regions": 3,
+    "min_success_rate": 0,
+    "timeout": 600000000000,
+    "provider_timeout": 0
+  },
+  "metadata": {
+    "nonce": "who-are-you-benchmark-v1-nonce-1755947874055369000",
+    "priority": "normal",
+    "requester": "project-beacon",
+    "tags": [
+      "identity",
+      "basic",
+      "cross-region"
+    ],
+    "timestamp": "2025-08-23T11:17:54Z"
+  },
+  "created_at": "0001-01-01T00:00:00Z",
+  "signature": "bNVWl0gaYndSNWvy4es1bxUXH2aXEXJFU+/M+VRgBmHOursVE/ZnKC1VpmwX6xShobqrYSt0RunKkK28j5diDQ==",
+  "public_key": "F7VGEf8dtKbcGDBe59WYY5/J+0V/onPZe2P5vQbAixY="
+}

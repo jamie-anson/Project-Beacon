@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: ${EXTERNAL_LABEL_CLUSTER:-fly-deployment}
+    service: ${EXTERNAL_LABEL_SERVICE:-beacon-runner}
+
+scrape_configs:
+  - job_name: ${SCRAPE_JOB_NAME:-beacon-runner}
+    metrics_path: ${SCRAPE_METRICS_PATH:-/metrics}
+    static_configs:
+      - targets: ["${SCRAPE_TARGET:-beacon-runner.fly.dev:443}"]
+    scheme: ${SCRAPE_SCHEME:-https}
+    relabel_configs:
+      - action: replace
+        target_label: instance
+        replacement: ${SCRAPE_INSTANCE_LABEL:-beacon-runner}
+    tls_config:
+      insecure_skip_verify: false
+      server_name: ${SCRAPE_SERVER_NAME:-beacon-runner.fly.dev}
+
+remote_write:
+  - url: ${GC_REMOTE_WRITE_URL}
+    basic_auth:
+      username: ${GC_USERNAME}
+      password: ${GC_PASSWORD}
+    queue_config:
+      capacity: ${RW_QUEUE_CAPACITY:-10000}
+      max_samples_per_send: ${RW_MAX_SAMPLES_PER_SEND:-2000}
+      batch_send_deadline: ${RW_BATCH_DEADLINE:-5s}
+    metadata_config:
+      send: ${RW_METADATA_SEND:-true}
+      send_interval: ${RW_METADATA_SEND_INTERVAL:-30s}
+    remote_timeout: ${RW_REMOTE_TIMEOUT:-30s}
+    write_relabel_configs:
+      - action: keep
+        regex: ".*"
+        source_labels: ["__name__"]
+
+    # Example cost-optimization filters (optional)
+    # write_relabel_configs:
+    #   - action: drop
+    #     source_labels: ["__name__"]
+    #     regex: "go_memstats_.*|go_gc_.*|process_.*"
+    #   - action: keep
+    #     source_labels: ["__name__"]
+    #     regex: "http_requests_total|http_request_duration_seconds.*"

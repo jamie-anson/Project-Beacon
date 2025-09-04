@@ -1,0 +1,34 @@
+name: Runner CI
+
+on:
+  pull_request:
+    paths:
+      - 'runner-app/**'
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runner-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+
+      - name: Download deps
+        run: go mod download
+
+      - name: Lint (vet)
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -count=1 -v

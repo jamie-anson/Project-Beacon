@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: beacon_runner
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ipfs:
+    image: ipfs/kubo:latest
+    ports:
+      - "4002:4001"     # P2P swarm (avoid conflict)
+      - "5001:5001"     # API
+      - "8081:8080"     # Gateway (avoid conflict with runner)
+    volumes:
+      - ipfs_data:/data/ipfs
+    environment:
+      - IPFS_PROFILE=server
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8090}:8090"
+    environment:
+      - HTTP_PORT=${HTTP_PORT:-:8090}
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@postgres:5432/beacon_runner?sslmode=disable}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - IPFS_NODE_URL=${IPFS_NODE_URL:-http://ipfs:5001}
+      - IPFS_GATEWAY=${IPFS_GATEWAY:-http://ipfs:8080}
+      - GOLEM_API_KEY=${GOLEM_API_KEY:-}
+      - GOLEM_NETWORK=${GOLEM_NETWORK:-testnet}
+      - JOBS_QUEUE_NAME=${JOBS_QUEUE_NAME:-jobs}
+      - USE_MIGRATIONS=${USE_MIGRATIONS:-1}
+      - MIGRATIONS_PATH=${MIGRATIONS_PATH:-migrations}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
+    command: ["/app/runner"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  ipfs_data:

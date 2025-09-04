@@ -1,0 +1,10 @@
+[
+  {
+    "model": "llama3.2-1b",
+    "timestamp": "2025-08-27T14:55:34.860768",
+    "overall_bias_score": 0.45,
+    "censorship_rate": 0.2,
+    "factual_accuracy": 0.8,
+    "response_count": 0
+  }
+]

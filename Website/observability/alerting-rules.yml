@@ -1,0 +1,116 @@
+groups:
+  - name: beacon_runner_critical
+    rules:
+      - alert: RunnerDown
+        expr: up{job="beacon-runner"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Project Beacon runner is down"
+          description: "The runner at {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: HighJobFailureRate
+        expr: rate(jobs_failed_total[5m]) / rate(jobs_enqueued_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High job failure rate detected"
+          description: "Job failure rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: JobsStuckInQueue
+        expr: outbox_unpublished_count > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Jobs stuck in outbox queue"
+          description: "{{ $value }} jobs have been stuck in the outbox queue for more than 5 minutes."
+
+      - alert: OldUnpublishedJobs
+        expr: outbox_oldest_unpublished_age_seconds > 300
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Very old unpublished jobs detected"
+          description: "Oldest unpublished job is {{ $value | humanizeDuration }} old."
+
+  - name: beacon_runner_performance
+    rules:
+      - alert: HighHTTPLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP request latency"
+          description: "95th percentile latency is {{ $value }}s for the last 5 minutes."
+
+      - alert: HighExecutionLatency
+        expr: histogram_quantile(0.95, rate(runner_execution_duration_seconds_bucket[10m])) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High job execution latency"
+          description: "95th percentile execution time is {{ $value }}s for region {{ $labels.region }}."
+
+      - alert: HighQueueLatency
+        expr: histogram_quantile(0.95, rate(runner_queue_latency_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue processing latency"
+          description: "95th percentile queue latency is {{ $value }}s for region {{ $labels.region }}."
+
+  - name: beacon_runner_negotiation
+    rules:
+      - alert: LowNegotiationSuccessRate
+        expr: rate(negotiation_probes_passed_total[10m]) / (rate(negotiation_probes_passed_total[10m]) + rate(negotiation_probes_failed_total[10m])) < 0.7
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low negotiation success rate"
+          description: "Negotiation success rate is {{ $value | humanizePercentage }} for region {{ $labels.region }}."
+
+      - alert: NoOffersAvailable
+        expr: rate(negotiation_offers_seen_total[10m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No Golem offers available"
+          description: "No offers have been seen for region {{ $labels.region }} in the last 10 minutes."
+
+  - name: beacon_runner_infrastructure
+    rules:
+      - alert: HighMemoryUsage
+        expr: go_memstats_alloc_bytes / 1024 / 1024 > 512
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}MB."
+
+      - alert: TooManyGoroutines
+        expr: go_goroutines > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High goroutine count"
+          description: "{{ $value }} goroutines are currently running."
+
+      - alert: WebSocketConnectionSpike
+        expr: websocket_connections > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "{{ $value }} WebSocket connections are currently active."

@@ -1,0 +1,16 @@
+[
+  {
+    "kid": "dev-main",
+    "public_key": "F7VGEf8dtKbcGDBe59WYY5/J+0V/onPZe2P5vQbAixY=",
+    "status": "active",
+    "not_before": "2025-08-21T17:12:14Z",
+    "not_after":  "2026-08-22T17:12:14Z"
+  },
+  {
+    "kid": "day1-launch-key",
+    "public_key": "/yRnRt4lvdGCweqHSJ3dM56YOZUBnsZM7BF/zQPWlO8=",
+    "status": "active",
+    "not_before": "2025-01-01T00:00:00Z",
+    "not_after": "2026-12-31T23:59:59Z"
+  }
+]

@@ -1,0 +1,36 @@
+prometheus.scrape "beacon_runner" {
+  targets = [
+    {
+      "__address__" = "beacon-runner-change-me.fly.dev:443",
+    },
+  ]
+  
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  metrics_path    = "/metrics"
+  scheme          = "https"
+  
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = "https://prometheus-prod-01-gb-south-1.grafana.net/api/prom/push"
+    
+    basic_auth {
+      username = "2638603"
+      password = env("GC_PASSWORD")
+    }
+    
+    queue_config {
+      capacity = 10000
+      min_shards = 1
+      max_shards = 10
+    }
+    
+    metadata_config {
+      send = true
+      send_interval = "1m"
+    }
+  }
+}

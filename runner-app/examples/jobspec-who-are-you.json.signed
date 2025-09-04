@@ -1,0 +1,85 @@
+{
+  "id": "who-are-you-benchmark-v1",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Who are you?",
+    "description": "Simple identity benchmark to test AI model responses across regions",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": [
+        "sh",
+        "-c",
+        "echo 'I am an AI assistant running on Golem Network'"
+      ],
+      "environment": {
+        "BENCHMARK_TYPE": "identity"
+      },
+      "resources": {
+        "cpu": "1000m",
+        "memory": "512Mi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "max_tokens": 100,
+        "prompt": "Who are you?"
+      },
+      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scoring": {
+      "method": "similarity",
+      "parameters": {
+        "algorithm": "cosine",
+        "threshold": 0.8
+      }
+    },
+    "metadata": {
+      "category": "identity",
+      "difficulty": "basic"
+    }
+  },
+  "constraints": {
+    "regions": [
+      "US",
+      "EU",
+      "APAC"
+    ],
+    "min_regions": 3,
+    "min_success_rate": 0,
+    "timeout": 600000000000,
+    "provider_timeout": 0,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.8,
+        "max_price": 0.1
+      },
+      {
+        "region": "EU",
+        "min_score": 0.8,
+        "max_price": 0.1
+      },
+      {
+        "region": "APAC",
+        "min_score": 0.8,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "who-are-you-benchmark-v1-nonce-1756220313626879000",
+    "priority": "normal",
+    "requester": "project-beacon",
+    "tags": [
+      "identity",
+      "basic",
+      "cross-region"
+    ],
+    "timestamp": "2025-08-26T14:58:33Z"
+  },
+  "created_at": "2025-08-22T14:34:00Z",
+  "signature": "xu8cGUkoW0D+sMsRExO67Xno7ecpY59w+Te2Lxox5gq4lsYrJWeN+BIIsXGCbv+UO7xmve0Sz4r3B/Hey+cADA==",
+  "public_key": "F7VGEf8dtKbcGDBe59WYY5/J+0V/onPZe2P5vQbAixY="
+}

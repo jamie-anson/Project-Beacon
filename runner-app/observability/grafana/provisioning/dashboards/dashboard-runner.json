@@ -1,0 +1,145 @@
+{
+  "title": "Project Beacon Runner",
+  "tags": ["project-beacon", "runner"],
+  "timezone": "browser",
+  "schemaVersion": 27,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "HTTP",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "RPS (all)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m]))",
+          "legendFormat": "rps"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "HTTP 5xx rate",
+      "gridPos": {"h": 8, "w": 9, "x": 6, "y": 1},
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))",
+          "legendFormat": "5xx"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "HTTP latency p95 (s)",
+      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 1},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, method) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{method}} p95"
+        }
+      ]
+    },
+
+    {"type": "row", "title": "Queue/Outbox", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9}},
+    {
+      "type": "graph",
+      "title": "Outbox published vs errors (5m)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10},
+      "targets": [
+        {"expr": "increase(outbox_published_total[5m])", "legendFormat": "published"},
+        {"expr": "increase(outbox_publish_errors_total[5m])", "legendFormat": "errors"}
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Jobs processed/retried/deadletter (5m)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10},
+      "targets": [
+        {"expr": "increase(jobs_processed_total[5m])", "legendFormat": "processed"},
+        {"expr": "increase(jobs_retried_total[5m])", "legendFormat": "retried"},
+        {"expr": "increase(jobs_deadletter_total[5m])", "legendFormat": "deadletter"}
+      ]
+    },
+
+    {"type": "row", "title": "Golem Execution", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18}},
+    {
+      "type": "stat",
+      "title": "Total Executions",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 19},
+      "targets": [
+        {
+          "expr": "sum(golem_executions_total)",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Execution Success Rate by Region",
+      "gridPos": {"h": 8, "w": 9, "x": 6, "y": 19},
+      "targets": [
+        {
+          "expr": "sum by (region) (rate(golem_executions_total{status=\"completed\"}[5m])) / sum by (region) (rate(golem_executions_total[5m]))",
+          "legendFormat": "{{region}} success rate"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Execution Duration by Region (p95)",
+      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 19},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, region) (rate(golem_execution_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{region}} p95"
+        }
+      ]
+    },
+
+    {"type": "row", "title": "Wallet & Provider Health", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27}},
+    {
+      "type": "stat",
+      "title": "Wallet Balance (GLM)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 28},
+      "targets": [
+        {
+          "expr": "golem_wallet_balance_glm",
+          "legendFormat": "balance"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Provider Availability by Region",
+      "gridPos": {"h": 8, "w": 18, "x": 6, "y": 28},
+      "targets": [
+        {
+          "expr": "sum by (region) (golem_providers_available)",
+          "legendFormat": "{{region}} providers"
+        }
+      ]
+    },
+
+    {"type": "row", "title": "Top paths", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36}},
+    {
+      "type": "table",
+      "title": "HTTP by path (1m rate)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 37},
+      "transformations": [
+        {"id": "labelsToFields"}, {"id": "organize"}
+      ],
+      "targets": [
+        {
+          "expr": "topk(10, sum by (path) (rate(http_requests_total[1m])))",
+          "legendFormat": "{{path}}"
+        }
+      ]
+    }
+  ]
+}

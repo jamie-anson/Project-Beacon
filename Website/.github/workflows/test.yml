@@ -1,0 +1,96 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install root dependencies
+      run: npm ci
+      
+    - name: Install portal dependencies
+      run: cd portal && npm ci
+      
+    - name: Run portal unit tests
+      run: cd portal && npm test -- --watchAll=false --coverage
+      
+    - name: Build portal
+      run: cd portal && npm run build
+      
+    - name: Run build output validation
+      run: node scripts/test-build-output.js
+      
+    - name: Run API payload validation
+      run: node scripts/test-job-payload.js
+      
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps chromium
+      
+    - name: Run Playwright tests
+      run: npx playwright test
+      
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: playwright-report-${{ matrix.node-version }}
+        path: playwright-report/
+        retention-days: 30
+        
+    - name: Upload portal coverage
+      uses: actions/upload-artifact@v4
+      if: matrix.node-version == '20.x'
+      with:
+        name: portal-coverage
+        path: portal/coverage/
+        retention-days: 30
+
+  pre-deploy-validation:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Run full pre-deployment validation
+      run: npm run validate:pre-deploy
+      
+    - name: Create deployment ready artifact
+      run: |
+        mkdir -p deployment-artifacts
+        cp -r portal/dist deployment-artifacts/
+        echo "Deployment validated at $(date)" > deployment-artifacts/validation-timestamp.txt
+        
+    - name: Upload deployment artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-ready
+        path: deployment-artifacts/
+        retention-days: 7

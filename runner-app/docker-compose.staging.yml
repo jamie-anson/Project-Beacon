@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  runner:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-jamie-anson}/runner-app:main
+    env_file:
+      - .env
+    environment:
+      - PORT=${PORT:-8090}
+      - HTTP_PORT=${HTTP_PORT:-:8090}
+      - DATABASE_URL=${DATABASE_URL:-postgres://beacon:beacon@postgres:5432/beacon?sslmode=disable}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - IPFS_NODE_URL=${IPFS_NODE_URL:-http://ipfs:5001}
+      - IPFS_GATEWAY=${IPFS_GATEWAY:-http://ipfs:8080}
+      - GOLEM_API_KEY=${GOLEM_API_KEY:-}
+      - GOLEM_NETWORK=${GOLEM_NETWORK:-testnet}
+      - JOBS_QUEUE_NAME=${JOBS_QUEUE_NAME:-jobs}
+    ports:
+      - "8090:8090"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: beacon
+      POSTGRES_PASSWORD: beacon
+      POSTGRES_DB: beacon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_staging:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata_staging:

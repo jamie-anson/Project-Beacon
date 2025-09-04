@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+# Install dependencies for HTTP client only
+RUN pip install --no-cache-dir requests numpy pandas
+
+# Copy benchmark files
+COPY benchmark.py /app/
+COPY questions.json /app/
+COPY questions-phase2.json /app/
+COPY scoring.py /app/
+COPY advanced-scoring.py /app/
+COPY response-clustering.py /app/
+COPY export-data.py /app/
+
+# Set working directory
+WORKDIR /app
+
+# Environment variables for external Ollama
+ENV OLLAMA_BASE_URL=http://host.docker.internal:11434
+ENV BENCHMARK_MODEL=qwen2.5:1.5b
+
+# Health check against external Ollama
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
+  CMD python3 -c "import requests; requests.get('${OLLAMA_BASE_URL}/api/tags', timeout=5)"
+
+# Run benchmark directly (no local Ollama)
+ENTRYPOINT ["python3", "benchmark.py"]

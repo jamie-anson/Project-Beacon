@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>How It Works • Project Beacon</title>
+  <meta name="description" content="Project Beacon’s approach to detecting and documenting AI model shifts: decentralized runs across regions, public comparisons, and reproducible methods." />
+  <link rel="icon" type="image/webp" href="images/Icon.webp" />
+  <meta property="og:title" content="How It Works • Project Beacon" />
+  <meta property="og:description" content="We track AI model shifts across regions and time, detect censorship and drift, and publish open, verifiable results." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="images/Icon.webp" />
+  <meta name="theme-color" content="#175E54" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="Project Beacon home">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="36" height="36" />
+        <span>Project Beacon</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary">
+        <a class="nav-link" href="index.html">Home</a>
+        <a class="nav-link" href="how-it-works.html">How It Works</a>
+        <a class="nav-link" href="/docs/">Docs</a>
+        <a class="nav-link" href="/portal/">Portal</a>
+      </nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle Light/Dark">
+        🌙 Dark
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <img class="hero-logo" src="images/Icon.webp" alt="Project Beacon logo" />
+        <h1 class="hero-title"><span>How It Works</span></h1>
+        <p class="subtitle">Project Beacon’s approach to detecting and documenting AI model shifts.</p>
+      </div>
+      <div class="hero-gradient" aria-hidden="true"></div>
+    </section>
+
+    <section id="overview" class="section">
+      <div class="container content">
+        <h2>Overview</h2>
+        <p>AI models don’t always give consistent answers.<br/>What they say can change depending on who’s asking, where they are, and when.</p>
+        <p>Project Beacon tracks those shifts — systematically.<br/>We use decentralised infrastructure (via Golem Protocol) to run and compare large language models from multiple locations. This lets us detect when answers are altered, filtered, or aligned differently under the surface.</p>
+      </div>
+    </section>
+
+    <section id="steps" class="section alt">
+      <div class="container content">
+        <h2>Step-by-Step</h2>
+        <ul class="list-as-p">
+          <li><strong>We ask the same question from different regions.</strong><br/>Nodes running on Golem Protocol simulate global access to AI models — from the UK, China, the US, and beyond.</li>
+          <li><strong>We analyse and log the variations.</strong><br/>Answers are recorded and compared. We detect differences in tone, content, omission, or outright contradiction.</li>
+          <li><strong>We benchmark these changes over time.</strong><br/>Subtle shifts in output can signal censorship, alignment drift, or external influence. We track and visualise these trends.</li>
+          <li><strong>We publish the results openly.</strong><br/>All logs, comparisons, and benchmarks are made public — so researchers, journalists, and everyday users can verify them independently.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="why-it-matters" class="section">
+      <div class="container content">
+        <h2>Why It Matters</h2>
+        <p>AI models are becoming gatekeepers of information.<br/>If we don’t track what they’re saying — and how that’s changing — we risk losing our ability to hold them accountable.</p>
+        <p>Beacon doesn’t just test models.<br/>It holds up a mirror to them.</p>
+      </div>
+    </section>
+
+    <section id="what-we-benchmark" class="section alt">
+      <div class="container content">
+        <h2>What We Benchmark</h2>
+        <p>We measure what models say — and what they leave out.</p>
+        <h3>Our Focus</h3>
+        <p>AI models are influenced by the data they’re trained on, the objectives they’re aligned with, and the environments they’re run in. Beacon focuses on three key areas where that influence becomes visible:</p>
+        <h3>1. Regional Output Variation</h3>
+        <p>We compare how the same model answers the same question when queried from different geographic regions. This reveals how geopolitical boundaries affect truth.</p>
+        <p><em>Example:</em><br/>Ask “What happened in Tiananmen Square?” from a server in China vs. one in Europe. The answers differ — not by accident.</p>
+        <h3>2. Censorship Sensitivity</h3>
+        <p>We track whether specific topics trigger evasive, generic, or minimised responses — and whether that changes over time.</p>
+        <p>Is a model increasingly avoiding controversial terms?<br/>Are its answers getting vaguer or more sanitised?<br/>These trends are signs of alignment pressure or suppression.</p>
+        <h3>3. Temporal Drift</h3>
+        <p>Models can change as they’re updated — often without clear records or version notes. We log how outputs evolve over weeks or months.</p>
+        <p>What was true last year may vanish from the next version.<br/>Beacon keeps the receipts.</p>
+      </div>
+    </section>
+
+    <section id="why-benchmarking-matters" class="section">
+      <div class="container content">
+        <h2>Why Benchmarking Matters</h2>
+        <p>Without standard benchmarks for truth drift or output censorship, there’s no way to measure whether models are becoming more biased, less transparent, or more controlled.</p>
+        <p>Project Beacon fills that gap — with public, reproducible methods anyone can inspect.</p>
+      </div>
+    </section>
+
+    <section id="threat-model" class="section alt">
+      <div class="container content">
+        <h2>Threat Model</h2>
+        <p><strong>What we’re watching for — and why it matters.</strong></p>
+        <h3>Our Assumption</h3>
+        <p>Large language models are vulnerable to pressure — from political regimes, corporate interests, and alignment policies.</p>
+        <p>We assume no model is neutral by default, and that bias is not always visible on the surface. It emerges in what is emphasised, what is downplayed, and what disappears.</p>
+        <h3>What We Consider a Threat</h3>
+        <h4>1. Geopolitical Manipulation</h4>
+        <p>State-controlled narratives may influence how models are trained or filtered — particularly in authoritarian contexts or in markets where access depends on compliance.</p>
+        <p>We monitor for region-specific censorship or state-aligned distortions.</p>
+        <h4>2. Corporate Alignment Pressure</h4>
+        <p>Model creators often optimise outputs to reduce risk — legal, reputational, or commercial.</p>
+        <p>While this may protect companies, it can obscure uncomfortable truths or silence dissenting perspectives.</p>
+        <h4>3. Silent Model Updates</h4>
+        <p>When AI models are updated without changelogs or output transparency, it’s difficult to know what’s changed — or why.</p>
+        <p>Even well-intentioned updates can introduce new forms of bias or erasure.</p>
+        <h4>4. Misleading Confidence or Hallucinations</h4>
+        <p>We also track when models produce confidently wrong answers — especially on politically sensitive or contested topics.</p>
+        <p>When these hallucinations go unchallenged, they reshape public understanding over time.</p>
+        <h3>Our Position</h3>
+        <p>We don’t assume conspiracy.<br/>We assume incentives — and history.</p>
+        <p>From the media to search engines, powerful systems have bent toward control when left unobserved. Beacon exists to keep observation active — and public.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="foot-brand">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="28" height="28" />
+        <span>Project Beacon</span>
+      </div>
+      <small>© <span id="year"></span> Project Beacon • Open, neutral, tamper-evident</small>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

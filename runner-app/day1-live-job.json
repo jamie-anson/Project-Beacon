@@ -1,0 +1,39 @@
+{
+  "id": "day1-live-execution-test",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Day-1 Live Execution Test",
+    "description": "Live test for Day-1 Golem network validation",
+    "container": {
+      "image": "busybox",
+      "tag": "latest",
+      "command": ["sh", "-c", "echo 'Day-1 LIVE TEST SUCCESS' && echo 'Timestamp:' $(date) && echo 'Region: US' && echo 'Job ID: day1-live-execution-test'"],
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Day-1 live test"
+      },
+      "hash": "sha256:day1-live-hash"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {}
+    },
+    "metadata": {}
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "timeout": 600000000000,
+    "providers": []
+  },
+  "metadata": {
+    "timestamp": "2025-08-30T15:37:00Z",
+    "nonce": "day1-live-nonce-1725032220000"
+  }
+}

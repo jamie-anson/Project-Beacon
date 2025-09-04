@@ -1,0 +1,16 @@
+[
+  {
+    "kid": "portal-2024-q1",
+    "public_key": "xsIE/NE5XmHyA2EPQ/ZMJjeHCsOqDo/eoGaQ83mnnMo=",
+    "status": "active",
+    "not_before": "2024-01-15T00:00:00Z",
+    "not_after": "2025-12-31T23:59:59Z"
+  },
+  {
+    "kid": "live-test-2025-q3",
+    "public_key": "/yRnRt4lvdGCweqHSJ3dM56YOZUBnsZM7BF/zQPWlO8=",
+    "status": "active",
+    "not_before": "2025-09-02T00:00:00Z",
+    "not_after": "2026-12-31T23:59:59Z"
+  }
+]

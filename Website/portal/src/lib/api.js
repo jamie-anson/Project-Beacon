@@ -1,0 +1,258 @@
+// Use environment variable for API base; default to same-origin proxy path (Netlify redirects)
+// This enables avoiding CORS by routing through Netlify: "/api/v1/*" -> runner
+const API_BASE_V1 = (import.meta.env?.VITE_API_BASE || '/api/v1').replace(/\/$/, '');
+
+// Simple tab identifier for semi-stable idempotency keys
+function getTabId() {
+  try {
+    let id = sessionStorage.getItem('beacon:tab_id');
+    if (!id) {
+      id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem('beacon:tab_id', id);
+    }
+    return id;
+  } catch {
+    return 'tab-unknown';
+  }
+}
+
+function shortHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i) | 0;
+  // convert to unsigned and base36
+  return (h >>> 0).toString(36);
+}
+
+// Compute a deterministic idempotency key for a jobspec within a short time window (e.g., 60s)
+function computeIdempotencyKey(jobspec, windowSeconds = 60) {
+  const tab = getTabId();
+  const bucket = Math.floor(Date.now() / 1000 / windowSeconds); // time bucket
+  let specStr = '';
+  try { specStr = JSON.stringify(jobspec); } catch { specStr = String(jobspec || ''); }
+  const base = `${tab}:${bucket}:${specStr}`;
+  return `beacon-${shortHash(base)}`;
+}
+
+async function httpV1(path, opts = {}) {
+  const url = `${API_BASE_V1}${path.startsWith('/') ? path : '/' + path}`;
+  try {
+    const fetchOptions = {
+      // Spread opts first so we can reliably override/merge headers below
+      ...opts,
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json; charset=utf-8', ...(opts.headers || {}) },
+    };
+    
+    // Explicitly set CORS mode to prevent browser blocking
+    fetchOptions.mode = 'cors';
+    fetchOptions.credentials = 'omit';
+    
+    // Enforce JSON content-type at the wire even if some layer mutates headers.
+    // If the body is a string, wrap it in a Blob with application/json so the browser sets the header correctly.
+    try {
+      const h = fetchOptions.headers || {};
+      const ct = (h['Content-Type'] || h['content-type'] || '').toString();
+      if (fetchOptions.body && typeof fetchOptions.body === 'string') {
+        if (!/application\/json/i.test(ct)) {
+          fetchOptions.headers = { ...h, 'Content-Type': 'application/json; charset=utf-8' };
+        }
+        // Do NOT wrap body in a Blob; send raw JSON string to preserve exact bytes for signature verification.
+      }
+    } catch {}
+    
+    const res = await fetch(url, fetchOptions);
+    if (!res.ok) {
+      // Try to extract API error message from response body
+      let errorMessage = `${res.status} ${res.statusText}`;
+      try {
+        const errorBody = await res.json();
+        if (errorBody.error || errorBody.message) {
+          errorMessage = errorBody.error || errorBody.message;
+          if (errorBody.error_code) {
+            errorMessage += ` (${errorBody.error_code})`;
+          }
+        }
+      } catch {
+        // If we can't parse the error body, use the status text
+      }
+      throw new Error(errorMessage);
+    }
+    return res.status === 204 ? null : res.json();
+  } catch (err) {
+    // Check if this is a CORS/network error vs API error
+    if (err.message.includes('Failed to fetch') || err.message.includes('Load failed')) {
+      console.warn(`Network/CORS error for ${url}:`, err.message);
+      console.warn('This may be a CORS issue or the API server may be unreachable');
+    } else {
+      console.warn(`API call failed: ${url}`, err.message);
+    }
+    throw err;
+  }
+}
+
+async function httpRoot(path, opts = {}) {
+  try {
+    const fetchOptions = {
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    };
+    
+    // Explicitly set CORS mode to prevent browser blocking
+    fetchOptions.mode = 'cors';
+    fetchOptions.credentials = 'omit';
+    
+    const res = await fetch(`${path}`, fetchOptions);
+    if (!res.ok) {
+      // Try to extract API error message from response body
+      let errorMessage = `${res.status} ${res.statusText}`;
+      try {
+        const errorBody = await res.json();
+        if (errorBody.error || errorBody.message) {
+          errorMessage = errorBody.error || errorBody.message;
+          if (errorBody.error_code) {
+            errorMessage += ` (${errorBody.error_code})`;
+          }
+        }
+      } catch {
+        // If we can't parse the error body, use the status text
+      }
+      throw new Error(errorMessage);
+    }
+    return res.status === 204 ? null : res.json();
+  } catch (err) {
+    // Check if this is a CORS/network error vs API error
+    if (err.message.includes('Failed to fetch') || err.message.includes('Load failed')) {
+      console.warn(`Network/CORS error for ${path}:`, err.message);
+      console.warn('This may be a CORS issue or the API server may be unreachable');
+    } else {
+      console.warn(`API call failed: ${path}`, err.message);
+    }
+    throw err;
+  }
+}
+
+// Health endpoint: default to same-origin (will be proxied by Netlify). If VITE_API_BASE is absolute,
+// derive its origin; otherwise use relative.
+let HEALTH_BASE = '';
+if (import.meta.env?.VITE_API_BASE && /^https?:\/\//.test(import.meta.env.VITE_API_BASE)) {
+  try {
+    const u = new URL(import.meta.env.VITE_API_BASE);
+    HEALTH_BASE = `${u.protocol}//${u.host}`;
+  } catch {}
+}
+export const getHealth = () => httpRoot(`${HEALTH_BASE}/health`);
+
+// Jobs API
+export const createJob = (jobspec, opts = {}) => {
+  const key = opts.idempotencyKey || computeIdempotencyKey(jobspec);
+  
+  // Debug logging to identify JSON serialization issues
+  console.log('Creating job with payload:', jobspec);
+  
+  let bodyString;
+  try {
+    bodyString = JSON.stringify(jobspec);
+    console.log('Serialized JSON:', bodyString);
+  } catch (error) {
+    console.error('JSON serialization failed:', error);
+    throw new Error(`Failed to serialize job payload: ${error.message}`);
+  }
+  
+  return httpV1('/jobs', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': key },
+    body: bodyString,
+  });
+};
+
+// Export helper if callers want to pre-generate their own stable keys
+export const getIdempotencyKeyForJob = computeIdempotencyKey;
+
+export const getJob = ({ id, include, exec_limit, exec_offset }) => {
+  const params = new URLSearchParams();
+  if (include) params.set('include', include);
+  if (exec_limit != null) params.set('exec_limit', String(exec_limit));
+  if (exec_offset != null) params.set('exec_offset', String(exec_offset));
+  const qs = params.toString();
+  return httpV1(`/jobs/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`);
+};
+
+export const listJobs = ({ limit = 50 } = {}) => {
+  const params = new URLSearchParams();
+  params.set('limit', String(limit));
+  return httpV1(`/jobs?${params.toString()}`).then((data) => {
+    // Normalize to { jobs: [...] }
+    if (Array.isArray(data)) return { jobs: data };
+    return data;
+  });
+};
+
+// Transparency API
+export const getTransparencyRoot = () => httpV1('/transparency/root');
+
+export const getTransparencyProof = ({ execution_id, ipfs_cid }) => {
+  const params = new URLSearchParams();
+  if (execution_id) params.set('execution_id', execution_id);
+  if (ipfs_cid) params.set('ipfs_cid', ipfs_cid);
+  return httpV1(`/transparency/proof?${params.toString()}`);
+};
+
+// Questions API (grouped by category)
+export const getQuestions = async () => {
+  const data = await httpV1('/questions');
+  // Normalize to { categories: { [cat]: [{question_id, question}] } }
+  if (data && data.categories) return data;
+  // If backend returns flat array, group here
+  if (Array.isArray(data)) {
+    const grouped = {};
+    for (const q of data) {
+      const cat = q.category || 'uncategorized';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push({ question_id: q.question_id, question: q.question });
+    }
+    return { categories: grouped };
+  }
+  return { categories: {} };
+};
+
+export function getIpfsGateway() {
+  try {
+    const override = localStorage.getItem('beacon:ipfs_gateway');
+    if (override && override.trim()) return override.replace(/\/$/, '');
+  } catch {}
+  const envGw = import.meta?.env?.VITE_IPFS_GATEWAY;
+  if (envGw && typeof envGw === 'string' && envGw.trim()) return envGw.replace(/\/$/, '');
+  return null;
+}
+
+export const bundleUrl = (cid) => {
+  const gw = getIpfsGateway();
+  if (gw) return `${gw}/ipfs/${encodeURIComponent(cid)}`;
+  // Fallback to configured API gateway
+  return `${API_BASE_V1}/transparency/bundles/${encodeURIComponent(cid)}`;
+};
+
+// Legacy/placeholder exports (may be removed once pages migrate)
+export const executeJob = (jobId) => httpV1(`/jobs/${jobId}/execute`, { method: 'POST' });
+
+export const getExecutions = ({ limit = 20 } = {}) =>
+  httpV1(`/executions?limit=${limit}`).then((data) => {
+    // Normalize to { executions: [...] } or [] depending on consumers
+    if (Array.isArray(data)) return data; // existing pages expect an array
+    if (data && Array.isArray(data.executions)) return data.executions;
+    return [];
+  });
+
+export const getDiffs = ({ limit = 20 } = {}) =>
+  httpV1(`/diffs?limit=${limit}`).then((data) => {
+    // Normalize to array
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.diffs)) return data.diffs;
+    return [];
+  });
+
+// Geo API: country counts
+export const getGeo = async () => {
+  const data = await httpV1('/geo');
+  if (data && data.countries) return data;
+  return { countries: {} };
+};

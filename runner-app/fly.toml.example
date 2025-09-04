@@ -1,0 +1,41 @@
+# Example Fly.io app configuration for runner-app
+# Copy this file to fly.toml and customize for your environment.
+# Do NOT commit fly.toml (it's in .gitignore).
+
+app = "beacon-runner-REPLACE_ME"
+primary_region = "lhr"  # e.g., iad, lhr, fra
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Runner API port. User preference: 8090
+  HTTP_PORT = ":8090"
+  # Queue name; keep in sync with your config/constants
+  JOBS_QUEUE_NAME = "jobs"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8090
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 100
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

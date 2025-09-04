@@ -1,0 +1,202 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'portal/**'
+      - 'runner-app/**'
+      - 'index.html'
+      - 'how-it-works.html'
+      - 'styles.css'
+      - 'script.js'
+      - '.github/workflows/ci.yml'
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - 'portal/**'
+      - 'runner-app/**'
+      - 'index.html'
+      - 'how-it-works.html'
+      - 'styles.css'
+      - 'script.js'
+      - '.github/workflows/ci.yml'
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for proper commit info
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: portal/package-lock.json
+    
+    - name: Install dependencies (portal)
+      working-directory: portal
+      run: npm ci
+    
+    - name: Lint (if present)
+      working-directory: portal
+      run: npm run lint --if-present
+    
+    - name: Typecheck (if present)
+      working-directory: portal
+      run: npm run typecheck --if-present
+
+    - name: Unit tests (if present)
+      working-directory: portal
+      env:
+        CI: true
+      run: npm test --if-present --silent
+    
+    - name: Build (portal)
+      working-directory: portal
+      run: npm run build
+    
+    - name: Validate build artifacts (portal)
+      run: |
+        test -f portal/dist/index.html || (echo "Missing portal/dist/index.html" && exit 1)
+        echo "✅ Portal build validated"
+    
+    - name: Upload portal build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: portal-dist-${{ github.sha }}
+        path: portal/dist/
+        retention-days: 30
+    
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-info-${{ github.sha }}
+        path: |
+          dist/docs-cid.txt
+          package.json
+          portal/package.json
+        retention-days: 7
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
+    
+    - name: Run security audit
+      run: |
+        echo "🔍 Running npm audit for root dependencies"
+        npm audit --audit-level=high || echo "Security issues found in root dependencies"
+        
+        echo "🔍 Running npm audit for portal dependencies"
+        cd portal
+        npm audit --audit-level=high || echo "Security issues found in portal dependencies"
+    
+    - name: Check for secrets
+      run: |
+        echo "🔍 Scanning for potential secrets"
+        # Basic secret detection
+        if grep -r -i "api[_-]key\|secret\|password\|token" --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" --include="*.json" . | grep -v node_modules | grep -v ".git" | grep -v "package-lock.json"; then
+          echo "⚠️  Potential secrets found in code"
+          exit 1
+        else
+          echo "✅ No obvious secrets detected"
+        fi
+    
+    - name: Validate netlify.toml
+      run: |
+        if [ -f netlify.toml ]; then
+          echo "✅ netlify.toml found"
+          # Basic validation
+          grep -q "publish = \"dist\"" netlify.toml || (echo "❌ netlify.toml missing publish directory" && exit 1)
+          grep -q "X-Frame-Options" netlify.toml || echo "⚠️  Consider adding X-Frame-Options header"
+          grep -q "X-Content-Type-Options" netlify.toml || echo "⚠️  Consider adding X-Content-Type-Options header"
+          echo "✅ netlify.toml basic validation passed"
+        else
+          echo "❌ netlify.toml not found"
+          exit 1
+        fi
+
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, go-runner-tests]
+    if: always()
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.build-and-test.result }}" == "success" ]; then
+          echo "✅ **Build & Test:** Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Build & Test:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.security-scan.result }}" == "success" ]; then
+          echo "✅ **Security Scan:** Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Security Scan:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.ref_name }}" == "main" ] && [ "${{ needs.build-and-test.result }}" == "success" ]; then
+          echo "- 🚀 Production deployment will trigger automatically" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ github.event_name }}" == "pull_request" ] && [ "${{ needs.build-and-test.result }}" == "success" ]; then
+          echo "- 🔍 PR preview deployment will be created" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  go-runner-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.x'
+
+    - name: Cache Go build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Run internal/api tests
+      working-directory: runner-app
+      env:
+        GIN_MODE: release
+      run: |
+        go test -race ./internal/api

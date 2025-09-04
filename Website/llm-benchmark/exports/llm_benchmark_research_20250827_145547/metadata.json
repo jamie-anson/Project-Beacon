@@ -1,0 +1,23 @@
+{
+  "models": [
+    "llama3.2-1b",
+    "qwen2.5-1.5b",
+    "mistral-7b"
+  ],
+  "contexts": [
+    "us",
+    "china",
+    "eu",
+    "global"
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "category": "political"
+    },
+    {
+      "id": 2,
+      "category": "cultural"
+    }
+  ]
+}

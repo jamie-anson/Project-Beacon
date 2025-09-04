@@ -1,0 +1,94 @@
+# ===== Monorepo .gitignore =====
+
+# macOS / OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Editors/IDE
+.idea/
+.fleet/
+.history/
+.vim/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Env files
+.env
+.env.*
+**/.env
+**/.env.*
+.vscode/
+.idea/
+.fleet/
+.history/
+.vim/
+*.swp
+
+# Env files
+.env
+.env.*
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Node / Website (root and Website/ subproject)
+node_modules/
+dist/
+build/
+.cache/
+.tmp/
+.next/
+out/
+coverage/
+.npm/
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Docusaurus / Netlify
+.docusaurus/
+.netlify/
+Website/node_modules/
+Website/.cache/
+Website/.docusaurus/
+Website/build/
+Website/.next/
+Website/dist/
+Website/.turbo/
+Website/.vercel/
+Website/.netlify/
+
+# Go
+bin/
+vendor/
+*.test
+*.out
+
+# Runner app binaries
+runner-app/runner
+
+# Archives
+*.tgz
+*.tar.gz
+*.zip
+
+# Accidental duplicate copies (e.g., "File 2.ext")
+* 2
+* 2.*
+
+# IPFS CAR artifacts
+*.car
+
+# Website proposal (temporary)
+Website/proposal/

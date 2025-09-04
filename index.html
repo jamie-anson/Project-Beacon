@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Beacon</title>
+  <meta name="description" content="Independent, user-verifiable AI benchmarks for capability, consistency, network integrity, and permanence. Trust AI with evidence, not assumptions." />
+  <link rel="icon" type="image/webp" href="images/Icon.webp" />
+  <meta property="og:title" content="Project Beacon" />
+  <meta property="og:description" content="Independent, user-verifiable AI benchmarks for capability, consistency, network integrity, and permanence." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="images/Icon.webp" />
+  <meta name="theme-color" content="#175E54" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Project Beacon home">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="36" height="36" />
+        <span>Project Beacon</span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary">
+        <a class="nav-link" href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <img class="hero-logo" src="images/Icon.webp" alt="Project Beacon logo" />
+        <h1 class="hero-title"><span>Project Beacon</span></h1>
+        <p class="subtitle">Trust AI with evidence, not assumptions.</p>
+
+      </div>
+      <div class="hero-gradient" aria-hidden="true"></div>
+    </section>
+
+    <section id="what" class="section">
+      <div class="container content">
+        <h2>What</h2>
+        <p>An independent, open platform where anyone can run tests to see if an AI gives <strong>different answers depending on where you are</strong>.</p>
+        <p>It’s open to <strong>any benchmark or question</strong> — we don’t decide what gets tested, and we don’t control the results.</p>
+      </div>
+    </section>
+
+    <section id="why" class="section alt">
+      <div class="container content">
+        <h2>Why</h2>
+        <ul class="list-as-p">
+          <li><strong>Trust needs proof.</strong> Incentives, politics, and bad actors can distort reality. People deserve verifiable evidence.</li>
+          <li><strong>Power to the user.</strong> Everyone should be able to validate, diagnose, and question AI systems.</li>
+          <li><strong>Truth over narratives.</strong> Independent, repeatable tests show what models actually do.</li>
+        </ul>
+        <h3>The problem we’re solving</h3>
+        <ul class="list-as-p">
+          <li><strong>Opacity:</strong> It’s hard to tell if a model is good, safe, or fair—and for whom.</li>
+          <li><strong>Inconsistency:</strong> Answers vary across locations, throttled networks, and policy settings.</li>
+          <li><strong>Control points:</strong> Vendors, states, and intermediaries can influence availability, speed, and output.</li>
+        </ul>
+        <h3>Who’s impacted</h3>
+        <ul class="list-as-p">
+          <li><strong>People:</strong> Depend on AI for decisions, work, learning; deserve transparent behavior.</li>
+          <li><strong>Automation systems:</strong> Need consistent outputs; instability causes failures and cost.</li>
+          <li><strong>Robots:</strong> Physical systems require reliable perception and planning.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <div class="container content">
+        <h2>How</h2>
+        <p>We combine decentralised compute, cryptographic proofs, and permanent storage to make results <strong>trustworthy and tamper-evident</strong>:</p>
+        <ul class="features">
+          <li>
+            <h3>Verifiable job specs</h3>
+            <p>Clear, reproducible test definitions.</p>
+          </li>
+          <li>
+            <h3>Signed receipts</h3>
+            <p>Cryptographic proof each job ran exactly as specified.</p>
+          </li>
+          <li>
+            <h3>Public diff reports</h3>
+            <p>Side-by-side comparison of outputs by region.</p>
+          </li>
+          <li>
+            <h3>Independent human attesters</h3>
+            <p>Validating that results match the claims.</p>
+          </li>
+          <li>
+            <h3>Permanent storage</h3>
+            <p>Results preserved on decentralised networks (e.g. IPFS, blockchain) for public review and audit.</p>
+          </li>
+          <li>
+            <h3>Distributed infrastructure</h3>
+            <p>All tests run on the decentralised <strong>Golem Network</strong> to avoid single points of control.</p>
+          </li>
+        </ul>
+        <p style="margin-top: 2rem;"><strong>Open methods • Real-world conditions • User-verifiable</strong></p>
+      </div>
+    </section>
+
+    <section id="benchmarks" class="section alt">
+      <div class="container content">
+        <h2>What we benchmark and test</h2>
+        <ul class="list-as-p">
+          <li><strong>AI capability benchmarks:</strong> Standardized, task-based suites (e.g., SWE-bench-like) for reasoning, coding, and problem-solving.</li>
+          <li><strong>Network integrity tests:</strong> Latency, throughput, throttling detection, regional routing, and availability over time.</li>
+          <li><strong>Diagnostic probes:</strong> Model versioning, rate limits, policy toggles, and guardrail behavior.</li>
+          <li><strong>Answer consistency:</strong> Do users in different geographies get the same answers to the same questions?</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="threats" class="section">
+      <div class="container content">
+        <h2>Threat model</h2>
+        <ul class="list-as-p">
+          <li><strong>AI companies:</strong> Are we getting the model we were sold? Which model is best for my use case and region? Is performance consistent?</li>
+          <li><strong>Nation states:</strong> Do geopolitics, sanctions, or wars change access, speed, or responses?</li>
+          <li><strong>Well-meaning politicians:</strong> Do policy presets constrain useful answers or inject ideological bias?</li>
+          <li><strong>Man-in-the-middle attackers:</strong> VPN/ISP throttling, logging, service spoofing, and DNS poisoning.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="principles" class="section alt">
+      <div class="container content">
+        <h2>Our principles</h2>
+        <ul class="list-as-p">
+          <li><strong>Independence:</strong> No vendor pay-to-win. Methods are public; results are auditable.</li>
+          <li><strong>Reproducibility:</strong> Same test, same setup, same outcome—documented and verifiable.</li>
+          <li><strong>Neutrality:</strong> We measure; you decide. Clear metrics, no spin.</li>
+          <li><strong>Safety and inclusion:</strong> Benchmarks consider regional access, policy filters, and user needs.</li>
+          <li><strong>Permanence:</strong> Results, methods, and key metadata are cryptographically signed and anchored to a public ledger for tamper-evident provenance and long-term availability.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="mvp" class="section alt">
+      <div class="container content">
+        <h2>MVP</h2>
+        <p>Our first benchmark — “Who are you?” — will test a simple identity question across locations to prove the end-to-end flow works. From there, anyone can submit their own.</p>
+      </div>
+    </section>
+
+    <section id="collaborate" class="section">
+      <div class="container content">
+        <h2>Why collaborate</h2>
+        <p>We’re looking for collaborators who share our commitment to <strong>truth, transparency, and trust</strong> in AI. Whether you’re into distributed computing, AI safety, or independent auditing — this project needs your perspective.</p>
+        <p>Our long-term vision is to establish the platform as a <strong>globally trusted standard</strong> for AI output verification, recognised by international bodies such as the <strong>United Nations</strong>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="foot-brand">
+        <img src="images/Icon.webp" alt="Project Beacon icon" width="28" height="28" />
+        <span>Project Beacon</span>
+      </div>
+      <small>© <span id="year"></span> Project Beacon • Open, neutral, tamper-evident</small>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

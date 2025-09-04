@@ -1,0 +1,59 @@
+{
+  "id": "golem-network-validation-2025-08-31-01-06",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Golem Network Connectivity Test",
+    "description": "Validate Golem network provider discovery and job execution capabilities",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo '🔗 GOLEM NETWORK VALIDATION' && echo 'Timestamp:' $(date) && echo 'Provider Discovery: Testing' && echo 'Network: Golem Mainnet' && echo 'Status: Validating connectivity' && whoami && ps aux"],
+      "environment": {
+        "TEST_TYPE": "golem_network_validation",
+        "NETWORK": "mainnet"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Golem network validation for Project Beacon"
+      },
+      "hash": "sha256:golem-network-validation-hash-2025-08-31-01-06"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "GOLEM NETWORK VALIDATION"
+      }
+    },
+    "metadata": {
+      "category": "network_validation",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 0.9,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.8,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "golem-network-validation-unique-1725149160000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": ["golem_validation", "network_test", "provider_discovery"],
+    "timestamp": "2025-08-31T00:06:00.000Z"
+  }
+}

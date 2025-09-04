@@ -1,0 +1,6 @@
+Generated Ed25519 Key Pair:
+Private Key: jEajbuoplaXvqaz9slYSl6X8gJvlnY9FPnPZsCCXBIBOa9LKpJSrj0HV2f5PzwHMH/XLyrqY99bgE6U1OxcXPw==
+Public Key:  TmvSyqSUq49B1dn+T88BzB/1y8q6mPfW4BOlNTsXFz8=
+
+⚠️  Keep the private key secure and never share it!
+💡 Use the private key with: export PRIVATE_KEY="<private_key>"

@@ -1,0 +1,58 @@
+{
+  "id": "day1-golem-live-test",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Day-1 Golem Live Test",
+    "description": "Simple live test for Day-1 Golem network validation",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'Day-1 Golem test successful! Timestamp:' $(date) && echo 'Region: US' && echo 'Status: LIVE'"],
+      "environment": {
+        "TEST_TYPE": "day1_validation"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "test_message": "Day-1 live execution test"
+      },
+      "hash": "sha256:day1-test-hash"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "Day-1 Golem test successful"
+      }
+    },
+    "metadata": {
+      "category": "validation",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 1.0,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.05
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "day1-test-nonce-1725032000000",
+    "priority": "high",
+    "requester": "day1-launch-team",
+    "tags": ["day1", "validation", "live-test"],
+    "timestamp": "2025-08-30T15:32:00Z"
+  }
+}

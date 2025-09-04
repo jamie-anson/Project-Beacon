@@ -1,0 +1,168 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Project Beacon Runner Monitoring",
+    "tags": ["beacon", "runner", "golem", "ipfs"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Health Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"beacon-runner\"}",
+            "legendFormat": "Runner Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Job Processing Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(jobs_enqueued_total[5m])",
+            "legendFormat": "Jobs Enqueued/sec"
+          },
+          {
+            "expr": "rate(jobs_processed_total[5m])",
+            "legendFormat": "Jobs Processed/sec"
+          },
+          {
+            "expr": "rate(jobs_failed_total[5m])",
+            "legendFormat": "Jobs Failed/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Queue Health",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "outbox_unpublished_count",
+            "legendFormat": "Unpublished Jobs"
+          },
+          {
+            "expr": "outbox_oldest_unpublished_age_seconds",
+            "legendFormat": "Oldest Job Age (seconds)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "HTTP Request Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "99th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Execution Duration by Region",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(runner_execution_duration_seconds_bucket[10m]))",
+            "legendFormat": "{{ region }} - 95th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Golem Network Negotiation",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(negotiation_offers_seen_total[5m])",
+            "legendFormat": "{{ region }} - Offers Seen/sec"
+          },
+          {
+            "expr": "rate(negotiation_probes_passed_total[5m])",
+            "legendFormat": "{{ region }} - Probes Passed/sec"
+          },
+          {
+            "expr": "rate(negotiation_probes_failed_total[5m])",
+            "legendFormat": "{{ region }} - Probes Failed/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Resource Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "go_memstats_alloc_bytes / 1024 / 1024",
+            "legendFormat": "Memory Usage (MB)"
+          },
+          {
+            "expr": "go_goroutines",
+            "legendFormat": "Goroutines"
+          },
+          {
+            "expr": "websocket_connections",
+            "legendFormat": "WebSocket Connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Error Rates",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(jobs_failed_total[5m]) / rate(jobs_enqueued_total[5m]) * 100",
+            "legendFormat": "Job Failure Rate (%)"
+          },
+          {
+            "expr": "rate(outbox_publish_errors_total[5m])",
+            "legendFormat": "Outbox Publish Errors/sec"
+          },
+          {
+            "expr": "rate(websocket_messages_dropped_total[5m])",
+            "legendFormat": "WebSocket Messages Dropped/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

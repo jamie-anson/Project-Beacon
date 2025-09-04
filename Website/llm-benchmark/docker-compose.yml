@@ -1,0 +1,55 @@
+version: "3.9"
+
+volumes:
+  ollama-cache:
+    name: ollama-cache
+    external: true
+
+services:
+  llama:
+    image: beacon/llama-client:latest
+    environment:
+      - BENCHMARK_MODE=simple
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - BENCHMARK_MODEL=llama3.2:1b
+    volumes:
+      - ./results:/tmp
+    profiles: [llama]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import requests; requests.get(\"${OLLAMA_BASE_URL:-http://host.docker.internal:11434}/api/tags\", timeout=5)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  qwen:
+    image: beacon/qwen-client:latest
+    environment:
+      - BENCHMARK_MODE=simple
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - BENCHMARK_MODEL=qwen2.5:1.5b
+    volumes:
+      - ./results:/tmp
+    profiles: [qwen]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import requests; requests.get(\"${OLLAMA_BASE_URL:-http://host.docker.internal:11434}/api/tags\", timeout=5)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  mistral:
+    image: beacon/mistral-client:latest
+    environment:
+      - BENCHMARK_MODE=simple
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - BENCHMARK_MODEL=mistral:latest
+    volumes:
+      - ./results:/tmp
+    profiles: [mistral]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import requests; requests.get(\"${OLLAMA_BASE_URL:-http://host.docker.internal:11434}/api/tags\", timeout=5)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s

@@ -1,0 +1,58 @@
+{
+  "id": "day1-simple-test-2025-08-30-19-12",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Day-1 Simple Test",
+    "description": "Simple Day-1 test without signature",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'Day-1 Simple Test Success!' && date"],
+      "environment": {
+        "TEST_TYPE": "simple_test"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Simple test for Day-1"
+      },
+      "hash": "sha256:simple-test-hash"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "Simple Test Success"
+      }
+    },
+    "metadata": {
+      "category": "simple_test",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 1.0,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "simple-test-nonce-1725145000000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": ["simple_test", "day1_launch"],
+    "timestamp": "2025-08-30T23:43:20.000Z"
+  }
+}

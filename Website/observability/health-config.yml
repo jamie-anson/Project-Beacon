@@ -1,0 +1,202 @@
+# Health Check and Circuit Breaker Configuration for Project Beacon Runner
+
+# Global Health Check Settings
+health_checks:
+  enabled: true
+  check_interval: 30s
+  timeout: 10s
+  
+  # Critical services that affect readiness
+  critical_services:
+    - database
+    - redis
+  
+  # Non-critical services (degraded but not failing)
+  optional_services:
+    - yagna
+    - ipfs
+
+# Service-Specific Health Check Configuration
+services:
+  database:
+    type: "database"
+    timeout: 5s
+    critical: true
+    thresholds:
+      response_time_warning: 1s
+      response_time_critical: 3s
+      connection_pool_warning: 80
+      connection_pool_critical: 95
+  
+  redis:
+    type: "redis"
+    timeout: 2s
+    critical: true
+    thresholds:
+      response_time_warning: 500ms
+      response_time_critical: 2s
+      memory_warning: 80
+      memory_critical: 95
+  
+  yagna:
+    type: "http"
+    url: "http://localhost:7465/version"
+    timeout: 5s
+    critical: false
+    expected_status: 200
+    thresholds:
+      response_time_warning: 2s
+      response_time_critical: 5s
+  
+  ipfs:
+    type: "http"
+    url: "http://localhost:5001/api/v0/version"
+    timeout: 5s
+    critical: false
+    expected_status: 200
+    thresholds:
+      response_time_warning: 2s
+      response_time_critical: 5s
+
+# Circuit Breaker Configuration
+circuit_breakers:
+  default:
+    max_failures: 5
+    timeout: 30s
+    max_requests: 3
+    success_threshold: 2
+  
+  database:
+    max_failures: 3
+    timeout: 10s
+    max_requests: 2
+    success_threshold: 2
+  
+  redis:
+    max_failures: 3
+    timeout: 15s
+    max_requests: 3
+    success_threshold: 2
+  
+  yagna:
+    max_failures: 5
+    timeout: 30s
+    max_requests: 3
+    success_threshold: 2
+  
+  ipfs:
+    max_failures: 4
+    timeout: 20s
+    max_requests: 2
+    success_threshold: 2
+  
+  golem_negotiation:
+    max_failures: 3
+    timeout: 60s
+    max_requests: 5
+    success_threshold: 3
+  
+  job_execution:
+    max_failures: 2
+    timeout: 120s
+    max_requests: 1
+    success_threshold: 1
+
+# Health Check Endpoints
+endpoints:
+  liveness: "/health/live"
+  readiness: "/health/ready"
+  health: "/health"
+  circuit_breakers: "/health/circuit-breakers"
+  metrics: "/health/metrics"
+
+# Kubernetes Integration
+kubernetes:
+  liveness_probe:
+    path: "/health/live"
+    port: 8080
+    initial_delay_seconds: 30
+    period_seconds: 10
+    timeout_seconds: 5
+    failure_threshold: 3
+  
+  readiness_probe:
+    path: "/health/ready"
+    port: 8080
+    initial_delay_seconds: 10
+    period_seconds: 5
+    timeout_seconds: 3
+    failure_threshold: 3
+  
+  startup_probe:
+    path: "/health/ready"
+    port: 8080
+    initial_delay_seconds: 10
+    period_seconds: 10
+    timeout_seconds: 5
+    failure_threshold: 30
+
+# Monitoring Integration
+monitoring:
+  prometheus:
+    enabled: true
+    metrics_path: "/health/metrics"
+    labels:
+      service: "beacon-runner"
+      environment: "${ENVIRONMENT}"
+  
+  grafana:
+    dashboard_refresh: "30s"
+    alert_thresholds:
+      service_down: 1
+      degraded_services: 2
+      circuit_breaker_open: 1
+
+# Alerting Rules
+alerts:
+  service_down:
+    condition: "service_health == 3"
+    for: "1m"
+    severity: "critical"
+    message: "Service {{ $labels.service }} is down"
+  
+  service_degraded:
+    condition: "service_health == 2"
+    for: "5m"
+    severity: "warning"
+    message: "Service {{ $labels.service }} is degraded"
+  
+  circuit_breaker_open:
+    condition: "circuit_breaker_state == 2"
+    for: "30s"
+    severity: "warning"
+    message: "Circuit breaker {{ $labels.name }} is open"
+  
+  high_response_time:
+    condition: "service_response_time_seconds > 2"
+    for: "2m"
+    severity: "warning"
+    message: "Service {{ $labels.service }} response time is high"
+
+# Environment-Specific Overrides
+environments:
+  development:
+    check_interval: 60s
+    circuit_breakers:
+      default:
+        max_failures: 10
+        timeout: 60s
+  
+  staging:
+    check_interval: 30s
+    circuit_breakers:
+      default:
+        max_failures: 5
+        timeout: 30s
+  
+  production:
+    check_interval: 15s
+    circuit_breakers:
+      default:
+        max_failures: 3
+        timeout: 20s

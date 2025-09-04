@@ -1,0 +1,57 @@
+name: Build and Deploy Runner App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'runner-app/**'
+      - '!runner-app/.github/**'  # Avoid recursive triggers
+  pull_request:
+    branches: [main]
+    paths:
+      - 'runner-app/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./runner-app
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache-dependency-path: './runner-app/go.sum'
+          
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and test
+        run: |
+          go mod download
+          go test ./...
+          go build -o runner-app ./cmd/runner
+          go build -o jobspec-signer ./cmd/jobspec-signer
+          
+      - name: Build and push Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/project-beacon-runner:${{ github.sha }} .
+          docker build -t ghcr.io/${{ github.repository_owner }}/project-beacon-runner:latest .
+          docker push ghcr.io/${{ github.repository_owner }}/project-beacon-runner:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository_owner }}/project-beacon-runner:latest
+          
+      - name: Deploy to staging (if main branch)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Deploying to staging environment..."
+          # Add your staging deployment commands here
+          # Could trigger a webhook, update k8s manifests, etc.

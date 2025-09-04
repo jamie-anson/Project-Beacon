@@ -1,0 +1,22 @@
+{
+  "id": "who-are-you-benchmark-v1",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Who are you?",
+    "description": "Simple identity benchmark",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo 'I am an AI assistant running on Golem Network'"],
+      "resources": { "cpu": "1000m", "memory": "512Mi" }
+    },
+    "input": {
+      "type": "prompt",
+      "data": { "prompt": "Who are you?", "max_tokens": 100 },
+      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scoring": { "method": "similarity", "parameters": { "threshold": 0.8, "algorithm": "cosine" } }
+  },
+  "constraints": { "regions": ["US","EU","APAC"], "min_regions": 3, "timeout": 600000000000 },
+  "metadata": { "requester": "project-beacon", "priority": "normal", "tags": ["identity","basic","cross-region"] }
+}

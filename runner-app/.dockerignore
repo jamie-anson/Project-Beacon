@@ -1,0 +1,33 @@
+# flyctl launch added from .gitignore
+# Compiled binaries
+**/jobspec-signer
+**/runner-app
+fly.toml
+
+# Large directories that shouldn't be in build context
+web/
+bin/
+runner
+runner-app
+
+# Development and test files
+*.test
+test_*
+e2e/
+.venv/
+.git/
+*.log
+*.tmp
+*.out
+*.html
+coverage*
+
+# Go build cache and modules
+vendor/
+
+# Job test files
+job-*.json
+job-*.json.signed
+day1-*.json
+test-*.json
+*.signed.json

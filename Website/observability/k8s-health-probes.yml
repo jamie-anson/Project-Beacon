@@ -1,0 +1,159 @@
+# Kubernetes Health Probe Configuration for Project Beacon Runner
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beacon-runner
+  labels:
+    app: beacon-runner
+    version: v1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: beacon-runner
+  template:
+    metadata:
+      labels:
+        app: beacon-runner
+    spec:
+      containers:
+      - name: beacon-runner
+        image: beacon-runner:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        
+        # Liveness Probe - Determines if container should be restarted
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Readiness Probe - Determines if container should receive traffic
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Startup Probe - Protects slow starting containers
+        startupProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Environment variables
+        env:
+        - name: LOG_LEVEL
+          value: "info"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: HEALTH_CHECK_INTERVAL
+          value: "30s"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: beacon-runner-service
+  labels:
+    app: beacon-runner
+spec:
+  selector:
+    app: beacon-runner
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ServiceMonitor for Prometheus scraping
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: beacon-runner-metrics
+  labels:
+    app: beacon-runner
+spec:
+  selector:
+    matchLabels:
+      app: beacon-runner
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# PrometheusRule for health-based alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: beacon-runner-health-alerts
+  labels:
+    app: beacon-runner
+spec:
+  groups:
+  - name: beacon-runner.health
+    rules:
+    - alert: BeaconRunnerDown
+      expr: up{job="beacon-runner"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Beacon Runner instance is down"
+        description: "Beacon Runner instance {{ $labels.instance }} has been down for more than 1 minute."
+    
+    - alert: BeaconRunnerUnhealthy
+      expr: service_health{service="beacon-runner"} == 3
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Beacon Runner is unhealthy"
+        description: "Beacon Runner service health check is failing."
+    
+    - alert: BeaconRunnerCircuitBreakerOpen
+      expr: circuit_breaker_state == 2
+      for: 30s
+      labels:
+        severity: warning
+      annotations:
+        summary: "Circuit breaker is open"
+        description: "Circuit breaker {{ $labels.name }} is open, indicating service issues."

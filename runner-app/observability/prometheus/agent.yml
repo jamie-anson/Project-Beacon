@@ -1,0 +1,31 @@
+# Prometheus Agent configuration for scraping the Beacon Runner and remote_write to Grafana Cloud
+# Environment variables used:
+# - GC_REMOTE_WRITE_URL: Grafana Cloud remote_write URL
+# - GC_USERNAME: Grafana Cloud instance ID (username)
+# - GC_PASSWORD: Grafana Cloud API token (password)
+# - RUNNER_TARGET: host:port to scrape (e.g., <app>.fly.dev:443 or localhost:8090)
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: beacon-runner
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["${RUNNER_TARGET}"]
+    scheme: ${RUNNER_SCHEME}
+    relabel_configs:
+      - action: replace
+        target_label: instance
+        replacement: beacon-runner
+
+remote_write:
+  - url: ${GC_REMOTE_WRITE_URL}
+    basic_auth:
+      username: ${GC_USERNAME}
+      password: ${GC_PASSWORD}
+    write_relabel_configs:
+      - action: keep
+        regex: ".*"
+        source_labels: ["__name__"]

@@ -1,0 +1,10 @@
+{
+  "constraints": "(& (golem.inf.mem.gib>=8) (golem.inf.cpu.threads>=4) (golem.inf.storage.gib>=20) ${GPU_VENDOR_EXPR} ${GPU_VRAM_EXPR})",
+  "x_notes": {
+    "tier": "AMD GPU — 8+ GiB VRAM (ROCm)",
+    "placeholders": {
+      "GPU_VENDOR_EXPR": "Replace with expression matching AMD/ROCm-capable vendor",
+      "GPU_VRAM_EXPR": "Replace with expression asserting >= 8 GiB VRAM"
+    }
+  }
+}

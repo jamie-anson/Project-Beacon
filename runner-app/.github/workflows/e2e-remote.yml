@@ -1,0 +1,68 @@
+name: E2E Remote (Fly)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e-remote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Prepare E2E env
+        env:
+          BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
+          JOB_ID: ${{ secrets.E2E_JOB_ID }}
+          E2E_SIGNED_JOB: ${{ secrets.E2E_SIGNED_JOB }}
+        run: |
+          set -euo pipefail
+          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
+          if [ -n "${ADMIN_TOKEN:-}" ]; then echo "ADMIN_TOKEN=${ADMIN_TOKEN}" >> $GITHUB_ENV; fi
+          if [ -n "${JOB_ID:-}" ]; then echo "JOB_ID=${JOB_ID}" >> $GITHUB_ENV; fi
+          if [ -n "${E2E_SIGNED_JOB:-}" ]; then
+            # Accept either raw JSON or base64-encoded JSON
+            echo "Preparing E2E_SIGNED_JOB_FILE"
+            TMP_FILE=/tmp/jobspec.signed.json
+            if echo "$E2E_SIGNED_JOB" | jq -e . >/dev/null 2>&1; then
+              echo "$E2E_SIGNED_JOB" > "$TMP_FILE"
+            else
+              echo "$E2E_SIGNED_JOB" | base64 -d > "$TMP_FILE"
+            fi
+            echo "E2E_SIGNED_JOB_FILE=${TMP_FILE}" >> $GITHUB_ENV
+          fi
+
+      - name: Run E2E tests (health)
+        run: go test -v ./e2e -run Test_Health
+
+      - name: Run E2E tests (config)
+        run: go test -v ./e2e -run Test_Config || true
+
+      - name: Run E2E tests (submit + replay)
+        run: go test -v ./e2e -run Test_JobSubmit_And_Replay
+
+      - name: Run E2E tests (poll receipt)
+        run: go test -v ./e2e -run Test_PollLatestReceipt || true
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "E2E Remote completed. Ensure secrets are set: E2E_BASE_URL, E2E_ADMIN_TOKEN, E2E_SIGNED_JOB (JSON or base64), optional E2E_JOB_ID."

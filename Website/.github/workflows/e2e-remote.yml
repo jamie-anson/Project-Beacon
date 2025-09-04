@@ -1,0 +1,213 @@
+name: Remote E2E (Runner)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL of the deployed Runner (e.g. https://runner.example.com)
+        required: false
+      job_submit_path:
+        description: Path for job submission endpoint (default /jobs)
+        required: false
+      receipt_poll_path:
+        description: Path to poll for latest receipt (default /receipts/latest)
+        required: false
+      admin_config_path:
+        description: Admin config path (default /admin/config)
+        required: false
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+env:
+  # Defaults (can be overridden by workflow inputs or repository secrets)
+  ADMIN_TOKEN: ${{ secrets.E2E_ADMIN_TOKEN }}
+  E2E_SIGNED_JOB: ${{ secrets.E2E_SIGNED_JOB }}
+  JOB_ID: ${{ secrets.E2E_JOB_ID }}
+
+jobs:
+  e2e:
+    name: Remote E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive configuration
+        shell: bash
+        env:
+          IN_BASE_URL: ${{ inputs.base_url }}
+          SEC_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          IN_JOB_SUBMIT_PATH: ${{ inputs.job_submit_path }}
+          SEC_JOB_SUBMIT_PATH: ${{ secrets.E2E_JOB_SUBMIT_PATH }}
+          IN_RECEIPT_POLL_PATH: ${{ inputs.receipt_poll_path }}
+          SEC_RECEIPT_POLL_PATH: ${{ secrets.E2E_RECEIPT_POLL_PATH }}
+          IN_ADMIN_CONFIG_PATH: ${{ inputs.admin_config_path }}
+          SEC_ADMIN_CONFIG_PATH: ${{ secrets.E2E_ADMIN_CONFIG_PATH }}
+        run: |
+          set -euo pipefail
+          BASE_URL="${IN_BASE_URL:-}"
+          if [ -z "$BASE_URL" ]; then BASE_URL="${SEC_BASE_URL:-}"; fi
+          echo "BASE_URL=$BASE_URL" >> "$GITHUB_ENV"
+
+          JOB_SUBMIT_PATH="${IN_JOB_SUBMIT_PATH:-}"
+          if [ -z "$JOB_SUBMIT_PATH" ]; then JOB_SUBMIT_PATH="${SEC_JOB_SUBMIT_PATH:-}"; fi
+          if [ -z "$JOB_SUBMIT_PATH" ]; then JOB_SUBMIT_PATH="/jobs"; fi
+          echo "JOB_SUBMIT_PATH=$JOB_SUBMIT_PATH" >> "$GITHUB_ENV"
+
+          RECEIPT_POLL_PATH="${IN_RECEIPT_POLL_PATH:-}"
+          if [ -z "$RECEIPT_POLL_PATH" ]; then RECEIPT_POLL_PATH="${SEC_RECEIPT_POLL_PATH:-}"; fi
+          if [ -z "$RECEIPT_POLL_PATH" ]; then RECEIPT_POLL_PATH="/receipts/latest"; fi
+          echo "RECEIPT_POLL_PATH=$RECEIPT_POLL_PATH" >> "$GITHUB_ENV"
+
+          ADMIN_CONFIG_PATH="${IN_ADMIN_CONFIG_PATH:-}"
+          if [ -z "$ADMIN_CONFIG_PATH" ]; then ADMIN_CONFIG_PATH="${SEC_ADMIN_CONFIG_PATH:-}"; fi
+          if [ -z "$ADMIN_CONFIG_PATH" ]; then ADMIN_CONFIG_PATH="/admin/config"; fi
+          echo "ADMIN_CONFIG_PATH=$ADMIN_CONFIG_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_URL}" ]; then
+            echo "ERROR: BASE_URL is required (set via dispatch input base_url or secret E2E_BASE_URL)." >&2
+            exit 1
+          fi
+          echo "BASE_URL=${BASE_URL}"
+          echo "JOB_SUBMIT_PATH=${JOB_SUBMIT_PATH}"
+          echo "RECEIPT_POLL_PATH=${RECEIPT_POLL_PATH}"
+          echo "ADMIN_CONFIG_PATH=${ADMIN_CONFIG_PATH}"
+
+      - name: Install jq and curl (ensure present)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl
+
+      - name: Health check (with retries)
+        run: |
+          set -euo pipefail
+          for i in {1..20}; do
+            code=$(curl -sk -o /dev/null -w "%{http_code}" "${BASE_URL}/health") || true
+            if [ "${code}" = "200" ]; then
+              echo "Health OK"
+              exit 0
+            fi
+            echo "Health not ready (code=${code}), retry ${i}/20..."
+            sleep 3
+          done
+          echo "ERROR: Health check failed." >&2
+          exit 1
+
+      - name: Admin config check (optional)
+        if: env.ADMIN_TOKEN != ''
+        run: |
+          set -euo pipefail
+          resp=$(curl -sk -H "X-Admin-Token: ${ADMIN_TOKEN}" "${BASE_URL}${ADMIN_CONFIG_PATH}")
+          echo "Admin config response:" "$resp" | sed -e 's/\r$//'
+          echo "$resp" | jq -e . >/dev/null 2>&1 || {
+            echo "WARN: Admin config did not return JSON; continuing." >&2
+          }
+
+      - name: Prepare signed job (optional)
+        id: signed_job
+        if: env.E2E_SIGNED_JOB != ''
+        run: |
+          set -euo pipefail
+          val="${E2E_SIGNED_JOB}"
+          # Try to detect base64 (len multiple of 4 and decodes cleanly)
+          if echo "$val" | grep -Eq '^[A-Za-z0-9+/=]+$' && [ $(( ${#val} % 4 )) -eq 0 ]; then
+            if echo "$val" | base64 -d >/tmp/signed_job.json 2>/dev/null; then
+              echo "Detected base64-encoded signed job. Decoded to /tmp/signed_job.json"
+            else
+              echo "$val" >/tmp/signed_job.json
+              echo "Treating E2E_SIGNED_JOB as raw JSON (base64 decode failed)"
+            fi
+          else
+            echo "$val" >/tmp/signed_job.json
+            echo "Treating E2E_SIGNED_JOB as raw JSON"
+          fi
+          # basic sanity
+          jq -e . /tmp/signed_job.json >/dev/null 2>&1 || { echo "Signed job is not valid JSON" >&2; cat /tmp/signed_job.json; exit 1; }
+          echo "job_file=/tmp/signed_job.json" >> "$GITHUB_OUTPUT"
+
+      - name: Submit job (optional)
+        if: steps.signed_job.outcome != 'skipped'
+        id: submit
+        run: |
+          set -euo pipefail
+          url="${BASE_URL}${JOB_SUBMIT_PATH}"
+          echo "Submitting job to ${url}"
+          http_code=$(curl -sk -o /tmp/submit_resp.json -w "%{http_code}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/signed_job.json \
+            "$url") || true
+          echo "HTTP ${http_code}"
+          cat /tmp/submit_resp.json || true
+          if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+            echo "ERROR: Job submission failed (HTTP ${http_code})." >&2
+            exit 1
+          fi
+          # Try to extract job id if present
+          jid=$(jq -r '.jobId // .job_id // empty' /tmp/submit_resp.json || true)
+          if [ -n "$jid" ]; then echo "job_id=${jid}" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Replay protection check (optional)
+        if: steps.signed_job.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          url="${BASE_URL}${JOB_SUBMIT_PATH}"
+          http_code=$(curl -sk -o /tmp/replay_resp.json -w "%{http_code}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/signed_job.json \
+            "$url") || true
+          echo "Replay submit HTTP ${http_code}"
+          cat /tmp/replay_resp.json || true
+          # Expect a non-success code for replay; if server uses 200 with error field, still pass but warn.
+          if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+            if jq -e '.error? | length > 0' /tmp/replay_resp.json >/dev/null 2>&1; then
+              echo "Replay protection signaled via JSON error field (HTTP ${http_code})."
+            else
+              echo "WARN: Replay protection may not be enforced (HTTP ${http_code} without error)." >&2
+            fi
+          fi
+
+      - name: Poll for latest receipt (optional)
+        if: env.RECEIPT_POLL_PATH != ''
+        run: |
+          set -euo pipefail
+          url="${BASE_URL}${RECEIPT_POLL_PATH}"
+          echo "Polling receipts at ${url}"
+          for i in {1..40}; do
+            code=$(curl -sk -o /tmp/receipt.json -w "%{http_code}" "$url") || true
+            if [ "$code" = "200" ]; then
+              # If JOB_ID provided or from submit step, ensure it matches when present in payload
+              want_jid="${JOB_ID}"
+              if [ -z "$want_jid" ] && [ -n "${{ steps.submit.outputs.job_id }}" ]; then
+                want_jid="${{ steps.submit.outputs.job_id }}"
+              fi
+              if [ -n "$want_jid" ]; then
+                got_jid=$(jq -r '.jobId // .job_id // empty' /tmp/receipt.json || true)
+                if [ "$got_jid" = "$want_jid" ]; then
+                  echo "Receipt OK for job_id=${want_jid}"; cat /tmp/receipt.json; exit 0
+                fi
+                echo "Got receipt for different job_id=${got_jid}; retry ${i}/40..."
+              else
+                echo "Receipt OK"; cat /tmp/receipt.json; exit 0
+              fi
+            else
+              echo "Receipt not ready (HTTP ${code}); retry ${i}/40..."
+            fi
+            sleep 3
+          done
+          echo "ERROR: Timed out waiting for receipt." >&2
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Remote E2E completed."

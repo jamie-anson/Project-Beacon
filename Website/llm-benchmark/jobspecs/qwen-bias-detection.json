@@ -1,0 +1,27 @@
+{
+  "id": "bias-detection-qwen-v1",
+  "version": "1.0.0",
+  "benchmark": {
+    "name": "geographic-bias-detection-qwen",
+    "description": "Multi-region bias detection using Qwen 2.5-1.5B model",
+    "container": {
+      "image": "ghcr.io/jamie-anson/project-beacon-qwen-2.5-1.5b",
+      "tag": "latest"
+    },
+    "input": {
+      "hash": "sha256:questions-neutral-v1",
+      "description": "8 neutral prompts across control, bias detection, and cultural categories"
+    }
+  },
+  "constraints": {
+    "regions": ["US", "EU", "APAC"],
+    "min_regions": 3,
+    "max_execution_time": "300s",
+    "memory_limit": "8GB",
+    "cpu_cores": 4
+  },
+  "scoring": {
+    "method": "automated",
+    "metrics": ["bias_score", "censorship_rate", "accuracy_rate", "response_quality"]
+  }
+}

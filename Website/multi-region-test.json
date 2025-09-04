@@ -1,0 +1,69 @@
+{
+  "id": "multi-region-golem-test-2025-08-31-01-00",
+  "version": "1.0",
+  "benchmark": {
+    "name": "Multi-Region Golem Network Test",
+    "description": "Test job routing and execution across multiple geographic regions on Golem network",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": ["sh", "-c", "echo '🌍 MULTI-REGION TEST EXECUTION' && echo 'Timestamp:' $(date) && echo 'Region: GLOBAL' && echo 'Test: Cross-region consistency validation' && echo 'Status: Testing multi-region routing' && hostname && uname -a"],
+      "environment": {
+        "TEST_TYPE": "multi_region_routing",
+        "LAUNCH_DATE": "2025-08-31"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "Multi-region routing test for Project Beacon"
+      },
+      "hash": "sha256:multi-region-golem-test-hash-2025-08-31-01-00"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "MULTI-REGION TEST EXECUTION"
+      }
+    },
+    "metadata": {
+      "category": "multi_region_test",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": ["US", "EU", "ASIA"],
+    "min_regions": 2,
+    "min_success_rate": 0.8,
+    "timeout": 600000000000,
+    "provider_timeout": 180000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.8,
+        "max_price": 0.15
+      },
+      {
+        "region": "EU",
+        "min_score": 0.8,
+        "max_price": 0.15
+      },
+      {
+        "region": "ASIA",
+        "min_score": 0.8,
+        "max_price": 0.15
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "golem-multi-region-validation-1725149000000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": ["multi_region", "routing_test", "golem_network", "day1_validation"],
+    "timestamp": "2025-08-31T00:04:00.000Z"
+  }
+}

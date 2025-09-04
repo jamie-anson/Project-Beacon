@@ -1,0 +1,66 @@
+# Notification Configuration for Project Beacon Alerts
+
+# Slack Integration
+slack:
+  api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+  channel: "#beacon-alerts"
+  username: "Beacon Monitor"
+  icon_emoji: ":warning:"
+  title: "Project Beacon Alert"
+  text: |
+    {{ range .Alerts }}
+    *Alert:* {{ .Annotations.summary }}
+    *Description:* {{ .Annotations.description }}
+    *Severity:* {{ .Labels.severity }}
+    *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+    {{ end }}
+
+# Email Configuration
+email:
+  smtp_server: "smtp.gmail.com:587"
+  from: "beacon-alerts@projectbeacon.com"
+  to: ["ops-team@projectbeacon.com", "dev-team@projectbeacon.com"]
+  subject: "[{{ .Status | toUpper }}] Project Beacon Alert"
+  body: |
+    Project Beacon Alert Notification
+    
+    {{ range .Alerts }}
+    Alert: {{ .Annotations.summary }}
+    Description: {{ .Annotations.description }}
+    Severity: {{ .Labels.severity }}
+    Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+    {{ if .EndsAt }}Ended: {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}{{ end }}
+    
+    {{ end }}
+
+# PagerDuty Integration
+pagerduty:
+  routing_key: "YOUR_PAGERDUTY_INTEGRATION_KEY"
+  severity_mapping:
+    critical: "critical"
+    warning: "warning"
+  client: "Project Beacon Monitoring"
+  client_url: "https://projectbeacon.netlify.app"
+
+# Webhook for Custom Integrations
+webhook:
+  url: "https://beacon-runner-change-me.fly.dev/api/v1/alerts"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer {{ .ExternalURL }}"
+  body: |
+    {
+      "alerts": [
+        {{ range .Alerts }}
+        {
+          "status": "{{ .Status }}",
+          "labels": {{ .Labels | toJSON }},
+          "annotations": {{ .Annotations | toJSON }},
+          "startsAt": "{{ .StartsAt }}",
+          "endsAt": "{{ .EndsAt }}",
+          "generatorURL": "{{ .GeneratorURL }}"
+        }{{ if not (last $) }},{{ end }}
+        {{ end }}
+      ]
+    }

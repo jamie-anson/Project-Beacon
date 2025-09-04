@@ -1,0 +1,137 @@
+# Error Recovery Configuration for Project Beacon Runner
+
+# Global Recovery Settings
+global:
+  enable_recovery: true
+  log_level: "info"
+  metrics_enabled: true
+
+# Circuit Breaker Configuration
+circuit_breakers:
+  default:
+    max_failures: 5
+    timeout: 30s
+    max_requests: 3
+    success_threshold: 2
+  
+  golem_negotiation:
+    max_failures: 3
+    timeout: 60s
+    max_requests: 5
+    success_threshold: 3
+  
+  ipfs_operations:
+    max_failures: 4
+    timeout: 45s
+    max_requests: 2
+    success_threshold: 2
+  
+  database_operations:
+    max_failures: 2
+    timeout: 10s
+    max_requests: 1
+    success_threshold: 1
+
+# Retry Configuration
+retry_policies:
+  default:
+    max_attempts: 3
+    initial_delay: 100ms
+    max_delay: 30s
+    multiplier: 2.0
+    jitter: true
+  
+  job_execution:
+    max_attempts: 5
+    initial_delay: 30s
+    max_delay: 10m
+    multiplier: 2.0
+    jitter: true
+  
+  external_api:
+    max_attempts: 3
+    initial_delay: 500ms
+    max_delay: 5s
+    multiplier: 1.5
+    jitter: true
+
+# Job Recovery Strategies
+job_recovery:
+  default_strategy: "retry"
+  max_retries: 3
+  retry_delay: 30s
+  max_retry_delay: 10m
+  dead_letter_ttl: 24h
+  
+  fallback_regions:
+    - "US"
+    - "EU"
+    - "ASIA"
+  
+  stuck_job_threshold: 30m
+  recovery_check_interval: 5m
+
+# Error Classification
+error_handling:
+  retryable_errors:
+    - "external_service"
+    - "database"
+    - "timeout"
+    - "internal"
+  
+  non_retryable_errors:
+    - "validation"
+    - "authentication"
+    - "authorization"
+    - "not_found"
+    - "circuit_breaker"
+
+# Health Check Configuration
+health_checks:
+  interval: 30s
+  timeout: 10s
+  
+  endpoints:
+    - name: "yagna"
+      url: "http://localhost:7465/version"
+      critical: true
+    
+    - name: "ipfs"
+      url: "http://localhost:5001/api/v0/version"
+      critical: true
+    
+    - name: "database"
+      type: "custom"
+      critical: true
+    
+    - name: "redis"
+      type: "custom"
+      critical: true
+
+# Rate Limiting
+rate_limiting:
+  enabled: true
+  requests_per_minute: 100
+  burst_size: 20
+  
+  per_endpoint:
+    "/api/v1/jobs":
+      requests_per_minute: 30
+      burst_size: 10
+    
+    "/api/v1/executions":
+      requests_per_minute: 60
+      burst_size: 15
+
+# Panic Recovery
+panic_recovery:
+  enabled: true
+  log_stack_trace: true
+  notify_on_panic: true
+
+# Request Timeout
+timeouts:
+  default_request: 30s
+  job_submission: 60s
+  health_check: 10s
+  metrics_collection: 5s

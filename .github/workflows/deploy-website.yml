@@ -1,0 +1,115 @@
+name: Deploy Website to IPFS and Netlify
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Website/**'
+      - '!Website/runner-app/**'  # Exclude runner-app from website deployments
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Website/**'
+      - '!Website/runner-app/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './Website/package-lock.json'
+          
+      - name: Install dependencies
+        working-directory: ./Website
+        run: npm ci --no-audit --fund=false
+          
+      - name: Build website
+        working-directory: ./Website
+        run: |
+          # Build static site and docs
+          npm run build:static
+          npm run build:docs
+
+          # Build portal (Vite/React) and include it under dist/portal
+          # Install portal dependencies (prefer ci if lockfile exists)
+          if [ -f portal/package-lock.json ]; then
+            npm ci --prefix portal --no-audit --fund=false
+          else
+            npm install --prefix portal --no-audit --fund=false
+          fi
+
+          # Export env for Vite build so it can read commit info
+          export VITE_BUILD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+          npm run --prefix portal build
+
+          # Copy portal build output into publish folder
+          mkdir -p dist/portal
+          cp -R portal/dist/* dist/portal/
+
+      - name: Deploy to IPFS
+        uses: ipfs/ipfs-deploy-action@v1
+        id: ipfs-deploy
+        with:
+          path-to-deploy: Website/dist
+          storacha-key: ${{ secrets.STORACHA_KEY }}
+          storacha-proof: ${{ secrets.STORACHA_PROOF }}
+          github-token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Update docs with IPFS CID and rebuild
+        working-directory: ./Website
+        run: |
+          # Get CID from IPFS deploy action output
+          DOCS_CID="${{ steps.ipfs-deploy.outputs.cid }}"
+          echo "IPFS CID: $DOCS_CID"
+          
+          # Write CID to file for docs build
+          echo "$DOCS_CID" > dist/docs-cid.txt
+          
+          # Rebuild docs with embedded CID
+          DOCS_BUILD_CID="$DOCS_CID" npm run build:docs:with-cid
+          
+          # Rebuild portal with CID
+          export VITE_DOCS_CID="$DOCS_CID"
+          export VITE_BUILD_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+          npm run --prefix portal build
+          
+          # Copy updated portal
+          cp -R portal/dist/* dist/portal/
+
+      - name: Deploy updated site to IPFS (with embedded CID)
+        uses: ipfs/ipfs-deploy-action@v1
+        id: ipfs-deploy-final
+        with:
+          path-to-deploy: Website/dist
+          storacha-key: ${{ secrets.STORACHA_KEY }}
+          storacha-proof: ${{ secrets.STORACHA_PROOF }}
+          github-token: ${{ github.token }}
+        continue-on-error: true
+          
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './Website/dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions - IPFS CID: ${{ steps.ipfs-deploy-final.outputs.cid }}"
+          enable-pull-request-comment: false
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

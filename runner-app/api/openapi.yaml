@@ -1,0 +1,498 @@
+openapi: 3.0.3
+info:
+  title: Project Beacon Runner API
+  description: |
+    Project Beacon runner API for executing benchmarks across multiple regions with cryptographic verification.
+    
+    ## Authentication
+    All JobSpecs must be cryptographically signed with Ed25519 signatures.
+    
+    ## Security Requirements
+    - **Signature**: Ed25519 signature of canonicalized JobSpec
+    - **Public Key**: Ed25519 public key for verification
+    - **Timestamp**: RFC3339 timestamp for freshness validation
+    - **Nonce**: Unique identifier for replay protection
+  version: 1.0.0
+  contact:
+    name: Project Beacon
+    url: https://github.com/jamie-anson/project-beacon
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.projectbeacon.io
+    description: Production server
+  - url: http://localhost:8090
+    description: Local development server
+
+paths:
+  /api/v1/jobs:
+    post:
+      summary: Submit a signed JobSpec for execution
+      description: |
+        Submit a cryptographically signed JobSpec for benchmark execution.
+        
+        ## Security Requirements
+        - JobSpec must be signed with Ed25519 private key
+        - Timestamp must be within configured skew limits (±5 minutes default)
+        - Nonce must be unique to prevent replay attacks
+        - Public key must be in trusted keys allowlist (if enforcement enabled)
+      operationId: createJob
+      tags:
+        - Jobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobSpec'
+            examples:
+              valid_jobspec:
+                summary: Valid signed JobSpec
+                value:
+                  id: "benchmark-test-v1"
+                  version: "1.0"
+                  metadata:
+                    timestamp: "2025-08-22T14:50:32Z"
+                    nonce: "unique-nonce-12345"
+                    requester: "test-user"
+                    priority: "normal"
+                  signature: "base64-encoded-signature"
+                  public_key: "base64-encoded-public-key"
+      responses:
+        '202':
+          description: JobSpec accepted for execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '400':
+          description: Invalid JobSpec or security validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                signature_mismatch:
+                  summary: Invalid signature
+                  value:
+                    error: "signature verification failed"
+                    error_code: "signature_mismatch"
+                replay_detected:
+                  summary: Nonce already used
+                  value:
+                    error: "replay protection failed: replay detected: nonce already used"
+                    error_code: "replay_detected"
+                timestamp_invalid_too_old:
+                  summary: Timestamp too old
+                  value:
+                    error: "timestamp validation failed"
+                    error_code: "timestamp_invalid"
+                    details:
+                      reason: "too_old"
+                timestamp_invalid_future:
+                  summary: Timestamp too far in future
+                  value:
+                    error: "timestamp validation failed"
+                    error_code: "timestamp_invalid"
+                    details:
+                      reason: "too_far_in_future"
+                timestamp_invalid_format:
+                  summary: Timestamp format invalid
+                  value:
+                    error: "timestamp validation failed"
+                    error_code: "timestamp_invalid"
+                    details:
+                      reason: "format_invalid"
+                missing_timestamp:
+                  summary: Missing timestamp when trust enforcement is enabled
+                  value:
+                    error: "timestamp is required"
+                    error_code: "missing_field:timestamp"
+                missing_nonce:
+                  summary: Missing nonce when trust enforcement is enabled
+                  value:
+                    error: "nonce is required"
+                    error_code: "missing_field:nonce"
+                trust_unknown:
+                  summary: Public key not in allowlist (trust enforcement)
+                  value:
+                    error: "untrusted signing key: unknown key"
+                    error_code: "trust_violation:unknown"
+        '429':
+          description: Rate limited due to too many signature failures
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "rate limit exceeded"
+                error_code: "rate_limit_exceeded"
+        '503':
+          description: One or more protections are unavailable (e.g., Redis for replay protection)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "replay protection unavailable"
+                error_code: "protection_unavailable:replay"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns server health status
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      description: Basic liveness check to indicate the process is running
+      operationId: livenessCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Process is live
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "live"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Indicates whether dependencies are ready (e.g., DB, Redis)
+      operationId: readinessCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics (root path)
+      description: Exposes Prometheus metrics in the text exposition format
+      operationId: metricsRoot
+      tags:
+        - Observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus text exposition format
+
+  /api/v1/metrics:
+    get:
+      summary: Prometheus metrics (versioned alias)
+      description: Same content as /metrics, exposed under API namespace for compatibility
+      operationId: metricsAlias
+      tags:
+        - Observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus text exposition format
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      description: Basic liveness check to indicate the process is running
+      operationId: livenessCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Process is live
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "live"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Indicates whether dependencies are ready (e.g., DB, Redis)
+      operationId: readinessCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics (root path)
+      description: Exposes Prometheus metrics in the text exposition format
+      operationId: metricsRoot
+      tags:
+        - Observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus text exposition format
+
+  /api/v1/metrics:
+    get:
+      summary: Prometheus metrics (versioned alias)
+      description: Same content as /metrics, exposed under API namespace for compatibility
+      operationId: metricsAlias
+      tags:
+        - Observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus text exposition format
+
+components:
+  schemas:
+    JobSpec:
+      type: object
+      required:
+        - id
+        - version
+        - signature
+        - public_key
+        - metadata
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the JobSpec
+          example: "benchmark-test-v1"
+          pattern: '^[a-zA-Z0-9\-_]+$'
+          minLength: 1
+          maxLength: 100
+        version:
+          type: string
+          description: JobSpec schema version
+          example: "1.0"
+          enum: ["1.0"]
+        signature:
+          type: string
+          format: base64
+          description: Ed25519 signature of the canonicalized, signable JobSpec copy where signature and public_key keys are retained but values are zeroed
+          example: "base64-encoded-signature"
+        public_key:
+          type: string
+          format: base64
+          description: Ed25519 public key for signature verification
+          example: "base64-encoded-public-key"
+        metadata:
+          type: object
+          required:
+            - timestamp
+            - nonce
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+              description: RFC3339 timestamp for freshness validation (must be within ±5 minutes of server time)
+              example: "2025-08-22T14:50:32Z"
+            nonce:
+              type: string
+              description: Unique identifier for replay protection (must be unique per public key)
+              example: "unique-nonce-12345"
+              minLength: 1
+              maxLength: 256
+            requester:
+              type: string
+              description: Optional identifier for the requester
+              example: "test-user"
+            priority:
+              type: string
+              description: Optional execution priority
+              enum: ["low", "normal", "high"]
+              default: "normal"
+            tags:
+              type: array
+              items:
+                type: string
+              description: Optional tags for categorization
+              example: ["benchmark", "test"]
+          additionalProperties: true
+      additionalProperties: false
+
+    JobAccepted:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: The accepted JobSpec ID
+          example: "benchmark-test-v1"
+        status:
+          type: string
+          enum: ["enqueued"]
+          example: "enqueued"
+
+    Error:
+      type: object
+      required:
+        - error
+        - error_code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "signature verification failed"
+        error_code:
+          type: string
+          description: Machine-readable error code for programmatic handling
+          enum:
+            - "signature_mismatch"
+            - "replay_detected" 
+            - "timestamp_invalid"
+            - "missing_field:metadata"
+            - "missing_field:timestamp"
+            - "missing_field:nonce"
+            - "trust_violation:unknown"
+            - "trust_violation:revoked"
+            - "trust_violation:expired"
+            - "trust_violation:not_yet_valid"
+            - "rate_limit_exceeded"
+            - "protection_unavailable:replay"
+            - "invalid_request"
+            - "internal_error"
+          example: "signature_mismatch"
+        details:
+          type: object
+          description: Optional additional error details
+          additionalProperties: true
+      description: |
+        Standard error envelope. For timestamp validation failures, `error_code` is always `timestamp_invalid` and `details.reason` is one of:
+        - `too_far_in_future`
+        - `too_old`
+        - `format_invalid`
+
+  securitySchemes:
+    Ed25519Signature:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: |
+        Ed25519 signature authentication. The signature is included in the JobSpec body
+        along with the public key for verification.
+
+security:
+  - Ed25519Signature: []
+
+tags:
+  - name: Jobs
+    description: JobSpec submission and management
+  - name: Health
+    description: Server health and status endpoints
+  - name: Observability
+    description: Metrics and monitoring endpoints

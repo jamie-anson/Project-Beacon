@@ -1,0 +1,73 @@
+[build]
+  # Build landing + docs into dist/, generate IPFS CID, then rebuild docs with embedded CID
+  command = "npm run build:static && npm run build:docs && npm run postbuild:cid && DOCS_BUILD_CID=$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder') npm run build:docs:with-cid && VITE_DOCS_CID=\"$DOCS_BUILD_CID\" VITE_BUILD_COMMIT=\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\" npm run --prefix portal build && mkdir -p dist/portal && cp -R portal/dist/* dist/portal/"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--no-audit --fund=false"
+  # Default IPFS gateway for production portal links (overridable per-deploy)
+  VITE_IPFS_GATEWAY = "https://ipfs.io"
+
+# Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
+[[redirects]]
+  from = "/docs/*"
+  to = "/docs/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/docs"
+  to = "/docs/index.html"
+  status = 200
+
+# Portal SPA fallback
+[[redirects]]
+  from = "/portal/*"
+  to = "/portal/index.html"
+  status = 200
+
+# API proxy to runner (avoids CORS)
+[[redirects]]
+  from = "/api/v1/*"
+  to = "https://beacon-runner-change-me.fly.dev/api/v1/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "https://beacon-runner-change-me.fly.dev/health"
+  status = 200
+  force = true
+
+# WebSocket proxy to runner
+# Use same-origin ws URL in the portal (e.g., wss://<site>/ws) and proxy here.
+[[redirects]]
+  from = "/ws"
+  to = "https://beacon-runner-change-me.fly.dev/ws"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/ws/*"
+  to = "https://beacon-runner-change-me.fly.dev/ws/:splat"
+  status = 200
+  force = true
+
+# Default root fallback for the one-pager (no SPA framework, just static)
+# No catch-all needed at root; index.html served by default.
+
+# Caching for built assets and security headers
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'none'"

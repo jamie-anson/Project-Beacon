@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extract Portal Key</title>
+</head>
+<body>
+    <h1>Portal Key Extractor</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import { getOrCreateKeyPair } from './portal/src/lib/crypto.js';
+        
+        async function extractKey() {
+            try {
+                const keyPair = await getOrCreateKeyPair();
+                const output = document.getElementById('output');
+                output.innerHTML = `
+                    <h2>Portal Public Key</h2>
+                    <p><strong>Base64:</strong> <code>${keyPair.publicKeyB64}</code></p>
+                    <p><strong>Hex:</strong> <code>${Array.from(keyPair.publicKey).map(b => b.toString(16).padStart(2, '0')).join('')}</code></p>
+                    <h3>Add this to API server allowlist:</h3>
+                    <pre>${keyPair.publicKeyB64}</pre>
+                `;
+                console.log('Portal Public Key (Base64):', keyPair.publicKeyB64);
+                console.log('Portal Public Key (Hex):', Array.from(keyPair.publicKey).map(b => b.toString(16).padStart(2, '0')).join(''));
+            } catch (error) {
+                document.getElementById('output').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error('Error extracting key:', error);
+            }
+        }
+        
+        extractKey();
+    </script>
+</body>
+</html>

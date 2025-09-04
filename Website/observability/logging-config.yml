@@ -1,0 +1,197 @@
+# Production Logging Configuration for Project Beacon Runner
+
+# Global Logging Settings
+logging:
+  level: "info"
+  format: "json"  # json for production, console for development
+  output: "stdout"
+  
+  # Structured logging fields
+  default_fields:
+    service: "beacon-runner"
+    version: "${APP_VERSION}"
+    environment: "${ENVIRONMENT}"
+    region: "${FLY_REGION}"
+
+# Log Levels by Component
+component_levels:
+  job_processor: "info"
+  golem_client: "info"
+  ipfs_client: "info"
+  database: "warn"
+  redis: "warn"
+  negotiation: "info"
+  circuit_breaker: "info"
+  recovery: "info"
+  http_server: "info"
+  websocket: "debug"
+
+# Audit Logging
+audit:
+  enabled: true
+  level: "info"
+  events:
+    - job_submission
+    - job_status_change
+    - security_events
+    - admin_actions
+    - circuit_breaker_state_changes
+  
+  retention:
+    days: 90
+    
+  fields:
+    - timestamp
+    - event_type
+    - user_id
+    - job_id
+    - trace_id
+    - request_id
+
+# Request Tracing
+tracing:
+  enabled: true
+  sample_rate: 1.0  # 100% sampling for now, reduce in high traffic
+  
+  headers:
+    trace_id: "X-Trace-ID"
+    request_id: "X-Request-ID"
+    span_id: "X-Span-ID"
+  
+  operations:
+    - http_requests
+    - job_execution
+    - golem_negotiation
+    - ipfs_operations
+    - database_queries
+
+# Performance Logging
+performance:
+  enabled: true
+  slow_request_threshold: "2s"
+  slow_query_threshold: "1s"
+  slow_job_threshold: "300s"
+  
+  metrics:
+    - request_duration
+    - job_execution_time
+    - queue_latency
+    - circuit_breaker_stats
+
+# Error Logging
+error_handling:
+  stack_traces: true
+  sensitive_data_masking: true
+  
+  error_categories:
+    - validation_errors
+    - authentication_errors
+    - external_service_errors
+    - database_errors
+    - timeout_errors
+    - circuit_breaker_errors
+  
+  notification_thresholds:
+    error_rate: 0.05  # 5% error rate
+    critical_errors: 1  # Any critical error
+
+# Log Sampling and Rate Limiting
+sampling:
+  enabled: true
+  
+  rules:
+    - pattern: "health_check"
+      sample_rate: 0.1  # 10% of health checks
+    
+    - pattern: "metrics_collection"
+      sample_rate: 0.05  # 5% of metrics
+    
+    - pattern: "websocket_ping"
+      sample_rate: 0.01  # 1% of pings
+    
+    - pattern: "job_.*"
+      sample_rate: 1.0  # 100% of job events
+    
+    - pattern: "error"
+      sample_rate: 1.0  # 100% of errors
+
+# Log Forwarding
+forwarding:
+  enabled: true
+  
+  destinations:
+    - name: "grafana_loki"
+      type: "loki"
+      url: "${LOKI_URL}"
+      auth:
+        username: "${LOKI_USERNAME}"
+        password: "${LOKI_PASSWORD}"
+      labels:
+        service: "beacon-runner"
+        environment: "${ENVIRONMENT}"
+    
+    - name: "datadog"
+      type: "datadog"
+      api_key: "${DATADOG_API_KEY}"
+      site: "datadoghq.com"
+      service: "beacon-runner"
+    
+    - name: "elasticsearch"
+      type: "elasticsearch"
+      url: "${ELASTICSEARCH_URL}"
+      index: "beacon-runner-logs"
+      auth:
+        username: "${ES_USERNAME}"
+        password: "${ES_PASSWORD}"
+
+# Log Retention and Archival
+retention:
+  local_logs:
+    max_size: "100MB"
+    max_age: "7d"
+    max_files: 10
+  
+  remote_logs:
+    info_logs: "30d"
+    error_logs: "90d"
+    audit_logs: "365d"
+    trace_logs: "7d"
+
+# Security and Privacy
+security:
+  mask_sensitive_fields: true
+  
+  sensitive_patterns:
+    - "password"
+    - "token"
+    - "secret"
+    - "key"
+    - "authorization"
+    - "signature"
+  
+  pii_fields:
+    - "email"
+    - "ip_address"
+    - "user_agent"
+  
+  redaction_char: "*"
+
+# Development vs Production
+environments:
+  development:
+    level: "debug"
+    format: "console"
+    stack_traces: true
+    sample_rate: 1.0
+  
+  staging:
+    level: "info"
+    format: "json"
+    stack_traces: true
+    sample_rate: 0.5
+  
+  production:
+    level: "info"
+    format: "json"
+    stack_traces: false
+    sample_rate: 0.1

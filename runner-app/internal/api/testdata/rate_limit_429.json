@@ -1,0 +1,8 @@
+{
+  "error": {
+    "type": "rate_limited",
+    "message": "Too many requests. Please slow down.",
+    "code": "RATE_LIMIT_EXCEEDED"
+  },
+  "request_id": "RID"
+}

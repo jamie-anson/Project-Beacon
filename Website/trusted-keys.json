@@ -1,0 +1,20 @@
+{
+  "trusted_keys": [
+    {
+      "public_key": "xsIE/NE5XmHyA2EPQ/ZMJjeHCsOqDo/eoGaQ83mnnMo=",
+      "status": "active",
+      "description": "Project Beacon Portal Key",
+      "created_at": "2024-01-15T00:00:00Z",
+      "valid_from": "2024-01-15T00:00:00Z",
+      "valid_until": "2025-12-31T23:59:59Z"
+    },
+    {
+      "public_key": "/yRnRt4lvdGCweqHSJ3dM56YOZUBnsZM7BF/zQPWlO8=",
+      "status": "active",
+      "description": "Live Job Test Key",
+      "created_at": "2025-09-02T00:00:00Z",
+      "valid_from": "2025-09-02T00:00:00Z",
+      "valid_until": "2026-12-31T23:59:59Z"
+    }
+  ]
+}
