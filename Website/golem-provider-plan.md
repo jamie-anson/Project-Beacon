@@ -1,19 +1,24 @@
-# Golem Provider Production Plan: MVP Deployment
+# Golem Provider Production Plan: Hybrid GPU Serverless MVP
 
-This plan tracks the discovery and deployment of production Golem provider servers for Project Beacon MVP launch. Use checkboxes to monitor progress through each milestone.
+This plan tracks the discovery and deployment of a hybrid production infrastructure combining traditional Golem providers with serverless GPU fallbacks for Project Beacon MVP launch. Use checkboxes to monitor progress through each milestone.
 
 - Owner: Engineering (Infrastructure)
 - Related: `containers-plan.md`, `runner-app-plan.md`, `Day-1-plan.md`
-- Goal: Deploy 3+ production Golem providers across regions with GPU acceleration for MVP launch
+- Goal: Deploy hybrid infrastructure with 3+ Golem providers + serverless GPU fallbacks for cost-effective, scalable MVP
 
 ---
 
+## Hybrid Architecture Overview
+- **Primary**: Traditional Golem providers for consistent, low-cost baseline capacity
+- **Fallback**: Serverless GPU providers (Modal, RunPod, Lambda Labs) for burst capacity and reliability
+- **Intelligence**: Runner app routes jobs based on cost, latency, and availability
+
 ## Objectives
-- [ ] Deploy production-ready Golem providers in 3+ geographic regions
-- [ ] Achieve <2s inference latency with GPU acceleration
-- [ ] Establish 99.5% uptime SLA with monitoring and alerting
-- [ ] Implement automated deployment and scaling capabilities
-- [ ] Ensure security compliance and network isolation
+- [ ] Deploy 2-3 baseline Golem providers across regions for steady-state workloads
+- [ ] Integrate 2-3 serverless GPU providers for burst capacity and failover
+- [ ] Achieve <2s inference latency with intelligent job routing
+- [ ] Implement cost optimization with 70% Golem / 30% serverless target mix
+- [ ] Establish 99.5% uptime SLA with multi-provider redundancy
 
 ## Acceptance Criteria
 - [ ] 3+ providers operational in US-East, EU-West, Asia-Pacific regions
@@ -34,159 +39,172 @@ This plan tracks the discovery and deployment of production Golem provider serve
 - [ ] Calculate cost per inference across different instance types
 - [ ] Define scaling requirements (min/max instances per region)
 
-### 1.2) Cloud Provider Evaluation
-- [ ] **AWS**: Evaluate G4dn, G5, P3/P4 instance families
-  - [ ] Test NVIDIA T4, A10G, V100, A100 performance
-  - [ ] Validate ECS/EKS deployment options
-  - [ ] Review pricing and spot instance availability
-- [ ] **Google Cloud**: Evaluate N1/N2 with GPU attachments
-  - [ ] Test T4, V100, A100 configurations
-  - [ ] Validate GKE deployment with GPU node pools
-  - [ ] Review preemptible instance cost savings
-- [ ] **Azure**: Evaluate NC/ND/NV series instances
-  - [ ] Test K80, V100, A100 configurations
-  - [ ] Validate AKS deployment options
-  - [ ] Review spot instance pricing
+### 1.2) Serverless GPU Provider Evaluation
+- [ ] **RunPod Serverless**: GPU-optimized serverless functions
+  - [ ] Test A40, RTX 4090, A100 configurations across regions
+  - [ ] Evaluate cold start times and warm instance pools
+  - [ ] Review per-second billing and burst capacity
+- [ ] **Modal**: Python-native serverless with GPU support
+  - [ ] Test inference performance with dynamic batching
+  - [ ] Evaluate container lifecycle and model caching
+  - [ ] Review pricing for sustained vs burst workloads
+- [ ] **Lambda Labs**: On-demand GPU cloud instances
+  - [ ] Test H100, A100, RTX 6000 Ada performance
+  - [ ] Evaluate geographic availability (US, EU, Asia)
+  - [ ] Review spot pricing and preemption handling
+- [ ] **Replicate**: Model hosting with API endpoints
+  - [ ] Test custom model deployment capabilities
+  - [ ] Evaluate scaling and cold start performance
+  - [ ] Review pricing for inference requests
 
-### 1.3) Network & Geographic Distribution
+### 1.3) Container Hosting Solutions (3 Geos)
+- [ ] **Railway**: Multi-region container deployment
+  - [ ] Test US-East, EU-West, Asia-Pacific availability
+  - [ ] Evaluate Docker deployment and scaling
+  - [ ] Review pricing and resource limits
+- [ ] **Fly.io**: Global edge container platform
+  - [ ] Test multi-region deployment with GPU access
+  - [ ] Evaluate Machines API for dynamic scaling
+  - [ ] Review pricing for sustained workloads
+- [ ] **Render**: Managed container hosting
+  - [ ] Test geographic distribution capabilities
+  - [ ] Evaluate auto-scaling and health checks
+  - [ ] Review pricing for multi-region deployment
+
+### 1.4) Network & Geographic Distribution
 - [ ] Map target regions to cloud provider availability zones
 - [ ] Validate Golem network connectivity from each region
 - [ ] Test latency between regions and Project Beacon runner
 - [ ] Design network topology with load balancing
 - [ ] Plan IP allowlisting and firewall rules
 
-### 1.4) Cost Analysis & Budget Planning
-- [ ] Calculate monthly costs for 3-region deployment
-- [ ] Compare on-demand vs spot/preemptible pricing
-- [ ] Factor in bandwidth, storage, and monitoring costs
-- [ ] Create cost optimization recommendations
-- [ ] Define budget alerts and spending limits
+### 1.5) Cost Analysis & Budget Planning
+- [ ] Calculate monthly costs for hybrid deployment (Golem + serverless)
+- [ ] Compare serverless GPU pricing (per-second vs per-minute billing)
+- [ ] Model cost optimization: 70% Golem baseline, 30% serverless burst
+- [ ] Factor in API costs, bandwidth, and monitoring expenses
+- [ ] Define budget alerts and cost thresholds per provider
 
 ---
 
 ## Phase 2: Infrastructure Design (Week 2)
 
-### 2.1) Infrastructure as Code (IaC) Design
-- [ ] Choose IaC tool (Terraform, Pulumi, or CDK)
-- [ ] Design modular architecture for multi-cloud deployment
-- [ ] Create reusable modules for GPU instances, networking, monitoring
-- [ ] Plan state management and CI/CD integration
-- [ ] Design disaster recovery and backup strategies
+### 2.1) Hybrid Routing Intelligence Design
+- [ ] Design job routing algorithm (cost, latency, availability-based)
+- [ ] Plan provider health monitoring and failover logic
+- [ ] Create API abstraction layer for multiple GPU providers
+- [ ] Design request batching and queue management
+- [ ] Plan cost tracking and optimization triggers
 
-### 2.2) Container Orchestration Strategy
-- [ ] **Option A**: Docker Compose on VMs
-  - [ ] Simple deployment, direct GPU access
-  - [ ] Manual scaling and health management
-- [ ] **Option B**: Kubernetes with GPU operators
-  - [ ] Automated scaling and self-healing
-  - [ ] Complex setup, GPU device plugin required
-- [ ] **Option C**: Managed container services (ECS, GKE, AKS)
-  - [ ] Cloud-native scaling and monitoring
-  - [ ] Vendor lock-in considerations
-- [ ] Document decision matrix and recommendation
+### 2.2) Serverless Integration Architecture
+- [ ] **RunPod Integration**: Serverless function deployment
+  - [ ] Design container images for RunPod serverless
+  - [ ] Implement warm instance pool management
+  - [ ] Create cost monitoring and scaling policies
+- [ ] **Modal Integration**: Python-native deployment
+  - [ ] Design Modal functions with model caching
+  - [ ] Implement dynamic batching for efficiency
+  - [ ] Create lifecycle hooks for model loading
+- [ ] **Container Hosting Strategy**: Multi-region deployment
+  - [ ] Railway/Fly.io deployment automation
+  - [ ] Docker image optimization for fast startup
+  - [ ] Health checks and auto-scaling configuration
 
-### 2.3) Security Architecture
-- [ ] Design network isolation with VPCs/VNets
-- [ ] Plan IAM roles and service accounts
-- [ ] Design secrets management (HashiCorp Vault, cloud KMS)
-- [ ] Plan certificate management and TLS termination
-- [ ] Design audit logging and compliance monitoring
+### 2.3) MVP Security Essentials
+- [ ] Basic API key management for serverless providers
+- [ ] Simple secrets storage (environment variables)
+- [ ] Basic request authentication
+- [ ] Essential logging for audit trail
+- [ ] Minimal compliance documentation
 
-### 2.4) Monitoring & Observability Design
-- [ ] Plan metrics collection (Prometheus, CloudWatch, etc.)
-- [ ] Design log aggregation (ELK, Loki, cloud logging)
-- [ ] Plan distributed tracing for job execution
-- [ ] Design alerting rules and escalation procedures
-- [ ] Plan capacity monitoring and auto-scaling triggers
+### 2.4) MVP Monitoring & Observability
+- [ ] Basic health checks for each provider (up/down status)
+- [ ] Simple cost tracking dashboard (spend per provider)
+- [ ] Basic performance metrics (response time, success rate)
+- [ ] Email alerts for provider failures
+- [ ] Simple logging for debugging and demonstration
 
 ---
 
 ## Phase 3: Pilot Deployment (Week 3)
 
-### 3.1) Single Region Pilot (US-East)
-- [ ] Deploy infrastructure using IaC in staging environment
-- [ ] Install and configure Golem provider software
-- [ ] Set up GPU drivers and Ollama with model pre-loading
-- [ ] Configure monitoring and logging collection
-- [ ] Run smoke tests with Project Beacon runner integration
+### 3.1) MVP Demonstration Stack (US-East)
+- [ ] Deploy 1 Golem provider + 1 serverless GPU provider (RunPod/Modal)
+- [ ] Configure basic routing logic in runner app
+- [ ] Set up simple cost tracking and health monitoring
+- [ ] Deploy container hosting solution (Railway/Fly.io) in US-East
+- [ ] Run demonstration tests showing hybrid approach
 
-### 3.2) Performance Validation
-- [ ] Execute benchmark suite across all target models
-- [ ] Measure inference latency under various load conditions
-- [ ] Validate GPU utilization and memory usage
-- [ ] Test failover scenarios and error handling
-- [ ] Document performance baselines and SLA metrics
+### 3.2) MVP Performance Validation
+- [ ] Execute benchmark suite on both Golem and serverless providers
+- [ ] Measure basic inference latency and success rates
+- [ ] Test simple failover between providers
+- [ ] Document performance for demonstration purposes
+- [ ] Create simple comparison charts for providers
 
-### 3.3) Security Hardening
-- [ ] Apply security patches and OS hardening
-- [ ] Configure firewall rules and network ACLs
-- [ ] Set up intrusion detection and monitoring
-- [ ] Implement log shipping and retention policies
-- [ ] Conduct security scan and vulnerability assessment
-
-### 3.4) Operational Procedures
-- [ ] Create deployment runbooks and procedures
-- [ ] Set up backup and disaster recovery processes
-- [ ] Configure alerting and incident response workflows
-- [ ] Train team on monitoring dashboards and troubleshooting
-- [ ] Document escalation procedures and contact information
+### 3.3) MVP Documentation & Demo Prep
+- [ ] Create setup guide for other providers to follow
+- [ ] Document cost comparison between approaches
+- [ ] Prepare demonstration scripts and examples
+- [ ] Create simple troubleshooting guide
+- [ ] Document lessons learned and recommendations
 
 ---
 
 ## Phase 4: Multi-Region Rollout (Week 4)
 
-### 4.1) EU-West Deployment
-- [ ] Deploy infrastructure in EU region using validated IaC
-- [ ] Configure region-specific networking and compliance requirements
-- [ ] Validate GDPR compliance and data residency requirements
-- [ ] Test cross-region job routing and failover
-- [ ] Monitor performance and adjust configurations
+### 4.1) EU-West MVP Extension
+- [ ] Deploy 1 Golem + 1 serverless provider in EU region
+- [ ] Configure basic region routing in runner app
+- [ ] Test cross-region job distribution
+- [ ] Document regional performance differences
+- [ ] Update demonstration with multi-region example
 
-### 4.2) Asia-Pacific Deployment
-- [ ] Deploy infrastructure in APAC region
-- [ ] Configure region-specific networking and latency optimization
-- [ ] Test connectivity to Golem network from APAC
-- [ ] Validate job execution and result consistency
-- [ ] Monitor regional performance metrics
+### 4.2) Asia-Pacific MVP Extension
+- [ ] Deploy 1 Golem + 1 serverless provider in APAC region
+- [ ] Test connectivity and performance from APAC
+- [ ] Validate job execution across all 3 regions
+- [ ] Document latency and cost differences
+- [ ] Create 3-region demonstration scenario
 
-### 4.3) Load Balancing & Routing
-- [ ] Implement intelligent job routing based on region and load
-- [ ] Configure health checks and automatic failover
-- [ ] Test disaster recovery scenarios (region outage)
-- [ ] Validate load distribution and scaling behavior
-- [ ] Monitor cross-region latency and performance
+### 4.3) MVP Integration Testing
+- [ ] Test job routing across all 3 regions
+- [ ] Validate failover between providers and regions
+- [ ] Document cost optimization opportunities
+- [ ] Create demonstration of global hybrid approach
+- [ ] Prepare provider showcase materials
 
-### 4.4) Production Readiness Review
-- [ ] Conduct end-to-end testing across all regions
-- [ ] Validate monitoring, alerting, and incident response
-- [ ] Review security posture and compliance requirements
-- [ ] Conduct capacity planning and scaling validation
-- [ ] Obtain sign-off from stakeholders for production launch
+### 4.4) MVP Readiness Review
+- [ ] End-to-end testing across all regions and providers
+- [ ] Validate basic monitoring and alerting works
+- [ ] Review setup documentation for other providers
+- [ ] Prepare demonstration and presentation materials
+- [ ] Document recommendations for production scaling
 
 ---
 
 ## Phase 5: Production Launch & Operations (Week 5)
 
-### 5.1) Production Cutover
-- [ ] Execute production deployment using blue-green strategy
-- [ ] Update Project Beacon runner configuration for production providers
-- [ ] Monitor initial production traffic and performance
-- [ ] Validate all monitoring and alerting systems
-- [ ] Confirm backup and disaster recovery procedures
+### 5.1) MVP Launch & Provider Showcase
+- [ ] Launch hybrid demonstration environment
+- [ ] Create provider onboarding materials and guides
+- [ ] Host demonstration sessions for interested providers
+- [ ] Collect feedback and improvement suggestions
+- [ ] Document success stories and case studies
 
-### 5.2) Performance Monitoring
-- [ ] Establish baseline performance metrics in production
-- [ ] Monitor SLA compliance (uptime, latency, throughput)
-- [ ] Track cost optimization opportunities
-- [ ] Monitor capacity utilization and scaling triggers
-- [ ] Generate weekly performance and cost reports
+### 5.2) MVP Operations & Support
+- [ ] Monitor basic health and performance metrics
+- [ ] Provide support for providers trying the approach
+- [ ] Track adoption and usage patterns
+- [ ] Document common issues and solutions
+- [ ] Maintain simple cost tracking and reporting
 
-### 5.3) Continuous Improvement
-- [ ] Implement automated scaling based on demand patterns
-- [ ] Optimize instance types and configurations for cost/performance
-- [ ] Plan capacity expansion for growth scenarios
-- [ ] Implement chaos engineering for resilience testing
-- [ ] Establish regular security and performance reviews
+### 5.3) MVP Evolution & Scaling
+- [ ] Gather requirements for production-scale deployment
+- [ ] Plan advanced features based on provider feedback
+- [ ] Document scaling recommendations and best practices
+- [ ] Create roadmap for full production implementation
+- [ ] Establish community and knowledge sharing
 
 ---
 

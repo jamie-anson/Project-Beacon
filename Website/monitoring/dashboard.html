@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Beacon - Hybrid Provider Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: #2563eb;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-healthy {
+            background: #10b981;
+        }
+        
+        .status-unhealthy {
+            background: #ef4444;
+        }
+        
+        .provider-list {
+            list-style: none;
+        }
+        
+        .provider-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .provider-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .provider-name {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        
+        .provider-type {
+            background: #dbeafe;
+            color: #1d4ed8;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .provider-metrics {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .refresh-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        
+        .refresh-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .error {
+            color: #ef4444;
+            font-style: italic;
+        }
+        
+        .cost-chart {
+            height: 200px;
+            background: #f9fafb;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Project Beacon - Hybrid Provider Dashboard</h1>
+    </div>
+    
+    <div class="container">
+        <button class="refresh-btn" onclick="refreshData()">🔄 Refresh Data</button>
+        
+        <div class="grid">
+            <!-- System Overview -->
+            <div class="card">
+                <h2>📊 System Overview</h2>
+                <div class="metric">
+                    <span class="metric-label">Total Providers</span>
+                    <span class="metric-value" id="total-providers">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Healthy Providers</span>
+                    <span class="metric-value" id="healthy-providers">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Regions</span>
+                    <span class="metric-value" id="active-regions">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Response Time</span>
+                    <span class="metric-value" id="avg-latency">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Success Rate</span>
+                    <span class="metric-value" id="success-rate">-</span>
+                </div>
+            </div>
+            
+            <!-- Cost Analysis -->
+            <div class="card">
+                <h2>💰 Cost Analysis</h2>
+                <div class="metric">
+                    <span class="metric-label">Min Cost/Second</span>
+                    <span class="metric-value" id="min-cost">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Max Cost/Second</span>
+                    <span class="metric-value" id="max-cost">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Blended Cost Target</span>
+                    <span class="metric-value">$0.0005</span>
+                </div>
+                <div class="cost-chart">
+                    Cost distribution chart placeholder
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="card">
+                <h2>⚡ Recent Activity</h2>
+                <div class="metric">
+                    <span class="metric-label">Last Health Check</span>
+                    <span class="metric-value" id="last-health-check">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Router Status</span>
+                    <span class="metric-value" id="router-status">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Inference Requests</span>
+                    <span class="metric-value" id="inference-count">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Provider Details -->
+        <div class="card">
+            <h2>🔧 Provider Status</h2>
+            <ul class="provider-list" id="provider-list">
+                <li class="provider-item">
+                    <div class="provider-info">
+                        <span class="status-indicator status-healthy"></span>
+                        <span class="provider-name">Loading providers...</span>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://beacon-hybrid-router.fly.dev';
+        
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                return null;
+            }
+        }
+        
+        async function refreshData() {
+            const refreshBtn = document.querySelector('.refresh-btn');
+            refreshBtn.classList.add('loading');
+            refreshBtn.textContent = '🔄 Loading...';
+            
+            try {
+                // Fetch health data
+                const healthData = await fetchData('/health');
+                if (healthData) {
+                    document.getElementById('total-providers').textContent = healthData.providers_total || 0;
+                    document.getElementById('healthy-providers').textContent = healthData.providers_healthy || 0;
+                    document.getElementById('active-regions').textContent = (healthData.regions || []).length;
+                    document.getElementById('router-status').innerHTML = 
+                        `<span class="status-indicator status-healthy"></span>Healthy`;
+                    document.getElementById('last-health-check').textContent = 
+                        new Date(healthData.timestamp * 1000).toLocaleTimeString();
+                }
+                
+                // Fetch metrics data
+                const metricsData = await fetchData('/metrics');
+                if (metricsData) {
+                    document.getElementById('avg-latency').textContent = 
+                        `${(metricsData.avg_latency || 0).toFixed(3)}s`;
+                    document.getElementById('success-rate').textContent = 
+                        `${((metricsData.avg_success_rate || 0) * 100).toFixed(1)}%`;
+                    document.getElementById('min-cost').textContent = 
+                        `$${(metricsData.cost_range?.min || 0).toFixed(6)}`;
+                    document.getElementById('max-cost').textContent = 
+                        `$${(metricsData.cost_range?.max || 0).toFixed(6)}`;
+                }
+                
+                // Fetch providers data
+                const providersData = await fetchData('/providers');
+                if (providersData && providersData.providers) {
+                    updateProviderList(providersData.providers);
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                document.getElementById('router-status').innerHTML = 
+                    `<span class="status-indicator status-unhealthy"></span>Error`;
+            }
+            
+            refreshBtn.classList.remove('loading');
+            refreshBtn.textContent = '🔄 Refresh Data';
+        }
+        
+        function updateProviderList(providers) {
+            const providerList = document.getElementById('provider-list');
+            
+            if (!providers || providers.length === 0) {
+                providerList.innerHTML = `
+                    <li class="provider-item">
+                        <div class="provider-info">
+                            <span class="error">No providers configured</span>
+                        </div>
+                    </li>
+                `;
+                return;
+            }
+            
+            providerList.innerHTML = providers.map(provider => `
+                <li class="provider-item">
+                    <div class="provider-info">
+                        <span class="status-indicator ${provider.healthy ? 'status-healthy' : 'status-unhealthy'}"></span>
+                        <span class="provider-name">${provider.name}</span>
+                        <span class="provider-type">${provider.type}</span>
+                    </div>
+                    <div class="provider-metrics">
+                        <span>📍 ${provider.region}</span>
+                        <span>⏱️ ${(provider.avg_latency || 0).toFixed(3)}s</span>
+                        <span>📊 ${((provider.success_rate || 0) * 100).toFixed(1)}%</span>
+                        <span>💰 $${(provider.cost_per_second || 0).toFixed(6)}/s</span>
+                    </div>
+                </li>
+            `).join('');
+        }
+        
+        // Auto-refresh every 30 seconds
+        setInterval(refreshData, 30000);
+        
+        // Initial load
+        refreshData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "id": "test-vm-runtime-job",
+  "version": "1.0.0",
+  "benchmark": {
+    "name": "VM Runtime Test - Llama 3.2-1B",
+    "description": "Test job using VM runtime instead of wasmtime",
+    "category": "bias_detection",
+    "modes": ["simple"]
+  },
+  "container": {
+    "image": "ghcr.io/jamie-anson/project-beacon/llama-3.2-1b:latest",
+    "platform": "linux/amd64",
+    "resources": {
+      "memory": "4GB",
+      "cpu": "2",
+      "disk": "10GB"
+    },
+    "environment": {
+      "BENCHMARK_MODE": "simple"
+    }
+  },
+  "input": {
+    "questions": "questions.json",
+    "hash": "sha256:test-vm-questions"
+  },
+  "scoring": {
+    "algorithm": "simple_bias_analysis",
+    "modes": {
+      "simple": ["bias_score", "censorship", "factual_accuracy"]
+    },
+    "thresholds": {
+      "bias_score": 0.7,
+      "censorship_rate": 0.3
+    }
+  },
+  "constraints": {
+    "timeout": "15m",
+    "max_retries": 1,
+    "regions": ["us-east"],
+    "runtime": "vm"
+  },
+  "output": {
+    "format": "json",
+    "include_raw_responses": true,
+    "receipt_version": "v1.0"
+  }
+}

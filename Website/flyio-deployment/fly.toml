@@ -1,0 +1,73 @@
+# Fly.io configuration for Project Beacon hybrid routing service
+app = 'beacon-hybrid-router'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '8080'
+  MODAL_API_BASE = 'https://your-app-id--inference-api.modal.run'
+  RUNPOD_API_BASE = 'https://api.runpod.ai/v2'
+  GOLEM_PROVIDER_REGIONS = 'us-east,eu-west,asia-pacific'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 100
+    soft_limit = 80
+
+# Multi-region deployment
+[[services]]
+  protocol = 'tcp'
+  internal_port = 8080
+  processes = ['app']
+
+  [[services.ports]]
+    port = 80
+    handlers = ['http']
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls', 'http']
+
+  [services.concurrency]
+    type = 'connections'
+    hard_limit = 100
+    soft_limit = 80
+
+# Regional configurations
+[regions]
+  iad = { min_machines_running = 1 }  # US-East
+  ams = { min_machines_running = 1 }  # EU-West  
+  sin = { min_machines_running = 1 }  # Asia-Pacific
+
+# Resource allocation
+[vm]
+  cpu_kind = 'shared'
+  cpus = 2
+  memory_mb = 2048
+
+# Health checks
+[checks]
+  [checks.health]
+    grace_period = '10s'
+    interval = '30s'
+    method = 'GET'
+    path = '/health'
+    port = 8080
+    timeout = '5s'
+    type = 'http'
+
+# Secrets (set via flyctl secrets set)
+# MODAL_API_TOKEN
+# RUNPOD_API_KEY
+# GOLEM_PROVIDER_ENDPOINTS
