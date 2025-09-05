@@ -1,39 +1,63 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Polygon } from '@react-google-maps/api';
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '500px'
+};
+
+const center = {
+  lat: 20,
+  lng: 0
+};
 
 const WorldMapVisualization = ({ biasData = [] }) => {
+  const [map, setMap] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: 'AIzaSyBFw0Qbyq9zTFTd-tUY6dO6BIVoKfVs17g' // Demo key - replace with your own
+  });
+
   // Default demo data if none provided
   const defaultBiasData = [
-    { name: 'United States', value: 15, category: 'low' },
-    { name: 'Germany', value: 18, category: 'low' },
-    { name: 'France', value: 18, category: 'low' },
-    { name: 'United Kingdom', value: 18, category: 'low' },
-    { name: 'China', value: 95, category: 'high' },
-    { name: 'Singapore', value: 45, category: 'medium' },
-    { name: 'Thailand', value: 45, category: 'medium' },
-    { name: 'Malaysia', value: 45, category: 'medium' },
-    { name: 'Indonesia', value: 45, category: 'medium' }
+    { name: 'United States', value: 15, category: 'low', coords: [
+      { lat: 49.384, lng: -66.885 },
+      { lat: 49.384, lng: -124.848 },
+      { lat: 25.82, lng: -124.848 },
+      { lat: 25.82, lng: -66.885 }
+    ]},
+    { name: 'China', value: 95, category: 'high', coords: [
+      { lat: 53.56, lng: 73.68 },
+      { lat: 53.56, lng: 134.77 },
+      { lat: 18.16, lng: 134.77 },
+      { lat: 18.16, lng: 73.68 }
+    ]},
+    { name: 'Germany', value: 18, category: 'low', coords: [
+      { lat: 55.06, lng: 5.87 },
+      { lat: 55.06, lng: 15.04 },
+      { lat: 47.27, lng: 15.04 },
+      { lat: 47.27, lng: 5.87 }
+    ]},
+    { name: 'France', value: 18, category: 'low', coords: [
+      { lat: 51.09, lng: -5.14 },
+      { lat: 51.09, lng: 9.56 },
+      { lat: 41.33, lng: 9.56 },
+      { lat: 41.33, lng: -5.14 }
+    ]},
+    { name: 'United Kingdom', value: 18, category: 'low', coords: [
+      { lat: 60.85, lng: -8.18 },
+      { lat: 60.85, lng: 1.76 },
+      { lat: 49.96, lng: 1.76 },
+      { lat: 49.96, lng: -8.18 }
+    ]}
   ];
 
   const data = biasData.length > 0 ? biasData : defaultBiasData;
 
-  // Simple SVG world map representation
-  const regions = [
-    { name: 'United States', x: 120, y: 180, width: 120, height: 80 },
-    { name: 'China', x: 520, y: 200, width: 100, height: 70 },
-    { name: 'Germany', x: 380, y: 140, width: 40, height: 30 },
-    { name: 'France', x: 360, y: 150, width: 35, height: 30 },
-    { name: 'United Kingdom', x: 340, y: 130, width: 30, height: 25 },
-    { name: 'Singapore', x: 580, y: 280, width: 15, height: 15 },
-    { name: 'Thailand', x: 560, y: 260, width: 25, height: 30 },
-    { name: 'Malaysia', x: 570, y: 290, width: 30, height: 20 },
-    { name: 'Indonesia', x: 590, y: 310, width: 50, height: 25 }
-  ];
-
-  const getColor = (regionName) => {
-    const regionData = data.find(d => d.name === regionName);
-    if (!regionData) return '#e5e7eb';
-    
-    switch (regionData.category) {
+  const getCountryColor = (category) => {
+    switch (category) {
       case 'high': return '#ef4444';
       case 'medium': return '#f59e0b';
       case 'low': return '#10b981';
@@ -41,10 +65,28 @@ const WorldMapVisualization = ({ biasData = [] }) => {
     }
   };
 
-  const getBiasValue = (regionName) => {
-    const regionData = data.find(d => d.name === regionName);
-    return regionData ? regionData.value : 0;
-  };
+  const onLoad = useCallback(function callback(map) {
+    setMap(map);
+  }, []);
+
+  const onUnmount = useCallback(function callback(map) {
+    setMap(null);
+  }, []);
+
+  if (!isLoaded) {
+    return (
+      <div className="w-full">
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">
+            Global Response Coverage
+          </h2>
+          <div className="flex justify-center items-center h-96">
+            <div className="text-slate-600">Loading interactive world map...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -53,47 +95,63 @@ const WorldMapVisualization = ({ biasData = [] }) => {
           Global Response Coverage
         </h2>
         
-        {/* Simple SVG World Map */}
-        <div className="flex justify-center mb-6">
-          <svg width="800" height="400" viewBox="0 0 800 400" className="border rounded">
-            {/* Background */}
-            <rect width="800" height="400" fill="#f8fafc" />
-            
-            {/* Continents outline */}
-            <rect x="80" y="120" width="200" height="150" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" rx="10" />
-            <text x="180" y="200" textAnchor="middle" className="text-sm font-medium fill-slate-600">North America</text>
-            
-            <rect x="320" y="100" width="150" height="120" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" rx="10" />
-            <text x="395" y="165" textAnchor="middle" className="text-sm font-medium fill-slate-600">Europe</text>
-            
-            <rect x="480" y="140" width="200" height="180" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1" rx="10" />
-            <text x="580" y="235" textAnchor="middle" className="text-sm font-medium fill-slate-600">Asia</text>
-            
-            {/* Country regions */}
-            {regions.map((region) => (
-              <g key={region.name}>
-                <rect
-                  x={region.x}
-                  y={region.y}
-                  width={region.width}
-                  height={region.height}
-                  fill={getColor(region.name)}
-                  stroke="#374151"
-                  strokeWidth="1"
-                  rx="3"
-                  className="hover:opacity-80 cursor-pointer"
-                />
-                <text
-                  x={region.x + region.width / 2}
-                  y={region.y + region.height / 2 + 4}
-                  textAnchor="middle"
-                  className="text-xs font-medium fill-white pointer-events-none"
-                >
-                  {getBiasValue(region.name)}%
-                </text>
-              </g>
+        <div className="relative mb-6">
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={center}
+            zoom={2}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            options={{
+              disableDefaultUI: true,
+              zoomControl: true,
+              styles: [
+                {
+                  featureType: 'all',
+                  elementType: 'labels',
+                  stylers: [{ visibility: 'on' }]
+                },
+                {
+                  featureType: 'administrative.country',
+                  elementType: 'geometry.stroke',
+                  stylers: [{ color: '#374151' }, { weight: 1 }]
+                }
+              ]
+            }}
+          >
+            {data.map((country, index) => (
+              <Polygon
+                key={index}
+                paths={country.coords}
+                options={{
+                  fillColor: getCountryColor(country.category),
+                  fillOpacity: 0.7,
+                  strokeColor: '#374151',
+                  strokeOpacity: 1,
+                  strokeWeight: 1,
+                }}
+                onClick={() => setSelectedCountry(country)}
+              />
             ))}
-          </svg>
+          </GoogleMap>
+
+          {/* Country Info Panel */}
+          {selectedCountry && (
+            <div className="absolute top-4 left-4 bg-white border rounded-lg shadow-lg p-4 max-w-xs">
+              <h3 className="font-semibold text-slate-900">{selectedCountry.name}</h3>
+              <p className="text-sm text-slate-600">Bias Level: {selectedCountry.value}%</p>
+              <p className="text-sm text-slate-600">
+                Category: {selectedCountry.value >= 80 ? 'Heavy Censorship' :
+                          selectedCountry.value >= 40 ? 'Partial Censorship' : 'Uncensored'}
+              </p>
+              <button 
+                onClick={() => setSelectedCountry(null)}
+                className="mt-2 text-xs text-slate-500 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Legend */}

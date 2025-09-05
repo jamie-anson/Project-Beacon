@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@noble/ed25519": "^2.0.0",
+    "@react-google-maps/api": "^2.20.7",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "ethers": "^6.13.0",
