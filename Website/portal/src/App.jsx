@@ -31,7 +31,8 @@ function Layout({ children }) {
             <NavLink to="/ais" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Models</NavLink>
             <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Bias Detection</NavLink>
             <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
-            <NavLink to="/results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Results</NavLink>
+            <NavLink to="/demo-results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Demo Results</NavLink>
+            {/* <NavLink to="/results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Results</NavLink> */}
           </nav>
           <div className="ml-4 flex items-center gap-2 text-xs">
             <span
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/world" element={<WorldView />} />
         <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />
+        <Route path="/demo-results" element={<div className="flex items-center justify-center py-12"><iframe src="/demo-results/portal-style-diff.html" className="w-full h-screen border-0" title="Demo Results"></iframe></div>} />
         <Route path="/results" element={<Diffs />} />
         <Route path="/diffs" element={<Diffs />} />
         <Route path="/settings" element={<Settings />} />

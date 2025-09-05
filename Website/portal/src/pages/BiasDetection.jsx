@@ -530,22 +530,7 @@ export default function BiasDetection() {
         <h3 className="text-lg font-medium text-slate-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
-            to="/jobs/new"
-            className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-beacon-300 hover:bg-beacon-50"
-          >
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-beacon-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-medium text-slate-900">Submit New Benchmark</h4>
-              <p className="text-sm text-slate-600">Run bias detection on new models</p>
-            </div>
-          </Link>
-          
-          <Link
-            to="/diffs"
+            to="/demo-results"
             className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-beacon-300 hover:bg-beacon-50"
           >
             <div className="flex-shrink-0">
@@ -558,6 +543,18 @@ export default function BiasDetection() {
               <p className="text-sm text-slate-600">Analyze bias differences between models</p>
             </div>
           </Link>
+          
+          <div className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg opacity-50 cursor-not-allowed">
+            <div className="flex-shrink-0">
+              <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-medium text-slate-400">Submit New Benchmark</h4>
+              <p className="text-sm text-slate-500">Run bias detection on new models (v1 Feature)</p>
+            </div>
+          </div>
           
           <div className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg opacity-50">
             <div className="flex-shrink-0">
