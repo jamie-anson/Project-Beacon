@@ -26,6 +26,12 @@
   to = "/portal/index.html"
   status = 200
 
+# Demo results static files
+[[redirects]]
+  from = "/demo-results/*"
+  to = "/demo-results/:splat"
+  status = 200
+
 # API proxy to runner (avoids CORS)
 [[redirects]]
   from = "/api/v1/*"
@@ -65,9 +71,9 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "DENY"
+    X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'self'"
