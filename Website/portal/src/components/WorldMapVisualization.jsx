@@ -28,7 +28,7 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
       try {
         // Load world map data
-        const response = await fetch('/demo-results/world.json');
+        const response = await fetch('/world.json');
         if (!response.ok) {
           throw new Error('Failed to load world map data');
         }
