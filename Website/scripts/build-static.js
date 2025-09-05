@@ -28,11 +28,17 @@ async function main() {
     await fs.copy(imagesSrc, path.join(dist, 'images'));
   }
 
+  // Copy demo-results directory if exists
+  const demoResultsSrc = path.join(root, 'demo-results');
+  if (await fs.pathExists(demoResultsSrc)) {
+    await fs.copy(demoResultsSrc, path.join(dist, 'demo-results'));
+  }
+
   // Touch a _headers file for better caching of static assets
   const headersPath = path.join(dist, '_headers');
   const headers = `
 /*
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
@@ -58,6 +64,7 @@ async function main() {
   /docs/* /docs/index.html 200
   /docs /docs/index.html 200
   /portal/* /portal/index.html 200
+  /demo-results/* /demo-results/:splat 200
   `;
   await fs.writeFile(redirectsPath, redirects.trimStart(), 'utf8');
 
