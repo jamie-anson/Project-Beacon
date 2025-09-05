@@ -27,8 +27,9 @@ const WorldMapVisualization = ({ biasData = [] }) => {
       if (!chartRef.current) return;
 
       try {
-        // Load world map data
-        const response = await fetch('/world.json');
+        // Use built-in world map from ECharts
+        const worldMapUrl = 'https://geo.datav.aliyun.com/areas_v3/bound/world.json';
+        const response = await fetch(worldMapUrl);
         if (!response.ok) {
           throw new Error('Failed to load world map data');
         }
