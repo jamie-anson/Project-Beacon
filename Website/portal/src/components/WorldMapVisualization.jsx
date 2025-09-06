@@ -17,7 +17,7 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: 'AIzaSyBFw0Qbyq9zTFTd-tUY6dO6BIVoKfVs17g' // Demo key - replace with your own
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   });
 
   // Default demo data if none provided
