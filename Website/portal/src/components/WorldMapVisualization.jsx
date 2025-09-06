@@ -20,38 +20,79 @@ const WorldMapVisualization = ({ biasData = [] }) => {
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   });
 
-  // Default demo data if none provided
+  // Realistic country boundary coordinates (simplified GeoJSON-based)
   const defaultBiasData = [
-    { name: 'United States', value: 15, category: 'low', coords: [
-      { lat: 49.384, lng: -66.885 },
-      { lat: 49.384, lng: -124.848 },
-      { lat: 25.82, lng: -124.848 },
-      { lat: 25.82, lng: -66.885 }
-    ]},
-    { name: 'China', value: 95, category: 'high', coords: [
-      { lat: 53.56, lng: 73.68 },
-      { lat: 53.56, lng: 134.77 },
-      { lat: 18.16, lng: 134.77 },
-      { lat: 18.16, lng: 73.68 }
-    ]},
-    { name: 'Germany', value: 18, category: 'low', coords: [
-      { lat: 55.06, lng: 5.87 },
-      { lat: 55.06, lng: 15.04 },
-      { lat: 47.27, lng: 15.04 },
-      { lat: 47.27, lng: 5.87 }
-    ]},
-    { name: 'France', value: 18, category: 'low', coords: [
-      { lat: 51.09, lng: -5.14 },
-      { lat: 51.09, lng: 9.56 },
-      { lat: 41.33, lng: 9.56 },
-      { lat: 41.33, lng: -5.14 }
-    ]},
-    { name: 'United Kingdom', value: 18, category: 'low', coords: [
-      { lat: 60.85, lng: -8.18 },
-      { lat: 60.85, lng: 1.76 },
-      { lat: 49.96, lng: 1.76 },
-      { lat: 49.96, lng: -8.18 }
-    ]}
+    { 
+      name: 'United States', 
+      value: 15, 
+      category: 'low', 
+      coords: [
+        { lat: 49.38, lng: -66.96 }, { lat: 44.83, lng: -66.96 }, { lat: 44.11, lng: -68.03 },
+        { lat: 43.98, lng: -69.06 }, { lat: 41.80, lng: -69.89 }, { lat: 40.17, lng: -74.26 },
+        { lat: 38.46, lng: -74.90 }, { lat: 35.00, lng: -75.41 }, { lat: 32.03, lng: -80.86 },
+        { lat: 28.85, lng: -80.03 }, { lat: 25.20, lng: -80.31 }, { lat: 25.20, lng: -81.17 },
+        { lat: 25.20, lng: -97.13 }, { lat: 26.00, lng: -97.13 }, { lat: 28.85, lng: -103.94 },
+        { lat: 31.33, lng: -106.63 }, { lat: 31.78, lng: -108.24 }, { lat: 32.54, lng: -114.81 },
+        { lat: 32.72, lng: -117.12 }, { lat: 34.45, lng: -120.64 }, { lat: 38.82, lng: -123.23 },
+        { lat: 40.58, lng: -124.21 }, { lat: 43.58, lng: -124.39 }, { lat: 46.23, lng: -124.56 },
+        { lat: 48.38, lng: -124.79 }, { lat: 48.99, lng: -123.43 }, { lat: 48.99, lng: -95.15 },
+        { lat: 49.38, lng: -95.15 }
+      ]
+    },
+    { 
+      name: 'China', 
+      value: 95, 
+      category: 'high', 
+      coords: [
+        { lat: 53.56, lng: 109.78 }, { lat: 53.26, lng: 119.28 }, { lat: 50.33, lng: 127.28 },
+        { lat: 48.86, lng: 133.68 }, { lat: 42.55, lng: 130.63 }, { lat: 40.09, lng: 124.27 },
+        { lat: 35.60, lng: 119.30 }, { lat: 31.89, lng: 120.22 }, { lat: 22.30, lng: 114.18 },
+        { lat: 20.92, lng: 110.15 }, { lat: 21.48, lng: 108.05 }, { lat: 23.88, lng: 97.40 },
+        { lat: 28.34, lng: 89.47 }, { lat: 32.36, lng: 78.73 }, { lat: 35.49, lng: 74.98 },
+        { lat: 40.05, lng: 73.67 }, { lat: 42.52, lng: 80.11 }, { lat: 44.29, lng: 87.36 },
+        { lat: 47.75, lng: 90.28 }, { lat: 50.33, lng: 106.34 }
+      ]
+    },
+    { 
+      name: 'Germany', 
+      value: 18, 
+      category: 'low', 
+      coords: [
+        { lat: 55.06, lng: 8.41 }, { lat: 54.98, lng: 10.79 }, { lat: 54.36, lng: 13.80 },
+        { lat: 54.08, lng: 14.12 }, { lat: 53.56, lng: 14.12 }, { lat: 52.05, lng: 14.89 },
+        { lat: 50.92, lng: 14.62 }, { lat: 50.42, lng: 12.24 }, { lat: 49.97, lng: 12.24 },
+        { lat: 49.48, lng: 11.42 }, { lat: 47.53, lng: 10.43 }, { lat: 47.27, lng: 9.59 },
+        { lat: 47.56, lng: 8.32 }, { lat: 47.69, lng: 7.59 }, { lat: 49.01, lng: 8.16 },
+        { lat: 50.11, lng: 6.24 }, { lat: 51.48, lng: 5.99 }, { lat: 53.63, lng: 7.09 }
+      ]
+    },
+    { 
+      name: 'France', 
+      value: 18, 
+      category: 'low', 
+      coords: [
+        { lat: 51.09, lng: 2.54 }, { lat: 50.95, lng: 1.34 }, { lat: 50.13, lng: -1.27 },
+        { lat: 48.68, lng: -1.68 }, { lat: 48.40, lng: -4.78 }, { lat: 47.28, lng: -2.96 },
+        { lat: 43.49, lng: -1.90 }, { lat: 42.56, lng: 1.73 }, { lat: 42.51, lng: 3.03 },
+        { lat: 43.37, lng: 7.41 }, { lat: 43.75, lng: 7.41 }, { lat: 44.35, lng: 6.53 },
+        { lat: 45.13, lng: 6.80 }, { lat: 45.78, lng: 6.05 }, { lat: 46.46, lng: 6.84 },
+        { lat: 47.55, lng: 7.59 }, { lat: 49.01, lng: 8.23 }, { lat: 49.48, lng: 6.19 },
+        { lat: 50.13, lng: 4.80 }, { lat: 50.76, lng: 4.37 }
+      ]
+    },
+    { 
+      name: 'United Kingdom', 
+      value: 18, 
+      category: 'low', 
+      coords: [
+        { lat: 60.85, lng: -0.73 }, { lat: 60.13, lng: -1.18 }, { lat: 58.64, lng: -3.07 },
+        { lat: 57.69, lng: -4.57 }, { lat: 56.79, lng: -5.02 }, { lat: 55.38, lng: -4.72 },
+        { lat: 54.56, lng: -3.09 }, { lat: 53.41, lng: -3.05 }, { lat: 50.96, lng: -2.00 },
+        { lat: 50.69, lng: -1.01 }, { lat: 50.67, lng: 1.68 }, { lat: 51.48, lng: 1.68 },
+        { lat: 52.91, lng: 1.68 }, { lat: 55.81, lng: -2.05 }, { lat: 58.64, lng: -2.87 },
+        { lat: 60.85, lng: -1.41 }
+      ]
+    }
   ];
 
   const data = biasData.length > 0 ? biasData : defaultBiasData;
