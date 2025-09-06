@@ -15,12 +15,9 @@ const WorldMapVisualization = ({ biasData = [] }) => {
   const [map, setMap] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
 
-  // Debug: Log the API key to see if it's being loaded
-  console.log('API Key from env:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
-  
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyArFSRoolVuwhQ3g92-a9xu7aX0Ke1y68M'
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   });
 
   // Realistic country boundary coordinates (simplified GeoJSON-based)
