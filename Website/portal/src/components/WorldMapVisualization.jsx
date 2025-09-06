@@ -92,6 +92,60 @@ const WorldMapVisualization = ({ biasData = [] }) => {
         { lat: 52.91, lng: 1.68 }, { lat: 55.81, lng: -2.05 }, { lat: 58.64, lng: -2.87 },
         { lat: 60.85, lng: -1.41 }
       ]
+    },
+    {
+      name: 'Thailand',
+      value: 45,
+      category: 'medium',
+      coords: [
+        { lat: 20.46, lng: 100.12 }, { lat: 20.46, lng: 105.64 }, { lat: 12.63, lng: 105.64 },
+        { lat: 9.55, lng: 101.68 }, { lat: 6.61, lng: 101.25 }, { lat: 5.61, lng: 100.25 },
+        { lat: 6.42, lng: 99.95 }, { lat: 7.01, lng: 98.43 }, { lat: 8.56, lng: 98.31 },
+        { lat: 9.85, lng: 98.49 }, { lat: 10.49, lng: 99.23 }, { lat: 13.41, lng: 100.03 },
+        { lat: 15.25, lng: 98.96 }, { lat: 18.48, lng: 97.40 }, { lat: 19.15, lng: 97.78 }
+      ]
+    },
+    {
+      name: 'Vietnam',
+      value: 75,
+      category: 'high',
+      coords: [
+        { lat: 23.39, lng: 105.42 }, { lat: 22.50, lng: 106.56 }, { lat: 21.04, lng: 107.32 },
+        { lat: 16.06, lng: 108.22 }, { lat: 12.30, lng: 109.19 }, { lat: 10.76, lng: 106.63 },
+        { lat: 8.56, lng: 104.72 }, { lat: 8.38, lng: 104.33 }, { lat: 9.39, lng: 105.42 },
+        { lat: 10.49, lng: 106.25 }, { lat: 11.56, lng: 108.28 }, { lat: 14.06, lng: 108.28 },
+        { lat: 17.16, lng: 106.75 }, { lat: 20.03, lng: 105.79 }, { lat: 22.50, lng: 104.95 }
+      ]
+    },
+    {
+      name: 'Singapore',
+      value: 25,
+      category: 'low',
+      coords: [
+        { lat: 1.47, lng: 103.60 }, { lat: 1.47, lng: 104.07 }, { lat: 1.16, lng: 104.07 }, { lat: 1.16, lng: 103.60 }
+      ]
+    },
+    {
+      name: 'Malaysia',
+      value: 35,
+      category: 'medium',
+      coords: [
+        { lat: 7.36, lng: 99.64 }, { lat: 6.93, lng: 100.64 }, { lat: 4.58, lng: 103.39 },
+        { lat: 1.83, lng: 103.39 }, { lat: 1.28, lng: 103.85 }, { lat: 1.28, lng: 109.46 },
+        { lat: 4.81, lng: 115.45 }, { lat: 7.36, lng: 117.13 }, { lat: 7.36, lng: 119.27 },
+        { lat: 4.39, lng: 118.62 }, { lat: 4.39, lng: 115.45 }, { lat: 2.11, lng: 111.85 },
+        { lat: 2.11, lng: 109.46 }, { lat: 3.14, lng: 101.68 }, { lat: 5.97, lng: 100.64 }
+      ]
+    },
+    {
+      name: 'Indonesia',
+      value: 40,
+      category: 'medium',
+      coords: [
+        { lat: 6.08, lng: 95.01 }, { lat: 5.90, lng: 141.01 }, { lat: -11.01, lng: 141.01 },
+        { lat: -10.36, lng: 123.35 }, { lat: -8.11, lng: 114.51 }, { lat: -6.21, lng: 106.85 },
+        { lat: -5.90, lng: 95.32 }, { lat: -0.79, lng: 100.36 }, { lat: 3.58, lng: 98.68 }
+      ]
     }
   ];
 
