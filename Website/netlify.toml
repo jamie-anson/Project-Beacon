@@ -8,6 +8,8 @@
   NPM_FLAGS = "--no-audit --fund=false"
   # Default IPFS gateway for production portal links (overridable per-deploy)
   VITE_IPFS_GATEWAY = "https://ipfs.io"
+  # Google Maps API key for production
+  VITE_GOOGLE_MAPS_API_KEY = "AIzaSyArFSRoolVuwhQ3g92-a9xu7aX0Ke1y68M"
 
 # Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
 [[redirects]]
