@@ -1,15 +1,18 @@
 name: IPFS Publishing (optional)
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [ main ]
     paths:
       - 'portal/**'
+      - 'docs/**'
       - '.github/workflows/ipfs.yml'
   push:
     branches: [ main ]
     paths:
       - 'portal/**'
+      - 'docs/**'
       - '.github/workflows/ipfs.yml'
 
 env:
@@ -19,7 +22,7 @@ jobs:
   publish-ipfs:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       statuses: write
     steps:
@@ -32,6 +35,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: portal/package-lock.json
+
+      - name: Install root deps and build docs
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-fund --no-audit; fi
+          npm run build:static
+          npm run build:docs
 
       - name: Install and build portal
         working-directory: portal
@@ -48,8 +57,20 @@ jobs:
             echo "enabled=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Deploy dist/docs to IPFS (Storacha)
+        id: docs_ipfs
+        if: steps.check.outputs.enabled == 'true'
+        uses: ipfs/ipfs-deploy-action@v1
+        with:
+          path-to-deploy: dist/docs
+          storacha-key: ${{ secrets.STORACHA_KEY }}
+          storacha-proof: ${{ secrets.STORACHA_PROOF }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          set-github-status: 'true'
+          set-pr-comment: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+
       - name: Deploy portal/dist to IPFS (Storacha)
-        id: ipfs
+        id: portal_ipfs
         if: steps.check.outputs.enabled == 'true'
         uses: ipfs/ipfs-deploy-action@v1
         with:
@@ -60,14 +81,41 @@ jobs:
           set-github-status: 'true'
           set-pr-comment: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
 
+      - name: Persist CIDs to repo (main)
+        if: steps.check.outputs.enabled == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          set -e
+          mkdir -p ipfs
+          SHORT_SHA="${GITHUB_SHA::7}"
+          DOCS_CID="${{ steps.docs_ipfs.outputs.cid }}"
+          PORTAL_CID="${{ steps.portal_ipfs.outputs.cid }}"
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > ipfs/cids.json <<EOF
+          {
+            "commit": "${SHORT_SHA}",
+            "docs": "${DOCS_CID}",
+            "portal": "${PORTAL_CID}",
+            "timestamp": "${TS}"
+          }
+          EOF
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git add ipfs/cids.json
+          git commit -m "chore: update IPFS CIDs [skip ci]" || echo "No changes to commit"
+          git push
+
       - name: Summary
         if: steps.check.outputs.enabled == 'true'
         run: |
           echo "## 📦 IPFS Publishing" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**CID:** ${{ steps.ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Gateway (example):** https://ipfs.io/ipfs/${{ steps.ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Docs CID:** ${{ steps.docs_ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+          echo "Docs Gateway: https://ipfs.io/ipfs/${{ steps.docs_ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Portal CID:** ${{ steps.portal_ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
+          echo "Portal Gateway: https://ipfs.io/ipfs/${{ steps.portal_ipfs.outputs.cid }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Skip summary (IPFS disabled)
         if: steps.check.outputs.enabled != 'true'
