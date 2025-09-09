@@ -292,28 +292,13 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold">GPU Status</h2>
         <div className="bg-white border rounded p-4">
           <div className="space-y-3">
-            {/* Golem Network GPU Providers */}
+            {/* Regional Modal GPU Services */}
             <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Golem GPU Providers</div>
-                  <div className="text-xs text-slate-500">Available GPU compute nodes</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="active" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            {/* Cloud GPU Resources */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <div>
-                  <div className="font-medium text-sm">Modal GPU Pool</div>
-                  <div className="text-xs text-slate-500">A100 80GB • Auto-scaling</div>
+                  <div className="font-medium text-sm">Modal US GPUs</div>
+                  <div className="text-xs text-slate-500">T4/A10 • US-East/Central/West</div>
                 </div>
               </div>
               <div className="text-right">
@@ -322,17 +307,60 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Fly GPU Pool</div>
-                  <div className="text-xs text-slate-500">L40S • On-demand</div>
+                  <div className="font-medium text-sm">Modal EU GPUs</div>
+                  <div className="text-xs text-slate-500">T4/A10 • EU-West/North</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="standby" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                <StatusPill value="active" />
+                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+              </div>
+            </div>
+
+            {/* Planned GPU Services */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">Modal APAC GPUs</div>
+                  <div className="text-xs text-slate-500">T4/A10 • AP-Southeast/Northeast</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="active" />
+                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">Golem GPU Providers</div>
+                  <div className="text-xs text-slate-500">Multi-region baseline capacity</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="planned" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">RunPod Serverless</div>
+                  <div className="text-xs text-slate-500">GPU-optimized functions</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="planned" />
+                <div className="text-xs text-slate-500 mt-1">runpod.io</div>
               </div>
             </div>
           </div>

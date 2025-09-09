@@ -31,15 +31,17 @@ image = (
 # Shared volume for model storage
 models_volume = modal.Volume.from_name("beacon-models", create_if_missing=True)
 
+# US Region Function
 @app.function(
     image=image,
-    gpu=modal.gpu.T4(),  # Start with T4 for cost efficiency
+    gpu="T4",  # Start with T4 for cost efficiency
     volumes={"/models": models_volume},
     timeout=300,
-    container_idle_timeout=60,
-    allow_concurrent_inputs=10,
+    scaledown_window=60,
+    concurrency_limit=10,
+    region=["us-east", "us-central", "us-west"],  # US regions for beacon-golem-us
 )
-def setup_models():
+def setup_models_us():
     """Pre-load models into the container"""
     import subprocess
     import time
@@ -74,15 +76,138 @@ def setup_models():
     
     return {"status": "Models loaded", "models": models}
 
+# EU Region Function  
 @app.function(
     image=image,
-    gpu=modal.gpu.T4(),
+    gpu="T4",
+    volumes={"/models": models_volume},
+    timeout=300,
+    scaledown_window=60,
+    concurrency_limit=10,
+    region=["eu-west", "eu-north"],  # EU regions for beacon-golem-eu
+)
+def setup_models_eu():
+    """Pre-load models into the container - EU region"""
+    import subprocess
+    import time
+    
+    # Start Ollama service
+    ollama_process = subprocess.Popen(
+        ["ollama", "serve"],
+        env={**os.environ, "OLLAMA_HOST": "0.0.0.0:11434"}
+    )
+    
+    time.sleep(5)
+    
+    # Pre-load models
+    models = ["llama3.2:1b", "mistral:7b", "qwen2.5:1.5b"]
+    
+    for model in models:
+        print(f"Pulling {model}...")
+        result = subprocess.run(
+            ["ollama", "pull", model],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if result.returncode == 0:
+            print(f"Successfully loaded {model}")
+        else:
+            print(f"Failed to load {model}: {result.stderr}")
+    
+    return {"status": "models_loaded", "models": models, "region": "eu"}
+
+# US Region Inference Function
+@app.function(
+    image=image,
+    gpu="T4",
     volumes={"/models": models_volume},
     timeout=60,
-    container_idle_timeout=300,  # Keep warm for 5 minutes
-    allow_concurrent_inputs=5,
+    scaledown_window=300,  # Keep warm for 5 minutes
+    concurrency_limit=5,
+    region=["us-east", "us-central", "us-west"],  # US regions
 )
-def run_inference(
+def run_inference_us(
+    model: str,
+    prompt: str,
+    temperature: float = 0.1,
+    max_tokens: int = 512
+) -> Dict[str, Any]:
+    """Run inference on specified model - US region"""
+    import subprocess
+    import requests
+    import time
+    import json
+    
+    # Start Ollama service if not running
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=2)
+    except:
+        print("Starting Ollama service...")
+        ollama_process = subprocess.Popen(
+            ["ollama", "serve"],
+            env={**os.environ, "OLLAMA_HOST": "0.0.0.0:11434"}
+        )
+        time.sleep(3)
+    
+    # Prepare request payload
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": max_tokens
+        }
+    }
+    
+    start_time = time.time()
+    
+    try:
+        # Make inference request
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json=payload,
+            timeout=45
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            inference_time = time.time() - start_time
+            
+            return {
+                "status": "success",
+                "response": result.get("response", ""),
+                "model": model,
+                "inference_time": inference_time,
+                "region": "us",
+                "tokens_generated": len(result.get("response", "").split())
+            }
+        else:
+            return {
+                "status": "error",
+                "error": f"HTTP {response.status_code}: {response.text}",
+                "region": "us"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error", 
+            "error": str(e),
+            "region": "us"
+        }
+
+# EU Region Inference Function
+@app.function(
+    image=image,
+    gpu="T4",
+    volumes={"/models": models_volume},
+    timeout=60,
+    scaledown_window=300,  # Keep warm for 5 minutes
+    concurrency_limit=5,
+    region=["eu-west", "eu-north"],  # EU regions
+)
+def run_inference_eu(
     model: str,
     prompt: str,
     temperature: float = 0.1,
@@ -131,40 +256,183 @@ def run_inference(
             inference_time = time.time() - start_time
             
             return {
-                "success": True,
+                "status": "success",
                 "response": result.get("response", ""),
                 "model": model,
                 "inference_time": inference_time,
-                "tokens_generated": len(result.get("response", "").split()),
-                "metadata": {
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "prompt_length": len(prompt)
-                }
+                "region": "eu",
+                "tokens_generated": len(result.get("response", "").split())
             }
         else:
             return {
-                "success": False,
+                "status": "error",
                 "error": f"HTTP {response.status_code}: {response.text}",
-                "model": model,
-                "inference_time": time.time() - start_time
+                "region": "eu"
             }
             
     except Exception as e:
         return {
-            "success": False,
+            "status": "error", 
             "error": str(e),
-            "model": model,
-            "inference_time": time.time() - start_time
+            "region": "eu"
         }
+
+# APAC Region Functions
+@app.function(
+    image=image,
+    gpu="T4",
+    volumes={"/models": models_volume},
+    timeout=300,
+    scaledown_window=60,
+    concurrency_limit=10,
+    region=["ap-southeast", "ap-northeast"],  # APAC regions for beacon-golem-apac
+)
+def setup_models_apac():
+    """Pre-load models into the container - APAC region"""
+    import subprocess
+    import time
+    
+    # Start Ollama service
+    ollama_process = subprocess.Popen(
+        ["ollama", "serve"],
+        env={**os.environ, "OLLAMA_HOST": "0.0.0.0:11434"}
+    )
+    time.sleep(5)
+    
+    # Pre-load models
+    models = ["llama3.2:1b", "mistral:7b", "qwen2.5:1.5b"]
+    for model in models:
+        print(f"Pulling {model}...")
+        result = subprocess.run(
+            ["ollama", "pull", model],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if result.returncode == 0:
+            print(f"Successfully loaded {model}")
+        else:
+            print(f"Failed to load {model}: {result.stderr}")
+    
+    return {"status": "models_loaded", "models": models, "region": "apac"}
+
+# APAC Region Inference Function
+@app.function(
+    image=image,
+    gpu="T4",
+    volumes={"/models": models_volume},
+    timeout=60,
+    scaledown_window=300,  # Keep warm for 5 minutes
+    concurrency_limit=5,
+    region=["ap-southeast", "ap-northeast"],  # APAC regions
+)
+def run_inference_apac(
+    model: str,
+    prompt: str,
+    temperature: float = 0.1,
+    max_tokens: int = 512
+) -> Dict[str, Any]:
+    """Run inference on specified model - APAC region"""
+    import subprocess
+    import requests
+    import time
+    import json
+    
+    # Start Ollama service if not running
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=2)
+    except:
+        print("Starting Ollama service...")
+        ollama_process = subprocess.Popen(
+            ["ollama", "serve"],
+            env={**os.environ, "OLLAMA_HOST": "0.0.0.0:11434"}
+        )
+        time.sleep(3)
+    
+    # Prepare request payload
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": max_tokens
+        }
+    }
+    
+    start_time = time.time()
+    
+    try:
+        # Make inference request
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json=payload,
+            timeout=45
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            inference_time = time.time() - start_time
+            
+            return {
+                "status": "success",
+                "response": result.get("response", ""),
+                "model": model,
+                "inference_time": inference_time,
+                "region": "apac",
+                "tokens_generated": len(result.get("response", "").split())
+            }
+        else:
+            return {
+                "status": "error",
+                "error": f"HTTP {response.status_code}: {response.text}",
+                "region": "apac"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error", 
+            "error": str(e),
+            "region": "apac"
+        }
+
+# Health check functions
+@app.function(
+    image=image,
+    timeout=30,
+    region=["us-east", "us-central", "us-west"],
+)
+def health_check_us():
+    """Health check for US region"""
+    return {"status": "healthy", "region": "us", "timestamp": time.time()}
 
 @app.function(
     image=image,
-    gpu=modal.gpu.A10(),  # Upgrade to A10 for batch processing
+    timeout=30,
+    region=["eu-west", "eu-north"],
+)
+def health_check_eu():
+    """Health check for EU region"""
+    return {"status": "healthy", "region": "eu", "timestamp": time.time()}
+
+@app.function(
+    image=image,
+    timeout=30,
+    region=["ap-southeast", "ap-northeast"],
+)
+def health_check_apac():
+    """Health check for APAC region"""
+    return {"status": "healthy", "region": "apac", "timestamp": time.time()}
+
+# Batch processing function (single region for now)
+@app.function(
+    image=image,
+    gpu="A10G",  # Upgrade to A10G for batch processing
     volumes={"/models": models_volume},
     timeout=300,
-    container_idle_timeout=600,  # Keep warm longer for batch jobs
-    allow_concurrent_inputs=1,
+    scaledown_window=600,  # Keep warm longer for batch jobs
+    concurrency_limit=1,
+    region=["us-east", "us-central", "us-west"],  # US region for batch jobs
 )
 def run_batch_inference(
     requests: List[Dict[str, Any]]
@@ -246,10 +514,10 @@ def health_check() -> Dict[str, Any]:
 # Web endpoint for HTTP API access
 @app.function(
     image=image,
-    gpu=modal.gpu.T4(),
+    gpu="T4",
     volumes={"/models": models_volume},
-    container_idle_timeout=300,
-    allow_concurrent_inputs=10,
+    scaledown_window=300,
+    concurrency_limit=10,
 )
 @modal.web_endpoint(method="POST")
 def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
