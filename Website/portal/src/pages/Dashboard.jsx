@@ -292,87 +292,17 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold">GPU Status</h2>
         <div className="bg-white border rounded p-4">
           <div className="space-y-3">
-            {/* GPU Nodes */}
+            {/* Golem Network GPU Providers */}
             <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">GPU-US-01</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4090 • 24GB VRAM</div>
+                  <div className="font-medium text-sm">Golem GPU Providers</div>
+                  <div className="text-xs text-slate-500">Available GPU compute nodes</div>
                 </div>
               </div>
               <div className="text-right">
                 <StatusPill value="active" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <div>
-                  <div className="font-medium text-sm">GPU-US-02</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4090 • 24GB VRAM</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="active" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div>
-                  <div className="font-medium text-sm">GPU-EU-01</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4080 • 16GB VRAM</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="busy" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">GPU-EU-02</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4080 • 16GB VRAM</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="offline" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">GPU-APAC-01</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4070 Ti • 12GB VRAM</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="offline" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">GPU-APAC-02</div>
-                  <div className="text-xs text-slate-500">NVIDIA RTX 4070 Ti • 12GB VRAM</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="offline" />
                 <div className="text-xs text-slate-500 mt-1">golem network</div>
               </div>
             </div>
@@ -382,7 +312,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Modal-GPU-Pool</div>
+                  <div className="font-medium text-sm">Modal GPU Pool</div>
                   <div className="text-xs text-slate-500">A100 80GB • Auto-scaling</div>
                 </div>
               </div>
@@ -396,7 +326,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Fly-GPU-Pool</div>
+                  <div className="font-medium text-sm">Fly GPU Pool</div>
                   <div className="text-xs text-slate-500">L40S • On-demand</div>
                 </div>
               </div>
@@ -446,35 +376,6 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {/* GPU Status - Enhanced Display */}
-                <div className="border rounded p-3 bg-gradient-to-br from-green-50 to-blue-50">
-                  <div className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-2">
-                    <span>🖥️ GPU Compute</span>
-                  </div>
-                  <div className="mt-1 text-sm flex items-center gap-2">
-                    {health.yagna === 'healthy' ? (
-                      <>
-                        <StatusPill value="ready" />
-                        <span className="text-xs text-slate-600">Golem providers available</span>
-                      </>
-                    ) : (
-                      <>
-                        <StatusPill value="unavailable" />
-                        <span className="text-xs text-slate-600">Network offline</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Overall System Status */}
-                {health.overall && (
-                  <div className="border rounded p-3 bg-gradient-to-br from-slate-50 to-slate-100">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">System Overall</div>
-                    <div className="mt-1 text-sm flex items-center gap-2">
-                      <StatusPill value={health.overall} />
-                    </div>
-                  </div>
-                )}
                 
                 {/* Any other services */}
                 {Object.entries(health).filter(([k]) => !['database', 'redis', 'ipfs', 'yagna', 'overall'].includes(k)).map(([k, v]) => (
