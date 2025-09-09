@@ -149,16 +149,19 @@ async function httpRoot(path, opts = {}) {
   }
 }
 
-// Health endpoint: default to same-origin (will be proxied by Netlify). If VITE_API_BASE is absolute,
-// derive its origin; otherwise use relative.
-let HEALTH_BASE = '';
-if (import.meta.env?.VITE_API_BASE && /^https?:\/\//.test(import.meta.env.VITE_API_BASE)) {
-  try {
-    const u = new URL(import.meta.env.VITE_API_BASE);
-    HEALTH_BASE = `${u.protocol}//${u.host}`;
-  } catch {}
-}
-export const getHealth = () => httpRoot(`${HEALTH_BASE}/health`);
+// Health endpoint: use API base URL to call runner health
+export const getHealth = () => httpV1('/health').then(data => {
+  // Transform the runner health response to match dashboard expectations
+  if (data && data.services) {
+    const healthData = {};
+    data.services.forEach(service => {
+      healthData[service.name] = service.status;
+    });
+    healthData.overall = data.status;
+    return healthData;
+  }
+  return data;
+});
 
 // Jobs API
 export const createJob = (jobspec, opts = {}) => {
