@@ -8,8 +8,8 @@
   NPM_FLAGS = "--no-audit --fund=false"
   # Default IPFS gateway for production portal links (overridable per-deploy)
   VITE_IPFS_GATEWAY = "https://ipfs.io"
-  # Google Maps API key for production
-  VITE_GOOGLE_MAPS_API_KEY = "AIzaSyArFSRoolVuwhQ3g92-a9xu7aX0Ke1y68M"
+  # Google Maps API key for production (set in Netlify dashboard)
+  # VITE_GOOGLE_MAPS_API_KEY = "REPLACE_WITH_NEW_KEY"
 
 # Ensure clean URLs and proper SPA fallback for Docusaurus under /docs
 [[redirects]]
@@ -22,7 +22,13 @@
   to = "/docs/index.html"
   status = 200
 
-# Portal SPA fallback
+# Portal assets should be served directly (not redirected)
+[[redirects]]
+  from = "/portal/assets/*"
+  to = "/portal/assets/:splat"
+  status = 200
+
+# Portal SPA fallback (but exclude assets)
 [[redirects]]
   from = "/portal/*"
   to = "/portal/index.html"

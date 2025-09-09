@@ -18,34 +18,123 @@ import { BUILD_CID, BUILD_COMMIT, shortCommit } from './lib/buildInfo.js';
 
 function Layout({ children }) {
   const { connected, error: wsError, retries, nextDelayMs } = useWs('/ws');
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b bg-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
-            <span>Project Beacon</span>
-            <span className="text-slate-400">Portal</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <NavLink to="/" end className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Home</NavLink>
-            <NavLink to="/questions" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Questions</NavLink>
-            <NavLink to="/ais" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Models</NavLink>
-            <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Bias Detection</NavLink>
-            <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
-            <NavLink to="/demo-results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Demo Results</NavLink>
-            {/* <NavLink to="/results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Results</NavLink> */}
-          </nav>
-          <div className="ml-4 flex items-center gap-2 text-xs">
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-              aria-label="Live updates connection status"
-              title={wsError ? `WebSocket error: ${wsError.message || String(wsError)}${retries ? ` • retries: ${retries}, next: ${Math.round(nextDelayMs/1000)}s` : ''}` : 'Live updates use a real-time connection to the Runner'}
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2 font-semibold">
+              <img src="/images/Icon.webp" alt="Project Beacon" className="w-8 h-8" />
+              <span className="text-slate-400">Portal</span>
+            </Link>
+            
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center gap-4 text-sm">
+              <NavLink to="/" end className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Home</NavLink>
+              <NavLink to="/questions" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Questions</NavLink>
+              <NavLink to="/ais" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Models</NavLink>
+              <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Bias Detection</NavLink>
+              <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
+              <NavLink to="/demo-results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Demo Results</NavLink>
+            </nav>
+            
+            {/* Mobile menu button */}
+            <button 
+              className="md:hidden p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
             >
-              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-              {connected ? 'Live updates: Online' : (wsError ? 'Live updates: Error' : 'Live updates: Offline')}
-            </span>
-            <NavLink to="/settings" className={({isActive}) => isActive ? 'text-beacon-600' : 'text-slate-500 hover:text-slate-900'} title="Settings">Settings</NavLink>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+            {/* Desktop status and settings */}
+            <div className="hidden md:flex items-center gap-2 text-xs">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                aria-label="Live updates connection status"
+                title={wsError ? `WebSocket error: ${wsError.message || String(wsError)}${retries ? ` • retries: ${retries}, next: ${Math.round(nextDelayMs/1000)}s` : ''}` : 'Live updates use a real-time connection to the Runner'}
+              >
+                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                {connected ? 'Live updates: Online' : (wsError ? 'Live updates: Error' : 'Live updates: Offline')}
+              </span>
+              <NavLink to="/settings" className={({isActive}) => isActive ? 'text-beacon-600' : 'text-slate-500 hover:text-slate-900'} title="Settings">Settings</NavLink>
+            </div>
           </div>
+          
+          {/* Mobile Navigation Menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-3 pt-3 border-t border-slate-200">
+              <nav className="flex flex-col gap-2">
+                <NavLink 
+                  to="/" 
+                  end 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Home
+                </NavLink>
+                <NavLink 
+                  to="/questions" 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Questions
+                </NavLink>
+                <NavLink 
+                  to="/ais" 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Models
+                </NavLink>
+                <NavLink 
+                  to="/bias-detection" 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Bias Detection
+                </NavLink>
+                <NavLink 
+                  to="/dashboard" 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink 
+                  to="/demo-results" 
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Demo Results
+                </NavLink>
+                <div className="border-t border-slate-200 mt-2 pt-2">
+                  <div className="px-3 py-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      {connected ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                  <NavLink 
+                    to="/settings" 
+                    className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Settings
+                  </NavLink>
+                </div>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-6">

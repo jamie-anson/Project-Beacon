@@ -166,6 +166,249 @@ export default function Dashboard() {
         </div>
       </section>
       <section>
+        <h2 className="text-xl font-semibold">Server Status</h2>
+        <div className="bg-white border rounded p-4">
+          <div className="space-y-3">
+            {/* Main Runner API */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-runner-change-me</div>
+                  <div className="text-xs text-slate-500">Main Runner API</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="deployed" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            {/* Hybrid Router */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-hybrid-router</div>
+                  <div className="text-xs text-slate-500">Hybrid Router</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="deployed" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            {/* Golem Providers */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-golem-simple</div>
+                  <div className="text-xs text-slate-500">Golem Provider (Simple)</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="deployed" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-golem-us</div>
+                  <div className="text-xs text-slate-500">Golem Provider (US)</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="suspended" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-golem-apac</div>
+                  <div className="text-xs text-slate-500">Golem Provider (APAC)</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="suspended" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-golem-eu</div>
+                  <div className="text-xs text-slate-500">Golem Provider (EU)</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="suspended" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            {/* Monitoring */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">beacon-prom-agent</div>
+                  <div className="text-xs text-slate-500">Prometheus Agent</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="suspended" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+
+            {/* Portal */}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">projectbeacon.netlify.app</div>
+                  <div className="text-xs text-slate-500">Portal & Docs</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="deployed" />
+                <div className="text-xs text-slate-500 mt-1">netlify</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2 className="text-xl font-semibold">GPU Status</h2>
+        <div className="bg-white border rounded p-4">
+          <div className="space-y-3">
+            {/* GPU Nodes */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-US-01</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4090 • 24GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="active" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-US-02</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4090 • 24GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="active" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-EU-01</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4080 • 16GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="busy" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-EU-02</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4080 • 16GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="offline" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-APAC-01</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4070 Ti • 12GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="offline" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div>
+                  <div className="font-medium text-sm">GPU-APAC-02</div>
+                  <div className="text-xs text-slate-500">NVIDIA RTX 4070 Ti • 12GB VRAM</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="offline" />
+                <div className="text-xs text-slate-500 mt-1">golem network</div>
+              </div>
+            </div>
+
+            {/* Cloud GPU Resources */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">Modal-GPU-Pool</div>
+                  <div className="text-xs text-slate-500">A100 80GB • Auto-scaling</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="active" />
+                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <div className="font-medium text-sm">Fly-GPU-Pool</div>
+                  <div className="text-xs text-slate-500">L40S • On-demand</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <StatusPill value="standby" />
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section>
         <h2 className="text-xl font-semibold">System status</h2>
         {loadingHealth ? (
           <div className="bg-white border rounded p-3 animate-pulse">
@@ -182,8 +425,59 @@ export default function Dashboard() {
             {!health || Object.keys(health || {}).length === 0 ? (
               <div className="text-sm text-slate-500">No status available.</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Object.entries(health).map(([k, v]) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {/* Core Services */}
+                {['database', 'redis', 'ipfs'].map(service => health[service] && (
+                  <div key={service} className="border rounded p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">{service}</div>
+                    <div className="mt-1 text-sm flex items-center gap-2">
+                      <StatusPill value={health[service]} />
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Golem Network */}
+                {health.yagna && (
+                  <div className="border rounded p-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Golem Network</div>
+                    <div className="mt-1 text-sm flex items-center gap-2">
+                      <StatusPill value={health.yagna} />
+                    </div>
+                  </div>
+                )}
+                
+                {/* GPU Status - Enhanced Display */}
+                <div className="border rounded p-3 bg-gradient-to-br from-green-50 to-blue-50">
+                  <div className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-2">
+                    <span>🖥️ GPU Compute</span>
+                  </div>
+                  <div className="mt-1 text-sm flex items-center gap-2">
+                    {health.yagna === 'healthy' ? (
+                      <>
+                        <StatusPill value="ready" />
+                        <span className="text-xs text-slate-600">Golem providers available</span>
+                      </>
+                    ) : (
+                      <>
+                        <StatusPill value="unavailable" />
+                        <span className="text-xs text-slate-600">Network offline</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Overall System Status */}
+                {health.overall && (
+                  <div className="border rounded p-3 bg-gradient-to-br from-slate-50 to-slate-100">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">System Overall</div>
+                    <div className="mt-1 text-sm flex items-center gap-2">
+                      <StatusPill value={health.overall} />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Any other services */}
+                {Object.entries(health).filter(([k]) => !['database', 'redis', 'ipfs', 'yagna', 'overall'].includes(k)).map(([k, v]) => (
                   <div key={k} className="border rounded p-3">
                     <div className="text-xs uppercase tracking-wide text-slate-500">{k}</div>
                     <div className="mt-1 text-sm flex items-center gap-2">
