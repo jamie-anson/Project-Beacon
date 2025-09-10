@@ -292,17 +292,19 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold">GPU Status</h2>
         <div className="bg-white border rounded p-4">
           <div className="space-y-3">
-            {/* Regional Modal GPU Services */}
+            {/* Regional GPU Services */}
             <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Modal US GPUs</div>
+                  <div className="font-medium text-sm">US</div>
                   <div className="text-xs text-slate-500">T4/A10 • US-East/Central/West</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="active" />
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  healthy
+                </span>
                 <div className="text-xs text-slate-500 mt-1">modal.com</div>
               </div>
             </div>
@@ -311,56 +313,31 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">Modal EU GPUs</div>
+                  <div className="font-medium text-sm">EU</div>
                   <div className="text-xs text-slate-500">T4/A10 • EU-West/North</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="active" />
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  healthy
+                </span>
                 <div className="text-xs text-slate-500 mt-1">modal.com</div>
-              </div>
-            </div>
-
-            {/* Planned GPU Services */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <div>
-                  <div className="font-medium text-sm">Modal APAC GPUs</div>
-                  <div className="text-xs text-slate-500">T4/A10 • AP-Southeast/Northeast</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="active" />
-                <div className="text-xs text-slate-500 mt-1">modal.com</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">Golem GPU Providers</div>
-                  <div className="text-xs text-slate-500">Multi-region baseline capacity</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="planned" />
-                <div className="text-xs text-slate-500 mt-1">golem network</div>
               </div>
             </div>
 
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
-                  <div className="font-medium text-sm">RunPod Serverless</div>
-                  <div className="text-xs text-slate-500">GPU-optimized functions</div>
+                  <div className="font-medium text-sm">APAC</div>
+                  <div className="text-xs text-slate-500">T4/A10 • AP-Southeast/Northeast</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="planned" />
-                <div className="text-xs text-slate-500 mt-1">runpod.io</div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  healthy
+                </span>
+                <div className="text-xs text-slate-500 mt-1">modal.com</div>
               </div>
             </div>
           </div>

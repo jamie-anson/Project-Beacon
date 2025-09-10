@@ -138,7 +138,8 @@ This plan tracks the discovery and deployment of a hybrid production infrastruct
 - [x] Set up simple cost tracking and health monitoring ✅ **COMPLETED**
 - [x] Deploy container hosting solution (Railway/Fly.io) in US-East ✅ **COMPLETED**
 - [x] Run demonstration tests showing hybrid approach ✅ **COMPLETED**
-- [x] Modal GPU deployment operational with A100 80GB auto-scaling ✅ **DEPLOYED**
+- [x] Modal GPU deployment operational with T4/A10G multi-region auto-scaling ✅ **DEPLOYED**
+- [x] Multi-region Modal deployment: US-East/Central/West regions active ✅ **DEPLOYED**
 
 ### 3.2) MVP Performance Validation
 - [ ] Execute benchmark suite on both Golem and serverless providers
@@ -160,13 +161,15 @@ This plan tracks the discovery and deployment of a hybrid production infrastruct
 
 ### 4.1) EU-West MVP Extension
 - [ ] Deploy 1 Golem + 1 serverless provider in EU region
-- [ ] Configure basic region routing in runner app
+- [x] Configure basic region routing in runner app ✅ **COMPLETED**
+- [x] Modal EU GPU deployment: EU-West/North regions active ✅ **DEPLOYED**
 - [ ] Test cross-region job distribution
 - [ ] Document regional performance differences
-- [ ] Update demonstration with multi-region example
+- [x] Update demonstration with multi-region example ✅ **COMPLETED**
 
 ### 4.2) Asia-Pacific MVP Extension
 - [ ] Deploy 1 Golem + 1 serverless provider in APAC region
+- [x] Modal APAC GPU deployment: AP-Southeast/Northeast regions active ✅ **DEPLOYED**
 - [ ] Test connectivity and performance from APAC
 - [ ] Validate job execution across all 3 regions
 - [ ] Document latency and cost differences
@@ -216,11 +219,12 @@ This plan tracks the discovery and deployment of a hybrid production infrastruct
 ## Quick Status Dashboard
 
 ### Infrastructure Status
-- [x] US-East provider operational ✅ **Modal A100 deployed**
-- [ ] EU-West provider operational  
-- [ ] APAC provider operational
+- [x] US-East provider operational ✅ **Modal T4/A10G multi-region deployed**
+- [x] EU-West provider operational ✅ **Modal EU-West/North deployed**
+- [x] APAC provider operational ✅ **Modal AP-Southeast/Northeast deployed**
 - [x] Cross-region routing working ✅ **Fly.io hybrid router deployed**
 - [x] Monitoring dashboards live ✅ **Portal dashboard operational**
+- [x] Multi-region GPU functions active ✅ **beacon-golem-us/eu/apac ready**
 
 ### Performance Metrics
 - [ ] <2s p95 inference latency achieved

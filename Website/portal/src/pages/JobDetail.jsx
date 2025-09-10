@@ -80,7 +80,7 @@ export default function JobDetail() {
               <button onClick={() => setExecOffset(execOffset + execLimit)} className="px-2 py-1 border rounded">Next</button>
             </>
           )}
-          <button onClick={refetch} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
+          <button onClick={refetch} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
         </div>
       </header>
 
@@ -123,7 +123,7 @@ export default function JobDetail() {
                     <td className="px-2 py-2">{e.created_at || e.timestamp || '—'}</td>
                     <td className="px-2 py-2 text-right">
                       {e.ipfs_cid && (
-                        <button onClick={() => openProof(e)} className="px-2 py-1 border rounded hover:bg-slate-50">View proof</button>
+                        <button onClick={() => openProof(e)} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">View proof</button>
                       )}
                     </td>
                   </tr>

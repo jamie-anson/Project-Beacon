@@ -27,7 +27,7 @@ export default function Jobs() {
           >
             {[10,25,50,100,200].map(v => <option key={v} value={v}>{v}</option>)}
           </select>
-          <button onClick={refetch} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
+          <button onClick={refetch} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
         </div>
       </div>
 

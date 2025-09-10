@@ -51,8 +51,8 @@ export default function Settings() {
               value={gateway}
               onChange={(e) => setGateway(e.target.value)}
             />
-            <button type="submit" className="text-sm px-3 py-1.5 border rounded bg-beacon-600 text-white">Save</button>
-            <button type="button" className="text-sm px-3 py-1.5 border rounded" onClick={reset}>Reset</button>
+            <button type="submit" className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+            <button type="button" className="text-sm px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50" onClick={reset}>Reset</button>
           </div>
           <div className="text-xs text-slate-500">
             Env default: {envGateway ? <code className="font-mono">{envGateway}</code> : 'not set'}

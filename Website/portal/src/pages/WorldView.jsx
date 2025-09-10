@@ -187,7 +187,7 @@ export default function WorldView() {
         <h2 className="text-xl font-semibold">World View</h2>
         <div className="flex items-center gap-3 text-sm text-slate-600">
           <span className="text-xs px-2 py-0.5 rounded bg-slate-100">source: {source}</span>
-          <button onClick={() => { refetchGeo(); refetchExec(); }} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
+          <button onClick={() => { refetchGeo(); refetchExec(); }} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
         </div>
       </div>
 

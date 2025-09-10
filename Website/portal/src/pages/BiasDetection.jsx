@@ -445,7 +445,7 @@ export default function BiasDetection() {
             </div>
 
             <div className="flex items-center justify-end">
-              <button onClick={refetchActive} className="px-2 py-1 border rounded text-sm hover:bg-slate-50">Refresh</button>
+              <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
               {activeJob?.id && (
                 <Link to={`/jobs/${activeJob.id}`} className="ml-2 text-sm text-beacon-600 underline decoration-dotted">View full results</Link>
               )}

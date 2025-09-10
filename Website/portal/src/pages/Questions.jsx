@@ -91,7 +91,7 @@ export default function Questions() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Questions</h2>
         <div className="flex items-center gap-2 text-sm">
-          <button onClick={refetch} className="px-2 py-1 border rounded hover:bg-slate-50">Refresh</button>
+          <button onClick={() => window.location.href = '/portal/models'} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Models</button>
         </div>
       </div>
 
@@ -102,9 +102,10 @@ export default function Questions() {
           Start with a smaller set for a quick signal, then re-run with the full set for comprehensive coverage.
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={() => setAll(true)} className="px-2 py-1 border rounded hover:bg-slate-50">Select all</button>
-          <button onClick={() => setAll(false)} className="px-2 py-1 border rounded hover:bg-slate-50">Clear all</button>
+          <button onClick={() => setAll(true)} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Select all</button>
+          <button onClick={() => setAll(false)} className="px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50">Clear all</button>
           <span className="text-xs text-slate-500">{selectedCount}/{totalCount} selected</span>
+          <button onClick={refetch} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
         </div>
       </div>
 

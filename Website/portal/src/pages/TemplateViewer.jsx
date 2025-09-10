@@ -51,7 +51,7 @@ export default function TemplateViewer() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Who are you? — JobSpec</h2>
         <div className="flex items-center gap-2">
-          <button disabled={busy || !job} onClick={run} className="px-3 py-2 rounded bg-beacon-600 text-white disabled:opacity-50">Execute benchmark</button>
+          <button disabled={busy || !job} onClick={run} className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Execute benchmark</button>
         </div>
       </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
