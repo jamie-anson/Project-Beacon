@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import httpx
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import uvicorn
 
@@ -377,6 +377,64 @@ async def get_metrics():
             "max": max(p.cost_per_second for p in healthy_providers) if healthy_providers else 0
         }
     }
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except:
+                # Remove dead connections
+                self.active_connections.remove(connection)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates"""
+    await manager.connect(websocket)
+    try:
+        # Send initial connection message
+        await manager.send_personal_message(json.dumps({
+            "type": "connection",
+            "status": "connected",
+            "timestamp": time.time()
+        }), websocket)
+        
+        # Keep connection alive and handle messages
+        while True:
+            try:
+                # Wait for messages from client (optional)
+                data = await websocket.receive_text()
+                # Echo back for now (can be extended for specific functionality)
+                await manager.send_personal_message(json.dumps({
+                    "type": "echo",
+                    "data": data,
+                    "timestamp": time.time()
+                }), websocket)
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(websocket)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
