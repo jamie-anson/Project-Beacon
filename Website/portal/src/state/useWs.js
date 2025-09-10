@@ -12,10 +12,16 @@ export default function useWs(path = '/ws', opts = {}) {
   const closedRef = useRef(false);
 
   const connect = useCallback(() => {
+    // Temporarily disable WebSocket connections until backend support is ready
+    console.log('WebSocket disabled - backend endpoint not available');
+    setConnected(false);
+    setError(new Error('WebSocket temporarily disabled'));
+    return;
+    
     // Use environment variable for WebSocket base, fallback to same-origin proxy
     let wsBase = import.meta.env?.VITE_WS_BASE;
     if (!wsBase || wsBase.trim() === '') {
-      // Use same-origin WebSocket (Netlify proxies to Fly.io runner app)
+      // Use same-origin WebSocket (Netlify proxies to Railway hybrid router)
       wsBase = window.location.protocol === 'https:' ? 'wss://' + window.location.host : 'ws://' + window.location.host;
     }
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
