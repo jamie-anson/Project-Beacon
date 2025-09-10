@@ -81,14 +81,38 @@ Update test files to use new Railway endpoints:
 - Security headers test: Missing headers in local dev server (production Netlify has these)
 - Redirect rules test: Local dev server doesn't implement Netlify redirect rules
 
-## Phase 4: Production Cutover
+## Phase 4: Modal GPU Integration
 
-### 4.1 DNS/URL Updates
+### 4.1 Modal Deployment Status
+- [x] Deploy Modal GPU functions (US, EU, APAC regions)
+- [x] Configure Railway environment variables (MODAL_API_TOKEN, MODAL_API_BASE)
+- [x] Test Modal functions individually (models loaded successfully)
+- [ ] Debug Railway-Modal integration (providers still showing empty)
+
+### 4.2 Current Status
+**✅ Railway Migration Complete:**
+- Railway hybrid router: `https://project-beacon-production.up.railway.app`
+- Health endpoint working, API responding correctly
+- Portal updated to use Railway endpoints
+
+**✅ Modal GPU Functions Deployed:**
+- US region: `setup_models_us`, `run_inference_us` 
+- EU region: `setup_models_eu`, `run_inference_eu`
+- APAC region: `setup_models_apac`, `run_inference_apac`
+- Web API: `https://jamie-anson--project-beacon-inference-inference-api.modal.run`
+
+**🔄 Integration Issue:**
+- Railway shows 0 providers despite Modal configuration
+- Need to debug hybrid router provider discovery logic
+
+## Phase 5: Production Cutover
+
+### 5.1 DNS/URL Updates
 - [ ] Update any custom domain configurations
 - [ ] Update external service integrations
 - [ ] Notify any external users of endpoint changes
 
-### 4.2 Monitoring Setup
+### 5.2 Monitoring Setup
 - [ ] Verify Railway monitoring works
 - [ ] Set up alerts for Railway deployment
 - [ ] Monitor Railway costs and usage
