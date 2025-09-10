@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY flyio-deployment/requirements.txt .
+# Copy requirements and install Python dependencies (support repo-root build context)
+COPY Website/flyio-deployment/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY flyio-deployment/ .
+COPY Website/flyio-deployment/ .
 
 # Expose port (align with PORT=8080 default and Railway conventions)
 EXPOSE 8080
