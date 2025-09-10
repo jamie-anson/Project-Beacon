@@ -1,0 +1,21 @@
+# Ignore Go workspace files to prevent Go detection
+go.work
+go.work.sum
+runner-app/
+
+# Ignore other project directories
+portal/
+docs/
+tests/
+scripts/
+golem-provider/
+llm-benchmark/
+modal-deployment/
+observability/
+demo-results/
+attestations/
+
+# Only include files needed for hybrid router Docker build
+!flyio-deployment/
+!Dockerfile
+!railway.json
