@@ -1,5 +1,5 @@
-// Use environment variable for API base, fallback to Railway production
-const API_BASE_V1 = (import.meta.env?.VITE_API_BASE || 'https://project-beacon-production.up.railway.app').replace(/\/$/, '');
+// Use environment variable for API base, fallback to Fly.io runner app (Railway only has hybrid router)
+const API_BASE_V1 = (import.meta.env?.VITE_API_BASE || 'https://beacon-runner-change-me.fly.dev').replace(/\/$/, '');
 
 // Simple tab identifier for semi-stable idempotency keys
 function getTabId() {
