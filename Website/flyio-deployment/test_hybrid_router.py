@@ -10,7 +10,7 @@ import time
 from typing import Dict, Any
 
 class HybridRouterTester:
-    def __init__(self, base_url: str = "http://localhost:8080"):
+    def __init__(self, base_url: str = "https://project-beacon-production.up.railway.app"):
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=30.0)
     

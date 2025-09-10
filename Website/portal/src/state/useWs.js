@@ -15,8 +15,8 @@ export default function useWs(path = '/ws', opts = {}) {
     // Use environment variable for WebSocket base, fallback to direct runner
     let wsBase = import.meta.env?.VITE_WS_BASE;
     if (!wsBase || wsBase.trim() === '') {
-      // Default to direct runner WebSocket URL
-      wsBase = 'wss://beacon-runner-change-me.fly.dev';
+      // Default to Railway WebSocket URL
+      wsBase = 'wss://project-beacon-production.up.railway.app';
     }
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
     let ws;

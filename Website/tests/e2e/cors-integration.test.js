@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'https://beacon-runner-change-me.fly.dev';
+const API_BASE_URL = process.env.API_BASE_URL || 'https://project-beacon-production.up.railway.app';
 
 test.describe('CORS Integration Tests', () => {
   test.beforeEach(async ({ page }) => {

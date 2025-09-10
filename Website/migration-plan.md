@@ -35,17 +35,17 @@ Set these in Railway project settings:
 ### 2.1 Portal API Configuration
 Update portal to use Railway URLs instead of Fly.io:
 - [x] Add Railway and Fly.io service status monitoring to dashboard
-- [ ] Update `portal/src/lib/api.js` - change base URLs
-- [ ] Update any hardcoded Fly.io URLs in portal code
+- [x] Update `portal/src/lib/api.js` - change base URLs
+- [x] Update any hardcoded Fly.io URLs in portal code
 - [ ] Update environment variables in Netlify if needed
-- [ ] Test portal API connections locally
+- [x] Test portal API connections locally
 
 ### 2.2 Test Configuration Updates
 Update test files to use new Railway endpoints:
-- [ ] Update `flyio-deployment/test_hybrid_router.py`
-- [ ] Update `tests/e2e/cors-integration.test.js`
+- [x] Update `flyio-deployment/test_hybrid_router.py`
+- [x] Update `tests/e2e/cors-integration.test.js`
 - [ ] Update `tests/e2e/deployment-verification.test.js`
-- [ ] Update any other test files with hardcoded endpoints
+- [x] Update any other test files with hardcoded endpoints
 
 ### 2.3 Documentation Updates
 - [ ] Update `flyio-deployment/README.md` with Railway instructions

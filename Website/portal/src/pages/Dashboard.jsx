@@ -357,8 +357,8 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  deploying
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  healthy
                 </span>
                 <div className="text-xs text-slate-500 mt-1">railway.app</div>
               </div>
