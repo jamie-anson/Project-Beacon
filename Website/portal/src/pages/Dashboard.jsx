@@ -344,6 +344,46 @@ export default function Dashboard() {
         </div>
       </section>
       <section>
+        <h2 className="text-xl font-semibold">API Services</h2>
+        <div className="bg-white border rounded p-4">
+          <div className="space-y-3">
+            {/* Railway Service */}
+            <div className="flex items-center justify-between py-2 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <div>
+                  <div className="font-medium text-sm">Railway Router</div>
+                  <div className="text-xs text-slate-500">Hybrid API • Multi-region</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  deploying
+                </span>
+                <div className="text-xs text-slate-500 mt-1">railway.app</div>
+              </div>
+            </div>
+
+            {/* Fly.io Service */}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <div>
+                  <div className="font-medium text-sm">Fly.io Router</div>
+                  <div className="text-xs text-slate-500">Legacy API • Deprecated</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  suspended
+                </span>
+                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section>
         <h2 className="text-xl font-semibold">System status</h2>
         {loadingHealth ? (
           <div className="bg-white border rounded p-3 animate-pulse">

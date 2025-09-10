@@ -34,6 +34,7 @@ Set these in Railway project settings:
 
 ### 2.1 Portal API Configuration
 Update portal to use Railway URLs instead of Fly.io:
+- [x] Add Railway and Fly.io service status monitoring to dashboard
 - [ ] Update `portal/src/lib/api.js` - change base URLs
 - [ ] Update any hardcoded Fly.io URLs in portal code
 - [ ] Update environment variables in Netlify if needed
