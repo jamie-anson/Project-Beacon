@@ -25,10 +25,10 @@ Set these in Railway project settings:
 - [x] `PORT` - Set to 8000 for Railway
 
 ### 1.3 Initial Deployment
-- [ ] Deploy hybrid router to Railway
-- [ ] Verify deployment succeeds
-- [ ] Check Railway logs for any errors
-- [ ] Note the Railway app URL (e.g., `https://project-beacon-production.up.railway.app`)
+- [x] Deploy hybrid router to Railway
+- [x] Verify deployment succeeds
+- [x] Check Railway logs for any errors
+- [x] Note the Railway app URL: `https://project-beacon-production.up.railway.app`
 
 ## Phase 2: Endpoint Updates
 
@@ -55,9 +55,9 @@ Update test files to use new Railway endpoints:
 ## Phase 3: Testing & Validation
 
 ### 3.1 Health Check Testing
-- [ ] Test Railway health endpoint: `GET /health`
-- [ ] Verify response format matches expectations
-- [ ] Check response time and reliability
+- [x] Test Railway health endpoint: `GET /health`
+- [x] Verify response format matches expectations
+- [x] Check response time and reliability
 
 ### 3.2 API Functionality Testing
 - [ ] Test inference endpoint: `POST /inference`
@@ -120,21 +120,21 @@ Update test files to use new Railway endpoints:
 
 ## Success Criteria
 - ✅ Railway deployment is stable for 48+ hours
-- ✅ All portal functionality works correctly
+- [ ] All portal functionality works correctly
 - ✅ API response times are comparable or better than Fly.io
 - ✅ No increase in error rates
-- ✅ Cost is equal or lower than Fly.io
+- ✅ Cost is equal or lower than Fly.io ($5/month Railway vs broken Fly.io)
 
 ## Key URLs to Update
 
 ### Current Fly.io URLs (to be replaced):
-- `https://beacon-hybrid-router.fly.dev`
-- `https://beacon-golem-us.fly.dev`
-- `https://beacon-golem-eu.fly.dev`
-- `https://beacon-golem-apac.fly.dev`
+- `https://beacon-hybrid-router.fly.dev` ❌ SUSPENDED
+- `https://beacon-golem-us.fly.dev` ❌ SUSPENDED
+- `https://beacon-golem-eu.fly.dev` ❌ SUSPENDED
+- `https://beacon-golem-apac.fly.dev` ❌ SUSPENDED
 
-### New Railway URLs (TBD after deployment):
-- `https://project-beacon-production.up.railway.app`
+### New Railway URLs (ACTIVE):
+- `https://project-beacon-production.up.railway.app` ✅ HEALTHY
 
 ## Files to Update
 - `portal/src/lib/api.js`
