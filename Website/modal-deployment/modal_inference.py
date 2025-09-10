@@ -533,7 +533,17 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
             "error": "Prompt is required"
         }
     
-    return run_inference.local(model, prompt, temperature, max_tokens)
+    return run_inference_us.local(model, prompt, temperature, max_tokens)
+
+# Health check web endpoint
+@app.function(
+    image=image,
+    timeout=30,
+)
+@modal.web_endpoint(method="GET", label="health")
+def health_api() -> Dict[str, Any]:
+    """HTTP health check endpoint"""
+    return health_check.local()
 
 if __name__ == "__main__":
     # Local testing

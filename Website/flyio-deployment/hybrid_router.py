@@ -131,10 +131,14 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check
-                health_payload = {"action": "health_check"}
-                response = await self.client.post(f"{provider.endpoint}/health", json=health_payload, timeout=5.0)
-                provider.healthy = response.status_code == 200
+                # Modal health check - use dedicated health endpoint
+                health_endpoint = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
+                response = await self.client.get(health_endpoint, timeout=5.0)
+                if response.status_code == 200:
+                    health_data = response.json()
+                    provider.healthy = health_data.get("status") == "healthy"
+                else:
+                    provider.healthy = False
             
             elif provider.type == ProviderType.RUNPOD:
                 # RunPod health check
