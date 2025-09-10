@@ -53,7 +53,7 @@ function shouldSendIdempotency() {
 }
 
 async function httpV1(path, opts = {}) {
-  const url = `${API_BASE_V1}${path.startsWith('/') ? path : '/' + path}`;
+  const url = `${API_BASE_V1}/api/v1${path.startsWith('/') ? path : '/' + path}`;
   try {
     const fetchOptions = {
       // Spread opts first so we can reliably override/merge headers below
