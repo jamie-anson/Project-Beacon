@@ -303,6 +303,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://project-beacon-portal.netlify.app",
+        "https://projectbeacon.netlify.app",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
@@ -403,6 +404,14 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Helpful hint for accidental HTTP GET requests on the WebSocket endpoint
+@app.get("/ws")
+async def websocket_http_hint():
+    return {
+        "status": "ok",
+        "message": "This is a WebSocket endpoint. Connect using wss://<host>/ws (HTTP GET will not upgrade)."
+    }
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates"""
@@ -438,4 +447,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="*")

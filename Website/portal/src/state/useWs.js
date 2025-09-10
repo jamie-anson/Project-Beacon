@@ -11,12 +11,30 @@ export default function useWs(path = '/ws', opts = {}) {
   const bufferRef = useRef('');
   const closedRef = useRef(false);
 
+  function isTruthy(v) {
+    try { return /^(1|true|yes|on)$/i.test(String(v || '')); } catch { return false; }
+  }
+
+  function wsEnabled() {
+    try {
+      const envVal = import.meta?.env?.VITE_ENABLE_WS;
+      if (envVal != null) return isTruthy(envVal);
+    } catch {}
+    try {
+      const lsVal = localStorage.getItem('beacon:enable_ws');
+      if (lsVal != null) return isTruthy(lsVal);
+    } catch {}
+    return false;
+  }
+
   const connect = useCallback(() => {
-    // Temporarily disable WebSocket connections until backend support is ready
-    console.log('WebSocket disabled - backend endpoint not available');
-    setConnected(false);
-    setError(new Error('WebSocket temporarily disabled'));
-    return;
+    // Feature flag: allow enabling via env or localStorage
+    if (!wsEnabled()) {
+      console.log('WebSocket disabled by config (set VITE_ENABLE_WS=1 or localStorage beacon:enable_ws=true to enable)');
+      setConnected(false);
+      setError(new Error('WebSocket disabled by config'));
+      return;
+    }
     
     // Use environment variable for WebSocket base, fallback to same-origin proxy
     let wsBase = import.meta.env?.VITE_WS_BASE;
