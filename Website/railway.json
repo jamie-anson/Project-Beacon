@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "python hybrid_router.py",
+    "startCommand": "sh -c \"uvicorn hybrid_router:app --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers\"",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE"
