@@ -12,11 +12,11 @@ export default function useWs(path = '/ws', opts = {}) {
   const closedRef = useRef(false);
 
   const connect = useCallback(() => {
-    // Use environment variable for WebSocket base, fallback to direct runner
+    // Use environment variable for WebSocket base, fallback to Fly.io runner app
     let wsBase = import.meta.env?.VITE_WS_BASE;
     if (!wsBase || wsBase.trim() === '') {
-      // Default to Railway WebSocket URL
-      wsBase = 'wss://project-beacon-production.up.railway.app';
+      // Default to Fly.io runner app WebSocket URL (Railway only has hybrid router)
+      wsBase = 'wss://beacon-runner-change-me.fly.dev';
     }
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
     let ws;
