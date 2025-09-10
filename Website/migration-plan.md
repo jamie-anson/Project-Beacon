@@ -13,16 +13,16 @@ Migrating Project Beacon's hybrid router service from Fly.io to Railway due to p
 
 ### 1.1 Repository Configuration
 - [x] Create `railway.json` configuration file
-- [ ] Commit and push railway.json to main branch
-- [ ] Connect GitHub repository to Railway dashboard
-- [ ] Verify Railway detects the configuration
+- [x] Commit and push railway.json to main branch
+- [x] Connect GitHub repository to Railway dashboard
+- [x] Verify Railway detects the configuration (Project ID: 26123d99-d3c5-4c96-a251-00bf2bc39348)
 
 ### 1.2 Environment Variables Setup
 Set these in Railway project settings:
-- [ ] `MODAL_API_TOKEN` - Token for Modal GPU functions
+- [x] `MODAL_API_TOKEN` - Token for Modal GPU functions
 - [ ] `RUNPOD_API_KEY` - RunPod API key (if used)
-- [ ] `GOLEM_PROVIDER_ENDPOINTS` - Comma-separated Golem endpoints
-- [ ] `PORT` - Set to 8000 for Railway
+- [ ] `GOLEM_PROVIDER_ENDPOINTS` - Leave empty for now (no active Golem providers)
+- [x] `PORT` - Set to 8000 for Railway
 
 ### 1.3 Initial Deployment
 - [ ] Deploy hybrid router to Railway

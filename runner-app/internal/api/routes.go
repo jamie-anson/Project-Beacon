@@ -38,6 +38,11 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	// API routes
 	v1 := r.Group("/api/v1")
 	{
+		// Health endpoints under API namespace
+		v1.GET("/health", healthHandler.GetHealth)
+		v1.GET("/health/live", healthHandler.GetHealthLiveness)
+		v1.GET("/health/ready", healthHandler.GetHealthReadiness)
+
 		jobs := v1.Group("/jobs")
 		{
 			jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
