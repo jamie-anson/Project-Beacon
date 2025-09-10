@@ -12,11 +12,11 @@ export default function useWs(path = '/ws', opts = {}) {
   const closedRef = useRef(false);
 
   const connect = useCallback(() => {
-    // Use environment variable for WebSocket base, fallback to Fly.io runner app
+    // Use environment variable for WebSocket base, fallback to same-origin proxy
     let wsBase = import.meta.env?.VITE_WS_BASE;
     if (!wsBase || wsBase.trim() === '') {
-      // Default to Fly.io runner app WebSocket URL (Railway only has hybrid router)
-      wsBase = 'wss://beacon-runner-change-me.fly.dev';
+      // Use same-origin WebSocket (Netlify proxies to Fly.io runner app)
+      wsBase = window.location.protocol === 'https:' ? 'wss://' + window.location.host : 'ws://' + window.location.host;
     }
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
     let ws;
