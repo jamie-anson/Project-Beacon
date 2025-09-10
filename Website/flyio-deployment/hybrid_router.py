@@ -294,7 +294,25 @@ class HybridRouter:
             return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
 
 # FastAPI app
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Project Beacon Hybrid Router", version="1.0.0")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://project-beacon-portal.netlify.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 router = HybridRouter()
 
 @app.on_event("startup")
