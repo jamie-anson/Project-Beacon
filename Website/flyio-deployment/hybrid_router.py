@@ -402,6 +402,15 @@ async def get_metrics():
         }
     }
 
+@app.get("/modal-health")
+async def modal_health():
+    """Dedicated health endpoint for Modal provider checks"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "service": "project-beacon-router",
+    }
+
 @app.get("/env")
 async def env_dump():
     """Debug endpoint to inspect provider-related environment variables"""
