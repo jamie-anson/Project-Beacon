@@ -66,17 +66,36 @@ class HybridRouter:
         """Initialize provider configurations"""
         
         # Golem providers (baseline capacity)
-        golem_endpoints = os.getenv("GOLEM_PROVIDER_ENDPOINTS", "").split(",")
+        # Option A: Comma-separated list via GOLEM_PROVIDER_ENDPOINTS
+        golem_endpoints = [e.strip() for e in os.getenv("GOLEM_PROVIDER_ENDPOINTS", "").split(",") if e.strip()]
         for i, endpoint in enumerate(golem_endpoints):
-            if endpoint.strip():
-                self.providers.append(Provider(
-                    name=f"golem-{i+1}",
-                    type=ProviderType.GOLEM,
-                    endpoint=endpoint.strip(),
-                    region=self._get_region_from_endpoint(endpoint),
-                    cost_per_second=0.0001,  # Very low cost
-                    max_concurrent=5
-                ))
+            self.providers.append(Provider(
+                name=f"golem-{i+1}",
+                type=ProviderType.GOLEM,
+                endpoint=endpoint,
+                region=self._get_region_from_endpoint(endpoint),
+                cost_per_second=0.0001,  # Very low cost
+                max_concurrent=5
+            ))
+
+        # Option B: Region-specific endpoints via dedicated env vars
+        region_envs = [
+            ("us-east", os.getenv("GOLEM_US_ENDPOINT", "")),
+            ("eu-west", os.getenv("GOLEM_EU_ENDPOINT", "")),
+            ("asia-pacific", os.getenv("GOLEM_APAC_ENDPOINT", "")),
+        ]
+        for region, endpoint in region_envs:
+            e = (endpoint or "").strip()
+            if not e:
+                continue
+            self.providers.append(Provider(
+                name=f"golem-{region}",
+                type=ProviderType.GOLEM,
+                endpoint=e,
+                region=region,
+                cost_per_second=0.0001,
+                max_concurrent=5
+            ))
         
         # Modal serverless (burst capacity)
         modal_endpoint = os.getenv("MODAL_API_BASE")
@@ -321,7 +340,11 @@ async def startup_event():
     """Initialize router on startup"""
     logger.info("Starting Project Beacon Hybrid Router...")
     await router.health_check_providers()
-    logger.info(f"Initialized with {len(router.providers)} providers")
+    try:
+        configured = [f"{p.name}({p.type.value},{p.region})@{p.endpoint}" for p in router.providers]
+        logger.info(f"Initialized with {len(router.providers)} providers: {configured}")
+    except Exception:
+        logger.info(f"Initialized with {len(router.providers)} providers")
 
 @app.get("/health")
 async def health_check():
@@ -377,6 +400,19 @@ async def get_metrics():
             "min": min(p.cost_per_second for p in healthy_providers) if healthy_providers else 0,
             "max": max(p.cost_per_second for p in healthy_providers) if healthy_providers else 0
         }
+    }
+
+@app.get("/env")
+async def env_dump():
+    """Debug endpoint to inspect provider-related environment variables"""
+    return {
+        "GOLEM_US_ENDPOINT": os.getenv("GOLEM_US_ENDPOINT"),
+        "GOLEM_EU_ENDPOINT": os.getenv("GOLEM_EU_ENDPOINT"),
+        "GOLEM_APAC_ENDPOINT": os.getenv("GOLEM_APAC_ENDPOINT"),
+        "GOLEM_PROVIDER_ENDPOINTS": os.getenv("GOLEM_PROVIDER_ENDPOINTS"),
+        "MODAL_API_BASE": os.getenv("MODAL_API_BASE"),
+        "MODAL_HEALTH_ENDPOINT": os.getenv("MODAL_HEALTH_ENDPOINT"),
+        "RUNPOD_API_BASE": os.getenv("RUNPOD_API_BASE"),
     }
 
 # WebSocket connection manager
