@@ -1,5 +1,29 @@
 // Use environment variable for API base, fallback to Fly.io runner app (Railway only has hybrid router)
-const API_BASE_V1 = (import.meta.env?.VITE_API_BASE || 'https://beacon-runner-change-me.fly.dev').replace(/\/$/, '');
+// Normalize: ensure no trailing slash and strip a mistakenly included "/api/v1" suffix.
+let __apiBase = (import.meta.env?.VITE_API_BASE || 'https://beacon-runner-change-me.fly.dev');
+// Runtime override (useful during deploy previews/unique deploys)
+try {
+  const lsBase = localStorage.getItem('beacon:api_base');
+  if (lsBase && lsBase.trim()) {
+    __apiBase = lsBase.trim();
+  }
+} catch {}
+// Prefer same-origin when on Netlify domains to avoid CORS in unique deploys
+try {
+  const host = window.location.host || '';
+  if (/netlify\.app$/i.test(host)) {
+    __apiBase = window.location.origin;
+  }
+} catch {}
+try {
+  __apiBase = String(__apiBase)
+    .replace(/\s+/g, '')
+    .replace(/\/?api\/v1\/?$/i, '') // strip trailing /api/v1 if present
+    .replace(/\/$/, '');              // then strip trailing slash
+} catch {}
+// One-time debug in development builds to help diagnose misconfigurations
+try { if (import.meta?.env?.DEV) console.info('[Beacon] API_BASE_V1 =', __apiBase); } catch {}
+const API_BASE_V1 = __apiBase;
 
 // Simple tab identifier for semi-stable idempotency keys
 function getTabId() {
@@ -284,3 +308,19 @@ export const getGeo = async () => {
   if (data && data.countries) return data;
   return { countries: {} };
 };
+
+// Hybrid router helpers via Netlify proxy (/hybrid/*)
+async function httpHybrid(path, opts = {}) {
+  const url = `/hybrid${path.startsWith('/') ? path : '/' + path}`;
+  try {
+    const res = await fetch(url, { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) } });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.status === 204 ? null : res.json();
+  } catch (err) {
+    console.warn(`[Hybrid] request failed: ${url}`, err.message);
+    throw err;
+  }
+}
+
+export const getHybridHealth = () => httpHybrid('/health');
+export const getHybridProviders = () => httpHybrid('/providers').then(d => Array.isArray(d?.providers) ? d.providers : []);

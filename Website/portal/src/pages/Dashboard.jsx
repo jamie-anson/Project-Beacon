@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '../state/useQuery.js';
-import { getHealth, getExecutions, getDiffs, getTransparencyRoot, listJobs } from '../lib/api.js';
+import { getHealth, getExecutions, getDiffs, getTransparencyRoot, listJobs, getHybridHealth, getHybridProviders } from '../lib/api.js';
 import { Link } from 'react-router-dom';
 import useWs from '../state/useWs.js';
 import { useToast } from '../state/toast.jsx';
@@ -55,6 +55,9 @@ export default function Dashboard() {
   const { data: health, loading: loadingHealth, error: healthError } = useQuery('health', getHealth, { interval: 30000 });
   const { data: executions, loading: loadingExecs, error: execsError } = useQuery('executions:latest', () => getExecutions({ limit: 5 }), { interval: 15000 });
   const { data: diffs, loading: loadingDiffs, error: diffsError } = useQuery('diffs:latest', () => getDiffs({ limit: 5 }), { interval: 20000 });
+  // Hybrid router (Railway) live data via Netlify proxy
+  const { data: hybridHealth, error: hybridErr } = useQuery('hybrid:health', getHybridHealth, { interval: 30000 });
+  const { data: hybridProviders, error: providersErr } = useQuery('hybrid:providers', getHybridProviders, { interval: 30000 });
 
   const { add: addToast } = useToast();
   const [events, setEvents] = React.useState(() => {
@@ -169,90 +172,55 @@ export default function Dashboard() {
         <h2 className="text-xl font-semibold">Server Status</h2>
         <div className="bg-white border rounded p-4">
           <div className="space-y-3">
-            {/* Main Runner API */}
+            {/* Main Runner API (Fly) */}
             <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className={`w-3 h-3 rounded-full ${healthError ? 'bg-red-500' : 'bg-green-500'}`}></div>
                 <div>
-                  <div className="font-medium text-sm">beacon-runner-change-me</div>
-                  <div className="text-xs text-slate-500">Main Runner API</div>
+                  <div className="font-medium text-sm">Runner API</div>
+                  <div className="text-xs text-slate-500">Fly.io</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="deployed" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                <StatusPill value={healthError ? 'down' : 'healthy'} />
+                <div className="text-xs text-slate-500 mt-1">beacon-runner-change-me</div>
               </div>
             </div>
 
-            {/* Hybrid Router */}
+            {/* Hybrid Router (Railway) */}
             <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className={`w-3 h-3 rounded-full ${hybridErr ? 'bg-red-500' : 'bg-green-500'}`}></div>
                 <div>
-                  <div className="font-medium text-sm">beacon-hybrid-router</div>
-                  <div className="text-xs text-slate-500">Hybrid Router</div>
+                  <div className="font-medium text-sm">Hybrid Router</div>
+                  <div className="text-xs text-slate-500">Railway</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="deployed" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                <StatusPill value={hybridHealth?.status || (hybridErr ? 'down' : 'healthy')} />
+                <div className="text-xs text-slate-500 mt-1">project-beacon-production.up.railway.app</div>
               </div>
             </div>
 
-            {/* Golem Providers */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            {/* Golem Provider (EU) */}
+            <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                {(() => {
+                  const eu = Array.isArray(hybridProviders) ? hybridProviders.find(p => (p.type === 'golem') && (p.region === 'eu-west')) : null;
+                  const ok = !!eu?.healthy;
+                  return <div className={`w-3 h-3 rounded-full ${ok ? 'bg-green-500' : 'bg-amber-400'}`}></div>;
+                })()}
                 <div>
-                  <div className="font-medium text-sm">beacon-golem-simple</div>
-                  <div className="text-xs text-slate-500">Golem Provider (Simple)</div>
+                  <div className="font-medium text-sm">Golem Provider (EU)</div>
+                  <div className="text-xs text-slate-500">Fly.io</div>
                 </div>
               </div>
               <div className="text-right">
-                <StatusPill value="deployed" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">beacon-golem-us</div>
-                  <div className="text-xs text-slate-500">Golem Provider (US)</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="suspended" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">beacon-golem-apac</div>
-                  <div className="text-xs text-slate-500">Golem Provider (APAC)</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="suspended" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <div>
-                  <div className="font-medium text-sm">beacon-golem-eu</div>
-                  <div className="text-xs text-slate-500">Golem Provider (EU)</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <StatusPill value="suspended" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                {(() => {
+                  const eu = Array.isArray(hybridProviders) ? hybridProviders.find(p => (p.type === 'golem') && (p.region === 'eu-west')) : null;
+                  return <StatusPill value={eu ? (eu.healthy ? 'healthy' : 'degraded') : 'unknown'} />;
+                })()}
+                <div className="text-xs text-slate-500 mt-1">beacon-golem-simple</div>
               </div>
             </div>
 

@@ -21,7 +21,10 @@ Migrating Project Beacon's hybrid router service from Fly.io to Railway due to p
 Set these in Railway project settings:
 - [x] `MODAL_API_TOKEN` - Token for Modal GPU functions
 - [ ] `RUNPOD_API_KEY` - RunPod API key (if used)
-- [ ] `GOLEM_PROVIDER_ENDPOINTS` - Leave empty for now (no active Golem providers)
+- [x] `GOLEM_EU_ENDPOINT` - `https://beacon-golem-simple.fly.dev` (MVP)
+- [ ] `GOLEM_US_ENDPOINT` - (optional, post-MVP)
+- [ ] `GOLEM_APAC_ENDPOINT` - (optional, post-MVP)
+- [x] `GOLEM_PROVIDER_ENDPOINTS` - Cleared to avoid duplicate provider entries
 - [x] `PORT` - Set to 8000 for Railway
 
 ### 1.3 Initial Deployment
@@ -37,7 +40,7 @@ Update portal to use Railway URLs instead of Fly.io:
 - [x] Add Railway and Fly.io service status monitoring to dashboard
 - [x] Update `portal/src/lib/api.js` - change base URLs
 - [x] Update any hardcoded Fly.io URLs in portal code
-- [ ] Update environment variables in Netlify if needed
+- [x] Update environment variables in Netlify if needed
 - [x] Test portal API connections locally
 
 ### 2.2 Test Configuration Updates
@@ -51,6 +54,7 @@ Update test files to use new Railway endpoints:
 - [ ] Update `flyio-deployment/README.md` with Railway instructions
 - [ ] Update `integration-guide.md` with new endpoints
 - [ ] Update any API documentation with Railway URLs
+- [x] Add `golem-provider-runbook.md` (provider bring-up, envs, validation)
 
 ## Phase 3: Testing & Validation
 
@@ -60,9 +64,9 @@ Update test files to use new Railway endpoints:
 - [x] Check response time and reliability
 
 ### 3.2 API Functionality Testing
-- [x] Test inference endpoint: `POST /inference` (503 - No providers, expected)
-- [x] Test provider status endpoint: `GET /providers` (Empty array, expected)
-- [x] Test metrics endpoint: `GET /metrics` (Zero metrics, expected)
+- [x] Test inference endpoint: `POST /inference` (EU Golem + Modal routes OK)
+- [x] Test provider status endpoint: `GET /providers` (shows `golem-eu-west` + 3 Modal)
+- [x] Test metrics endpoint: `GET /metrics` (non-zero with providers healthy)
 - [x] Verify all responses match expected behavior (Railway working correctly)
 
 ### 3.3 Portal Integration Testing
@@ -95,6 +99,8 @@ Update test files to use new Railway endpoints:
 - Health endpoint working, API responding correctly
 - Portal updated to use Railway endpoints
 
+See `golem-provider-runbook.md` for bringing US/EU/APAC Golem providers online and wiring them into the hybrid router.
+
 **✅ Modal GPU Functions Deployed:**
 - US region: `setup_models_us`, `run_inference_us` 
 - EU region: `setup_models_eu`, `run_inference_eu`
@@ -102,9 +108,9 @@ Update test files to use new Railway endpoints:
 - Web API: `https://jamie-anson--project-beacon-inference-inference-api.modal.run`
 
 **✅ Integration Status:**
-- Railway hybrid router working correctly (shows 0 providers as expected)
-- Modal GPU functions deployed and accessible independently
-- Inference endpoint returns proper 503 "No healthy providers" (correct behavior)
+- `golem-eu-west` provider live and healthy via `https://beacon-golem-simple.fly.dev`
+- Railway hybrid router healthy with providers (Golem EU + 3 Modal)
+- Inference endpoint routes based on region/cost; fallback OK
 - Health checks working, provider discovery logic functioning
 
 ## Phase 5: Production Cutover & Cleanup
@@ -144,6 +150,7 @@ Update test files to use new Railway endpoints:
 - [x] Portal connects to Railway successfully
 - [x] All API endpoints functional (/health, /providers, /metrics, /inference)
 - [x] Modal GPU functions deployed and accessible
+- [x] WebSocket verified via same-origin proxy to Railway
 - [ ] Cross-region functionality tested
 - [ ] End-to-end workflow validated
 
@@ -160,6 +167,7 @@ Update test files to use new Railway endpoints:
 - ✅ Portal successfully connects to Railway endpoints
 - ✅ All API endpoints respond correctly
 - ✅ Modal GPU functions deployed and accessible
+- ✅ Portal WebSocket connects via same-origin proxy and remains stable
 - ✅ No data loss during migration
 - ✅ Performance meets or exceeds Fly.io baseline
 - [ ] 24-hour monitoring period completed successfully
