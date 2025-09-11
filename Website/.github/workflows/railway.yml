@@ -1,0 +1,65 @@
+name: Hybrid Router CI (Railway Preflight)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'flyio-deployment/**'
+      - 'Website/Dockerfile'
+      - 'railway.json'
+      - '.github/workflows/railway.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'flyio-deployment/**'
+      - 'Website/Dockerfile'
+      - 'railway.json'
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build hybrid-router image (no push)
+        run: |
+          docker build \
+            -f Website/Dockerfile \
+            -t beacon-hybrid-router:ci \
+            .
+
+  post-deploy-healthcheck:
+    # This job verifies the live Railway deployment after pushes to main.
+    # Railway performs deployments via its GitHub integration on push.
+    needs: [ docker-build ]
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for Railway to roll out
+        run: |
+          set -e
+          URL="https://project-beacon-production.up.railway.app/health"
+          echo "Polling $URL for healthy status..."
+          for i in $(seq 1 20); do
+            STATUS=$(curl -s -m 5 "$URL" | jq -r .status || true)
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Service healthy"; exit 0
+            fi
+            echo "Attempt $i/20: status=$STATUS"; sleep 10
+          done
+          echo "Service did not become healthy in time"; exit 1
+
+      - name: Check providers endpoint
+        run: |
+          curl -sSfL https://project-beacon-production.up.railway.app/providers | jq . | head -50
+
+      - name: Check WebSocket GET hint (non-upgrade)
+        run: |
+          curl -sSfL https://project-beacon-production.up.railway.app/ws | jq . || true
