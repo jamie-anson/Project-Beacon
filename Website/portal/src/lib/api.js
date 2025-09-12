@@ -1,28 +1,47 @@
 // Use environment variable for API base, fallback to Fly.io runner app (Railway only has hybrid router)
-// Normalize: ensure no trailing slash and strip a mistakenly included "/api/v1" suffix.
-let __apiBase = (import.meta.env?.VITE_API_BASE || 'https://beacon-runner-change-me.fly.dev');
-// Runtime override (useful during deploy previews/unique deploys)
+// Precedence:
+// 1) Explicit runtime override via localStorage 'beacon:api_base'
+// 2) VITE_API_BASE (build-time)
+// 3) Netlify same-origin fallback (only if no explicit base)
+// 4) Default Fly runner
+let __apiBase = 'https://beacon-runner-change-me.fly.dev';
+let explicit = false;
+// 1) Runtime override (highest precedence)
 try {
   const lsBase = localStorage.getItem('beacon:api_base');
   if (lsBase && lsBase.trim()) {
     __apiBase = lsBase.trim();
+    explicit = true;
   }
 } catch {}
-// Prefer same-origin when on Netlify domains to avoid CORS in unique deploys
+// 2) Build-time env if no runtime override
 try {
-  const host = window.location.host || '';
-  if (/netlify\.app$/i.test(host)) {
-    __apiBase = window.location.origin;
+  if (!explicit && import.meta.env?.VITE_API_BASE) {
+    const envBase = String(import.meta.env.VITE_API_BASE).trim();
+    if (envBase) {
+      __apiBase = envBase;
+      explicit = true;
+    }
   }
 } catch {}
+// 3) Same-origin fallback for Netlify only when not explicit
+try {
+  if (!explicit) {
+    const host = window.location.host || '';
+    if (/netlify\.app$/i.test(host)) {
+      __apiBase = window.location.origin;
+    }
+  }
+} catch {}
+// Normalize: ensure no trailing slash and strip a mistakenly included "/api/v1" suffix.
 try {
   __apiBase = String(__apiBase)
     .replace(/\s+/g, '')
-    .replace(/\/?api\/v1\/?$/i, '') // strip trailing /api/v1 if present
-    .replace(/\/$/, '');              // then strip trailing slash
+    .replace(/\/?api\/v1\/?$/i, '')
+    .replace(/\/$/, '');
 } catch {}
 // One-time debug in development builds to help diagnose misconfigurations
-try { if (import.meta?.env?.DEV) console.info('[Beacon] API_BASE_V1 =', __apiBase); } catch {}
+try { if (import.meta?.env?.DEV) console.info('[Beacon] API_BASE_V1 =', __apiBase, '(explicit =', explicit, ')'); } catch {}
 const API_BASE_V1 = __apiBase;
 
 // Simple tab identifier for semi-stable idempotency keys
