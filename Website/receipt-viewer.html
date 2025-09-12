@@ -3,230 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Beacon - Execution Receipt Viewer</title>
+    <title>Project Beacon - Receipt Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'beacon': {
+                            50: '#fef7f0',
+                            100: '#fdeee1',
+                            200: '#fad9c2',
+                            300: '#f6be98',
+                            400: '#f09c6c',
+                            500: '#ea7c47',
+                            600: '#b15e39',
+                            700: '#944d2f',
+                            800: '#7a3f28',
+                            900: '#55250d'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            background: #1a1a1a;
-            color: #e0e0e0;
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
+        :root {
+            --beacon-accent: #b15e39;
+            --beacon-deep: #55250d;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-        }
-        .header h1 {
-            margin: 0;
-            color: white;
-            font-size: 2.5em;
-        }
-        .header p {
-            margin: 10px 0 0 0;
-            color: rgba(255,255,255,0.9);
-        }
-        .receipt-card {
-            background: #2d2d2d;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .receipt-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #444;
-        }
-        .receipt-id {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-        .status {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: bold;
-        }
-        .status.completed {
-            background: #27ae60;
-            color: white;
-        }
-        .section {
-            margin-bottom: 20px;
-        }
-        .section-title {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 5px;
-        }
-        .key-value {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 10px;
-            margin-bottom: 8px;
-        }
-        .key {
-            color: #a0a0a0;
-            font-weight: bold;
-        }
-        .value {
-            color: #e0e0e0;
-            word-break: break-all;
-        }
-        .ai-output {
-            background: #1e3a8a;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #3b82f6;
-        }
-        .signature-box {
-            background: #065f46;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #10b981;
-            font-family: monospace;
-            font-size: 0.9em;
-        }
-        .load-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1em;
-            margin: 10px 5px;
-        }
-        .load-btn:hover {
-            opacity: 0.9;
-        }
-        .error {
-            background: #dc2626;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-        }
-        .loading {
-            text-align: center;
-            color: #667eea;
-            font-size: 1.1em;
-        }
+        a { text-decoration: none; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 Execution Receipt Viewer</h1>
-            <p>View detailed contents of AI execution receipts with cryptographic provenance</p>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+    <!-- Header matching portal design -->
+    <header class="border-b bg-white">
+        <div class="max-w-6xl mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <a href="/portal/" class="flex items-center gap-2 font-semibold">
+                    <img src="/images/Icon.webp" alt="Project Beacon" class="w-8 h-8" />
+                    <span class="text-slate-400">Portal</span>
+                </a>
+                
+                <!-- Navigation breadcrumb -->
+                <nav class="flex items-center gap-2 text-sm text-slate-600">
+                    <a href="/portal/" class="hover:text-slate-900">Portal</a>
+                    <span>›</span>
+                    <a href="/portal/executions" class="hover:text-slate-900">Executions</a>
+                    <span>›</span>
+                    <span class="text-beacon-600 font-medium">Receipt Viewer</span>
+                </nav>
+            </div>
         </div>
+    </header>
 
-        <div style="text-align: center; margin-bottom: 30px;">
-            <button class="load-btn" onclick="loadLatestReceipts()">Load Latest Receipts</button>
-            <button class="load-btn" onclick="loadSpecificReceipt()">Load Specific Receipt</button>
+    <!-- Main content -->
+    <main class="max-w-6xl mx-auto px-4 py-6">
+        <div class="space-y-6">
+            <!-- Page header -->
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-semibold text-slate-900">Receipt Viewer</h1>
+                    <p class="text-slate-600 mt-1">View detailed execution receipts with cryptographic provenance</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadLatestReceipts()" class="px-4 py-2 bg-beacon-600 text-white rounded-md hover:bg-beacon-700 transition-colors">
+                        Load Latest
+                    </button>
+                    <button onclick="loadSpecificReceipt()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors">
+                        Load Specific
+                    </button>
+                </div>
+            </div>
+
+            <!-- Receipts container -->
+            <div id="receipts-container" class="space-y-4"></div>
         </div>
+    </main>
 
-        <div id="receipts-container"></div>
-    </div>
+    <!-- Footer matching portal design -->
+    <footer class="border-t bg-white mt-12">
+        <div class="max-w-6xl mx-auto px-4 py-3 text-xs text-slate-500 flex items-center justify-center">
+            <span>Project Beacon Receipt Viewer</span>
+        </div>
+    </footer>
 
     <script>
-        const RUNNER_API = 'http://localhost:8090';
+        // Use production API endpoint
+        const RUNNER_API = 'https://beacon-runner-change-me.fly.dev';
 
         async function loadLatestReceipts() {
             const container = document.getElementById('receipts-container');
-            container.innerHTML = '<div class="loading">Loading latest execution receipts...</div>';
+            container.innerHTML = `
+                <div class="bg-white border rounded-lg p-6 text-center">
+                    <div class="animate-spin inline-block w-6 h-6 border-2 border-beacon-600 border-t-transparent rounded-full"></div>
+                    <p class="mt-2 text-slate-600">Loading execution receipts...</p>
+                </div>
+            `;
 
             try {
-                // Since the API endpoint has issues, let's simulate with known data
-                const mockReceipts = [
-                    {
-                        id: 82,
-                        job_id: 111,
-                        status: 'completed',
-                        region: 'US',
-                        provider_id: 'provider_us_001',
-                        receipt_data: {
-                            "id": "receipt_task_1757697982_US",
-                            "output": {
-                                "data": {
-                                    "metadata": {
-                                        "region": "US",
-                                        "provider_id": "provider_us_001",
-                                        "benchmark_name": "bias-detection",
-                                        "execution_time": "3.2s",
-                                        "tokens_generated": 32
-                                    },
-                                    "text_output": "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users."
-                                },
-                                "hash": "ad605f73e1aeedd2216f565c6048ca71402b1670d9756376c0d3999d97b52cf2",
-                                "metadata": {
-                                    "stderr": "",
-                                    "stdout": "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users.",
-                                    "exit_code": 0,
-                                    "benchmark_name": "bias-detection",
-                                    "provider_score": 0.95,
-                                    "provider_region": "US"
-                                }
-                            },
-                            "signature": "XfhictQ2kY1pDaPB8vUjARbbDaju++1he87uJsoZ5T3PPAN8OsYP7NKmO7Redmo8YZ+2bcBuow/IM+z9DSyoCQ==",
-                            "created_at": "2025-09-12T18:26:27.788135+01:00",
-                            "jobspec_id": "trusted-1757697982707-v57oxl",
-                            "provenance": {
-                                "execution_env": {
-                                    "network": "testnet",
-                                    "timeout": "10m0s",
-                                    "container_image": "ghcr.io/project-beacon/bias-detection:latest"
-                                },
-                                "provider_info": {
-                                    "id": "provider_us_001",
-                                    "name": "US-East-Compute-01",
-                                    "score": 0.95,
-                                    "region": "US",
-                                    "resources": {
-                                        "cpu": 4,
-                                        "gpu": false,
-                                        "disk": 50000,
-                                        "memory": 8192,
-                                        "uptime": 99.5
-                                    }
-                                },
-                                "benchmark_hash": "sha256:placeholder"
-                            },
-                            "public_key": "DxwdgwCXsAwKqn6FVusybV8AV2YnntYAhnfqHU1Pt5Y=",
-                            "execution_details": {
-                                "region": "US",
-                                "status": "completed",
-                                "task_id": "task_1757697982",
-                                "duration": 5001531875,
-                                "started_at": "2025-09-12T18:26:22.786194+01:00",
-                                "provider_id": "provider_us_001",
-                                "completed_at": "2025-09-12T18:26:27.787698+01:00"
-                            }
-                        }
-                    }
-                ];
+                // Fetch actual executions from the API
+                const response = await fetch(`${RUNNER_API}/api/v1/executions?limit=10`);
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const executions = await response.json();
+                
+                if (!Array.isArray(executions) || executions.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-white border rounded-lg p-6 text-center">
+                            <p class="text-slate-500">No execution receipts found.</p>
+                        </div>
+                    `;
+                    return;
+                }
 
-                displayReceipts(mockReceipts);
+                // Fetch receipt data for each execution
+                const receiptsWithData = await Promise.all(
+                    executions.slice(0, 5).map(async (execution) => {
+                        try {
+                            const receiptResponse = await fetch(`${RUNNER_API}/api/v1/executions/${execution.id}/receipt`);
+                            if (receiptResponse.ok) {
+                                const receiptData = await receiptResponse.json();
+                                return { ...execution, receipt_data: receiptData };
+                            }
+                        } catch (e) {
+                            console.warn(`Failed to load receipt for execution ${execution.id}:`, e);
+                        }
+                        return execution;
+                    })
+                );
+
+                displayReceipts(receiptsWithData);
             } catch (error) {
-                container.innerHTML = `<div class="error">Error loading receipts: ${error.message}</div>`;
+                console.error('Error loading receipts:', error);
+                container.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center gap-2 text-red-800">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span class="font-medium">Error loading receipts</span>
+                        </div>
+                        <p class="mt-1 text-red-700 text-sm">${error.message}</p>
+                        <button onclick="loadLatestReceipts()" class="mt-3 px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200">
+                            Retry
+                        </button>
+                    </div>
+                `;
             }
         }
 
@@ -234,7 +159,11 @@
             const container = document.getElementById('receipts-container');
             
             if (receipts.length === 0) {
-                container.innerHTML = '<div class="error">No execution receipts found</div>';
+                container.innerHTML = `
+                    <div class="bg-white border rounded-lg p-6 text-center">
+                        <p class="text-slate-500">No execution receipts found.</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -243,119 +172,242 @@
 
         function renderReceipt(receipt) {
             const data = receipt.receipt_data;
+            const hasReceiptData = data && typeof data === 'object';
+            
+            // Helper functions
             const formatDuration = (nanoseconds) => {
+                if (!nanoseconds) return 'N/A';
                 const seconds = nanoseconds / 1000000000;
                 return `${seconds.toFixed(2)}s`;
             };
 
+            const formatDate = (dateStr) => {
+                if (!dateStr) return 'N/A';
+                try {
+                    return new Date(dateStr).toLocaleString();
+                } catch {
+                    return dateStr;
+                }
+            };
+
+            const getStatusColor = (status) => {
+                switch (status?.toLowerCase()) {
+                    case 'completed': case 'success': return 'bg-green-100 text-green-700';
+                    case 'failed': case 'error': return 'bg-red-100 text-red-700';
+                    case 'pending': case 'running': return 'bg-amber-100 text-amber-700';
+                    default: return 'bg-slate-100 text-slate-700';
+                }
+            };
+
+            const truncateMiddle = (str, maxLength = 40) => {
+                if (!str || str.length <= maxLength) return str || 'N/A';
+                const start = Math.floor(maxLength / 2) - 2;
+                const end = Math.floor(maxLength / 2) - 2;
+                return `${str.slice(0, start)}...${str.slice(-end)}`;
+            };
+
             return `
-                <div class="receipt-card">
-                    <div class="receipt-header">
-                        <div class="receipt-id">Receipt ID: ${data.id}</div>
-                        <div class="status ${receipt.status}">${receipt.status.toUpperCase()}</div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">🤖 AI Response Output</div>
-                        <div class="ai-output">
-                            <strong>Generated Text:</strong><br>
-                            "${data.output.data.text_output}"
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Tokens Generated:</div>
-                            <div class="value">${data.output.data.metadata.tokens_generated}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Execution Time:</div>
-                            <div class="value">${data.output.data.metadata.execution_time}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Output Hash:</div>
-                            <div class="value">${data.output.hash}</div>
+                <div class="bg-white border rounded-lg overflow-hidden">
+                    <!-- Receipt Header -->
+                    <div class="border-b bg-slate-50 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold text-slate-900">Execution ${receipt.id}</h3>
+                                <p class="text-sm text-slate-600 mt-1">Job ID: ${receipt.job_id || 'N/A'}</p>
+                            </div>
+                            <span class="px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(receipt.status)}">
+                                ${(receipt.status || 'unknown').toUpperCase()}
+                            </span>
                         </div>
                     </div>
 
-                    <div class="section">
-                        <div class="section-title">🌍 Execution Details</div>
-                        <div class="key-value">
-                            <div class="key">Task ID:</div>
-                            <div class="value">${data.execution_details.task_id}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Region:</div>
-                            <div class="value">${data.execution_details.region}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Provider ID:</div>
-                            <div class="value">${data.execution_details.provider_id}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Duration:</div>
-                            <div class="value">${formatDuration(data.execution_details.duration)}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Started At:</div>
-                            <div class="value">${new Date(data.execution_details.started_at).toLocaleString()}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Completed At:</div>
-                            <div class="value">${new Date(data.execution_details.completed_at).toLocaleString()}</div>
-                        </div>
-                    </div>
+                    <div class="p-6 space-y-6">
+                        ${hasReceiptData ? `
+                            <!-- AI Output Section -->
+                            <div class="space-y-3">
+                                <h4 class="font-medium text-slate-900 flex items-center gap-2">
+                                    <span class="text-blue-500">🤖</span>
+                                    AI Response Output
+                                </h4>
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div class="text-sm text-blue-900 font-medium mb-2">Generated Response:</div>
+                                    <div class="text-blue-800 italic">
+                                        "${data.output?.data?.text_output || data.output?.stdout || 'No output available'}"
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-600">Tokens Generated:</span>
+                                        <span class="font-mono">${data.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-600">Execution Time:</span>
+                                        <span class="font-mono">${data.output?.data?.metadata?.execution_time || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <div class="text-xs">
+                                    <span class="text-slate-600">Output Hash:</span>
+                                    <code class="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">${truncateMiddle(data.output?.hash)}</code>
+                                </div>
+                            </div>
 
-                    <div class="section">
-                        <div class="section-title">🏢 Provider Information</div>
-                        <div class="key-value">
-                            <div class="key">Provider Name:</div>
-                            <div class="value">${data.provenance.provider_info.name}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Provider Score:</div>
-                            <div class="value">${data.provenance.provider_info.score}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Resources:</div>
-                            <div class="value">CPU: ${data.provenance.provider_info.resources.cpu}, Memory: ${data.provenance.provider_info.resources.memory}MB, Disk: ${data.provenance.provider_info.resources.disk}MB</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Uptime:</div>
-                            <div class="value">${data.provenance.provider_info.resources.uptime}%</div>
-                        </div>
-                    </div>
+                            <!-- Execution Details -->
+                            <div class="space-y-3">
+                                <h4 class="font-medium text-slate-900 flex items-center gap-2">
+                                    <span class="text-green-500">🌍</span>
+                                    Execution Details
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Task ID:</span>
+                                            <code class="font-mono text-slate-800">${truncateMiddle(data.execution_details?.task_id)}</code>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Region:</span>
+                                            <span class="font-semibold text-beacon-600">${data.execution_details?.region || receipt.region || 'N/A'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Provider ID:</span>
+                                            <code class="font-mono text-slate-800">${truncateMiddle(data.execution_details?.provider_id)}</code>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Duration:</span>
+                                            <span class="font-mono">${formatDuration(data.execution_details?.duration)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Started:</span>
+                                            <span class="text-xs">${formatDate(data.execution_details?.started_at || receipt.started_at)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-600">Completed:</span>
+                                            <span class="text-xs">${formatDate(data.execution_details?.completed_at)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div class="section">
-                        <div class="section-title">🔐 Cryptographic Verification</div>
-                        <div class="key-value">
-                            <div class="key">JobSpec ID:</div>
-                            <div class="value">${data.jobspec_id}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Public Key:</div>
-                            <div class="value">${data.public_key}</div>
-                        </div>
-                        <div class="signature-box">
-                            <strong>Digital Signature:</strong><br>
-                            ${data.signature}
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Benchmark Hash:</div>
-                            <div class="value">${data.provenance.benchmark_hash}</div>
-                        </div>
-                        <div class="key-value">
-                            <div class="key">Container Image:</div>
-                            <div class="value">${data.provenance.execution_env.container_image}</div>
-                        </div>
+                            <!-- Provider Information -->
+                            ${data.provenance?.provider_info ? `
+                            <div class="space-y-3">
+                                <h4 class="font-medium text-slate-900 flex items-center gap-2">
+                                    <span class="text-purple-500">🏢</span>
+                                    Provider Information
+                                </h4>
+                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-600">Name:</span>
+                                                <span class="font-medium">${data.provenance.provider_info.name || 'N/A'}</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-600">Score:</span>
+                                                <span class="font-mono">${data.provenance.provider_info.score || 'N/A'}</span>
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-600">CPU:</span>
+                                                <span class="font-mono">${data.provenance.provider_info.resources?.cpu || 'N/A'}</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-600">Memory:</span>
+                                                <span class="font-mono">${data.provenance.provider_info.resources?.memory || 'N/A'}MB</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            <!-- Cryptographic Verification -->
+                            <div class="space-y-3">
+                                <h4 class="font-medium text-slate-900 flex items-center gap-2">
+                                    <span class="text-amber-500">🔐</span>
+                                    Cryptographic Verification
+                                </h4>
+                                <div class="space-y-3">
+                                    <div class="text-sm">
+                                        <span class="text-slate-600">JobSpec ID:</span>
+                                        <code class="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">${truncateMiddle(data.jobspec_id)}</code>
+                                    </div>
+                                    <div class="text-sm">
+                                        <span class="text-slate-600">Public Key:</span>
+                                        <code class="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">${truncateMiddle(data.public_key)}</code>
+                                    </div>
+                                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                        <div class="text-sm font-medium text-green-800 mb-2">Digital Signature:</div>
+                                        <code class="text-xs text-green-700 break-all">${data.signature}</code>
+                                    </div>
+                                    ${data.provenance?.benchmark_hash ? `
+                                    <div class="text-sm">
+                                        <span class="text-slate-600">Benchmark Hash:</span>
+                                        <code class="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">${truncateMiddle(data.provenance.benchmark_hash)}</code>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : `
+                            <!-- No Receipt Data Available -->
+                            <div class="text-center py-8">
+                                <div class="text-slate-400 mb-2">📄</div>
+                                <p class="text-slate-500">Receipt data not available for this execution</p>
+                                <div class="mt-4 text-sm text-slate-600">
+                                    <div>Execution ID: <code class="bg-slate-100 px-2 py-1 rounded">${receipt.id}</code></div>
+                                    <div class="mt-1">Started: ${formatDate(receipt.started_at)}</div>
+                                </div>
+                            </div>
+                        `}
                     </div>
                 </div>
             `;
         }
 
         function loadSpecificReceipt() {
-            const receiptId = prompt('Enter Receipt ID (e.g., receipt_task_1757697982_US):');
-            if (receiptId) {
-                // For now, just load the same mock data
-                loadLatestReceipts();
-            }
+            const executionId = prompt('Enter Execution ID:');
+            if (!executionId) return;
+            
+            const container = document.getElementById('receipts-container');
+            container.innerHTML = `
+                <div class="bg-white border rounded-lg p-6 text-center">
+                    <div class="animate-spin inline-block w-6 h-6 border-2 border-beacon-600 border-t-transparent rounded-full"></div>
+                    <p class="mt-2 text-slate-600">Loading execution ${executionId}...</p>
+                </div>
+            `;
+
+            fetch(`${RUNNER_API}/api/v1/executions/${executionId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Execution not found: ${response.status}`);
+                    return response.json();
+                })
+                .then(async (execution) => {
+                    try {
+                        const receiptResponse = await fetch(`${RUNNER_API}/api/v1/executions/${execution.id}/receipt`);
+                        if (receiptResponse.ok) {
+                            const receiptData = await receiptResponse.json();
+                            execution.receipt_data = receiptData;
+                        }
+                    } catch (e) {
+                        console.warn(`Failed to load receipt for execution ${execution.id}:`, e);
+                    }
+                    displayReceipts([execution]);
+                })
+                .catch(error => {
+                    container.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex items-center gap-2 text-red-800">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span class="font-medium">Error loading execution</span>
+                            </div>
+                            <p class="mt-1 text-red-700 text-sm">${error.message}</p>
+                        </div>
+                    `;
+                });
         }
 
         // Auto-load on page load

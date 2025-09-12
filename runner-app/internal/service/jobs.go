@@ -291,3 +291,57 @@ func (s *JobsService) GetLatestReceiptCached(ctx context.Context, jobspecID stri
 	}
 	return rec, nil
 }
+
+// RepublishJob republishes a job to the outbox queue (for stuck jobs)
+func (s *JobsService) RepublishJob(ctx context.Context, jobspecID string) error {
+	tracer := otel.Tracer("runner/service/jobs")
+	ctx, span := tracer.Start(ctx, "JobsService.RepublishJob", oteltrace.WithAttributes(
+		attribute.String("job.id", jobspecID),
+	))
+	defer span.End()
+	
+	if s.DB == nil {
+		return errors.New("database not initialized")
+	}
+	
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Create outbox envelope for the job
+	var requestID string
+	if v := ctx.Value("request_id"); v != nil {
+		if s, ok := v.(string); ok {
+			requestID = s
+		}
+	}
+	envelope := map[string]interface{}{
+		"id":          jobspecID,
+		"enqueued_at": time.Now().UTC(),
+		"attempt":     0,
+		"request_id":  requestID,
+	}
+	payload, mErr := json.Marshal(envelope)
+	if mErr != nil {
+		return mErr
+	}
+	
+	// Insert into outbox
+	if err = s.Outbox.InsertTx(ctx, tx, s.QueueName, payload); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}

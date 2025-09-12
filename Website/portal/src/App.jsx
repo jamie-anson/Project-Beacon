@@ -12,6 +12,7 @@ import Diffs from './pages/Diffs.jsx';
 import Settings from './pages/Settings.jsx';
 import BiasDetection from './pages/BiasDetection.jsx';
 import Executions from './pages/Executions.jsx';
+import ExecutionDetail from './pages/ExecutionDetail.jsx';
 import DemoResults from './pages/DemoResults.jsx';
 import useWs from './state/useWs.js';
 import { BUILD_CID, BUILD_COMMIT, shortCommit } from './lib/buildInfo.js';
@@ -168,6 +169,7 @@ export default function App() {
         <Route path="/world" element={<WorldView />} />
         <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />
+        <Route path="/executions/:id" element={<ExecutionDetail />} />
         <Route path="/demo-results" element={<DemoResults />} />
         <Route path="/results" element={<Diffs />} />
         <Route path="/diffs" element={<Diffs />} />

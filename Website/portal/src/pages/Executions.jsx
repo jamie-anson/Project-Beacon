@@ -143,8 +143,17 @@ export default function Executions() {
                     <td className="px-3 py-2"><StatusPill value={status} /></td>
                     <td className="px-3 py-2 text-xs" title={formatDate(created)}>{timeAgo(created)}</td>
                     <td className="px-3 py-2 flex items-center gap-2">
-                      {/* Execution detail route is not implemented yet; omit link to avoid 404 */}
-                      {id && <CopyButton text={String(id)} label="Copy ID" />}
+                      {id && (
+                        <>
+                          <Link 
+                            to={`/executions/${encodeURIComponent(id)}`}
+                            className="text-beacon-600 hover:text-beacon-700 underline decoration-dotted text-xs"
+                          >
+                            View Receipt
+                          </Link>
+                          <CopyButton text={String(id)} label="Copy ID" />
+                        </>
+                      )}
                     </td>
                   </tr>
                 );

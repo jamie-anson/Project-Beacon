@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -112,13 +113,19 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 
 		// Format timestamps
 		if startedAt != nil {
-			exec.StartedAt = startedAt.(string)
+			if t, ok := startedAt.(time.Time); ok {
+				exec.StartedAt = t.Format(time.RFC3339)
+			}
 		}
 		if completedAt != nil {
-			exec.CompletedAt = completedAt.(string)
+			if t, ok := completedAt.(time.Time); ok {
+				exec.CompletedAt = t.Format(time.RFC3339)
+			}
 		}
 		if createdAt != nil {
-			exec.CreatedAt = createdAt.(string)
+			if t, ok := createdAt.(time.Time); ok {
+				exec.CreatedAt = t.Format(time.RFC3339)
+			}
 		}
 
 		// Extract receipt ID from receipt data

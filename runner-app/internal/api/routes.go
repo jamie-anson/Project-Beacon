@@ -25,7 +25,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	jobsHandler := NewJobsHandler(jobsService, cfg, redisClient)
 	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
 	transparencyHandler := NewTransparencyHandler()
-	adminHandler := NewAdminHandler(cfg)
+	adminHandler := NewAdminHandlerWithJobsService(cfg, jobsService)
 	executionsHandler := NewExecutionsHandler(jobsService.ExecutionsRepo)
 
 	// Health endpoints (no auth required)
@@ -114,12 +114,21 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		c.JSON(200, gin.H{"role": role})
 	})
 
+	// Emergency admin endpoint (temporary, no auth)
+	r.POST("/emergency/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
+
 	// Admin routes (RBAC; some public in debug mode)
 	admin := r.Group("/admin")
 	{
 		admin.GET("/flags", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.GetFlags)
 		admin.PUT("/flags", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.UpdateFlags)
 		admin.GET("/config", rbac.RequireAnyRole(rbac.RoleAdmin, rbac.RoleOperator), adminHandler.GetConfig)
+		if gin.Mode() == gin.DebugMode {
+			// Public in debug for emergency fixes
+			admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
+		} else {
+			admin.POST("/republish-stuck-jobs", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.RepublishStuckJobs)
+		}
 
 		if gin.Mode() == gin.DebugMode {
 			// Public in debug for DX

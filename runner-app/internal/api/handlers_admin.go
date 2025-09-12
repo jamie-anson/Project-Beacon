@@ -7,15 +7,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/flags"
+	"github.com/jamie-anson/project-beacon-runner/internal/service"
+	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 )
 
 // AdminHandler bundles simple admin operations
 type AdminHandler struct {
-	cfg *config.Config
+	cfg         *config.Config
+	jobsService *service.JobsService
 }
 
 func NewAdminHandler(cfg *config.Config) *AdminHandler {
 	return &AdminHandler{cfg: cfg}
+}
+
+func NewAdminHandlerWithJobsService(cfg *config.Config, jobsService *service.JobsService) *AdminHandler {
+	return &AdminHandler{cfg: cfg, jobsService: jobsService}
 }
 
 // GetFlags returns current feature flags
@@ -106,6 +113,51 @@ func (h *AdminHandler) GetHints(c *gin.Context) {
         "resolved_addr": cfg.ResolvedAddr,
         "base_url":      baseURL,
     })
+}
+
+// RepublishStuckJobs finds jobs in "created" status and republishes them to the outbox queue
+func (h *AdminHandler) RepublishStuckJobs(c *gin.Context) {
+	if h.jobsService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "jobs service not available"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	l := logging.FromContext(ctx)
+	
+	// Find jobs stuck in "created" status
+	stuckJobs, err := h.jobsService.JobsRepo.ListJobsByStatus(ctx, "created", 100)
+	if err != nil {
+		l.Error().Err(err).Msg("failed to find stuck jobs")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find stuck jobs"})
+		return
+	}
+
+	if len(stuckJobs) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "no stuck jobs found",
+			"republished": 0,
+		})
+		return
+	}
+
+	republished := 0
+	for _, job := range stuckJobs {
+		// Republish job to outbox
+		err := h.jobsService.RepublishJob(ctx, job.ID)
+		if err != nil {
+			l.Error().Err(err).Str("job_id", job.ID).Msg("failed to republish job")
+			continue
+		}
+		republished++
+		l.Info().Str("job_id", job.ID).Msg("republished stuck job")
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "republished stuck jobs",
+		"total_found": len(stuckJobs),
+		"republished": republished,
+	})
 }
 
 func redactDSN(s string) string {
