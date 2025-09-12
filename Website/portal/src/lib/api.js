@@ -217,6 +217,13 @@ export const createJob = (jobspec, opts = {}) => {
       }
       jobspec = { ...jobspec, questions: selected };
     }
+    // Final guard: if still missing, fail fast with clear message
+    if (isV1 && benchName.includes('bias')) {
+      const ok = Array.isArray(jobspec?.questions) && jobspec.questions.length > 0;
+      if (!ok) {
+        throw new Error('questions are required for bias-detection; please select at least one on the Questions page');
+      }
+    }
   } catch (e) {
     console.warn('[Beacon] questions injection skipped:', e?.message || String(e));
   }
