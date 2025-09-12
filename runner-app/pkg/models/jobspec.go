@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"
@@ -17,6 +18,7 @@ type JobSpec struct {
 	Constraints ExecutionConstraints   `json:"constraints"`
 	Metadata    map[string]interface{} `json:"metadata"`
 	CreatedAt   time.Time              `json:"created_at"`
+	Questions   []string               `json:"questions,omitempty"`
 	Signature   string                 `json:"signature"`
 	PublicKey   string                 `json:"public_key"`
 }
@@ -225,6 +227,15 @@ func (js *JobSpec) Validate() error {
 	}
 	if js.Benchmark.Input.Hash == "" {
 		return fmt.Errorf("input hash is required for integrity verification")
+	}
+	// Enforce questions for bias-detection v1
+	if strings.EqualFold(js.Version, "v1") {
+		name := strings.ToLower(js.Benchmark.Name)
+		if strings.Contains(name, "bias") {
+			if len(js.Questions) == 0 {
+				return fmt.Errorf("questions are required for bias-detection v1 jobspec")
+			}
+		}
 	}
 	
 	return nil
