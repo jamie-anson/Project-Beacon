@@ -68,26 +68,24 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 	}
 
 	// Enforce questions for bias-detection v1 using raw JSON (fail fast if missing)
-	func() {
-		// Only apply to v1 bias-detection
-		if strings.EqualFold(spec.Version, "v1") && strings.Contains(strings.ToLower(spec.Benchmark.Name), "bias") {
-			var tmp map[string]interface{}
-			if err := json.Unmarshal(raw, &tmp); err == nil {
-				qv, ok := tmp["questions"]
-				if !ok {
-					l.Warn().Str("job_id", spec.ID).Msg("rejecting: missing questions for bias-detection v1")
-					c.JSON(http.StatusBadRequest, gin.H{"error": "questions are required for bias-detection v1 jobspec", "error_code": "missing_field:questions"})
-					return
-				}
-				arr, isArr := qv.([]interface{})
-				if !isArr || len(arr) == 0 {
-					l.Warn().Str("job_id", spec.ID).Msg("rejecting: empty questions for bias-detection v1")
-					c.JSON(http.StatusBadRequest, gin.H{"error": "questions must be a non-empty array for bias-detection v1 jobspec", "error_code": "invalid_field:questions"})
-					return
-				}
+	// Only apply to v1 bias-detection
+	if strings.EqualFold(spec.Version, "v1") && strings.Contains(strings.ToLower(spec.Benchmark.Name), "bias") {
+		var tmp map[string]interface{}
+		if err := json.Unmarshal(raw, &tmp); err == nil {
+			qv, ok := tmp["questions"]
+			if !ok {
+				l.Warn().Str("job_id", spec.ID).Msg("rejecting: missing questions for bias-detection v1")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "questions are required for bias-detection v1 jobspec", "error_code": "missing_field:questions"})
+				return
+			}
+			arr, isArr := qv.([]interface{})
+			if !isArr || len(arr) == 0 {
+				l.Warn().Str("job_id", spec.ID).Msg("rejecting: empty questions for bias-detection v1")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "questions must be a non-empty array for bias-detection v1 jobspec", "error_code": "invalid_field:questions"})
+				return
 			}
 		}
-	}()
+	}
 
 	// Validate spec
 	validator := models.NewJobSpecValidator()
