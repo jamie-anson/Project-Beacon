@@ -362,8 +362,12 @@ export const getGeo = async () => {
   return { countries: {} };
 };
 
-// Hybrid router helpers via Netlify proxy (/hybrid/*) with fallback to direct Railway URL
+// Hybrid router helpers: prefer direct Railway base to avoid Netlify 404s; allow runtime override
 let HYBRID_BASE = 'https://project-beacon-production.up.railway.app';
+try {
+  const lsHybrid = localStorage.getItem('beacon:hybrid_base');
+  if (lsHybrid && lsHybrid.trim()) HYBRID_BASE = lsHybrid.replace(/\/$/, '');
+} catch {}
 try {
   const envHybrid = import.meta?.env?.VITE_HYBRID_BASE;
   if (envHybrid && typeof envHybrid === 'string' && envHybrid.trim()) {
@@ -372,16 +376,19 @@ try {
 } catch {}
 
 async function httpHybrid(path, opts = {}) {
-  const url = `/hybrid${path.startsWith('/') ? path : '/' + path}`;
+  const direct = `${HYBRID_BASE}${path.startsWith('/') ? path : '/' + path}`;
+  const proxy = `/hybrid${path.startsWith('/') ? path : '/' + path}`;
+  const common = { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) }, mode: 'cors', credentials: 'omit' };
   try {
-    const res = await fetch(url, { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) } });
-    if (res.ok) return res.status === 204 ? null : res.json();
-    // Fallback to direct Railway if proxy not configured yet (404/502/etc.)
-    const res2 = await fetch(`${HYBRID_BASE}${path.startsWith('/') ? path : '/' + path}`, { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) } });
-    if (!res2.ok) throw new Error(`${res2.status} ${res2.statusText}`);
-    return res2.status === 204 ? null : res2.json();
+    // Try direct first
+    const r1 = await fetch(direct, common);
+    if (r1.ok) return r1.status === 204 ? null : r1.json();
+    // Fallback to proxy
+    const r2 = await fetch(proxy, common);
+    if (!r2.ok) throw new Error(`${r2.status} ${r2.statusText}`);
+    return r2.status === 204 ? null : r2.json();
   } catch (err) {
-    console.warn(`[Hybrid] request failed: ${url}`, err.message);
+    console.warn(`[Hybrid] request failed (direct=${direct})`, err.message);
     throw err;
   }
 }
