@@ -130,8 +130,18 @@ func (s *JobsService) CreateJob(ctx context.Context, spec *models.JobSpec, jobsp
 	tracer := otel.Tracer("runner/service/jobs")
 	ctx, span := tracer.Start(ctx, "JobsService.CreateJob", oteltrace.WithAttributes(
 		attribute.String("job.id", spec.ID),
+		attribute.Int("questions.count", len(spec.Questions)),
 	))
 	defer span.End()
+	
+	// Log questions persistence for debugging
+	if len(spec.Questions) > 0 {
+		span.SetAttributes(attribute.StringSlice("questions.list", spec.Questions))
+		fmt.Printf("SERVICE: CreateJob %s persisting %d questions: %v\n", spec.ID, len(spec.Questions), spec.Questions)
+	} else {
+		fmt.Printf("SERVICE: CreateJob %s has no questions\n", spec.ID)
+	}
+	
 	if s.DB == nil {
 		return errors.New("database not initialized")
 	}

@@ -183,7 +183,7 @@ func (v *JobSpecValidator) SanitizeJobSpec(jobspec *JobSpec) {
 
 // ExtractJobSpecSummary creates a summary of the JobSpec for logging/display
 func (v *JobSpecValidator) ExtractJobSpecSummary(jobspec *JobSpec) map[string]interface{} {
-	return map[string]interface{}{
+	summary := map[string]interface{}{
 		"id":             jobspec.ID,
 		"version":        jobspec.Version,
 		"benchmark_name": jobspec.Benchmark.Name,
@@ -194,4 +194,12 @@ func (v *JobSpecValidator) ExtractJobSpecSummary(jobspec *JobSpec) map[string]in
 		"created_at":     jobspec.CreatedAt.Format(time.RFC3339),
 		"has_signature":  jobspec.Signature != "",
 	}
+	
+	// Include questions if present (critical for bias-detection jobs)
+	if len(jobspec.Questions) > 0 {
+		summary["questions"] = jobspec.Questions
+		summary["questions_count"] = len(jobspec.Questions)
+	}
+	
+	return summary
 }

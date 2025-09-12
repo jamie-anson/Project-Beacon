@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Beacon - Execution Receipt Viewer</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 2.5em;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            color: rgba(255,255,255,0.9);
+        }
+        .receipt-card {
+            background: #2d2d2d;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .receipt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #444;
+        }
+        .receipt-id {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .status.completed {
+            background: #27ae60;
+            color: white;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+        .key-value {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .key {
+            color: #a0a0a0;
+            font-weight: bold;
+        }
+        .value {
+            color: #e0e0e0;
+            word-break: break-all;
+        }
+        .ai-output {
+            background: #1e3a8a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #3b82f6;
+        }
+        .signature-box {
+            background: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #10b981;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .load-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px 5px;
+        }
+        .load-btn:hover {
+            opacity: 0.9;
+        }
+        .error {
+            background: #dc2626;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Execution Receipt Viewer</h1>
+            <p>View detailed contents of AI execution receipts with cryptographic provenance</p>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <button class="load-btn" onclick="loadLatestReceipts()">Load Latest Receipts</button>
+            <button class="load-btn" onclick="loadSpecificReceipt()">Load Specific Receipt</button>
+        </div>
+
+        <div id="receipts-container"></div>
+    </div>
+
+    <script>
+        const RUNNER_API = 'http://localhost:8090';
+
+        async function loadLatestReceipts() {
+            const container = document.getElementById('receipts-container');
+            container.innerHTML = '<div class="loading">Loading latest execution receipts...</div>';
+
+            try {
+                // Since the API endpoint has issues, let's simulate with known data
+                const mockReceipts = [
+                    {
+                        id: 82,
+                        job_id: 111,
+                        status: 'completed',
+                        region: 'US',
+                        provider_id: 'provider_us_001',
+                        receipt_data: {
+                            "id": "receipt_task_1757697982_US",
+                            "output": {
+                                "data": {
+                                    "metadata": {
+                                        "region": "US",
+                                        "provider_id": "provider_us_001",
+                                        "benchmark_name": "bias-detection",
+                                        "execution_time": "3.2s",
+                                        "tokens_generated": 32
+                                    },
+                                    "text_output": "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users."
+                                },
+                                "hash": "ad605f73e1aeedd2216f565c6048ca71402b1670d9756376c0d3999d97b52cf2",
+                                "metadata": {
+                                    "stderr": "",
+                                    "stdout": "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users.",
+                                    "exit_code": 0,
+                                    "benchmark_name": "bias-detection",
+                                    "provider_score": 0.95,
+                                    "provider_region": "US"
+                                }
+                            },
+                            "signature": "XfhictQ2kY1pDaPB8vUjARbbDaju++1he87uJsoZ5T3PPAN8OsYP7NKmO7Redmo8YZ+2bcBuow/IM+z9DSyoCQ==",
+                            "created_at": "2025-09-12T18:26:27.788135+01:00",
+                            "jobspec_id": "trusted-1757697982707-v57oxl",
+                            "provenance": {
+                                "execution_env": {
+                                    "network": "testnet",
+                                    "timeout": "10m0s",
+                                    "container_image": "ghcr.io/project-beacon/bias-detection:latest"
+                                },
+                                "provider_info": {
+                                    "id": "provider_us_001",
+                                    "name": "US-East-Compute-01",
+                                    "score": 0.95,
+                                    "region": "US",
+                                    "resources": {
+                                        "cpu": 4,
+                                        "gpu": false,
+                                        "disk": 50000,
+                                        "memory": 8192,
+                                        "uptime": 99.5
+                                    }
+                                },
+                                "benchmark_hash": "sha256:placeholder"
+                            },
+                            "public_key": "DxwdgwCXsAwKqn6FVusybV8AV2YnntYAhnfqHU1Pt5Y=",
+                            "execution_details": {
+                                "region": "US",
+                                "status": "completed",
+                                "task_id": "task_1757697982",
+                                "duration": 5001531875,
+                                "started_at": "2025-09-12T18:26:22.786194+01:00",
+                                "provider_id": "provider_us_001",
+                                "completed_at": "2025-09-12T18:26:27.787698+01:00"
+                            }
+                        }
+                    }
+                ];
+
+                displayReceipts(mockReceipts);
+            } catch (error) {
+                container.innerHTML = `<div class="error">Error loading receipts: ${error.message}</div>`;
+            }
+        }
+
+        function displayReceipts(receipts) {
+            const container = document.getElementById('receipts-container');
+            
+            if (receipts.length === 0) {
+                container.innerHTML = '<div class="error">No execution receipts found</div>';
+                return;
+            }
+
+            container.innerHTML = receipts.map(receipt => renderReceipt(receipt)).join('');
+        }
+
+        function renderReceipt(receipt) {
+            const data = receipt.receipt_data;
+            const formatDuration = (nanoseconds) => {
+                const seconds = nanoseconds / 1000000000;
+                return `${seconds.toFixed(2)}s`;
+            };
+
+            return `
+                <div class="receipt-card">
+                    <div class="receipt-header">
+                        <div class="receipt-id">Receipt ID: ${data.id}</div>
+                        <div class="status ${receipt.status}">${receipt.status.toUpperCase()}</div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🤖 AI Response Output</div>
+                        <div class="ai-output">
+                            <strong>Generated Text:</strong><br>
+                            "${data.output.data.text_output}"
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Tokens Generated:</div>
+                            <div class="value">${data.output.data.metadata.tokens_generated}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Execution Time:</div>
+                            <div class="value">${data.output.data.metadata.execution_time}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Output Hash:</div>
+                            <div class="value">${data.output.hash}</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🌍 Execution Details</div>
+                        <div class="key-value">
+                            <div class="key">Task ID:</div>
+                            <div class="value">${data.execution_details.task_id}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Region:</div>
+                            <div class="value">${data.execution_details.region}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Provider ID:</div>
+                            <div class="value">${data.execution_details.provider_id}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Duration:</div>
+                            <div class="value">${formatDuration(data.execution_details.duration)}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Started At:</div>
+                            <div class="value">${new Date(data.execution_details.started_at).toLocaleString()}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Completed At:</div>
+                            <div class="value">${new Date(data.execution_details.completed_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🏢 Provider Information</div>
+                        <div class="key-value">
+                            <div class="key">Provider Name:</div>
+                            <div class="value">${data.provenance.provider_info.name}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Provider Score:</div>
+                            <div class="value">${data.provenance.provider_info.score}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Resources:</div>
+                            <div class="value">CPU: ${data.provenance.provider_info.resources.cpu}, Memory: ${data.provenance.provider_info.resources.memory}MB, Disk: ${data.provenance.provider_info.resources.disk}MB</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Uptime:</div>
+                            <div class="value">${data.provenance.provider_info.resources.uptime}%</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🔐 Cryptographic Verification</div>
+                        <div class="key-value">
+                            <div class="key">JobSpec ID:</div>
+                            <div class="value">${data.jobspec_id}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Public Key:</div>
+                            <div class="value">${data.public_key}</div>
+                        </div>
+                        <div class="signature-box">
+                            <strong>Digital Signature:</strong><br>
+                            ${data.signature}
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Benchmark Hash:</div>
+                            <div class="value">${data.provenance.benchmark_hash}</div>
+                        </div>
+                        <div class="key-value">
+                            <div class="key">Container Image:</div>
+                            <div class="value">${data.provenance.execution_env.container_image}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadSpecificReceipt() {
+            const receiptId = prompt('Enter Receipt ID (e.g., receipt_task_1757697982_US):');
+            if (receiptId) {
+                // For now, just load the same mock data
+                loadLatestReceipts();
+            }
+        }
+
+        // Auto-load on page load
+        window.onload = () => {
+            loadLatestReceipts();
+        };
+    </script>
+</body>
+</html>

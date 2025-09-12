@@ -83,6 +83,16 @@ func ValidateJobSpec() gin.HandlerFunc {
 			return
 		}
 
+		// Handle jobspec_id field mapping for portal compatibility
+		var rawMap map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &rawMap); err == nil {
+			if jobspecID, exists := rawMap["jobspec_id"]; exists && spec.ID == "" {
+				if idStr, ok := jobspecID.(string); ok {
+					spec.ID = idStr
+				}
+			}
+		}
+
 		// Structural validation
 		if err := spec.Validate(); err != nil {
 			// Provide a simple field-oriented message if recognizable

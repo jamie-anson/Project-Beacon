@@ -84,7 +84,15 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "questions must be a non-empty array for bias-detection v1 jobspec", "error_code": "invalid_field:questions"})
 				return
 			}
+			l.Info().Str("job_id", spec.ID).Int("questions_count", len(arr)).Msg("questions validation passed for bias-detection v1")
 		}
+	}
+
+	// Log questions presence after struct binding
+	if len(spec.Questions) > 0 {
+		l.Info().Str("job_id", spec.ID).Int("questions_present", len(spec.Questions)).Strs("questions", spec.Questions).Msg("JobSpec questions parsed successfully")
+	} else {
+		l.Info().Str("job_id", spec.ID).Msg("JobSpec has no questions field")
 	}
 
 	// Validate spec

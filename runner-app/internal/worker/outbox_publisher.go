@@ -45,9 +45,14 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 			time.Sleep(backoff)
 			continue
 		}
+		
+		// Debug: Log fetch attempt
+		l.Debug().Msg("outbox publisher checking for unpublished entries")
 
 		var publishedAny bool
+		var rowCount int
 		for rows.Next() {
+			rowCount++
 			var id int64
 			var topic string
 			var payload []byte
@@ -56,6 +61,9 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 				metrics.OutboxPublishErrorsTotal.Inc()
 				continue
 			}
+			
+			// Debug: Log found entry
+			l.Info().Int64("outbox_id", id).Str("topic", topic).Msg("outbox publisher found unpublished entry")
 			// ensure payload is valid JSON
 			var tmp map[string]any
 			if err := json.Unmarshal(payload, &tmp); err != nil {
@@ -82,10 +90,14 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 		_ = rows.Close()
 
 		if !publishedAny {
+			// Debug: Log no entries found
+			l.Debug().Int("rows_found", rowCount).Msg("outbox publisher found no unpublished entries")
 			// Update metrics for unpublished outbox items
 			p.updateOutboxMetrics(ctx)
 			// idle sleep
 			time.Sleep(500 * time.Millisecond)
+		} else {
+			l.Info().Int("rows_published", rowCount).Msg("outbox publisher completed batch")
 		}
 	}
 }

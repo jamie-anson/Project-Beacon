@@ -180,14 +180,8 @@ func (s *Service) getAvailableProviders(ctx context.Context) ([]*Provider, error
 
 // getMockProviders returns mock providers for testing/development
 func (s *Service) getMockProviders() []*Provider {
-    return []*Provider{
-        {ID: "provider-us-1", Name: "US Provider 1", Region: "US", Score: 0.9, Price: 0.1},
-        {ID: "provider-us-2", Name: "US Provider 2", Region: "US", Score: 0.8, Price: 0.12},
-        {ID: "provider-eu-1", Name: "EU Provider 1", Region: "EU", Score: 0.85, Price: 0.11},
-        {ID: "provider-eu-2", Name: "EU Provider 2", Region: "EU", Score: 0.75, Price: 0.13},
-        {ID: "provider-apac-1", Name: "APAC Provider 1", Region: "APAC", Score: 0.88, Price: 0.09},
-        {ID: "provider-apac-2", Name: "APAC Provider 2", Region: "APAC", Score: 0.82, Price: 0.10},
-    }
+    // Use the same providers as generateMockProviders to ensure consistency
+    return s.generateMockProviders()
 }
 
 // containsString checks if a string slice contains a specific string

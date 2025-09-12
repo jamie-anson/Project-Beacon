@@ -72,7 +72,9 @@ func (w *JobRunner) Start(ctx context.Context) {
 	if qName == "" {
 		qName = queue.JobsQueue
 	}
+	l.Info().Str("queue_name", qName).Msg("job runner starting worker on queue")
 	w.Queue.StartWorker(ctx, qName, func(payload []byte) error {
+		l.Info().Msg("job runner handler called with payload")
 		return w.handleEnvelope(ctx, payload)
 	})
 }
@@ -87,9 +89,9 @@ type jobEnvelope struct {
 func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	l := logging.FromContext(ctx)
 	// Debug logging to identify envelope format issue
-	l.Debug().
+	l.Info().
 		Str("payload_json", string(payload)).
-		Msg("job runner received envelope")
+		Msg("job runner received envelope - ENTRY POINT")
 	
 	// Parse envelope
 	var env jobEnvelope
@@ -146,6 +148,8 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	// Execute single region
 	execStart := time.Now()
+	l.Info().Str("job_id", env.ID).Str("region", region).Bool("hybrid_enabled", w.Hybrid != nil).Msg("starting job execution")
+	
 	// Prefer Hybrid Router if configured
 	if w.Hybrid != nil {
 		prompt := extractPrompt(spec)
@@ -200,6 +204,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
+	l.Info().Str("job_id", env.ID).Str("region", region).Msg("falling back to Golem execution")
 	res, err := golem.ExecuteSingleRegion(ctx, w.Golem, spec, region)
 	if err != nil {
 		l.Error().Err(err).Str("job_id", env.ID).Str("region", region).Msg("execution error")

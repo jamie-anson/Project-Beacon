@@ -12,7 +12,8 @@ import (
 
 // JobSpec represents a signed benchmark execution specification
 type JobSpec struct {
-	ID          string                 `json:"id"`
+	ID          string                 `json:"id,omitempty"`
+	JobSpecID   string                 `json:"jobspec_id,omitempty"`
 	Version     string                 `json:"version"`
 	Benchmark   BenchmarkSpec          `json:"benchmark"`
 	Constraints ExecutionConstraints   `json:"constraints"`
@@ -198,8 +199,13 @@ type StructuralDiff struct {
 
 // Validation methods
 func (js *JobSpec) Validate() error {
-	if js.ID == "" {
+	// Accept either ID or JobSpecID field
+	if js.ID == "" && js.JobSpecID == "" {
 		return fmt.Errorf("jobspec ID is required")
+	}
+	// Normalize: if JobSpecID is provided but ID is empty, copy it over
+	if js.ID == "" && js.JobSpecID != "" {
+		js.ID = js.JobSpecID
 	}
 	if js.Version == "" {
 		return fmt.Errorf("jobspec version is required")

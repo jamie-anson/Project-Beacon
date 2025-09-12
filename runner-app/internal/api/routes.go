@@ -26,6 +26,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
 	transparencyHandler := NewTransparencyHandler()
 	adminHandler := NewAdminHandler(cfg)
+	executionsHandler := NewExecutionsHandler(jobsService.ExecutionsRepo)
 
 	// Health endpoints (no auth required)
 	health := r.Group("/health")
@@ -79,34 +80,12 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			})
 		})
 
-		// Executions endpoint for portal
-		v1.GET("/executions", func(c *gin.Context) {
-			limit := c.DefaultQuery("limit", "10")
-			c.JSON(200, gin.H{
-				"executions": []gin.H{
-					{
-						"id": "exec_001",
-						"job_id": "job_123",
-						"status": "completed",
-						"started_at": "2025-08-31T01:00:00Z",
-						"completed_at": "2025-08-31T01:01:30Z",
-						"duration": 90,
-						"provider_id": "0x536ec34be8b1395d54f69b8895f902f9b65b235b",
-						"model": "llama3.2:1b",
-					},
-					{
-						"id": "exec_002", 
-						"job_id": "job_124",
-						"status": "running",
-						"started_at": "2025-08-31T01:05:00Z",
-						"provider_id": "0x536ec34be8b1395d54f69b8895f902f9b65b235b",
-						"model": "mistral:7b",
-					},
-				},
-				"limit": limit,
-				"total": 2,
-			})
-		})
+		// Executions endpoints for portal
+		executions := v1.Group("/executions")
+		{
+			executions.GET("", executionsHandler.ListExecutions)
+			executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
+		}
 
 		// Diffs endpoint for portal
 		v1.GET("/diffs", func(c *gin.Context) {

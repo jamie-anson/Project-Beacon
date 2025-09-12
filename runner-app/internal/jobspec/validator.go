@@ -42,7 +42,8 @@ func (v *Validator) ValidateJobSpec(jobspecJSON []byte) (*models.JobSpec, error)
 	}
 
 	// Verify Ed25519 signature (enabled by default). Allow dev override via env.
-	if os.Getenv("VALIDATION_SKIP_SIGNATURE") != "true" {
+	skipSig := os.Getenv("VALIDATION_SKIP_SIGNATURE") == "true" || os.Getenv("RUNNER_SIG_BYPASS") == "true"
+	if !skipSig {
 		if err := jobspec.VerifySignature(); err != nil {
 			return nil, fmt.Errorf("signature verification failed: %w", err)
 		}

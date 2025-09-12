@@ -189,7 +189,7 @@ function generateJobSpec() {
       },
       input: { hash: 'sha256:placeholder' },
     },
-    constraints: { regions: ['US', 'EU', 'ASIA'], min_regions: 3 },
+    constraints: { regions: ['US', 'EU', 'ASIA'], min_regions: 2 },
     metadata: { created_by: 'submit-signed-job.js', test_run: true, timestamp: now, nonce: Math.random().toString(36).slice(2) },
     created_at: now,
     runs: 1,

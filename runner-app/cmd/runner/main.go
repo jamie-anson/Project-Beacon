@@ -173,11 +173,14 @@ func main() {
 		// Start JobRunner (Redis -> execute -> Postgres -> IPFS bundling)
 		jr := worker.NewJobRunnerWithQueue(database.DB, q, gsvc, bundler, cfg.JobsQueueName)
 		// Initialize Hybrid Router client if HYBRID_BASE is set (preferred execution path)
-		if base := os.Getenv("HYBRID_BASE"); base != "" {
-			jr.Hybrid = hybrid.New(base)
-		} else if os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
-			// Optional: enable default Railway base without env
-			jr.Hybrid = hybrid.New("")
+		// Skip if HYBRID_ROUTER_DISABLE is set to true
+		if os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {
+			if base := os.Getenv("HYBRID_BASE"); base != "" {
+				jr.Hybrid = hybrid.New(base)
+			} else if os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
+				// Optional: enable default Railway base without env
+				jr.Hybrid = hybrid.New("")
+			}
 		}
 		go jr.Start(workerCtx)
 
