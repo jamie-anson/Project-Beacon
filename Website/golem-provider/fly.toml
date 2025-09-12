@@ -1,0 +1,43 @@
+app = "beacon-golem-simple"
+primary_region = "iad"
+
+# HTTP service: Fly will terminate TLS and proxy to internal :8080
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+  min_machines_running = 1
+  [[http_service.checks]]
+    interval = "10s"
+    timeout = "2s"
+    method = "GET"
+    path = "/health"
+
+# Persist Yagna data directory so nodeId and wallet keys survive restarts
+[mounts]
+  source = "yagna_data"
+  destination = "/home/golem/.local/share/yagna"
+
+# Expose Yagna P2P/REST as raw TCP (optional; keep if you want external reachability)
+[[services]]
+  protocol = "tcp"
+  internal_port = 7464
+  processes = ["app"]
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 1000
+  [[services.ports]]
+    port = 7464
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 7465
+  processes = ["app"]
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 1000
+  [[services.ports]]
+    port = 7465

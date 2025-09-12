@@ -18,6 +18,8 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 	beaconcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+	"io"
+	"bytes"
 )
 
 // JobsHandler handles job-related requests
@@ -50,8 +52,15 @@ func NewJobsHandler(jobsService *service.JobsService, cfg *config.Config, redisC
 func (h *JobsHandler) CreateJob(c *gin.Context) {
 	l := logging.FromContext(c.Request.Context())
 	l.Info().Msg("api: CreateJob request")
-	// Parse incoming JobSpec
+	// Parse incoming JobSpec with raw body capture for signature fallback
 	var spec models.JobSpec
+	raw, rErr := io.ReadAll(c.Request.Body)
+	if rErr != nil {
+		l.Error().Err(rErr).Msg("failed to read request body")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
 	if err := c.ShouldBindJSON(&spec); err != nil {
 		l.Error().Err(err).Msg("invalid JSON")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON: " + err.Error()})
@@ -190,17 +199,45 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
             case strings.Contains(msg, "signature verification failed"):
                 code = "signature_mismatch"
             }
-            
-            // Record signature failure for rate limiting
-            if h.rateLimiter != nil && (code == "signature_mismatch" || code == "canonicalization_error") {
-                clientIP := c.ClientIP()
-                kid := spec.PublicKey // Use public key as identifier
-                h.rateLimiter.RecordSignatureFailure(c.Request.Context(), clientIP, kid)
+            // Fallback: try raw-body canonicalization for portal compatibility
+            if code == "signature_mismatch" && len(raw) > 0 && spec.PublicKey != "" && spec.Signature != "" {
+                if ferr := beaconcrypto.VerifySignatureRaw(raw, spec.Signature, spec.PublicKey, []string{"signature", "public_key"}); ferr == nil {
+                    l.Info().Str("job_id", spec.ID).Msg("compat signature verify (raw) succeeded; accepting")
+                } else {
+                    // Record signature failure for rate limiting when fallback fails too
+                    if h.rateLimiter != nil {
+                        clientIP := c.ClientIP()
+                        kid := spec.PublicKey
+                        h.rateLimiter.RecordSignatureFailure(c.Request.Context(), clientIP, kid)
+                    }
+                    l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
+                    c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
+                    return
+                }
+            } else if code == "signature_mismatch" {
+                // Record signature failure for rate limiting
+                if h.rateLimiter != nil {
+                    clientIP := c.ClientIP()
+                    kid := spec.PublicKey // Use public key as identifier
+                    h.rateLimiter.RecordSignatureFailure(c.Request.Context(), clientIP, kid)
+                }
+                l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
+                c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
+                return
             }
-            
-            l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
-            c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
-            return
+
+            if code != "signature_mismatch" {
+                // For other validation errors, return immediately
+                // Record signature failure for canonicalization mismatch too
+                if h.rateLimiter != nil && code == "canonicalization_error" {
+                    clientIP := c.ClientIP()
+                    kid := spec.PublicKey // Use public key as identifier
+                    h.rateLimiter.RecordSignatureFailure(c.Request.Context(), clientIP, kid)
+                }
+                l.Error().Str("error_code", code).Err(err).Str("job_id", spec.ID).Msg("jobspec validation failed")
+                c.JSON(http.StatusBadRequest, gin.H{"error": msg, "error_code": code})
+                return
+            }
         }
     }
 

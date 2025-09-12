@@ -17,12 +17,12 @@ export default function useWs(path = '/ws', opts = {}) {
 
   function wsEnabled() {
     try {
-      const envVal = import.meta?.env?.VITE_ENABLE_WS;
-      if (envVal != null) return isTruthy(envVal);
-    } catch {}
-    try {
       const lsVal = localStorage.getItem('beacon:enable_ws');
       if (lsVal != null) return isTruthy(lsVal);
+    } catch {}
+    try {
+      const envVal = import.meta?.env?.VITE_ENABLE_WS;
+      if (envVal != null) return isTruthy(envVal);
     } catch {}
     return false;
   }
@@ -30,18 +30,40 @@ export default function useWs(path = '/ws', opts = {}) {
   const connect = useCallback(() => {
     // Feature flag: allow enabling via env or localStorage
     if (!wsEnabled()) {
-      console.log('WebSocket disabled by config (set VITE_ENABLE_WS=1 or localStorage beacon:enable_ws=true to enable)');
+      try {
+        const envVal = import.meta?.env?.VITE_ENABLE_WS;
+        const lsVal = (()=>{ try{ return localStorage.getItem('beacon:enable_ws'); }catch{return null;} })();
+        console.log('WebSocket disabled by config (set VITE_ENABLE_WS=1 or localStorage beacon:enable_ws=true to enable)', { envVal, lsVal });
+      } catch {
+        console.log('WebSocket disabled by config (set VITE_ENABLE_WS=1 or localStorage beacon:enable_ws=true to enable)');
+      }
       setConnected(false);
       setError(new Error('WebSocket disabled by config'));
       return;
     }
     
-    // Use environment variable for WebSocket base, fallback to same-origin proxy
+    // Use environment variable for WebSocket base, allow runtime override, fallback to same-origin
     let wsBase = import.meta.env?.VITE_WS_BASE;
+    try {
+      const overrideBase = localStorage.getItem('beacon:ws_base');
+      if (overrideBase && overrideBase.trim()) {
+        wsBase = overrideBase.trim();
+      }
+    } catch {}
+    // Normalize scheme if missing or using http(s)
+    if (wsBase && !/^wss?:\/\//i.test(wsBase)) {
+      if (/^https?:\/\//i.test(wsBase)) {
+        wsBase = wsBase.replace(/^http/i, 'ws');
+      } else if (/^[a-z0-9.-]+(:\d+)?$/i.test(wsBase)) {
+        // host[:port] only
+        wsBase = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + wsBase;
+      }
+    }
     if (!wsBase || wsBase.trim() === '') {
       // Use same-origin WebSocket (Netlify proxies to Railway hybrid router)
       wsBase = window.location.protocol === 'https:' ? 'wss://' + window.location.host : 'ws://' + window.location.host;
     }
+    try { console.info('[Beacon] Using WebSocket base:', wsBase); } catch {}
     const url = `${wsBase}${path.startsWith('/') ? path : '/' + path}`;
     let ws;
     try {

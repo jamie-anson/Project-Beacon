@@ -194,6 +194,33 @@ export const createJob = (jobspec, opts = {}) => {
   // Debug logging to identify JSON serialization issues
   console.log('Creating job with payload:', jobspec);
   
+  // Safeguard: ensure questions are present for bias-detection v1 jobspecs.
+  try {
+    const isV1 = String(jobspec?.version || '').toLowerCase() === 'v1';
+    const benchName = String(jobspec?.benchmark?.name || '').toLowerCase();
+    const hasQuestions = Array.isArray(jobspec?.questions) && jobspec.questions.length > 0;
+    if (isV1 && benchName.includes('bias') && !hasQuestions) {
+      let selected = [];
+      try {
+        const raw = localStorage.getItem('beacon:selected_questions');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) selected = arr;
+        }
+      } catch {}
+      // Minimal defaults if nothing selected
+      if (!selected || selected.length === 0) {
+        selected = ['identity_basic'];
+        console.warn('[Beacon] No questions found; injecting minimal default questions:', selected);
+      } else {
+        console.info('[Beacon] Injecting selected questions into JobSpec:', selected.length);
+      }
+      jobspec = { ...jobspec, questions: selected };
+    }
+  } catch (e) {
+    console.warn('[Beacon] questions injection skipped:', e?.message || String(e));
+  }
+  
   let bodyString;
   try {
     bodyString = JSON.stringify(jobspec);
@@ -309,13 +336,24 @@ export const getGeo = async () => {
   return { countries: {} };
 };
 
-// Hybrid router helpers via Netlify proxy (/hybrid/*)
+// Hybrid router helpers via Netlify proxy (/hybrid/*) with fallback to direct Railway URL
+let HYBRID_BASE = 'https://project-beacon-production.up.railway.app';
+try {
+  const envHybrid = import.meta?.env?.VITE_HYBRID_BASE;
+  if (envHybrid && typeof envHybrid === 'string' && envHybrid.trim()) {
+    HYBRID_BASE = envHybrid.replace(/\/$/, '');
+  }
+} catch {}
+
 async function httpHybrid(path, opts = {}) {
   const url = `/hybrid${path.startsWith('/') ? path : '/' + path}`;
   try {
     const res = await fetch(url, { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) } });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return res.status === 204 ? null : res.json();
+    if (res.ok) return res.status === 204 ? null : res.json();
+    // Fallback to direct Railway if proxy not configured yet (404/502/etc.)
+    const res2 = await fetch(`${HYBRID_BASE}${path.startsWith('/') ? path : '/' + path}`, { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) } });
+    if (!res2.ok) throw new Error(`${res2.status} ${res2.statusText}`);
+    return res2.status === 204 ? null : res2.json();
   } catch (err) {
     console.warn(`[Hybrid] request failed: ${url}`, err.message);
     throw err;

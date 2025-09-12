@@ -146,6 +146,24 @@ See `golem-provider-runbook.md` for bringing US/EU/APAC Golem providers online a
 - [ ] Create troubleshooting guide for Railway
 - [ ] Document rollback procedure if needed
 
+## Appendix: Legacy Golem Provider Engine (Deferred)
+
+We previously operated a "full‑time" Golem provider using the legacy engine `golemsp` alongside Yagna. For the production cutover, we are deferring this legacy path and focusing on results through the Hybrid Router (Modal/RunPod + Golem network via requestor path).
+
+Deferral rationale:
+- The current Fly Machines environment is suitable for a requestor/gateway but not a hardened provider daemon.
+- `ya-provider` (modern engine) expects stricter runtime features; `golemsp` may run but is considered legacy.
+
+Deferred work items (to revisit):
+- Stand up a dedicated provider VM/bare metal with systemd‑managed Yagna + `ya-provider`.
+- Initialize/fund payments on mainnet and verify presence in Golem provider stats.
+- Optionally whitelist our provider in JobSpecs to bias selection via the Hybrid Router.
+
+Current focus (active):
+- Use the Hybrid Router at `https://project-beacon-production.up.railway.app` to obtain results immediately.
+- Runner on Fly (`https://beacon-runner-change-me.fly.dev`) submits jobs; trust enforcement is re‑enabled with the portal key.
+- For faster results, set the desired region first in JobSpec constraints (MVP executes the first region).
+
 ### 5.6 Final Validation
 - [x] Portal connects to Railway successfully
 - [x] All API endpoints functional (/health, /providers, /metrics, /inference)
@@ -213,6 +231,18 @@ See `golem-provider-runbook.md` for bringing US/EU/APAC Golem providers online a
 - `https://project-beacon-production.up.railway.app` ✅ HEALTHY
 
 ## Files to Update
+
+## Tidy Up (MVP)
+- [ ] Remove Prometheus agent from dashboard UI (`portal/src/pages/Dashboard.jsx`) – row: `beacon-prom-agent`
+- [ ] Decommission Fly app `beacon-prom-agent` (not needed for MVP)
+- [x] Switch Netlify `/hybrid/*` proxy to Railway (`netlify.toml`) – done
+- [ ] Verify Netlify `/api/v1/*` still targets Runner on Fly until Runner migrates
+- [x] Set `GOLEM_EU_ENDPOINT=https://beacon-golem-simple.fly.dev` in Railway; leave US/APAC unset – done
+- [x] Clear `GOLEM_PROVIDER_ENDPOINTS` in Railway to avoid duplicates – done
+- [ ] Remove legacy Fly hybrid router URL references from docs (`beacon-hybrid-router.fly.dev`)
+- [ ] Archive or annotate Fly-related configs no longer in use (e.g., `Dockerfile.prom-agent`, `observability/prometheus/`)
+- [ ] Add footnote in `migration-plan.md` that monitoring is "post-deploy smoke only" (no scheduled pings)
+- [ ] Create follow-up issue: Migrate Runner app to Railway and update Netlify `/api/v1/*` proxy
 - `portal/src/lib/api.js`
 - `flyio-deployment/test_hybrid_router.py`
 - `tests/e2e/cors-integration.test.js`

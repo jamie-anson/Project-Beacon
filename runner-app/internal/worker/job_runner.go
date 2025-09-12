@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
+	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
 	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
 	"github.com/jamie-anson/project-beacon-runner/internal/jobspec"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
@@ -16,6 +17,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
 	"github.com/jamie-anson/project-beacon-runner/internal/geoip"
+	models "github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
 // JobRunner consumes job envelopes from Redis and executes single-region runs
@@ -38,6 +40,7 @@ type JobRunner struct {
 	JobsRepo     jobsRepoIface
 	ExecRepo     execRepoIface
 	Golem        *golem.Service
+	Hybrid       *hybrid.Client
 	Bundler      *ipfs.Bundler
 	QueueName    string
 	ProbeFactory ProbeFactory
@@ -143,6 +146,60 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	// Execute single region
 	execStart := time.Now()
+	// Prefer Hybrid Router if configured
+	if w.Hybrid != nil {
+		prompt := extractPrompt(spec)
+		model := extractModel(spec)
+		regionPref := mapRegionToRouter(region)
+		req := hybrid.InferenceRequest{
+			Model:            model,
+			Prompt:           prompt,
+			Temperature:      0.1,
+			MaxTokens:        128,
+			RegionPreference: regionPref,
+			CostPriority:     true,
+		}
+		hre, herr := w.Hybrid.RunInference(ctx, req)
+		if herr != nil || hre == nil || !hre.Success {
+			l.Error().Err(herr).Str("job_id", env.ID).Str("region", regionPref).Msg("hybrid router inference error")
+			out := map[string]any{"error": fmt.Sprintf("hybrid error: %v", herr)}
+			if hre != nil && hre.Error != "" { out["router_error"] = hre.Error }
+			outJSON, _ := json.Marshal(out)
+			startedAt := time.Now().UTC()
+			completedAt := startedAt
+			_, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, "", regionPref, "failed", startedAt, completedAt, outJSON, nil)
+			metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "failed").Observe(time.Since(execStart).Seconds())
+			metrics.JobsFailedTotal.Inc()
+			return insErr
+		}
+		// Success via Hybrid
+		out := map[string]any{
+			"response": hre.Response,
+			"provider": hre.ProviderUsed,
+			"metadata": hre.Metadata,
+		}
+		outJSON, _ := json.Marshal(out)
+		startedAt := execStart.UTC()
+		completedAt := time.Now().UTC()
+		execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, hre.ProviderUsed, regionPref, "completed", startedAt, completedAt, outJSON, nil)
+		if err != nil {
+			return fmt.Errorf("insert execution: %w", err)
+		}
+		metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "completed").Observe(time.Since(execStart).Seconds())
+		metrics.JobsProcessedTotal.Inc()
+		if w.Bundler != nil {
+			go func(jid string) {
+				ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				_, _ = w.Bundler.StoreBundle(ctx2, jid)
+			}(spec.ID)
+		}
+		if execID > 0 {
+			go w.verifyRegionAsync(context.Background(), execID, regionPref)
+		}
+		return nil
+	}
+
 	res, err := golem.ExecuteSingleRegion(ctx, w.Golem, spec, region)
 	if err != nil {
 		l.Error().Err(err).Str("job_id", env.ID).Str("region", region).Msg("execution error")
@@ -230,4 +287,59 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}
 
 	return nil
+}
+
+// Helper: extract a prompt string from JobSpec input (fallback to generic)
+func extractPrompt(spec *models.JobSpec) string {
+    if spec != nil && spec.Benchmark.Input.Type == "prompt" {
+        if v, ok := spec.Benchmark.Input.Data["prompt"].(string); ok && v != "" {
+            return v
+        }
+    }
+    return "Who are you? Describe yourself in 2-3 sentences."
+}
+
+// Helper: choose a model name (can be extended later)
+func extractModel(spec *models.JobSpec) string {
+    // In future, derive from spec.Metadata or Benchmark.Name
+    return "llama-3.2-1b"
+}
+
+// Helper: map runner regions (US, EU, APAC) to router regions
+func mapRegionToRouter(r string) string {
+	switch r {
+	case "US":
+		return "us-east"
+	case "EU":
+		return "eu-west"
+	case "APAC":
+		return "asia-pacific"
+	default:
+		return "eu-west"
+	}
+}
+
+// Helper: spawn async verification using existing probe logic
+func (w *JobRunner) verifyRegionAsync(ctx context.Context, executionID int64, claimed string) {
+	// Short timeout to avoid blocking worker
+	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var probe negotiation.PreflightProbe
+	if w.ProbeFactory != nil {
+		probe = w.ProbeFactory()
+	} else {
+		probe = negotiation.NewPreflightProbe(negotiation.DefaultHTTPIPFetcher(5*time.Second), geoip.NewResolver())
+	}
+	observed, _, verr := probe.Verify(pctx, "")
+	if verr != nil {
+		return
+	}
+	verified := (observed == claimed)
+	_ = w.ExecRepo.UpdateRegionVerification(context.Background(), executionID,
+		sql.NullString{String: claimed, Valid: true},
+		sql.NullString{String: observed, Valid: true},
+		sql.NullBool{Bool: verified, Valid: true},
+		sql.NullString{String: "preflight-geoip", Valid: true},
+		sql.NullString{},
+	)
 }

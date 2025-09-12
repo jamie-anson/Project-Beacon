@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     software-properties-common \
     ca-certificates \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker (needed for Golem runtime)
@@ -26,12 +28,21 @@ RUN mkdir -p /home/golem/.local/bin
 # Add Yagna to PATH
 ENV PATH="/home/golem/.local/bin:${PATH}"
 
+# Install FastAPI app dependencies (user context)
+RUN pip3 install --no-cache-dir fastapi uvicorn pydantic
+
 # Create directories for data persistence
 RUN mkdir -p /home/golem/.local/share/yagna
 RUN mkdir -p /home/golem/golem-logs
 
-# Expose Yagna ports
-EXPOSE 7465 7464
+# Copy FastAPI app
+COPY --chown=golem:golem app.py /home/golem/app.py
+
+# Expose Yagna ports and HTTP API port
+EXPOSE 7465 7464 8080
+
+# Default region (can be overridden)
+ENV BEACON_REGION=eu-west
 
 # Copy startup script
 COPY --chown=golem:golem startup.sh /home/golem/startup.sh
