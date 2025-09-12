@@ -12,7 +12,8 @@
   VITE_ENABLE_WS = "1"
   # Use same-origin for API base; portal code appends /api/v1
   VITE_API_BASE = "https://projectbeacon.netlify.app"
-  # Optional: uncomment to force WS base to Railway until Netlify proxy is fully verified
+  # If needed, set these in Netlify UI instead of hardcoding:
+  # VITE_HYBRID_BASE = "https://project-beacon-production.up.railway.app"
   # VITE_WS_BASE = "wss://project-beacon-production.up.railway.app"
   # Google Maps API key for production (set in Netlify dashboard)
   # VITE_GOOGLE_MAPS_API_KEY = "REPLACE_WITH_NEW_KEY"
@@ -37,6 +38,11 @@
 # Portal SPA fallback (but exclude assets)
 [[redirects]]
   from = "/portal/*"
+  to = "/portal/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/portal"
   to = "/portal/index.html"
   status = 200
 
