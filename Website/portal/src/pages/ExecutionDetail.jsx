@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { getExecution, getExecutionReceipt } from '../lib/api.js';
+import { getExecutions, getExecutionReceipt } from '../lib/api.js';
 import CopyButton from '../components/CopyButton.jsx';
 
 function StatusPill({ value }) {
@@ -41,11 +41,17 @@ function truncateMiddle(str, maxLength = 40) {
 export default function ExecutionDetail() {
   const { id } = useParams();
   
-  const { data: execution, loading: executionLoading, error: executionError } = useQuery(
-    `execution-${id}`, 
-    () => getExecution(id), 
+  // Fetch executions list and find the specific execution
+  const { data: executionsData, loading: executionLoading, error: executionError } = useQuery(
+    'executions', 
+    () => getExecutions({ limit: 100 }), 
     { interval: 10000 }
   );
+
+  const execution = React.useMemo(() => {
+    if (!executionsData || !Array.isArray(executionsData)) return null;
+    return executionsData.find(exec => String(exec.id) === String(id));
+  }, [executionsData, id]);
 
   const { data: receipt, loading: receiptLoading, error: receiptError } = useQuery(
     `receipt-${id}`, 
@@ -73,7 +79,7 @@ export default function ExecutionDetail() {
     );
   }
 
-  if (executionError || !execution) {
+  if (executionError || (!executionLoading && !execution)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -87,7 +93,7 @@ export default function ExecutionDetail() {
             <span className="font-medium">Execution not found</span>
           </div>
           <p className="mt-1 text-red-700 text-sm">
-            {executionError?.message || `Execution ${id} could not be loaded.`}
+            {executionError?.message || `Execution ${id} could not be found in the executions list.`}
           </p>
         </div>
       </div>
