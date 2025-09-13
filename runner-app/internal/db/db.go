@@ -51,7 +51,7 @@ func Initialize(dbURL string) (*DB, error) {
 
 	// Run migrations: prefer golang-migrate if enabled, otherwise fallback to inline
 	useM := strings.ToLower(os.Getenv("USE_MIGRATIONS"))
-	if useM == "1" || useM == "true" || useM == "yes" {
+	if useM == "1" || useM == "true" || useM == "yes" || useM == "" {
 		path := os.Getenv("MIGRATIONS_PATH")
 		if path == "" {
 			path = "migrations" // default relative directory
