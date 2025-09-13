@@ -53,6 +53,7 @@ func main() {
 	r.GET("/health", handlers.Health)
 	r.GET("/auth/whoami", handlers.WhoAmI)
 	r.GET("/admin/config", handlers.GetAdminConfig)
+	r.POST("/admin/migrate", handlers.TriggerMigration)
 	r.PUT("/admin/config", handlers.PutAdminConfig)
 
 	// Cross-region API endpoints
