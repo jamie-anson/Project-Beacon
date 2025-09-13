@@ -33,6 +33,7 @@ type Service struct {
 	walletInfo *WalletInfo
 }
 
+
 // Provider type is defined in client.go to avoid duplication
 
 // ProviderResources represents available compute resources

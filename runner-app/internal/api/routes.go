@@ -10,6 +10,11 @@ import (
 )
 
 func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client) *gin.Engine {
+	// Guard against nil arguments (allow nil for testing)
+	if cfg == nil {
+		panic("cfg must not be nil")
+	}
+	
 	r := gin.Default()
 
 	// Add middleware
@@ -21,12 +26,22 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	// RBAC role extraction (Bearer tokens)
 	r.Use(rbac.AuthMiddleware())
 
-	// Initialize handlers
-	jobsHandler := NewJobsHandler(jobsService, cfg, redisClient)
+	// Initialize handlers (handle nil services for testing)
+	var jobsHandler *JobsHandler
+	var adminHandler *AdminHandler
+	var executionsHandler *ExecutionsHandler
+	
+	if jobsService != nil {
+		jobsHandler = NewJobsHandler(jobsService, cfg, redisClient)
+		adminHandler = NewAdminHandlerWithJobsService(cfg, jobsService)
+		executionsHandler = NewExecutionsHandler(jobsService.ExecutionsRepo)
+	} else {
+		// For testing with nil service
+		adminHandler = NewAdminHandler(cfg)
+	}
+	
 	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
 	transparencyHandler := NewTransparencyHandler()
-	adminHandler := NewAdminHandlerWithJobsService(cfg, jobsService)
-	executionsHandler := NewExecutionsHandler(jobsService.ExecutionsRepo)
 
 	// Health endpoints (no auth required)
 	health := r.Group("/health")
@@ -46,9 +61,22 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 
 		jobs := v1.Group("/jobs")
 		{
-			jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
-			jobs.GET("/:id", jobsHandler.GetJob)
-			jobs.GET("", jobsHandler.ListJobs)
+			if jobsHandler != nil {
+				jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
+				jobs.GET("/:id", jobsHandler.GetJob)
+				jobs.GET("", jobsHandler.ListJobs)
+			} else {
+				// Return 503 Service Unavailable when service is nil (testing mode)
+				jobs.POST("", func(c *gin.Context) {
+					c.JSON(503, gin.H{"error": "jobs service unavailable"})
+				})
+				jobs.GET("/:id", func(c *gin.Context) {
+					c.JSON(503, gin.H{"error": "jobs service unavailable"})
+				})
+				jobs.GET("", func(c *gin.Context) {
+					c.JSON(503, gin.H{"error": "jobs service unavailable"})
+				})
+			}
 		}
 
 		transp := v1.Group("/transparency")
@@ -81,10 +109,12 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		})
 
 		// Executions endpoints for portal
-		executions := v1.Group("/executions")
-		{
-			executions.GET("", executionsHandler.ListExecutions)
-			executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
+		if executionsHandler != nil {
+			executions := v1.Group("/executions")
+			{
+				executions.GET("", executionsHandler.ListExecutions)
+				executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
+			}
 		}
 
 		// Diffs endpoint for portal

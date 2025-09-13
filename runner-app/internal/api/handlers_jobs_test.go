@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"regexp"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 
@@ -16,11 +16,14 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 	pkcrypto "github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+	"github.com/redis/go-redis/v9"
 )
 
 func newTestRouter() *gin.Engine {
     cfg := &config.Config{HTTPPort: "8090"}
-    return SetupRoutes(service.NewJobsService(nil), cfg, nil)
+    // Create a mock Redis client for testing
+    mockRedis := redis.NewClient(&redis.Options{})
+    return SetupRoutes(service.NewJobsService(nil), cfg, mockRedis)
 }
 
 // Contract: X-Request-ID header must be present on success responses

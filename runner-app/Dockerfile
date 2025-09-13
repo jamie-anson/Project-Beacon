@@ -6,17 +6,17 @@ RUN apk update && apk add --no-cache git ca-certificates
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files from runner-app directory
-COPY runner-app/go.mod runner-app/go.sum ./
+# Copy go mod files
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code from runner-app directory
-COPY runner-app/ .
+# Copy source code
+COPY . .
 
-# Build the server application with cross-region API endpoints
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server cmd/server/main.go
+# Build the runner application with job processing workers
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server cmd/runner/main.go
 
 # Final stage
 FROM alpine:3.18
