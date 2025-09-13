@@ -1,7 +1,7 @@
 FROM golang:1.21-alpine AS builder
 
 # Install git and ca-certificates (needed for go modules)
-RUN apk add --no-cache git ca-certificates
+RUN apk update && apk add --no-cache git ca-certificates
 
 # Set working directory
 WORKDIR /app
@@ -19,10 +19,10 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server cmd/server/main.go
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.18
 
 # Install ca-certificates for HTTPS requests and curl for health checks
-RUN apk --no-cache add ca-certificates curl
+RUN apk update && apk add --no-cache ca-certificates curl
 
 WORKDIR /app
 
