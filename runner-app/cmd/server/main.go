@@ -61,6 +61,15 @@ func main() {
 	r.POST("/admin/migrate", handlers.TriggerMigration)
 	r.PUT("/admin/config", handlers.PutAdminConfig)
 
+	// Provider discovery endpoint for portal compatibility
+	r.GET("/providers", func(c *gin.Context) {
+		// Return empty providers list for now - TODO: integrate with hybrid router
+		c.JSON(200, gin.H{
+			"providers": []gin.H{},
+			"status": "ok",
+		})
+	})
+
 	// WebSocket endpoint
 	r.GET("/ws", func(c *gin.Context) {
 		hub.ServeWS(c.Writer, c.Request)
