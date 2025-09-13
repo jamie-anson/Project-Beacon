@@ -198,6 +198,9 @@ export default function ExecutionDetail() {
                     AI Output
                   </h4>
                   
+                  {/* Debug: Log the receipt structure */}
+                  {console.log('Receipt structure:', receipt.output?.data) || null}
+                  
                   {/* Check if we have structured question-answer data */}
                   {(receipt.output?.data?.responses && Array.isArray(receipt.output.data.responses)) || 
                    (receipt.output?.data?.data?.responses && Array.isArray(receipt.output.data.data.responses)) ? (
