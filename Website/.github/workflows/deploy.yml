@@ -107,6 +107,10 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
+    permissions:
+      contents: read
+      deployments: write
+      statuses: write
     
     steps:
     - name: Checkout code
