@@ -58,15 +58,22 @@ func (s *Service) simulateTaskExecution(ctx context.Context, execution *TaskExec
         // Simulate successful execution
         execution.Status = "running"
 
-        // Generate mock output based on region
-        output := s.generateMockOutput(execution.ProviderID, jobspec)
+        // Generate structured output based on region and questions
+        output := s.generateStructuredOutput(execution.ProviderID, jobspec)
         execution.Output = output
 
         // Populate process-like outputs (stdout/stderr/exit)
-        // Treat the text output as stdout
+        // Extract summary from structured output for stdout
         if m, ok := output.(map[string]interface{}); ok {
-            if to, ok := m["text_output"].(string); ok {
-                execution.Metadata["stdout"] = to
+            if data, ok := m["data"].(map[string]interface{}); ok {
+                if summary, ok := data["summary"].(map[string]interface{}); ok {
+                    stdout := fmt.Sprintf("Processed %v questions, %v successful, %v failed, total time: %.2fs", 
+                        summary["total_questions"], 
+                        summary["successful_responses"], 
+                        summary["failed_responses"],
+                        summary["total_inference_time"])
+                    execution.Metadata["stdout"] = stdout
+                }
             }
         }
         execution.Metadata["stderr"] = ""

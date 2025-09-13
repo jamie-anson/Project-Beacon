@@ -199,9 +199,10 @@ export default function ExecutionDetail() {
                   </h4>
                   
                   {/* Check if we have structured question-answer data */}
-                  {receipt.output?.data?.responses && Array.isArray(receipt.output.data.responses) ? (
+                  {(receipt.output?.data?.responses && Array.isArray(receipt.output.data.responses)) || 
+                   (receipt.output?.data?.data?.responses && Array.isArray(receipt.output.data.data.responses)) ? (
                     <div className="space-y-4">
-                      {receipt.output.data.responses.map((response, index) => (
+                      {(receipt.output.data.responses || receipt.output.data.data.responses).map((response, index) => (
                         <div key={response.question_id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <div className="text-sm text-blue-900 font-medium mb-2">
                             Question {index + 1}: {response.question_id || `Q${index + 1}`}
@@ -228,25 +229,25 @@ export default function ExecutionDetail() {
                       ))}
                       
                       {/* Summary for structured data */}
-                      {receipt.output.data.summary && (
+                      {(receipt.output.data.summary || receipt.output.data.data.summary) && (
                         <div className="bg-slate-50 border rounded-lg p-4">
                           <div className="text-sm font-medium text-slate-900 mb-2">Benchmark Summary</div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div className="flex justify-between">
                               <span className="text-slate-600">Total Questions:</span>
-                              <span className="font-mono">{receipt.output.data.summary.total_questions || 0}</span>
+                              <span className="font-mono">{(receipt.output.data.summary || receipt.output.data.data.summary).total_questions || 0}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-600">Successful:</span>
-                              <span className="font-mono text-green-600">{receipt.output.data.summary.successful_responses || 0}</span>
+                              <span className="font-mono text-green-600">{(receipt.output.data.summary || receipt.output.data.data.summary).successful_responses || 0}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-600">Failed:</span>
-                              <span className="font-mono text-red-600">{receipt.output.data.summary.failed_responses || 0}</span>
+                              <span className="font-mono text-red-600">{(receipt.output.data.summary || receipt.output.data.data.summary).failed_responses || 0}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-600">Total Time:</span>
-                              <span className="font-mono">{receipt.output.data.summary.total_inference_time ? `${receipt.output.data.summary.total_inference_time.toFixed(2)}s` : 'N/A'}</span>
+                              <span className="font-mono">{(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time ? `${(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time.toFixed(2)}s` : 'N/A'}</span>
                             </div>
                           </div>
                         </div>
