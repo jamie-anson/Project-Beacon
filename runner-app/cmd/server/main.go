@@ -11,6 +11,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
+	"github.com/jamie-anson/project-beacon-runner/internal/db"
 )
 
 func corsMiddleware() gin.HandlerFunc {
@@ -32,10 +33,20 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery(), corsMiddleware(), middleware.AuthMiddleware())
 
-	// Initialize cross-region components
-	crossRegionRepo := store.NewCrossRegionRepo(nil) // TODO: Initialize with proper DB connection
+	// Initialize database connection
+	dbURL := os.Getenv("DATABASE_URL")
+	database, err := db.Initialize(dbURL)
+	if err != nil {
+		log.Printf("Failed to initialize database: %v", err)
+		log.Println("Continuing with limited functionality...")
+	}
+
+	// Initialize cross-region components with proper database connection
+	crossRegionRepo := store.NewCrossRegionRepo(database.DB)
 	diffEngine := analysis.NewCrossRegionDiffEngine()
-	crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil) // TODO: Initialize with proper dependencies
+	
+	// TODO: Initialize CrossRegionExecutor with proper hybrid router and single region executor
+	crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
 	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine)
 
 	// Health and admin endpoints
