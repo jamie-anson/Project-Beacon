@@ -6,14 +6,14 @@ RUN apk update && apk add --no-cache git ca-certificates
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files from runner-app directory
+COPY runner-app/go.mod runner-app/go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy source code from runner-app directory
+COPY runner-app/ .
 
 # Build the server application with cross-region API endpoints
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server cmd/server/main.go
