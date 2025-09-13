@@ -208,16 +208,13 @@ export default function ExecutionDetail() {
                       {(receipt.output.data.responses || receipt.output.data.data.responses).map((response, index) => (
                         <div key={response.question_id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <div className="text-sm text-blue-900 font-medium mb-2">
-                            Question {index + 1}: {response.question_id || `Q${index + 1}`}
-                          </div>
-                          <div className="text-xs text-slate-600 mb-2 italic">
-                            "{response.question || 'Question text not available'}"
+                            {response.question || 'Question text not available'}
                           </div>
                           <div className="text-blue-800 bg-white rounded p-3 border">
                             "{response.response || 'No response available'}"
                           </div>
                           <div className="flex justify-between mt-2 text-xs text-slate-600">
-                            <span>Category: {response.category || 'N/A'}</span>
+                            <span>Category: <span className="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-medium">{response.category ? response.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}</span></span>
                             <span>Time: {response.inference_time ? `${response.inference_time.toFixed(2)}s` : 'N/A'}</span>
                             <span className={response.success ? 'text-green-600' : 'text-red-600'}>
                               {response.success ? '✓ Success' : '✗ Failed'}
