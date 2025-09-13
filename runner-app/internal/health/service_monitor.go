@@ -29,7 +29,7 @@ func NewServiceMonitor() *ServiceMonitor {
 	return &ServiceMonitor{
 		services: map[string]string{
 			"hybrid_router": "https://beacon-hybrid-router.fly.dev/health",
-			"runner_app":    "https://beacon-runner.fly.dev/health",
+			"runner_app":    "https://beacon-hybrid-router.fly.dev/status",
 		},
 		client: &http.Client{
 			Timeout: 10 * time.Second,
