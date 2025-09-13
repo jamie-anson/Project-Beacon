@@ -6,12 +6,13 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
-	"github.com/jamie-anson/project-beacon-runner/internal/middleware"
-	"github.com/jamie-anson/project-beacon-runner/internal/store"
-	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/execution"
+	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
+	"github.com/jamie-anson/project-beacon-runner/internal/health"
+	"github.com/jamie-anson/project-beacon-runner/internal/middleware"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
 )
 
@@ -46,6 +47,9 @@ func main() {
 	hub := websocket.NewHub()
 	go hub.Run()
 
+	// Initialize service monitor for infrastructure health checks
+	serviceMonitor := health.NewServiceMonitor()
+
 	// Initialize cross-region components with proper database connection
 	var crossRegionRepo *store.CrossRegionRepo
 	if database.DB != nil {
@@ -71,6 +75,12 @@ func main() {
 			"providers": []gin.H{},
 			"status": "ok",
 		})
+	})
+
+	// Infrastructure health endpoint
+	r.GET("/infrastructure/health", func(c *gin.Context) {
+		infraStatus := serviceMonitor.GetInfrastructureStatus(c.Request.Context())
+		c.JSON(200, infraStatus)
 	})
 
 	// WebSocket endpoint

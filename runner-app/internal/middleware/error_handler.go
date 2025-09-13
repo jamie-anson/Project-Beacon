@@ -34,6 +34,9 @@ const (
 	ErrorCodeAPIInternalError = "API_INTERNAL_ERROR"
 	ErrorCodeAPIEndpointNotFound = "API_ENDPOINT_NOT_FOUND"
 	ErrorCodeProviderDiscoveryFailed = "PROVIDER_DISCOVERY_FAILED"
+	ErrorCodeInfrastructureUnavailable = "INFRASTRUCTURE_UNAVAILABLE"
+	ErrorCodeServiceDegraded = "SERVICE_DEGRADED"
+	ErrorCodeJobTrackingFailed = "JOB_TRACKING_FAILED"
 )
 
 // ErrorHandler middleware for standardized error responses
