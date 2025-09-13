@@ -86,7 +86,7 @@ export default function BiasDetection() {
       },
       constraints: {
         regions: ['US', 'EU', 'ASIA'],
-        min_regions: 3
+        min_regions: 1
       },
       metadata: {
         created_by: 'portal',
@@ -370,7 +370,7 @@ export default function BiasDetection() {
                           },
                           constraints: {
                             regions: missing,
-                            min_regions: missing.length
+                            min_regions: 1
                           },
                           metadata: {
                             created_by: 'portal',
