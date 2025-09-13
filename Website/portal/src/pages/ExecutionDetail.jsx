@@ -190,29 +190,90 @@ export default function ExecutionDetail() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* AI Output Section */}
+              {/* AI Output */}
               {receipt.output && (
                 <div className="space-y-3">
                   <h4 className="font-medium text-slate-900 flex items-center gap-2">
                     <span className="text-blue-500">🤖</span>
-                    AI Response Output
+                    AI Output
                   </h4>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="text-sm text-blue-900 font-medium mb-2">Generated Response:</div>
-                    <div className="text-blue-800 italic">
-                      "{receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
+                  
+                  {/* Check if we have structured question-answer data */}
+                  {receipt.output?.data?.responses && Array.isArray(receipt.output.data.responses) ? (
+                    <div className="space-y-4">
+                      {receipt.output.data.responses.map((response, index) => (
+                        <div key={response.question_id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="text-sm text-blue-900 font-medium mb-2">
+                            Question {index + 1}: {response.question_id || `Q${index + 1}`}
+                          </div>
+                          <div className="text-xs text-slate-600 mb-2 italic">
+                            "{response.question || 'Question text not available'}"
+                          </div>
+                          <div className="text-blue-800 bg-white rounded p-3 border">
+                            "{response.response || 'No response available'}"
+                          </div>
+                          <div className="flex justify-between mt-2 text-xs text-slate-600">
+                            <span>Category: {response.category || 'N/A'}</span>
+                            <span>Time: {response.inference_time ? `${response.inference_time.toFixed(2)}s` : 'N/A'}</span>
+                            <span className={response.success ? 'text-green-600' : 'text-red-600'}>
+                              {response.success ? '✓ Success' : '✗ Failed'}
+                            </span>
+                          </div>
+                          {response.error && (
+                            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                              Error: {response.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Summary for structured data */}
+                      {receipt.output.data.summary && (
+                        <div className="bg-slate-50 border rounded-lg p-4">
+                          <div className="text-sm font-medium text-slate-900 mb-2">Benchmark Summary</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Total Questions:</span>
+                              <span className="font-mono">{receipt.output.data.summary.total_questions || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Successful:</span>
+                              <span className="font-mono text-green-600">{receipt.output.data.summary.successful_responses || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Failed:</span>
+                              <span className="font-mono text-red-600">{receipt.output.data.summary.failed_responses || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Total Time:</span>
+                              <span className="font-mono">{receipt.output.data.summary.total_inference_time ? `${receipt.output.data.summary.total_inference_time.toFixed(2)}s` : 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Tokens Generated:</span>
-                      <span className="font-mono">{receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
+                  ) : (
+                    /* Fallback for simplified single output format */
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="text-sm text-blue-900 font-medium mb-2">Generated Response:</div>
+                        <div className="text-blue-800 bg-white rounded p-3 border">
+                          "{receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Tokens Generated:</span>
+                          <span className="font-mono">{receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Execution Time:</span>
+                          <span className="font-mono">{receipt.output?.data?.metadata?.execution_time || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Execution Time:</span>
-                      <span className="font-mono">{receipt.output?.data?.metadata?.execution_time || 'N/A'}</span>
-                    </div>
-                  </div>
+                  )}
+                  
                   {receipt.output?.hash && (
                     <div className="text-xs">
                       <span className="text-slate-600">Output Hash:</span>
