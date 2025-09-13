@@ -395,6 +395,7 @@ async function httpHybrid(path, opts = {}) {
 
 export const getHybridHealth = () => httpHybrid('/health');
 export const getHybridProviders = () => httpHybrid('/providers').then(d => Array.isArray(d?.providers) ? d.providers : []);
+export const getInfrastructureHealth = () => httpHybrid('/infrastructure/health');
 
 // Individual execution and receipt APIs
 export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}`);

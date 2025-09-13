@@ -6,6 +6,7 @@ import useWs from '../state/useWs.js';
 import { useToast } from '../state/toast.jsx';
 import ActivityFeed from '../components/ActivityFeed.jsx';
 import CopyButton from '../components/CopyButton.jsx';
+import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 
 // Small inline UI helpers to avoid new files for now
 function StatusPill({ value }) {
@@ -169,7 +170,12 @@ export default function Dashboard() {
         </div>
       </section>
       <section>
-        <h2 className="text-xl font-semibold">Server Status</h2>
+        <h2 className="text-xl font-semibold">Infrastructure Status</h2>
+        <InfrastructureStatus />
+      </section>
+      
+      <section>
+        <h2 className="text-xl font-semibold">Legacy Server Status</h2>
         <div className="bg-white border rounded p-4">
           <div className="space-y-3">
             {/* Main Runner API (Fly) */}

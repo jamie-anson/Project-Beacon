@@ -7,6 +7,8 @@ import WalletConnection from '../components/WalletConnection.jsx';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast, createSuccessToast, createWarningToast } from '../lib/errorUtils.js';
 import { getWalletAuthStatus, isMetaMaskInstalled } from '../lib/wallet.js';
+import ErrorMessage from '../components/ErrorMessage.jsx';
+import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 
 export default function BiasDetection() {
   const [biasJobs, setBiasJobs] = useState([]);
@@ -24,6 +26,11 @@ export default function BiasDetection() {
   const [minSuccessRate, setMinSuccessRate] = useState(0.67);
   const [isMultiRegion, setIsMultiRegion] = useState(false);
   
+  // Error handling state
+  const [jobSubmissionError, setJobSubmissionError] = useState(null);
+  const [jobListError, setJobListError] = useState(null);
+  const [loadingActiveError, setLoadingActiveError] = useState(null);
+  
   const availableRegions = [
     { code: 'US', name: 'United States', model: 'Llama 3.2-1B', cost: 0.0003 },
     { code: 'EU', name: 'Europe', model: 'Mistral 7B', cost: 0.0004 },
@@ -36,6 +43,7 @@ export default function BiasDetection() {
 
   const fetchBiasJobs = async () => {
     try {
+      setJobListError(null);
       const data = await listJobs({ limit: 50 });
       const jobs = Array.isArray(data?.jobs) ? data.jobs : (Array.isArray(data) ? data : []);
       // Filter for bias detection jobs
@@ -45,6 +53,7 @@ export default function BiasDetection() {
       setBiasJobs(biasJobsData);
     } catch (error) {
       console.error('Failed to fetch bias jobs:', error);
+      setJobListError(error);
       addToast(createErrorToast(error));
     } finally {
       setLoading(false);
@@ -164,6 +173,15 @@ export default function BiasDetection() {
     { interval: 5000 }
   );
 
+  // Handle active job loading errors
+  useEffect(() => {
+    if (activeErr) {
+      setLoadingActiveError(activeErr);
+    } else {
+      setLoadingActiveError(null);
+    }
+  }, [activeErr]);
+
   useEffect(() => {
     // Clear session if job completed
     const status = activeJob?.status;
@@ -252,13 +270,40 @@ export default function BiasDetection() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Bias Detection</h1>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <h1 className="text-2xl font-bold">Bias Detection Analysis</h1>
+        
+        {/* Infrastructure Status */}
+        <InfrastructureStatus compact={true} />
+        
+        {/* Job Submission Errors */}
+        {jobSubmissionError && (
+          <ErrorMessage 
+            error={jobSubmissionError} 
+            onRetry={() => {
+              setJobSubmissionError(null);
+              // Retry logic would go here
+            }}
+            retryAfter={jobSubmissionError.retry_after}
+          />
+        )}
+        
+        {/* Job List Errors */}
+        {jobListError && (
+          <ErrorMessage 
+            error={jobListError} 
+            onRetry={() => {
+              setJobListError(null);
+              fetchBiasJobs();
+            }}
+            retryAfter={jobListError.retry_after}
+          />
+        )}
         <p className="text-slate-600 text-sm max-w-3xl">
           Run targeted prompts to detect bias across regions and models. Choose your questions and providers,
           then submit to start a job. You’ll see live per‑region progress and a link to full results.
         </p>
-      </header>
+      </div>
 
       {/* Wallet Authentication */}
       <WalletConnection />
@@ -604,6 +649,18 @@ export default function BiasDetection() {
               return null;
             })()}
 
+            {/* Live Progress Error Handling */}
+            {loadingActiveError && (
+              <ErrorMessage 
+                error={loadingActiveError} 
+                onRetry={() => {
+                  setLoadingActiveError(null);
+                  refetchActive();
+                }}
+                retryAfter={loadingActiveError.retry_after}
+              />
+            )}
+
             <div className="border rounded">
               <div className="grid grid-cols-7 text-xs bg-slate-50 text-slate-600">
                 <div className="px-3 py-2">Region</div>
@@ -621,6 +678,32 @@ export default function BiasDetection() {
                 const provider = e?.provider_id || e?.providerId || e?.provider || '';
                 const retries = e?.retries ?? e?.retry_count ?? 0;
                 const eta = e?.eta_seconds ?? e?.estimated_completion ?? null;
+                
+                // Enhanced status display with error information
+                const getEnhancedStatus = () => {
+                  if (loadingActive) return '—';
+                  if (!e) return 'pending';
+                  
+                  // Check for infrastructure errors
+                  if (e?.error || e?.failure_reason) {
+                    return 'failed';
+                  }
+                  
+                  // Check for timeout or stale jobs
+                  if (status === 'running' && started) {
+                    const startTime = new Date(started);
+                    const now = new Date();
+                    const runningTime = (now - startTime) / 1000 / 60; // minutes
+                    if (runningTime > 30) { // 30+ minutes is suspicious
+                      return 'stalled';
+                    }
+                  }
+                  
+                  return status;
+                };
+
+                const enhancedStatus = getEnhancedStatus();
+                
                 return (
                   <div key={r} className="grid grid-cols-7 text-sm border-t hover:bg-slate-50">
                     <div className="px-3 py-2 font-medium flex items-center gap-2">
@@ -633,7 +716,16 @@ export default function BiasDetection() {
                       )}
                     </div>
                     <div className="px-3 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(status)}`}>{String(status)}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(enhancedStatus)}`}>
+                          {String(enhancedStatus)}
+                        </span>
+                        {(e?.error || e?.failure_reason) && (
+                          <span className="text-xs text-red-600 truncate" title={e?.error || e?.failure_reason}>
+                            {(e?.error || e?.failure_reason).substring(0, 20)}...
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
                     <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
