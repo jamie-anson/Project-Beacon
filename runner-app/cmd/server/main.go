@@ -47,7 +47,10 @@ func main() {
 	go hub.Run()
 
 	// Initialize cross-region components with proper database connection
-	crossRegionRepo := store.NewCrossRegionRepo(database.DB)
+	var crossRegionRepo *store.CrossRegionRepo
+	if database.DB != nil {
+		crossRegionRepo = store.NewCrossRegionRepo(database.DB)
+	}
 	diffEngine := analysis.NewCrossRegionDiffEngine()
 	
 	// TODO: Initialize CrossRegionExecutor with proper hybrid router and single region executor

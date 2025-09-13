@@ -241,6 +241,17 @@ func (h *CrossRegionHandlers) GetCrossRegionResult(c *gin.Context) {
 		return
 	}
 
+	// Check if database is available
+	if h.crossRegionRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Database service unavailable",
+			"code": "DATABASE_CONNECTION_FAILED",
+			"user_message": "The service is temporarily unavailable. Please try again in a few moments.",
+			"retry_after": 60,
+		})
+		return
+	}
+
 	// Get cross-region execution
 	crossRegionExec, err := h.crossRegionRepo.GetCrossRegionExecution(c.Request.Context(), executionID)
 	if err != nil {
