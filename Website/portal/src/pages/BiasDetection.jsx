@@ -31,6 +31,10 @@ export default function BiasDetection() {
   const [jobListError, setJobListError] = useState(null);
   const [loadingActiveError, setLoadingActiveError] = useState(null);
   
+  // Button state management
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [buttonClicked, setButtonClicked] = useState(false);
+  
   const availableRegions = [
     { code: 'US', name: 'United States', model: 'Llama 3.2-1B', cost: 0.0003 },
     { code: 'EU', name: 'Europe', model: 'Mistral 7B', cost: 0.0004 },
@@ -96,11 +100,18 @@ export default function BiasDetection() {
   };
 
   const onSubmitJob = async () => {
+    if (isSubmitting) return; // Prevent double submission
+    
+    setIsSubmitting(true);
+    setButtonClicked(true);
+    
     const questions = readSelectedQuestions();
     
     // Validate questions selection
     if (questions.length === 0) {
       addToast(createWarningToast('Please select at least one question on the Questions page before submitting a job.'));
+      setIsSubmitting(false);
+      setButtonClicked(false);
       return;
     }
 
@@ -108,6 +119,8 @@ export default function BiasDetection() {
     const walletStatus = getWalletAuthStatus();
     if (!walletStatus.isAuthorized) {
       addToast(createWarningToast('Please connect your wallet before submitting a job.'));
+      setIsSubmitting(false);
+      setButtonClicked(false);
       return;
     }
 
@@ -163,6 +176,10 @@ export default function BiasDetection() {
     } catch (error) {
       console.error('Failed to create job', error);
       addToast(createErrorToast(error));
+    } finally {
+      setIsSubmitting(false);
+      // Keep button clicked state briefly for visual feedback
+      setTimeout(() => setButtonClicked(false), 200);
     }
   };
 
@@ -450,18 +467,35 @@ export default function BiasDetection() {
               {(() => {
                 const hasWallet = isMetaMaskInstalled();
                 const walletStatus = getWalletAuthStatus();
-                const disabled = !hasWallet || !walletStatus.isAuthorized || readSelectedQuestions().length === 0;
+                const disabled = !hasWallet || !walletStatus.isAuthorized || readSelectedQuestions().length === 0 || isSubmitting;
+                
+                // Show "Refresh" if there's an active job, otherwise show submit button
+                const showRefresh = activeJobId && !isSubmitting;
+                
                 return (
                   <button
-                    onClick={onSubmitJob}
-                    disabled={disabled}
-                    className={`px-6 py-2 rounded-md text-sm font-medium ${
-                      disabled 
+                    onClick={showRefresh ? () => window.location.reload() : onSubmitJob}
+                    disabled={disabled && !showRefresh}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition-all duration-150 ${
+                      buttonClicked && !showRefresh
+                        ? 'bg-beacon-800 text-white transform scale-95'
+                        : disabled && !showRefresh
                         ? 'bg-slate-300 text-slate-600 cursor-not-allowed' 
+                        : showRefresh
+                        ? 'bg-green-600 text-white hover:bg-green-700'
                         : 'bg-beacon-600 text-white hover:bg-beacon-700'
                     }`}
                   >
-                    {isMultiRegion ? 'Submit Multi-Region Job' : 'Submit Job'}
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Submitting...
+                      </div>
+                    ) : showRefresh ? (
+                      'Refresh'
+                    ) : (
+                      isMultiRegion ? 'Submit Multi-Region Job' : 'Submit Job'
+                    )}
                   </button>
                 );
               })()}
