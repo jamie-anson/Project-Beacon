@@ -200,9 +200,10 @@ export default function BiasDetection() {
   }, [activeErr]);
 
   useEffect(() => {
-    // Clear session if job completed
+    // Clear session if job completed or failed
     const status = activeJob?.status;
     if (status && (status === 'completed' || status === 'failed' || status === 'cancelled')) {
+      setActiveJobId('');
       try { sessionStorage.removeItem(SESSION_KEY); } catch {}
     }
   }, [activeJob]);
@@ -460,8 +461,20 @@ export default function BiasDetection() {
             </div>
             <div className="flex items-center gap-3">
               {activeJobId && (
-                <div className="text-xs text-slate-500">
-                  Active: <span className="font-mono">{activeJobId.slice(0, 8)}...</span>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-slate-500">
+                    Active: <span className="font-mono">{activeJobId.slice(0, 8)}...</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveJobId('');
+                      try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-600 underline"
+                    title="Clear active job and show submit button"
+                  >
+                    clear
+                  </button>
                 </div>
               )}
               {(() => {
