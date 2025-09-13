@@ -1,0 +1,301 @@
+name: Production Hardening Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run tests every 4 hours to catch production issues early
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      test_phase:
+        description: 'Test phase to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - smoke
+          - health
+          - integration
+          - regression
+
+jobs:
+  smoke-tests:
+    name: Quick Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run smoke tests
+      id: smoke
+      run: |
+        chmod +x tests/integration/quick-smoke-test.sh
+        ./tests/integration/quick-smoke-test.sh
+        
+    - name: Upload smoke test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-test-results
+        path: |
+          tests/
+          *.log
+        retention-days: 7
+
+  health-monitoring:
+    name: Health Monitoring Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: smoke-tests
+    if: success() || github.event.inputs.test_phase == 'health' || github.event.inputs.test_phase == 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run health monitoring tests
+      id: health
+      run: |
+        chmod +x tests/monitoring/health-check-tests.sh
+        ./tests/monitoring/health-check-tests.sh
+        
+    - name: Upload health test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: health-test-results
+        path: |
+          tests/
+          *.log
+        retention-days: 7
+
+  integration-tests:
+    name: Cross-Service Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: health-monitoring
+    if: success() || github.event.inputs.test_phase == 'integration' || github.event.inputs.test_phase == 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run integration tests
+      id: integration
+      run: |
+        chmod +x tests/integration/cross-service-tests.sh
+        ./tests/integration/cross-service-tests.sh
+        
+    - name: Upload integration test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-results
+        path: |
+          tests/
+          *.log
+        retention-days: 7
+
+  regression-tests:
+    name: Regression Prevention Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: health-monitoring
+    if: success() || github.event.inputs.test_phase == 'regression' || github.event.inputs.test_phase == 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run regression tests
+      id: regression
+      run: |
+        chmod +x tests/regression/known-issues-tests.sh
+        ./tests/regression/known-issues-tests.sh
+        
+    - name: Upload regression test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: regression-test-results
+        path: |
+          tests/
+          *.log
+        retention-days: 7
+
+  comprehensive-tests:
+    name: Full Production Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [smoke-tests, health-monitoring]
+    if: github.event_name == 'schedule' || github.event.inputs.test_phase == 'all'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run comprehensive test suite
+      id: comprehensive
+      run: |
+        chmod +x run-all-production-tests.sh
+        ./run-all-production-tests.sh
+        
+    - name: Upload comprehensive test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: comprehensive-test-results
+        path: |
+          tests/
+          *.log
+        retention-days: 30
+
+  notify-results:
+    name: Notify Test Results
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, health-monitoring, integration-tests, regression-tests]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'push')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: test-results/
+        
+    - name: Generate test summary
+      run: |
+        echo "# Production Test Results Summary" > test-summary.md
+        echo "**Timestamp:** $(date -u)" >> test-summary.md
+        echo "**Commit:** ${{ github.sha }}" >> test-summary.md
+        echo "**Branch:** ${{ github.ref_name }}" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Check job results
+        if [[ "${{ needs.smoke-tests.result }}" == "success" ]]; then
+          echo "✅ **Smoke Tests:** PASSED" >> test-summary.md
+        else
+          echo "❌ **Smoke Tests:** FAILED" >> test-summary.md
+        fi
+        
+        if [[ "${{ needs.health-monitoring.result }}" == "success" ]]; then
+          echo "✅ **Health Monitoring:** PASSED" >> test-summary.md
+        else
+          echo "❌ **Health Monitoring:** FAILED" >> test-summary.md
+        fi
+        
+        if [[ "${{ needs.integration-tests.result }}" == "success" ]]; then
+          echo "✅ **Integration Tests:** PASSED" >> test-summary.md
+        else
+          echo "❌ **Integration Tests:** FAILED" >> test-summary.md
+        fi
+        
+        if [[ "${{ needs.regression-tests.result }}" == "success" ]]; then
+          echo "✅ **Regression Tests:** PASSED" >> test-summary.md
+        else
+          echo "❌ **Regression Tests:** FAILED" >> test-summary.md
+        fi
+        
+        echo "" >> test-summary.md
+        echo "**View detailed results:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> test-summary.md
+        
+        cat test-summary.md
+        
+    - name: Create GitHub issue on failure
+      if: failure() && github.event_name == 'schedule'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('test-summary.md', 'utf8');
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Production Tests Failed - ${new Date().toISOString().split('T')[0]}`,
+            body: `${summary}\n\n**Action Required:** Review failed tests and fix production issues.\n\n**Run ID:** ${{ github.run_id }}`,
+            labels: ['production', 'testing', 'urgent']
+          });
+
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Monitor API performance
+      run: |
+        echo "# API Performance Report" > performance-report.md
+        echo "**Timestamp:** $(date -u)" >> performance-report.md
+        echo "" >> performance-report.md
+        
+        # Test Runner API performance
+        echo "## Runner API Performance" >> performance-report.md
+        for i in {1..5}; do
+          start_time=$(date +%s%N)
+          curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/health" > /dev/null
+          end_time=$(date +%s%N)
+          response_time=$(( (end_time - start_time) / 1000000 ))
+          echo "- Test $i: ${response_time}ms" >> performance-report.md
+        done
+        
+        echo "" >> performance-report.md
+        echo "## Hybrid Router Performance" >> performance-report.md
+        for i in {1..5}; do
+          start_time=$(date +%s%N)
+          curl -s --max-time 10 "https://project-beacon-production.up.railway.app/health" > /dev/null
+          end_time=$(date +%s%N)
+          response_time=$(( (end_time - start_time) / 1000000 ))
+          echo "- Test $i: ${response_time}ms" >> performance-report.md
+        done
+        
+        cat performance-report.md
+        
+    - name: Upload performance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report
+        path: performance-report.md
+        retention-days: 30

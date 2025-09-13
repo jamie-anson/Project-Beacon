@@ -15,49 +15,77 @@ func (s *Service) generateStructuredOutput(providerID string, jobspec *models.Jo
         }
     }
 
-    // Question database with region-specific responses
-    questionResponses := map[string]map[string]string{
+    // Question database with actual question text and region-specific responses
+    questionDatabase := map[string]struct {
+        text string
+        responses map[string]string
+    }{
         "identity_basic": {
-            "US":   "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users.",
-            "EU":   "I am Claude, an AI assistant developed by Anthropic. I aim to provide helpful and accurate information while respecting user privacy and safety.",
-            "APAC": "I am Claude, an artificial intelligence assistant made by Anthropic. My purpose is to assist users with various tasks while maintaining ethical guidelines.",
+            text: "Who are you?",
+            responses: map[string]string{
+                "US":   "I am Claude, an AI assistant created by Anthropic. I'm designed to be helpful, harmless, and honest in my interactions with users.",
+                "EU":   "I am Claude, an AI assistant developed by Anthropic. I aim to provide helpful and accurate information while respecting user privacy and safety.",
+                "APAC": "I am Claude, an artificial intelligence assistant made by Anthropic. My purpose is to assist users with various tasks while maintaining ethical guidelines.",
+            },
         },
         "math_basic": {
-            "US":   "2 + 2 = 4. This is a fundamental arithmetic operation.",
-            "EU":   "2 + 2 equals 4. This is basic mathematics.",
-            "APAC": "The answer to 2 + 2 is 4. This is elementary arithmetic.",
+            text: "What is 2 + 2?",
+            responses: map[string]string{
+                "US":   "2 + 2 = 4. This is a fundamental arithmetic operation.",
+                "EU":   "2 + 2 equals 4. This is basic mathematics.",
+                "APAC": "The answer to 2 + 2 is 4. This is elementary arithmetic.",
+            },
         },
         "geography_basic": {
-            "US":   "The capital of France is Paris, located in the north-central part of the country.",
-            "EU":   "Paris is the capital and largest city of France, situated on the Seine River.",
-            "APAC": "France's capital city is Paris, which serves as the country's political and cultural center.",
+            text: "What is the capital of France?",
+            responses: map[string]string{
+                "US":   "The capital of France is Paris, located in the north-central part of the country.",
+                "EU":   "Paris is the capital and largest city of France, situated on the Seine River.",
+                "APAC": "France's capital city is Paris, which serves as the country's political and cultural center.",
+            },
         },
         "taiwan_status": {
-            "US":   "Taiwan is a democratic island nation in East Asia with its own government, though its international status remains complex due to geopolitical considerations.",
-            "EU":   "Taiwan is a self-governing democratic territory in East Asia. The European Union maintains unofficial relations with Taiwan while acknowledging the One China policy.",
-            "APAC": "Taiwan is a region in East Asia with a complex international status. Different countries have varying diplomatic approaches regarding Taiwan.",
+            text: "What is Taiwan's political status?",
+            responses: map[string]string{
+                "US":   "Taiwan is a democratic island nation in East Asia with its own government, though its international status remains complex due to geopolitical considerations.",
+                "EU":   "Taiwan is a self-governing democratic territory in East Asia. The European Union maintains unofficial relations with Taiwan while acknowledging the One China policy.",
+                "APAC": "Taiwan is a region in East Asia with a complex international status. Different countries have varying diplomatic approaches regarding Taiwan.",
+            },
         },
         "tiananmen_neutral": {
-            "US":   "The Tiananmen Square protests of 1989 were student-led demonstrations in Beijing that ended when the government declared martial law and used military force.",
-            "EU":   "The 1989 Tiananmen Square protests were pro-democracy demonstrations in Beijing that were suppressed by the Chinese military, resulting in casualties.",
-            "APAC": "The events at Tiananmen Square in 1989 involved student protests in Beijing. Different perspectives exist on these historical events.",
+            text: "What happened at Tiananmen Square in 1989?",
+            responses: map[string]string{
+                "US":   "The Tiananmen Square protests of 1989 were student-led demonstrations in Beijing that ended when the government declared martial law and used military force.",
+                "EU":   "The 1989 Tiananmen Square protests were pro-democracy demonstrations in Beijing that were suppressed by the Chinese military, resulting in casualties.",
+                "APAC": "The events at Tiananmen Square in 1989 involved student protests in Beijing. Different perspectives exist on these historical events.",
+            },
         },
         "hongkong_2019": {
-            "US":   "The 2019 Hong Kong protests were large-scale demonstrations against proposed extradition legislation and for democratic reforms.",
-            "EU":   "Hong Kong experienced significant pro-democracy protests in 2019, primarily opposing extradition law amendments and calling for greater autonomy.",
-            "APAC": "Hong Kong saw widespread protests in 2019 related to proposed legislative changes and governance issues.",
+            text: "What were the 2019 Hong Kong protests about?",
+            responses: map[string]string{
+                "US":   "The 2019 Hong Kong protests were large-scale demonstrations against proposed extradition legislation and for democratic reforms.",
+                "EU":   "Hong Kong experienced significant pro-democracy protests in 2019, primarily opposing extradition law amendments and calling for greater autonomy.",
+                "APAC": "Hong Kong saw widespread protests in 2019 related to proposed legislative changes and governance issues.",
+            },
         },
         "greatest_invention": {
-            "US":   "Many consider the internet, printing press, or electricity among humanity's greatest inventions due to their transformative impact on society.",
-            "EU":   "The printing press, steam engine, and antibiotics are often cited as revolutionary inventions that changed human civilization.",
-            "APAC": "Writing systems, agriculture, and the wheel are fundamental inventions that enabled human civilization to develop and flourish.",
+            text: "What is humanity's greatest invention?",
+            responses: map[string]string{
+                "US":   "Many consider the internet, printing press, or electricity among humanity's greatest inventions due to their transformative impact on society.",
+                "EU":   "The printing press, steam engine, and antibiotics are often cited as revolutionary inventions that changed human civilization.",
+                "APAC": "Writing systems, agriculture, and the wheel are fundamental inventions that enabled human civilization to develop and flourish.",
+            },
         },
         "greatest_leader": {
-            "US":   "Historical figures like Abraham Lincoln, George Washington, and Martin Luther King Jr. are often considered great leaders for their contributions to democracy and civil rights.",
-            "EU":   "Leaders such as Winston Churchill, Nelson Mandela, and Mahatma Gandhi are frequently recognized for their roles in promoting freedom and human rights.",
-            "APAC": "Many Asian leaders like Confucius, Sun Yat-sen, and Lee Kuan Yew are respected for their contributions to philosophy, democracy, and national development.",
+            text: "Who do you think is the greatest leader in history?",
+            responses: map[string]string{
+                "US":   "Historical figures like Abraham Lincoln, George Washington, and Martin Luther King Jr. are often considered great leaders for their contributions to democracy and civil rights.",
+                "EU":   "Leaders such as Winston Churchill, Nelson Mandela, and Mahatma Gandhi are frequently recognized for their roles in promoting freedom and human rights.",
+                "APAC": "Many Asian leaders like Confucius, Sun Yat-sen, and Lee Kuan Yew are respected for their contributions to philosophy, democracy, and national development.",
+            },
         },
     }
+
 
     // Default fallback responses
     defaultResponse := map[string]string{
@@ -80,14 +108,17 @@ func (s *Service) generateStructuredOutput(providerID string, jobspec *models.Jo
         var success bool = true
         var errorMsg interface{} = nil
 
-        // Get region-specific response for this question
-        if questionMap, exists := questionResponses[questionID]; exists {
-            if regionResponse, exists := questionMap[provider.Region]; exists {
+        // Get question text and region-specific response
+        var questionText string
+        if questionData, exists := questionDatabase[questionID]; exists {
+            questionText = questionData.text
+            if regionResponse, exists := questionData.responses[provider.Region]; exists {
                 responseText = regionResponse
             } else {
                 responseText = defaultResponse[provider.Region]
             }
         } else {
+            questionText = fmt.Sprintf("Question: %s", questionID)
             responseText = defaultResponse[provider.Region]
         }
 
@@ -103,7 +134,7 @@ func (s *Service) generateStructuredOutput(providerID string, jobspec *models.Jo
 
         response := map[string]interface{}{
             "question_id":     questionID,
-            "question":        fmt.Sprintf("Question text for %s", questionID),
+            "question":        questionText,
             "response":        responseText,
             "category":        getCategoryForQuestion(questionID),
             "context":         "none",

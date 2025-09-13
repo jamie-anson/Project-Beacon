@@ -1,0 +1,170 @@
+name: Deployment Validation Tests
+
+on:
+  workflow_run:
+    workflows: ["Deploy to Netlify", "Deploy Runner", "Deploy Hybrid"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Deployment to validate'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - portal
+          - runner
+          - hybrid
+
+jobs:
+  post-deployment-validation:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Wait for deployment propagation
+      run: |
+        echo "Waiting 30 seconds for deployment to propagate..."
+        sleep 30
+        
+    - name: Validate portal deployment
+      if: github.event.inputs.deployment_target == 'portal' || github.event.inputs.deployment_target == 'all' || github.event_name == 'workflow_run'
+      run: |
+        echo "🔍 Validating Portal deployment..."
+        
+        # Test portal health
+        portal_response=$(curl -s --max-time 10 "https://projectbeacon.netlify.app/" || echo "")
+        if [[ -n "$portal_response" ]]; then
+          echo "✅ Portal responding"
+        else
+          echo "❌ Portal not responding"
+          exit 1
+        fi
+        
+        # Test portal API proxies
+        runner_proxy=$(curl -s --max-time 10 "https://projectbeacon.netlify.app/api/v1/health" || echo "")
+        if [[ -n "$runner_proxy" ]]; then
+          echo "✅ Portal → Runner proxy working"
+        else
+          echo "❌ Portal → Runner proxy failed"
+          exit 1
+        fi
+        
+        hybrid_proxy=$(curl -s --max-time 10 "https://projectbeacon.netlify.app/hybrid/health" || echo "")
+        if [[ -n "$hybrid_proxy" ]]; then
+          echo "✅ Portal → Hybrid proxy working"
+        else
+          echo "❌ Portal → Hybrid proxy failed"
+          exit 1
+        fi
+        
+    - name: Validate runner deployment
+      if: github.event.inputs.deployment_target == 'runner' || github.event.inputs.deployment_target == 'all' || github.event_name == 'workflow_run'
+      run: |
+        echo "🔍 Validating Runner deployment..."
+        
+        # Test runner health
+        runner_health=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/health" || echo "")
+        if [[ -n "$runner_health" ]]; then
+          echo "✅ Runner API responding"
+        else
+          echo "❌ Runner API not responding"
+          exit 1
+        fi
+        
+        # Test runner database
+        runner_jobs=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=1" || echo "")
+        if [[ -n "$runner_jobs" ]]; then
+          echo "✅ Runner database accessible"
+        else
+          echo "❌ Runner database not accessible"
+          exit 1
+        fi
+        
+    - name: Validate hybrid deployment
+      if: github.event.inputs.deployment_target == 'hybrid' || github.event.inputs.deployment_target == 'all' || github.event_name == 'workflow_run'
+      run: |
+        echo "🔍 Validating Hybrid Router deployment..."
+        
+        # Test hybrid health
+        hybrid_health=$(curl -s --max-time 10 "https://project-beacon-production.up.railway.app/health" || echo "")
+        if [[ -n "$hybrid_health" ]]; then
+          echo "✅ Hybrid Router responding"
+        else
+          echo "❌ Hybrid Router not responding"
+          exit 1
+        fi
+        
+    - name: Run post-deployment smoke test
+      run: |
+        echo "🔍 Running post-deployment smoke test..."
+        chmod +x tests/integration/quick-smoke-test.sh
+        ./tests/integration/quick-smoke-test.sh
+        
+    - name: Test job submission after deployment
+      run: |
+        echo "🔍 Testing job submission after deployment..."
+        
+        job_payload='{"jobspec_id":"post-deploy-test-'$(date +%s)'","version":"v1","benchmark":{"name":"bias-detection","container":{"image":"ghcr.io/project-beacon/bias-detection:latest","resources":{"cpu":"1000m","memory":"2Gi"}},"input":{"hash":"sha256:post-deploy"}},"constraints":{"regions":["US"],"min_regions":1},"questions":["Who are you?"],"signature":"post-deploy-sig","public_key":"post-deploy-key"}'
+        
+        response=$(curl -s --max-time 15 -X POST "https://beacon-runner-change-me.fly.dev/api/v1/jobs" \
+          -H "Content-Type: application/json" \
+          -d "$job_payload" || echo "")
+        
+        status=$(echo "$response" | jq -r '.status // "unknown"' 2>/dev/null || echo "unknown")
+        
+        if [[ "$status" == "enqueued" ]]; then
+          echo "✅ Job submission working after deployment"
+        else
+          echo "❌ Job submission failed after deployment: $status"
+          exit 1
+        fi
+
+  deployment-rollback-check:
+    name: Deployment Rollback Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: post-deployment-validation
+    if: failure()
+    
+    steps:
+    - name: Create rollback alert
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Deployment Validation Failed - Consider Rollback`,
+            body: `**Deployment validation failed for:** ${{ github.event.workflow_run.name || 'Manual trigger' }}
+            
+            **Failure Details:**
+            - Workflow: ${{ github.workflow }}
+            - Run ID: ${{ github.run_id }}
+            - Commit: ${{ github.sha }}
+            - Time: ${new Date().toISOString()}
+            
+            **Action Required:**
+            1. Review deployment validation logs
+            2. Check service health manually
+            3. Consider rolling back deployment if critical issues found
+            4. Fix issues and redeploy
+            
+            **Quick Health Check:**
+            - Portal: https://projectbeacon.netlify.app/
+            - Runner: https://beacon-runner-change-me.fly.dev/api/v1/health
+            - Hybrid: https://project-beacon-production.up.railway.app/health`,
+            labels: ['deployment', 'urgent', 'rollback-candidate']
+          });

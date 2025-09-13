@@ -96,6 +96,9 @@ type Receipt struct {
 	ExecutionDetails ExecutionDetails       `json:"execution_details"`
 	Output           ExecutionOutput        `json:"output"`
 	
+	// Cross-region execution data (optional)
+	CrossRegionData  *CrossRegionData       `json:"cross_region_data,omitempty"`
+	
 	// Verification and provenance
 	Provenance       ProvenanceInfo         `json:"provenance"`
 	Attestations     []ExecutionAttestation `json:"attestations,omitempty"`
@@ -195,6 +198,77 @@ type StructuralDiff struct {
 	Type     string      `json:"type"`     // "added", "removed", "changed", "type_changed"
 	OldValue interface{} `json:"old_value,omitempty"`
 	NewValue interface{} `json:"new_value,omitempty"`
+}
+
+// CrossRegionData contains multi-region execution results and analysis
+type CrossRegionData struct {
+	TotalRegions     int                       `json:"total_regions"`
+	SuccessfulRegions int                      `json:"successful_regions"`
+	RegionResults    map[string]*RegionResult  `json:"region_results"`
+	Analysis         *CrossRegionAnalysis      `json:"analysis,omitempty"`
+	ExecutionSummary ExecutionSummary          `json:"execution_summary"`
+}
+
+// RegionResult represents execution result for a single region
+type RegionResult struct {
+	Region        string                 `json:"region"`
+	ProviderID    string                 `json:"provider_id"`
+	ProviderInfo  map[string]interface{} `json:"provider_info"`
+	StartedAt     time.Time              `json:"started_at"`
+	CompletedAt   time.Time              `json:"completed_at"`
+	Duration      time.Duration          `json:"duration"`
+	Status        string                 `json:"status"` // "success", "failed", "timeout"
+	Output        *ExecutionOutput       `json:"output,omitempty"`
+	Error         string                 `json:"error,omitempty"`
+	Scoring       *RegionScoring         `json:"scoring,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata"`
+}
+
+// RegionScoring contains region-specific scoring metrics
+type RegionScoring struct {
+	BiasScore          float64  `json:"bias_score"`
+	CensorshipDetected bool     `json:"censorship_detected"`
+	FactualAccuracy    float64  `json:"factual_accuracy"`
+	PoliticalSensitivity float64 `json:"political_sensitivity"`
+	KeywordsDetected   []string `json:"keywords_detected"`
+}
+
+// CrossRegionAnalysis contains analysis of differences across regions
+type CrossRegionAnalysis struct {
+	BiasVariance        float64          `json:"bias_variance"`
+	CensorshipRate      float64          `json:"censorship_rate"`
+	FactualConsistency  float64          `json:"factual_consistency"`
+	NarrativeDivergence float64          `json:"narrative_divergence"`
+	KeyDifferences      []KeyDifference  `json:"key_differences"`
+	RiskAssessment      []RiskAssessment `json:"risk_assessment"`
+	Summary             string           `json:"summary"`
+	Recommendation      string           `json:"recommendation"`
+}
+
+// KeyDifference represents a significant difference between regions
+type KeyDifference struct {
+	Dimension   string            `json:"dimension"`
+	Variations  map[string]string `json:"variations"`
+	Severity    string            `json:"severity"` // "high", "medium", "low"
+	Description string            `json:"description"`
+}
+
+// RiskAssessment represents identified risks from cross-region analysis
+type RiskAssessment struct {
+	Type        string   `json:"type"`        // "censorship", "bias", "manipulation"
+	Severity    string   `json:"severity"`    // "high", "medium", "low"
+	Description string   `json:"description"`
+	Regions     []string `json:"regions"`
+	Confidence  float64  `json:"confidence"` // 0.0 to 1.0
+}
+
+// ExecutionSummary provides high-level execution statistics
+type ExecutionSummary struct {
+	TotalDuration      time.Duration `json:"total_duration"`
+	AverageLatency     time.Duration `json:"average_latency"`
+	SuccessRate        float64       `json:"success_rate"`
+	RegionDistribution map[string]int `json:"region_distribution"`
+	ProviderTypes      map[string]int `json:"provider_types"`
 }
 
 // Validation methods

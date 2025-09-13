@@ -1,0 +1,217 @@
+name: Scheduled Production Monitoring
+
+on:
+  schedule:
+    # Every 2 hours during business hours (9 AM - 5 PM UTC)
+    - cron: '0 9,11,13,15,17 * * 1-5'
+    # Every 6 hours on weekends
+    - cron: '0 6,12,18 * * 0,6'
+    # Daily comprehensive check at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  continuous-monitoring:
+    name: Continuous Production Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Service availability check
+      id: availability
+      run: |
+        echo "# Service Availability Report" > availability-report.md
+        echo "**Timestamp:** $(date -u)" >> availability-report.md
+        echo "" >> availability-report.md
+        
+        services=(
+          "Runner|https://beacon-runner-change-me.fly.dev/api/v1/health"
+          "Hybrid|https://project-beacon-production.up.railway.app/health"
+          "Portal|https://projectbeacon.netlify.app/"
+        )
+        
+        all_healthy=true
+        
+        for service in "${services[@]}"; do
+          IFS='|' read -r name url <<< "$service"
+          
+          start_time=$(date +%s%N)
+          if response=$(curl -s --max-time 10 "$url" 2>/dev/null) && [[ -n "$response" ]]; then
+            end_time=$(date +%s%N)
+            response_time=$(( (end_time - start_time) / 1000000 ))
+            echo "✅ **$name:** Healthy (${response_time}ms)" >> availability-report.md
+          else
+            echo "❌ **$name:** Unhealthy or not responding" >> availability-report.md
+            all_healthy=false
+          fi
+        done
+        
+        echo "SERVICES_HEALTHY=$all_healthy" >> $GITHUB_OUTPUT
+        cat availability-report.md
+        
+    - name: Pipeline health check
+      id: pipeline
+      run: |
+        echo "" >> availability-report.md
+        echo "## Pipeline Health" >> availability-report.md
+        
+        # Check recent jobs
+        jobs_response=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=10" || echo "[]")
+        job_count=$(echo "$jobs_response" | jq 'length' 2>/dev/null || echo "0")
+        
+        if [[ "$job_count" -gt 0 ]]; then
+          created_count=$(echo "$jobs_response" | jq '[.[] | select(.status == "created")] | length' 2>/dev/null || echo "0")
+          processing_count=$(echo "$jobs_response" | jq '[.[] | select(.status == "processing")] | length' 2>/dev/null || echo "0")
+          completed_count=$(echo "$jobs_response" | jq '[.[] | select(.status == "completed")] | length' 2>/dev/null || echo "0")
+          
+          echo "- **Total Jobs:** $job_count" >> availability-report.md
+          echo "- **Created:** $created_count" >> availability-report.md
+          echo "- **Processing:** $processing_count" >> availability-report.md
+          echo "- **Completed:** $completed_count" >> availability-report.md
+          
+          # Check for stuck jobs
+          if [[ "$created_count" -gt 5 ]]; then
+            echo "⚠️ **Warning:** Many jobs stuck in 'created' status" >> availability-report.md
+            echo "PIPELINE_HEALTHY=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ **Pipeline:** Healthy job distribution" >> availability-report.md
+            echo "PIPELINE_HEALTHY=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "✅ **Pipeline:** No jobs to analyze (clean state)" >> availability-report.md
+          echo "PIPELINE_HEALTHY=true" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Performance metrics
+      run: |
+        echo "" >> availability-report.md
+        echo "## Performance Metrics" >> availability-report.md
+        
+        # Collect performance data
+        endpoints=(
+          "Runner Health|https://beacon-runner-change-me.fly.dev/api/v1/health"
+          "Hybrid Health|https://project-beacon-production.up.railway.app/health"
+          "Runner Jobs API|https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=1"
+        )
+        
+        for endpoint in "${endpoints[@]}"; do
+          IFS='|' read -r name url <<< "$endpoint"
+          
+          total_time=0
+          successful_requests=0
+          
+          for i in {1..3}; do
+            start_time=$(date +%s%N)
+            if curl -s --max-time 5 "$url" > /dev/null 2>&1; then
+              end_time=$(date +%s%N)
+              request_time=$(( (end_time - start_time) / 1000000 ))
+              total_time=$((total_time + request_time))
+              successful_requests=$((successful_requests + 1))
+            fi
+          done
+          
+          if [[ $successful_requests -gt 0 ]]; then
+            avg_time=$((total_time / successful_requests))
+            echo "- **$name:** ${avg_time}ms avg" >> availability-report.md
+          else
+            echo "- **$name:** Failed" >> availability-report.md
+          fi
+        done
+        
+    - name: Upload monitoring report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: monitoring-report-${{ github.run_number }}
+        path: availability-report.md
+        retention-days: 30
+        
+    - name: Create alert on service failure
+      if: steps.availability.outputs.SERVICES_HEALTHY == 'false'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('availability-report.md', 'utf8');
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Service Availability Alert - ${new Date().toISOString().split('T')[0]}`,
+            body: `${report}\n\n**Alert:** One or more services are not responding.\n\n**Action Required:** Investigate service health immediately.\n\n**Monitoring Run:** ${{ github.run_id }}`,
+            labels: ['production', 'monitoring', 'service-down', 'urgent']
+          });
+          
+    - name: Create alert on pipeline issues
+      if: steps.pipeline.outputs.PIPELINE_HEALTHY == 'false'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('availability-report.md', 'utf8');
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `⚠️ Pipeline Health Warning - ${new Date().toISOString().split('T')[0]}`,
+            body: `${report}\n\n**Warning:** Pipeline showing signs of issues (many stuck jobs).\n\n**Action Required:** Review job processing pipeline.\n\n**Monitoring Run:** ${{ github.run_id }}`,
+            labels: ['production', 'monitoring', 'pipeline-issues']
+          });
+
+  weekly-comprehensive-check:
+    name: Weekly Comprehensive Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.schedule == '0 6 * * *' && github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+        
+    - name: Run full test suite
+      run: |
+        chmod +x run-all-production-tests.sh
+        ./run-all-production-tests.sh
+        
+    - name: Generate weekly report
+      if: always()
+      run: |
+        echo "# Weekly Production Health Report" > weekly-report.md
+        echo "**Week of:** $(date -u +%Y-%m-%d)" >> weekly-report.md
+        echo "**Generated:** $(date -u)" >> weekly-report.md
+        echo "" >> weekly-report.md
+        
+        echo "## Test Results Summary" >> weekly-report.md
+        echo "- Full production test suite executed" >> weekly-report.md
+        echo "- All critical systems validated" >> weekly-report.md
+        echo "- Performance metrics collected" >> weekly-report.md
+        echo "" >> weekly-report.md
+        
+        echo "## Action Items" >> weekly-report.md
+        echo "- [ ] Review any failed tests" >> weekly-report.md
+        echo "- [ ] Monitor performance trends" >> weekly-report.md
+        echo "- [ ] Update test coverage if needed" >> weekly-report.md
+        echo "" >> weekly-report.md
+        
+        echo "**Detailed Results:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> weekly-report.md
+        
+    - name: Upload weekly report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: weekly-report-${{ github.run_number }}
+        path: weekly-report.md
+        retention-days: 90

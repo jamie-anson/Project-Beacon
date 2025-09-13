@@ -210,7 +210,7 @@ export default function ExecutionDetail() {
                           <div className="text-sm text-blue-900 font-medium mb-2">
                             {response.question || 'Question text not available'}
                           </div>
-                          <div className="text-blue-800 bg-white rounded p-3 border">
+                          <div className="text-black bg-white rounded p-3 border">
                             "{response.response || 'No response available'}"
                           </div>
                           <div className="flex justify-between mt-2 text-xs text-slate-600">
@@ -258,7 +258,7 @@ export default function ExecutionDetail() {
                     <div className="space-y-3">
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <div className="text-sm text-blue-900 font-medium mb-2">Generated Response:</div>
-                        <div className="text-blue-800 bg-white rounded p-3 border">
+                        <div className="text-black bg-white rounded p-3 border">
                           "{receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
                         </div>
                       </div>

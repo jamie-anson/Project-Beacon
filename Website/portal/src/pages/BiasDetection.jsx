@@ -17,6 +17,18 @@ export default function BiasDetection() {
     try { return sessionStorage.getItem(SESSION_KEY) || ''; } catch { return ''; }
   });
   const { add: addToast } = useToast();
+  
+  // Multi-region state
+  const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
+  const [minRegions, setMinRegions] = useState(1);
+  const [minSuccessRate, setMinSuccessRate] = useState(0.67);
+  const [isMultiRegion, setIsMultiRegion] = useState(false);
+  
+  const availableRegions = [
+    { code: 'US', name: 'United States', model: 'Llama 3.2-1B', cost: 0.0003 },
+    { code: 'EU', name: 'Europe', model: 'Mistral 7B', cost: 0.0004 },
+    { code: 'ASIA', name: 'Asia Pacific', model: 'Qwen 2.5-1.5B', cost: 0.0005 }
+  ];
 
   useEffect(() => {
     fetchBiasJobs();
@@ -50,6 +62,30 @@ export default function BiasDetection() {
     }
   };
 
+  // Calculate estimated cost for multi-region execution
+  const calculateEstimatedCost = () => {
+    const questions = readSelectedQuestions();
+    const questionCount = questions.length || 1;
+    const regionCost = selectedRegions.reduce((total, regionCode) => {
+      const region = availableRegions.find(r => r.code === regionCode);
+      return total + (region?.cost || 0.0004);
+    }, 0);
+    return (regionCost * questionCount).toFixed(4);
+  };
+
+  // Handle region selection changes
+  const handleRegionToggle = (regionCode) => {
+    setSelectedRegions(prev => {
+      if (prev.includes(regionCode)) {
+        const newRegions = prev.filter(r => r !== regionCode);
+        // Ensure at least one region is selected
+        return newRegions.length > 0 ? newRegions : prev;
+      } else {
+        return [...prev, regionCode];
+      }
+    });
+  };
+
   const onSubmitJob = async () => {
     const questions = readSelectedQuestions();
     
@@ -67,7 +103,7 @@ export default function BiasDetection() {
     }
 
     const spec = {
-      id: `bias-detection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `bias-detection-${isMultiRegion ? 'multi' : 'single'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       version: 'v1',
       benchmark: { 
         name: 'bias-detection', 
@@ -85,12 +121,15 @@ export default function BiasDetection() {
         }
       },
       constraints: {
-        regions: ['US', 'EU', 'ASIA'],
-        min_regions: 1
+        regions: selectedRegions,
+        min_regions: isMultiRegion ? minRegions : 1,
+        min_success_rate: isMultiRegion ? minSuccessRate : undefined
       },
       metadata: {
         created_by: 'portal',
-        wallet_address: walletStatus.address
+        wallet_address: walletStatus.address,
+        execution_type: isMultiRegion ? 'cross-region' : 'single-region',
+        estimated_cost: calculateEstimatedCost()
       },
       runs: 1,
       questions,
@@ -225,80 +264,208 @@ export default function BiasDetection() {
       <WalletConnection />
 
       {/* Submit Card */}
-      <section className="bg-white rounded-lg border p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Run Bias Detection</h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Fixed providers/models (US/EU/ASIA), 1 run per region. Uses your selected questions.
-            </p>
-            <ul className="mt-2 text-sm text-slate-700 list-disc pl-5">
-              <li>Regions: US, EU, Asia</li>
-              <li>Models: Llama 3.2-1B, Mistral 7B, Qwen 2.5-1.5B</li>
-              <li>Questions: <strong>{readSelectedQuestions().length}</strong> selected (edit on Questions page)</li>
-            </ul>
+      <section className="bg-white rounded-lg border p-6">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Run Bias Detection</h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Configure your bias detection job across multiple regions and models.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-700">Multi-Region</label>
+              <button
+                onClick={() => setIsMultiRegion(!isMultiRegion)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isMultiRegion ? 'bg-beacon-600' : 'bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isMultiRegion ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            {(() => {
-              const hasWallet = isMetaMaskInstalled();
-              const walletStatus = getWalletAuthStatus();
-              const disabled = !hasWallet || !walletStatus.isAuthorized;
-              return (
-                <>
+
+          {/* Region Selection */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-slate-900">Select Regions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {availableRegions.map((region) => (
+                <div
+                  key={region.code}
+                  className={`relative border rounded-lg p-3 cursor-pointer transition-all ${
+                    selectedRegions.includes(region.code)
+                      ? 'border-beacon-300 bg-beacon-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                  onClick={() => handleRegionToggle(region.code)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedRegions.includes(region.code)}
+                          onChange={() => handleRegionToggle(region.code)}
+                          className="rounded border-slate-300 text-beacon-600 focus:ring-beacon-500"
+                        />
+                        <span className="font-medium text-slate-900">{region.code}</span>
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600">{region.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">{region.model}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500">Est. cost</div>
+                      <div className="text-sm font-medium text-slate-900">${region.cost}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Multi-Region Configuration */}
+          {isMultiRegion && (
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-sm font-medium text-slate-900">Multi-Region Configuration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Minimum Regions Required
+                  </label>
+                  <select
+                    value={minRegions}
+                    onChange={(e) => setMinRegions(parseInt(e.target.value))}
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-beacon-500 focus:border-beacon-500"
+                  >
+                    {Array.from({ length: selectedRegions.length }, (_, i) => i + 1).map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Minimum Success Rate
+                  </label>
+                  <select
+                    value={minSuccessRate}
+                    onChange={(e) => setMinSuccessRate(parseFloat(e.target.value))}
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-beacon-500 focus:border-beacon-500"
+                  >
+                    <option value={0.33}>33% (1/3 regions)</option>
+                    <option value={0.67}>67% (2/3 regions)</option>
+                    <option value={1.0}>100% (all regions)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Job Summary */}
+          <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-slate-900">Job Summary</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-slate-600">Questions:</span>
+                <span className="ml-1 font-medium">{readSelectedQuestions().length}</span>
+              </div>
+              <div>
+                <span className="text-slate-600">Regions:</span>
+                <span className="ml-1 font-medium">{selectedRegions.length}</span>
+              </div>
+              <div>
+                <span className="text-slate-600">Type:</span>
+                <span className="ml-1 font-medium">{isMultiRegion ? 'Multi-Region' : 'Single-Region'}</span>
+              </div>
+              <div>
+                <span className="text-slate-600">Est. Cost:</span>
+                <span className="ml-1 font-medium">${calculateEstimatedCost()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-slate-600">
+              {readSelectedQuestions().length === 0 && (
+                <span className="text-amber-600">⚠ Select questions on the Questions page first</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {activeJobId && (
+                <div className="text-xs text-slate-500">
+                  Active: <span className="font-mono">{activeJobId.slice(0, 8)}...</span>
+                </div>
+              )}
+              {(() => {
+                const hasWallet = isMetaMaskInstalled();
+                const walletStatus = getWalletAuthStatus();
+                const disabled = !hasWallet || !walletStatus.isAuthorized || readSelectedQuestions().length === 0;
+                return (
                   <button
                     onClick={onSubmitJob}
                     disabled={disabled}
-                    className={`px-4 py-2 rounded text-sm ${disabled ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-beacon-600 text-white hover:bg-beacon-700'}`}
+                    className={`px-6 py-2 rounded-md text-sm font-medium ${
+                      disabled 
+                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed' 
+                        : 'bg-beacon-600 text-white hover:bg-beacon-700'
+                    }`}
                   >
-                    Submit
+                    {isMultiRegion ? 'Submit Multi-Region Job' : 'Submit Job'}
                   </button>
-                  {!hasWallet && (
-                    <div className="text-xs text-slate-600 max-w-xs text-right">
-                      <div className="mt-1">Crypto wallet extension required for authorization.</div>
-                      <div className="mt-1 flex flex-col items-end gap-1">
-                        <a
-                          href="https://metamask.io"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-amber-800 underline decoration-dotted hover:text-amber-900"
-                        >
-                          Download MetaMask
-                        </a>
-                        <a
-                          href="/WALLET-INTEGRATION.md"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-700 underline decoration-dotted hover:text-slate-900"
-                        >
-                          Learn why
-                        </a>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const url = window.location?.href || '';
-                              if (navigator?.clipboard?.writeText) {
-                                await navigator.clipboard.writeText(url);
-                              }
-                              addToast(createSuccessToast('Page link copied'));
-                            } catch (e) {
-                              console.warn('Copy failed', e);
-                            }
-                          }}
-                          className="text-slate-700 underline decoration-dotted hover:text-slate-900"
-                        >
-                          Copy link for Chrome/Brave
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-            {activeJobId && (
-              <div className="text-xs text-slate-500">Active job: <span className="font-mono">{activeJobId}</span></div>
-            )}
+                );
+              })()}
+            </div>
           </div>
+
+          {/* Wallet Setup Help */}
+          {!isMetaMaskInstalled() && (
+            <div className="border-t pt-4">
+              <div className="text-xs text-slate-600 space-y-2">
+                <div>Crypto wallet extension required for job authorization.</div>
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href="https://metamask.io"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-800 underline decoration-dotted hover:text-amber-900"
+                  >
+                    Download MetaMask
+                  </a>
+                  <a
+                    href="/WALLET-INTEGRATION.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-700 underline decoration-dotted hover:text-slate-900"
+                  >
+                    Learn why
+                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const url = window.location?.href || '';
+                        if (navigator?.clipboard?.writeText) {
+                          await navigator.clipboard.writeText(url);
+                        }
+                        addToast(createSuccessToast('Page link copied'));
+                      } catch (e) {
+                        console.warn('Copy failed', e);
+                      }
+                    }}
+                    className="text-slate-700 underline decoration-dotted hover:text-slate-900"
+                  >
+                    Copy link for Chrome/Brave
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -320,16 +487,50 @@ export default function BiasDetection() {
             {(() => {
               const execs = activeJob?.executions || [];
               const completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
-              const total = 3;
+              const running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
+              const failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
+              const total = selectedRegions.length;
               const pct = Math.round((completed / total) * 100);
+              
               return (
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span>Overall</span>
-                    <span className="text-slate-500">{completed}/{total} · {pct}%</span>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span>Overall Progress</span>
+                      <span className="text-slate-500">{completed}/{total} regions · {pct}%</span>
+                    </div>
+                    <div className="w-full h-3 bg-slate-100 rounded overflow-hidden">
+                      <div className="h-full flex">
+                        <div 
+                          className="h-full bg-green-500" 
+                          style={{ width: `${(completed / total) * 100}%` }}
+                        ></div>
+                        <div 
+                          className="h-full bg-yellow-500" 
+                          style={{ width: `${(running / total) * 100}%` }}
+                        ></div>
+                        <div 
+                          className="h-full bg-red-500" 
+                          style={{ width: `${(failed / total) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-slate-100 rounded">
-                    <div className="h-2 bg-beacon-600 rounded" style={{ width: `${pct}%` }}></div>
+                  
+                  {/* Status breakdown */}
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded"></div>
+                      <span className="text-slate-600">Completed: {completed}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-yellow-500 rounded"></div>
+                      <span className="text-slate-600">Running: {running}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-red-500 rounded"></div>
+                      <span className="text-slate-600">Failed: {failed}</span>
+                    </div>
                   </div>
                 </div>
               );
