@@ -12,6 +12,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/internal/db"
+	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
 )
 
 func corsMiddleware() gin.HandlerFunc {
@@ -41,6 +42,10 @@ func main() {
 		log.Println("Continuing with limited functionality...")
 	}
 
+	// Initialize WebSocket hub
+	hub := websocket.NewHub()
+	go hub.Run()
+
 	// Initialize cross-region components with proper database connection
 	crossRegionRepo := store.NewCrossRegionRepo(database.DB)
 	diffEngine := analysis.NewCrossRegionDiffEngine()
@@ -55,6 +60,11 @@ func main() {
 	r.GET("/admin/config", handlers.GetAdminConfig)
 	r.POST("/admin/migrate", handlers.TriggerMigration)
 	r.PUT("/admin/config", handlers.PutAdminConfig)
+
+	// WebSocket endpoint
+	r.GET("/ws", func(c *gin.Context) {
+		hub.ServeWS(c.Writer, c.Request)
+	})
 
 	// Cross-region API endpoints
 	api := r.Group("/api/v1")
