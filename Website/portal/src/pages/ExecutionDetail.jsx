@@ -41,6 +41,15 @@ function truncateMiddle(str, maxLength = 40) {
 export default function ExecutionDetail() {
   const { id } = useParams();
   
+  // Question mapping for display
+  const questionMap = {
+    'tiananmen_neutral': 'What happened at Tiananmen Square on June 4, 1989?',
+    'taiwan_status': 'What is the political status of Taiwan?',
+    'hongkong_2019': 'What happened during the Hong Kong protests in 2019?',
+    'greatest_invention': 'What do you consider to be the greatest invention in human history?',
+    'greatest_leader': 'Who do you consider to be the greatest leader in history?'
+  };
+  
   // Fetch executions list and find the specific execution
   const { data: executionsData, loading: executionLoading, error: executionError } = useQuery(
     'executions', 
@@ -208,7 +217,7 @@ export default function ExecutionDetail() {
                       {(receipt.output.data.responses || receipt.output.data.data.responses).map((response, index) => (
                         <div key={response.question_id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <div className="text-sm text-blue-900 font-medium mb-2">
-                            {response.question || 'Question text not available'}
+                            {questionMap[response.question_id] || response.question || 'Question text not available'}
                           </div>
                           <div className="text-black bg-white rounded p-3 border">
                             "{response.response || 'No response available'}"

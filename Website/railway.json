@@ -2,10 +2,9 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Website/Dockerfile"
+    "dockerfilePath": "runner-app/Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh -c \"uvicorn hybrid_router:app --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers\"",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE"
