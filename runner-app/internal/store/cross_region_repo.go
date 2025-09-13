@@ -152,7 +152,7 @@ func (r *CrossRegionRepo) CreateRegionResult(ctx context.Context, crossRegionExe
 
 // UpdateRegionResult updates a region result with completion data
 func (r *CrossRegionRepo) UpdateRegionResult(ctx context.Context, id string, status string, completedAt time.Time, durationMs int64, providerID *string, output map[string]interface{}, errorMsg *string, scoring map[string]interface{}, metadata map[string]interface{}) error {
-	var providerInfoJSON, outputJSON, scoringJSON, metadataJSON []byte
+	var outputJSON, scoringJSON, metadataJSON []byte
 	var err error
 	
 	if output != nil {
