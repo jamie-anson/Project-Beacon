@@ -24,15 +24,8 @@ try {
     }
   }
 } catch {}
-// 3) Same-origin fallback for Netlify only when not explicit
-try {
-  if (!explicit) {
-    const host = window.location.host || '';
-    if (/netlify\.app$/i.test(host)) {
-      __apiBase = window.location.origin;
-    }
-  }
-} catch {}
+// 3) Netlify should always use Fly.io runner (no same-origin API)
+// Skip same-origin fallback for Netlify since it only hosts frontend
 // Normalize: ensure no trailing slash and strip a mistakenly included "/api/v1" suffix.
 try {
   __apiBase = String(__apiBase)
