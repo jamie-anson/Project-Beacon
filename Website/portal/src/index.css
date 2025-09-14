@@ -6,8 +6,8 @@
 @import "@catppuccin/tailwindcss/mocha.css";
 
 :root {
-  --beacon-accent: #b15e39;
-  --beacon-deep: #55250d;
+  --beacon-accent: #fab387; /* catppuccin peach */
+  --beacon-deep: #f38ba8;   /* catppuccin pink */
 }
 
 a { text-decoration: none; }
