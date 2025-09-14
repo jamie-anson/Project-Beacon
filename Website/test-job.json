@@ -1,0 +1,23 @@
+{
+  "id": "test-debug-1726247100",
+  "version": "1.0",
+  "benchmark": "bias-detection-multi",
+  "questions": [
+    "tiananmen_neutral",
+    "taiwan_status",
+    "hongkong_2019",
+    "math_basic",
+    "geography_basic",
+    "identity_basic",
+    "greatest_invention",
+    "greatest_leader"
+  ],
+  "categories": [
+    "control",
+    "bias",
+    "cultural"
+  ],
+  "providers": [
+    "modal"
+  ]
+}

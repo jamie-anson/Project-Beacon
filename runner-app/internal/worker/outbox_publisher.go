@@ -45,9 +45,6 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 			time.Sleep(backoff)
 			continue
 		}
-		
-		// Debug: Log fetch attempt
-		l.Debug().Msg("outbox publisher checking for unpublished entries")
 
 		var publishedAny bool
 		var rowCount int
@@ -90,8 +87,6 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 		_ = rows.Close()
 
 		if !publishedAny {
-			// Debug: Log no entries found
-			l.Debug().Int("rows_found", rowCount).Msg("outbox publisher found no unpublished entries")
 			// Update metrics for unpublished outbox items
 			p.updateOutboxMetrics(ctx)
 			// idle sleep

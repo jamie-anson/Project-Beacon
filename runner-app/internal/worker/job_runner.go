@@ -155,6 +155,9 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		prompt := extractPrompt(spec)
 		model := extractModel(spec)
 		regionPref := mapRegionToRouter(region)
+		
+		l.Info().Str("job_id", env.ID).Str("region", regionPref).Str("model", model).Str("prompt", prompt).Msg("calling hybrid router")
+		
 		req := hybrid.InferenceRequest{
 			Model:            model,
 			Prompt:           prompt,
@@ -163,7 +166,12 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			RegionPreference: regionPref,
 			CostPriority:     true,
 		}
+		
+		l.Debug().Str("job_id", env.ID).Interface("request", req).Msg("hybrid router request details")
+		
 		hre, herr := w.Hybrid.RunInference(ctx, req)
+		
+		l.Info().Str("job_id", env.ID).Bool("success", hre != nil && hre.Success).Err(herr).Msg("hybrid router response received")
 		if herr != nil || hre == nil || !hre.Success {
 			l.Error().Err(herr).Str("job_id", env.ID).Str("region", regionPref).Msg("hybrid router inference error")
 			out := map[string]any{"error": fmt.Sprintf("hybrid error: %v", herr)}
@@ -171,12 +179,22 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			outJSON, _ := json.Marshal(out)
 			startedAt := time.Now().UTC()
 			completedAt := startedAt
-			_, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, "", regionPref, "failed", startedAt, completedAt, outJSON, nil)
+			
+			l.Info().Str("job_id", env.ID).Str("region", regionPref).Msg("inserting failed execution record")
+			execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, "", regionPref, "failed", startedAt, completedAt, outJSON, nil)
+			if insErr != nil {
+				l.Error().Err(insErr).Str("job_id", env.ID).Msg("failed to insert execution record")
+			} else {
+				l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("failed execution record created")
+			}
+			
 			metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "failed").Observe(time.Since(execStart).Seconds())
 			metrics.JobsFailedTotal.Inc()
 			return insErr
 		}
 		// Success via Hybrid
+		l.Info().Str("job_id", env.ID).Str("provider", hre.ProviderUsed).Str("region", regionPref).Msg("hybrid router execution successful")
+		
 		out := map[string]any{
 			"response": hre.Response,
 			"provider": hre.ProviderUsed,
@@ -185,10 +203,16 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		outJSON, _ := json.Marshal(out)
 		startedAt := execStart.UTC()
 		completedAt := time.Now().UTC()
+		
+		l.Info().Str("job_id", env.ID).Str("provider", hre.ProviderUsed).Str("region", regionPref).Msg("inserting successful execution record")
 		execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, hre.ProviderUsed, regionPref, "completed", startedAt, completedAt, outJSON, nil)
 		if err != nil {
+			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to insert successful execution record")
 			return fmt.Errorf("insert execution: %w", err)
 		}
+		
+		l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", hre.ProviderUsed).Msg("successful execution record created")
+		
 		metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "completed").Observe(time.Since(execStart).Seconds())
 		metrics.JobsProcessedTotal.Inc()
 		if w.Bundler != nil {
@@ -207,7 +231,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	l.Info().Str("job_id", env.ID).Str("region", region).Msg("falling back to Golem execution")
 	res, err := golem.ExecuteSingleRegion(ctx, w.Golem, spec, region)
 	if err != nil {
-		l.Error().Err(err).Str("job_id", env.ID).Str("region", region).Msg("execution error")
+		l.Error().Err(err).Str("job_id", env.ID).Str("region", region).Msg("Golem execution error")
 		// Persist failed execution row with error details in output
 		out := map[string]any{"error": err.Error()}
 		outJSON, _ := json.Marshal(out)
@@ -215,13 +239,23 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		providerID := ""
 		startedAt := time.Now().UTC()
 		completedAt := startedAt
-		_, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, region, "failed", startedAt, completedAt, outJSON, nil)
+		
+		l.Info().Str("job_id", env.ID).Str("region", region).Msg("inserting Golem failed execution record")
+		execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, region, "failed", startedAt, completedAt, outJSON, nil)
+		if insErr != nil {
+			l.Error().Err(insErr).Str("job_id", env.ID).Msg("failed to insert Golem execution record")
+		} else {
+			l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("Golem failed execution record created")
+		}
+		
 		// Metrics: failed execution
 		metrics.ExecutionDurationSeconds.WithLabelValues(region, "failed").Observe(time.Since(execStart).Seconds())
 		metrics.JobsFailedTotal.Inc()
 		return insErr
 	}
 
+	l.Info().Str("job_id", env.ID).Str("provider", res.ProviderID).Str("region", region).Msg("Golem execution successful")
+	
 	// Marshal output and receipt
 	outJSON, _ := json.Marshal(res.Execution.Output)
 	recJSON, _ := json.Marshal(res.Receipt)
@@ -234,10 +268,14 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		completedAt = res.Execution.CompletedAt
 	}
 
+	l.Info().Str("job_id", env.ID).Str("provider", res.ProviderID).Str("region", region).Str("status", status).Msg("inserting Golem execution record")
 	execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, startedAt, completedAt, outJSON, recJSON)
 	if err != nil {
+		l.Error().Err(err).Str("job_id", env.ID).Msg("failed to insert Golem execution record")
 		return fmt.Errorf("insert execution: %w", err)
 	}
+	
+	l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", res.ProviderID).Msg("Golem execution record created")
 
 	// Metrics: successful/finished execution
 	metrics.ExecutionDurationSeconds.WithLabelValues(region, status).Observe(time.Since(execStart).Seconds())

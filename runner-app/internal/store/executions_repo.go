@@ -272,14 +272,25 @@ func (r *ExecutionsRepo) InsertExecution(
 	outputJSON []byte,
 	receiptJSON []byte,
 ) (int64, error) {
+	// First, verify the job exists
+	var jobID int64
+	err := r.DB.QueryRowContext(ctx, `SELECT id FROM jobs WHERE jobspec_id = $1`, jobspecID).Scan(&jobID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("job not found in database for jobspec_id: %s", jobspecID)
+		}
+		return 0, fmt.Errorf("failed to lookup job: %w", err)
+	}
+
+	// Now insert the execution with the found job ID
 	row := r.DB.QueryRowContext(ctx, `
 		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data)
-		VALUES ((SELECT id FROM jobs WHERE jobspec_id = $1), $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
-	`, jobspecID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON)
+	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON)
 	var id int64
 	if err := row.Scan(&id); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to insert execution: %w", err)
 	}
 	return id, nil
 }

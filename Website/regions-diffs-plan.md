@@ -64,46 +64,66 @@ Implement multi-region job execution and cross-region diff visualization like th
   - [x] `GET /api/v1/executions/{id}/diff-analysis` - Get diff analysis
   - [x] `GET /api/v1/executions/{id}/regions/{region}` - Get region-specific result
 
-## Phase 3: Portal UI Enhancements
+## Phase 3: Portal UI Integration & Enhancement
 
-### Multi-Region Job Submission
-- [ ] **Enhanced BiasDetection Component**
-  - [ ] Add region selection interface (checkboxes/multi-select)
-  - [ ] Implement region preference ordering
-  - [ ] Add estimated cost calculation for multi-region
-  - [ ] Show real-time region availability status
+### BiasDetection Component Enhancement
+- [ ] **"View Cross-Region Diffs" Button Integration**
+  - [ ] Replace/enhance existing "Refresh" button with "View Diffs" action
+  - [ ] Add conditional rendering based on job completion status
+  - [ ] Implement navigation to CrossRegionDiffView component
+  - [ ] Show loading states during diff analysis processing
 
-- [ ] **Job Progress Tracking**
-  - [ ] Create real-time progress indicator for each region
-  - [ ] Show individual region execution status
-  - [ ] Display partial results as they complete
-  - [ ] Handle and display region-specific errors
+- [ ] **Multi-Region Job Submission UI**
+  - [ ] Add region selection interface (US, EU, Asia checkboxes)
+  - [ ] Implement region preference ordering with drag-and-drop
+  - [ ] Add estimated cost calculation for multi-region execution
+  - [ ] Show real-time region availability status from hybrid router
 
-### Cross-Region Results Display
-- [ ] **ExecutionDetail Enhancement**
-  - [ ] Create tabbed interface for individual region results
-  - [ ] Add side-by-side comparison view
-  - [ ] Implement expandable diff sections
-  - [ ] Show region-specific metadata and timing
+- [ ] **Enhanced Job Progress Tracking**
+  - [ ] Create live progress table matching demo-results layout
+  - [ ] Show individual region execution status (pending/running/completed/failed)
+  - [ ] Display provider information and retry counts
+  - [ ] Add ETA estimates and verification status per region
 
-- [ ] **Diff Visualization Components**
-  - [ ] Create `CrossRegionDiffView` component
-  - [ ] Implement world map with bias heatmap (Google Maps)
-  - [ ] Build metrics summary cards (bias variance, censorship rate)
-  - [ ] Create narrative differences comparison table
+### CrossRegionDiffView Component (New)
+- [ ] **Main Diff Results Page**
+  - [ ] Create dedicated route `/portal/results/{jobId}/diffs`
+  - [ ] Implement layout matching portal-style-diff.html design
+  - [ ] Add breadcrumb navigation back to BiasDetection
+  - [ ] Include job context header with question and metadata
 
-### Visual Diff Features
-- [ ] **Interactive World Map**
-  - [ ] Integrate Google Maps world map visualization
-  - [ ] Color-code regions by bias score
-  - [ ] Add hover tooltips with detailed metrics
-  - [ ] Implement click-to-focus on region details
+- [ ] **World Map Visualization**
+  - [ ] Integrate Google Maps world map with bias score markers
+  - [ ] Color-code regions by bias score (green/yellow/red)
+  - [ ] Add interactive tooltips with detailed metrics
+  - [ ] Include legend showing bias categories and provider info
 
-- [ ] **Comparison Tables**
-  - [ ] Build key differences comparison table
-  - [ ] Highlight significant variations in responses
-  - [ ] Add keyword detection visualization
-  - [ ] Create scoring metrics comparison
+- [ ] **Metrics Summary Cards**
+  - [ ] Create 4-card layout: Bias Variance, Censorship Rate, Factual Consistency, Narrative Divergence
+  - [ ] Use color-coded values (red for high risk, green for low risk)
+  - [ ] Add percentage calculations from cross-region analysis
+  - [ ] Include trend indicators and risk assessments
+
+### Regional Results Display
+- [ ] **Individual Region Cards**
+  - [ ] Create region-specific result cards with flag icons
+  - [ ] Show provider ID, model, and censorship status
+  - [ ] Display full response text with syntax highlighting
+  - [ ] Add factual accuracy and political sensitivity scores
+  - [ ] Include detected keywords with color-coded tags
+
+- [ ] **Cross-Region Analysis Table**
+  - [ ] Build comparative analysis table (Casualty Reporting, Event Characterization, etc.)
+  - [ ] Highlight narrative differences across regions
+  - [ ] Add hover effects and responsive design
+  - [ ] Include export functionality for analysis data
+
+### Navigation & User Experience
+- [ ] **Seamless Portal Integration**
+  - [ ] Update portal routing to include diff results pages
+  - [ ] Maintain consistent styling with existing portal components
+  - [ ] Add "Quick Actions" section with navigation options
+  - [ ] Implement responsive design for mobile viewing
 
 ## Phase 4: Advanced Analysis Features
 
@@ -218,10 +238,11 @@ Implement multi-region job execution and cross-region diff visualization like th
 - Scoring: ✅ Complete
 - Risk Assessment: ✅ Complete
 
-### Phase 3: Portal UI
-- Job Submission: ✅ Complete
-- Results Display: ✅ Complete
-- Visualization: ✅ Complete
+### Phase 3: Portal UI Integration
+- Week 1 - Core Components: ⏳ Not Started
+- Week 2 - Backend Integration: ⏳ Not Started  
+- Week 3 - Advanced Features: ⏳ Not Started
+- Week 4 - Testing & Deployment: ⏳ Not Started
 
 ### Phase 4: Advanced Features
 - Pattern Detection: ⏳ Not Started
@@ -240,14 +261,116 @@ Implement multi-region job execution and cross-region diff visualization like th
 
 ---
 
-**Next Steps:**
-1. Start with Phase 1: Multi-Region JobSpec schema updates
-2. Implement CrossRegionExecutor service
-3. Update database schema for multi-region support
-4. Create basic multi-region job submission UI
+## Implementation Roadmap
+
+### Phase 3A: Core UI Components (Week 1)
+
+#### 1. CrossRegionDiffView Component Creation
+**File:** `/portal/src/pages/CrossRegionDiffView.jsx`
+- [ ] Create main component structure based on portal-style-diff.html
+- [ ] Implement responsive grid layout (metrics cards, world map, region cards)
+- [ ] Add loading states and error handling
+- [ ] Integrate with existing portal styling (Tailwind classes)
+
+#### 2. BiasDetection Component Enhancement
+**File:** `/portal/src/pages/BiasDetection.jsx` (line 741)
+- [ ] Replace "Refresh" button with conditional "View Cross-Region Diffs" button
+- [ ] Add logic to show button only when job has multi-region executions completed
+- [ ] Implement navigation to `/portal/results/{jobId}/diffs` route
+- [ ] Add loading state during diff analysis processing
+
+#### 3. Google Maps World Map Integration
+**Files:** `/portal/src/components/WorldMapChart.jsx`
+- [ ] Use existing Google Maps API integration (VITE_GOOGLE_MAPS_API_KEY)
+- [ ] Create reusable WorldMapChart component with Google Maps
+- [ ] Implement bias score visualization with colored markers/regions
+- [ ] Add interactive info windows with detailed metrics
+- [ ] Handle region click events for detailed view
+
+### Phase 3B: Backend Integration (Week 2)
+
+#### 4. API Endpoints Implementation
+**Files:** Runner app Go backend
+- [ ] `GET /api/v1/executions/{id}/cross-region-diff` - Get diff analysis
+- [ ] `GET /api/v1/executions/{id}/regions` - Get all region results
+- [ ] `POST /api/v1/executions/{id}/analyze-diffs` - Trigger diff analysis
+- [ ] Add cross-region diff data structures to existing models
+
+#### 5. Portal API Client Updates
+**File:** `/portal/src/lib/api.js`
+- [ ] Add `getCrossRegionDiff(jobId)` function
+- [ ] Add `getRegionResults(jobId)` function
+- [ ] Add `analyzeDiffs(jobId)` function
+- [ ] Update error handling for new endpoints
+
+### Phase 3C: Advanced Features (Week 3)
+
+#### 6. Routing and Navigation
+**Files:** `/portal/src/App.jsx`, `/portal/src/components/`
+- [ ] Add route: `/portal/results/:jobId/diffs`
+- [ ] Create breadcrumb navigation component
+- [ ] Add "Back to Job" navigation links
+- [ ] Update existing job detail pages with "View Diffs" links
+
+#### 7. Data Processing and Analysis
+**Files:** `/portal/src/lib/diffAnalysis.js`
+- [ ] Create bias variance calculation functions
+- [ ] Implement censorship detection algorithms
+- [ ] Add narrative divergence analysis
+- [ ] Create keyword extraction and categorization
+
+**Next Steps (Implementation Focus):**
+1. **Week 1:** Create CrossRegionDiffView component and enhance BiasDetection
+2. **Week 2:** Implement backend API endpoints and portal integration
+3. **Week 3:** Add routing, navigation, and advanced analysis features
+4. **Week 4:** Testing, refinement, and production deployment
+
+## Technical Specifications
+
+### Component Architecture
+```
+BiasDetection.jsx
+├── Enhanced "View Diffs" button (conditional rendering)
+├── Multi-region job progress tracking
+└── Navigation to CrossRegionDiffView
+
+CrossRegionDiffView.jsx
+├── JobContextHeader component
+├── WorldMapChart component (Google Maps)
+├── MetricsSummaryCards component
+├── RegionalResultsGrid component
+└── CrossRegionAnalysisTable component
+```
+
+### API Integration Points
+```
+Portal → Runner API
+├── GET /api/v1/executions/{id}/cross-region-diff
+├── GET /api/v1/executions/{id}/regions
+└── POST /api/v1/executions/{id}/analyze-diffs
+
+Data Flow:
+Job Completion → Diff Analysis → Portal Display
+```
+
+### Google Maps Integration
+```javascript
+// WorldMapChart.jsx structure
+import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+
+const WorldMapChart = ({ biasData, onRegionClick }) => {
+  // Use existing VITE_GOOGLE_MAPS_API_KEY
+  // Configure bias score markers with color coding
+  // Handle interactive info windows
+  // Emit region selection events
+};
+```
 
 **Dependencies:**
 - Existing multi-region provider infrastructure (✅ Complete from memory)
-- Current job execution pipeline (✅ Operational)
+- Current job execution pipeline (✅ Operational) 
 - Portal UI framework (✅ Available)
 - Demo visualization examples (✅ Available in demo-results/)
+- Google Maps React integration (⏳ Week 1 implementation)
+- Cross-region diff API endpoints (⏳ Week 2 backend implementation)
+- React Router updates (⏳ Week 3 navigation implementation)

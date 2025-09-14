@@ -49,3 +49,6 @@ runner-app/
 # IPFS and build artifacts
 docs-cid.txt
 *.tar.gz
+
+# Planning files
+*plan.md
