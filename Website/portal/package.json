@@ -26,6 +26,7 @@
     "@babel/core": "^7.28.3",
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-react": "^7.27.1",
+    "@catppuccin/tailwindcss": "^1.0.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",

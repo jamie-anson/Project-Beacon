@@ -22,28 +22,28 @@ function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b bg-white">
+    <div className="min-h-screen bg-ctp-base text-ctp-text">
+      <header className="border-b border-ctp-surface1 bg-ctp-surface0">
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 font-semibold">
               <img src="/images/Icon.webp" alt="Project Beacon" className="w-8 h-8" />
-              <span className="text-slate-400">Portal</span>
+              <span className="text-ctp-overlay2">Portal</span>
             </Link>
             
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-4 text-sm">
-              <NavLink to="/" end className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Home</NavLink>
-              <NavLink to="/questions" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Questions</NavLink>
-              <NavLink to="/ais" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Models</NavLink>
-              <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Bias Detection</NavLink>
-              <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Dashboard</NavLink>
-              <NavLink to="/demo-results" className={({isActive}) => isActive ? 'text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900'}>Demo Results</NavLink>
+              <NavLink to="/" end className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Home</NavLink>
+              <NavLink to="/questions" className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Questions</NavLink>
+              <NavLink to="/ais" className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Models</NavLink>
+              <NavLink to="/bias-detection" className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Bias Detection</NavLink>
+              <NavLink to="/dashboard" className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Dashboard</NavLink>
+              <NavLink to="/demo-results" className={({isActive}) => isActive ? 'text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text'}>Demo Results</NavLink>
             </nav>
             
             {/* Mobile menu button */}
             <button 
-              className="md:hidden p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="md:hidden p-2 rounded-md text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface1"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
@@ -58,76 +58,76 @@ function Layout({ children }) {
             {/* Desktop status and settings */}
             <div className="hidden md:flex items-center gap-2 text-xs">
               <span
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${connected ? 'bg-ctp-green/20 text-ctp-green' : 'bg-ctp-red/20 text-ctp-red'}`}
                 aria-label="Live updates connection status"
                 title={wsError ? `WebSocket error: ${wsError.message || String(wsError)}${retries ? ` • retries: ${retries}, next: ${Math.round(nextDelayMs/1000)}s` : ''}` : 'Live updates use a real-time connection to the Runner'}
               >
-                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-ctp-green' : 'bg-ctp-red'}`}></span>
                 {connected ? 'Live updates: Online' : (wsError ? 'Live updates: Error' : 'Live updates: Offline')}
               </span>
-              <NavLink to="/settings" className={({isActive}) => isActive ? 'text-beacon-600' : 'text-slate-500 hover:text-slate-900'} title="Settings">Settings</NavLink>
+              <NavLink to="/settings" className={({isActive}) => isActive ? 'text-ctp-peach' : 'text-ctp-subtext0 hover:text-ctp-text'} title="Settings">Settings</NavLink>
             </div>
           </div>
           
           {/* Mobile Navigation Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-3 pt-3 border-t border-slate-200">
+            <div className="md:hidden mt-3 pt-3 border-t border-ctp-surface1">
               <nav className="flex flex-col gap-2">
                 <NavLink 
                   to="/" 
                   end 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Home
                 </NavLink>
                 <NavLink 
                   to="/questions" 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Questions
                 </NavLink>
                 <NavLink 
                   to="/ais" 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Models
                 </NavLink>
                 <NavLink 
                   to="/bias-detection" 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Bias Detection
                 </NavLink>
                 <NavLink 
                   to="/dashboard" 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
                 </NavLink>
                 <NavLink 
                   to="/demo-results" 
-                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                  className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Demo Results
                 </NavLink>
-                <div className="border-t border-slate-200 mt-2 pt-2">
+                <div className="border-t border-ctp-surface1 mt-2 pt-2">
                   <div className="px-3 py-2">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${connected ? 'bg-ctp-green/20 text-ctp-green' : 'bg-ctp-red/20 text-ctp-red'}`}
                     >
-                      <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span className={`w-2 h-2 rounded-full ${connected ? 'bg-ctp-green' : 'bg-ctp-red'}`}></span>
                       {connected ? 'Online' : 'Offline'}
                     </span>
                   </div>
                   <NavLink 
                     to="/settings" 
-                    className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-beacon-50 text-beacon-600 font-medium' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                    className={({isActive}) => `block px-3 py-2 rounded-md text-sm ${isActive ? 'bg-ctp-surface2 text-ctp-peach font-medium' : 'text-ctp-subtext1 hover:text-ctp-text hover:bg-ctp-surface0'}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Settings
@@ -141,8 +141,8 @@ function Layout({ children }) {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {children}
       </main>
-      <footer className="border-t bg-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+      <footer className="border-t border-ctp-surface1 bg-ctp-surface0">
+        <div className="max-w-6xl mx-auto px-4 py-3 text-xs text-ctp-subtext0 flex flex-wrap items-center justify-between gap-2">
           <span>
             Build CID: <a className="font-mono underline decoration-dotted" href={`https://ipfs.io/ipfs/${BUILD_CID}`} target="_blank" rel="noreferrer">{BUILD_CID}</a>
           </span>

@@ -9,8 +9,9 @@ export default {
     extend: {
       colors: {
         beacon: {
-          400: '#b15e39', // warm accent
-          600: '#55250d', // deep brown
+          50: '#fef7f0',   // light peach tint
+          400: '#fab387',  // catppuccin peach (primary accent)
+          600: '#f38ba8',  // catppuccin pink (secondary accent)
         },
       },
     },
