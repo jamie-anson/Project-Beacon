@@ -6,12 +6,12 @@ export default function AIs() {
     <div className="space-y-6">
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">AIs Used in Project Beacon</h1>
-          <p className="text-slate-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-100">AIs Used in Project Beacon</h1>
+          <p className="text-gray-300 mt-1">
             Why we selected these foundation models and how we use them in our bias-detection and QA benchmarks.
           </p>
         </div>
-        <Link to="/bias-detection" className="px-4 py-2 bg-beacon-600 text-white rounded-md text-sm hover:bg-beacon-700">
+        <Link to="/bias-detection" className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm hover:bg-orange-700">
           See Bias Detection
         </Link>
       </header>
@@ -49,9 +49,9 @@ export default function AIs() {
         />
       </section>
 
-      <section className="bg-white rounded-lg border p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Selection Rationale</h2>
-        <ul className="list-disc pl-6 mt-3 space-y-1 text-slate-700">
+      <section className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-100">Selection Rationale</h2>
+        <ul className="list-disc pl-6 mt-3 space-y-1 text-gray-300">
           <li><strong>Coverage across regions:</strong> US, China, and EU lineages let us observe geographic and cultural skew.</li>
           <li><strong>Different capacities:</strong> 1–2B vs. 7B exposes scaling effects on bias and robustness.</li>
           <li><strong>Availability:</strong> Widely available open(-ish) weights and permissive usage for reproducible research.</li>
@@ -59,19 +59,19 @@ export default function AIs() {
         </ul>
       </section>
 
-      <section className="bg-white rounded-lg border p-6">
-        <h2 className="text-lg font-semibold text-slate-900">How We Test</h2>
-        <ul className="list-disc pl-6 mt-3 space-y-1 text-slate-700">
+      <section className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-100">How We Test</h2>
+        <ul className="list-disc pl-6 mt-3 space-y-1 text-gray-300">
           <li><strong>Common prompt set:</strong> The same normalized questions are used across models.</li>
           <li><strong>Synthetic geo attribution:</strong> Until real metadata is available, geo distributions are synthesized for visualization.</li>
           <li><strong>Bias detection:</strong> We compare outputs and scoring deltas across the three regions on identical tasks.</li>
-          <li><strong>Reproducibility:</strong> Jobs are tracked in the <Link to="/jobs" className="text-beacon-600 underline">Jobs</Link> page with timestamps and settings.</li>
+          <li><strong>Reproducibility:</strong> Jobs are tracked in the <Link to="/jobs" className="text-orange-400 underline">Jobs</Link> page with timestamps and settings.</li>
         </ul>
       </section>
 
-      <section className="bg-white rounded-lg border p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Limitations & Roadmap</h2>
-        <ul className="list-disc pl-6 mt-3 space-y-1 text-slate-700">
+      <section className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-100">Limitations & Roadmap</h2>
+        <ul className="list-disc pl-6 mt-3 space-y-1 text-gray-300">
           <li><strong>Model diversity:</strong> We will add larger and commercial models to broaden comparisons.</li>
           <li><strong>Origin metadata:</strong> Replace synthetic geo with verified provenance when available.</li>
           <li><strong>Live updates:</strong> WebSocket support in the mock backend is pending; expect console warnings.</li>
@@ -79,9 +79,9 @@ export default function AIs() {
       </section>
 
       <div className="flex flex-wrap gap-3">
-        <Link to="/world" className="px-3 py-2 border rounded-md text-sm hover:bg-slate-50">View World Map</Link>
-        <Link to="/questions" className="px-3 py-2 border rounded-md text-sm hover:bg-slate-50">Browse Questions</Link>
-        <Link to="/diffs" className="px-3 py-2 border rounded-md text-sm hover:bg-slate-50">Compare Diffs</Link>
+        <Link to="/world" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">View World Map</Link>
+        <Link to="/questions" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">Browse Questions</Link>
+        <Link to="/diffs" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">Compare Diffs</Link>
       </div>
     </div>
   );
@@ -89,12 +89,12 @@ export default function AIs() {
 
 function ModelCard({ name, region, color, bullets }) {
   return (
-    <div className="bg-white rounded-lg border p-5">
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-slate-900">{name}</h3>
+        <h3 className="font-semibold text-gray-100">{name}</h3>
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>{region}</span>
       </div>
-      <ul className="list-disc pl-5 mt-3 space-y-1 text-slate-700">
+      <ul className="list-disc pl-5 mt-3 space-y-1 text-gray-300">
         {bullets.map((b, i) => (
           <li key={i}>{b}</li>
         ))}

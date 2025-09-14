@@ -265,7 +265,7 @@ export default function BiasDetection() {
       ? 'bg-green-100 text-green-800'
       : needsProbe
       ? 'bg-amber-100 text-amber-800'
-      : 'bg-slate-100 text-slate-700';
+      : 'bg-gray-600 text-gray-200';
     return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
   };
 
@@ -280,7 +280,7 @@ export default function BiasDetection() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-beacon-600"></div>
-        <span className="ml-3 text-slate-600">Loading bias detection results...</span>
+        <span className="ml-3 text-gray-300">Loading bias detection results...</span>
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function BiasDetection() {
             retryAfter={jobListError.retry_after}
           />
         )}
-        <p className="text-slate-600 text-sm max-w-3xl">
+        <p className="text-gray-300 text-sm max-w-3xl">
           Run targeted prompts to detect bias across regions and models. Choose your questions and providers,
           then submit to start a job. You’ll see live per‑region progress and a link to full results.
         </p>
@@ -327,18 +327,18 @@ export default function BiasDetection() {
       <WalletConnection />
 
       {/* Submit Card */}
-      <section className="bg-white rounded-lg border p-6">
+      <section className="bg-gray-800 rounded-lg border border-gray-700 p-6">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-lg font-semibold">Run Bias Detection</h2>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-gray-300 mt-1">
                 Configure your bias detection job across multiple regions and models.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-700">Multi-Region</label>
+              <label className="text-sm font-medium text-gray-200">Multi-Region</label>
               <button
                 onClick={() => setIsMultiRegion(!isMultiRegion)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -346,7 +346,7 @@ export default function BiasDetection() {
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-gray-100 transition-transform ${
                     isMultiRegion ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -356,7 +356,7 @@ export default function BiasDetection() {
 
           {/* Region Selection */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-slate-900">Select Regions</h3>
+            <h3 className="text-sm font-medium text-gray-100">Select Regions</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {availableRegions.map((region) => (
                 <div
@@ -377,14 +377,14 @@ export default function BiasDetection() {
                           onChange={() => handleRegionToggle(region.code)}
                           className="rounded border-slate-300 text-beacon-600 focus:ring-beacon-500"
                         />
-                        <span className="font-medium text-slate-900">{region.code}</span>
+                        <span className="font-medium text-gray-100">{region.code}</span>
                       </div>
-                      <div className="mt-1 text-sm text-slate-600">{region.name}</div>
-                      <div className="mt-1 text-xs text-slate-500">{region.model}</div>
+                      <div className="mt-1 text-sm text-gray-300">{region.name}</div>
+                      <div className="mt-1 text-xs text-gray-400">{region.model}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-slate-500">Est. cost</div>
-                      <div className="text-sm font-medium text-slate-900">${region.cost}</div>
+                      <div className="text-xs text-gray-400">Est. cost</div>
+                      <div className="text-sm font-medium text-gray-100">${region.cost}</div>
                     </div>
                   </div>
                 </div>
@@ -395,10 +395,10 @@ export default function BiasDetection() {
           {/* Multi-Region Configuration */}
           {isMultiRegion && (
             <div className="space-y-4 border-t pt-4">
-              <h3 className="text-sm font-medium text-slate-900">Multi-Region Configuration</h3>
+              <h3 className="text-sm font-medium text-gray-100">Multi-Region Configuration</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Minimum Regions Required
                   </label>
                   <select
@@ -412,7 +412,7 @@ export default function BiasDetection() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-200 mb-1">
                     Minimum Success Rate
                   </label>
                   <select
@@ -430,23 +430,23 @@ export default function BiasDetection() {
           )}
 
           {/* Job Summary */}
-          <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-            <h3 className="text-sm font-medium text-slate-900">Job Summary</h3>
+          <div className="bg-gray-700 rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-medium text-gray-100">Job Summary</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="text-slate-600">Questions:</span>
+                <span className="text-gray-300">Questions:</span>
                 <span className="ml-1 font-medium">{readSelectedQuestions().length}</span>
               </div>
               <div>
-                <span className="text-slate-600">Regions:</span>
+                <span className="text-gray-300">Regions:</span>
                 <span className="ml-1 font-medium">{selectedRegions.length}</span>
               </div>
               <div>
-                <span className="text-slate-600">Type:</span>
+                <span className="text-gray-300">Type:</span>
                 <span className="ml-1 font-medium">{isMultiRegion ? 'Multi-Region' : 'Single-Region'}</span>
               </div>
               <div>
-                <span className="text-slate-600">Est. Cost:</span>
+                <span className="text-gray-300">Est. Cost:</span>
                 <span className="ml-1 font-medium">${calculateEstimatedCost()}</span>
               </div>
             </div>
@@ -454,7 +454,7 @@ export default function BiasDetection() {
 
           {/* Submit Button */}
           <div className="flex items-center justify-between">
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-gray-300">
               {readSelectedQuestions().length === 0 && (
                 <span className="text-amber-600">⚠ Select questions on the Questions page first</span>
               )}
@@ -462,7 +462,7 @@ export default function BiasDetection() {
             <div className="flex items-center gap-3">
               {activeJobId && (
                 <div className="flex items-center gap-2">
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-gray-400">
                     Active: <span className="font-mono">{activeJobId.slice(0, 8)}...</span>
                   </div>
                   <button
@@ -470,7 +470,7 @@ export default function BiasDetection() {
                       setActiveJobId('');
                       try { sessionStorage.removeItem(SESSION_KEY); } catch {}
                     }}
-                    className="text-xs text-slate-400 hover:text-slate-600 underline"
+                    className="text-xs text-gray-400 hover:text-gray-200 underline"
                     title="Clear active job and show submit button"
                   >
                     clear
@@ -493,7 +493,7 @@ export default function BiasDetection() {
                       buttonClicked && !showRefresh
                         ? 'bg-beacon-800 text-white transform scale-95'
                         : disabled && !showRefresh
-                        ? 'bg-slate-300 text-slate-600 cursor-not-allowed' 
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
                         : showRefresh
                         ? 'bg-green-600 text-white hover:bg-green-700'
                         : 'bg-beacon-600 text-white hover:bg-beacon-700'
@@ -518,7 +518,7 @@ export default function BiasDetection() {
           {/* Wallet Setup Help */}
           {!isMetaMaskInstalled() && (
             <div className="border-t pt-4">
-              <div className="text-xs text-slate-600 space-y-2">
+              <div className="text-xs text-gray-300 space-y-2">
                 <div>Crypto wallet extension required for job authorization.</div>
                 <div className="flex flex-wrap gap-3">
                   <a
@@ -563,11 +563,11 @@ export default function BiasDetection() {
 
       {/* Progress Panel */}
       {activeJobId && (
-        <section className="bg-white rounded-lg border">
+        <section className="bg-gray-800 rounded-lg border border-gray-700">
           <div className="px-4 py-3 border-b">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Live Progress</h2>
-              <div className="text-xs text-slate-500">{loadingActive ? 'Refreshing…' : activeJob?.status || '—'}</div>
+              <div className="text-xs text-gray-400">{loadingActive ? 'Refreshing…' : activeJob?.status || '—'}</div>
             </div>
             {activeErr && (
               <div className="mt-2 text-xs px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200">
@@ -637,7 +637,7 @@ export default function BiasDetection() {
                   <div className="flex items-center justify-between px-3 py-2 rounded border bg-amber-50 text-amber-900">
                     <div className="text-sm">Partial success: {finished}/{total} regions completed.</div>
                     <button
-                      className="text-sm px-2 py-1 border border-amber-300 rounded bg-white hover:bg-amber-100"
+                      className="text-sm px-2 py-1 border border-amber-300 rounded bg-gray-100 hover:bg-amber-100"
                       onClick={async () => {
                         const want = ['US','EU','ASIA'];
                         const doneRegions = execs.filter((e) => (e?.status || e?.state) === 'completed').map((e) => (e?.region || e?.region_claimed || '').toUpperCase?.()).filter(Boolean);
@@ -801,9 +801,9 @@ export default function BiasDetection() {
             const completed = regionJobs.filter(j => j.status === 'completed').length;
             const running = regionJobs.filter(j => j.status === 'running').length;
             return (
-              <div key={region} className="bg-white rounded-lg border p-4">
+              <div key={region} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-slate-900">{region} Models</h3>
+                  <h3 className="font-medium text-gray-100">{region} Models</h3>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     region === 'US' ? 'bg-blue-100 text-blue-800' :
                     region === 'China' ? 'bg-red-100 text-red-800' :
@@ -824,9 +824,9 @@ export default function BiasDetection() {
 
       {/* Jobs List */}
       {biasJobs.length > 0 && (
-        <div className="bg-white rounded-lg border">
+        <div className="bg-gray-800 rounded-lg border border-gray-700">
           <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-medium text-slate-900">Bias Detection Jobs</h2>
+            <h2 className="text-lg font-medium text-gray-100">Bias Detection Jobs</h2>
           </div>
           <div className="divide-y">
             {biasJobs.map(job => {
@@ -866,8 +866,8 @@ export default function BiasDetection() {
       )}
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg border p-6">
-        <h3 className="text-lg font-medium text-slate-900 mb-4">Quick Actions</h3>
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <h3 className="text-lg font-medium text-gray-100 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/demo-results"

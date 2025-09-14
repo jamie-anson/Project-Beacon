@@ -96,28 +96,28 @@ export default function Questions() {
       </div>
 
       {/* Intro copy */}
-      <div className="bg-white border rounded p-3 text-sm text-slate-700">
+      <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm text-gray-300">
         <p className="mb-2">
           All questions are selected by default. Unchecking questions reduces run time and cost.
           Start with a smaller set for a quick signal, then re-run with the full set for comprehensive coverage.
         </p>
         <div className="flex items-center gap-2">
           <button onClick={() => setAll(true)} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Select all</button>
-          <button onClick={() => setAll(false)} className="px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50">Clear all</button>
-          <span className="text-xs text-slate-500">{selectedCount}/{totalCount} selected</span>
+          <button onClick={() => setAll(false)} className="px-3 py-1.5 border border-gray-600 text-gray-300 rounded hover:bg-gray-700">Clear all</button>
+          <span className="text-xs text-gray-400">{selectedCount}/{totalCount} selected</span>
           <button onClick={refetch} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
         </div>
       </div>
 
-      {loading && <div className="text-sm text-slate-500">Loading questions…</div>}
+      {loading && <div className="text-sm text-gray-400">Loading questions…</div>}
       {error && <div className="text-sm text-red-600">Failed to load questions.</div>}
 
       {!loading && !error && catNames.length === 0 && (
-        <div className="text-sm text-slate-500">No questions found.</div>
+        <div className="text-sm text-gray-400">No questions found.</div>
       )}
 
       {!loading && !error && catNames.map((cat) => (
-        <section key={cat} className="bg-white border rounded">
+        <section key={cat} className="bg-gray-800 border border-gray-700 rounded">
           <div className="px-3 py-2 border-b flex items-center justify-between">
             <div className="flex items-center gap-2">
               <input
@@ -129,7 +129,7 @@ export default function Questions() {
               />
               <label htmlFor={`cat-${cat}`} className="font-medium capitalize cursor-pointer">{cat.replaceAll('_', ' ')}</label>
             </div>
-            <span className="text-xs text-slate-500">{categories[cat].filter((q) => selected.has(q.question_id)).length}/{categories[cat].length} selected</span>
+            <span className="text-xs text-gray-400">{categories[cat].filter((q) => selected.has(q.question_id)).length}/{categories[cat].length} selected</span>
           </div>
           <ul className="divide-y">
             {categories[cat].map((q) => (

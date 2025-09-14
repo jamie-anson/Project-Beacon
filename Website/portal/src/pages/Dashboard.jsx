@@ -20,7 +20,7 @@ function StatusPill({ value }) {
     ? 'bg-amber-100 text-amber-800'
     : bad
     ? 'bg-red-100 text-red-700'
-    : 'bg-slate-100 text-slate-700';
+    : 'bg-gray-600 text-gray-200';
   const label = typeof value === 'boolean' ? (value ? 'ok' : 'down') : (String(value || '—'));
   return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
 }
@@ -111,17 +111,17 @@ export default function Dashboard() {
       <section>
         <h2 className="text-xl font-semibold">Transparency root</h2>
         {loadingRoot ? (
-          <div className="bg-white border rounded p-3 animate-pulse">
-            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
-            <div className="h-3 bg-slate-100 rounded w-1/3 mt-2"></div>
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 animate-pulse">
+            <div className="h-4 bg-gray-600 rounded w-2/3"></div>
+            <div className="h-3 bg-gray-700 rounded w-1/3 mt-2"></div>
           </div>
         ) : rootError ? (
-          <div className="bg-white border rounded p-3 text-sm">
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm">
             <div className="text-red-600">Backend unavailable</div>
-            <div className="text-xs text-slate-500 mt-1">Transparency service offline</div>
+            <div className="text-xs text-gray-400 mt-1">Transparency service offline</div>
           </div>
         ) : tRoot ? (
-          <div className="bg-white border rounded p-3 text-sm">
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm">
             <div className="flex items-center gap-2">
               <div>Root: <span className="font-mono break-all">{tRoot.root || tRoot.merkle_root || '—'}</span></div>
               {(tRoot.root || tRoot.merkle_root) && (
@@ -129,24 +129,24 @@ export default function Dashboard() {
               )}
             </div>
             {tRoot.sequence != null && (
-              <div className="text-xs text-slate-500 mt-1">Seq #{tRoot.sequence}{tRoot.updated_at ? ` · ${tRoot.updated_at}` : ''}</div>
+              <div className="text-xs text-gray-400 mt-1">Seq #{tRoot.sequence}{tRoot.updated_at ? ` · ${tRoot.updated_at}` : ''}</div>
             )}
           </div>
         ) : (
-          <div className="text-sm text-slate-500">Loading…</div>
+          <div className="text-sm text-gray-400">Loading…</div>
         )}
       </section>
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent jobs</h2>
-          <Link to="/jobs" className="text-sm text-beacon-600 underline decoration-dotted">See all Jobs</Link>
+          <Link to="/jobs" className="text-sm text-orange-400 underline decoration-dotted">See all Jobs</Link>
         </div>
-        <div className="bg-white border rounded divide-y">
+        <div className="bg-gray-800 border border-gray-700 rounded divide-y">
           {loadingJobs ? (
             Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="p-3 animate-pulse">
-                <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                <div className="h-3 bg-slate-100 rounded w-1/3 mt-2"></div>
+                <div className="h-4 bg-gray-600 rounded w-1/2"></div>
+                <div className="h-3 bg-gray-700 rounded w-1/3 mt-2"></div>
               </div>
             ))
           ) : jobsError ? (
@@ -155,17 +155,17 @@ export default function Dashboard() {
             <div key={j.id} className="p-3 text-sm flex items-center justify-between">
               <div className="min-w-0">
                 <div className="font-mono truncate">{j.id}</div>
-                <div className="text-xs text-slate-500">{j.created_at}</div>
+                <div className="text-xs text-gray-400">{j.created_at}</div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">{j.status}</span>
-                <Link className="text-beacon-600 text-xs underline decoration-dotted" to={`/jobs/${encodeURIComponent(j.id)}`}>View</Link>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-600 text-gray-200">{j.status}</span>
+                <Link className="text-orange-400 text-xs underline decoration-dotted" to={`/jobs/${encodeURIComponent(j.id)}`}>View</Link>
                 <CopyButton text={j.id} label="Copy ID" />
               </div>
             </div>
           ))}
           {(!jobsError && recentJobsArr.length === 0) && (
-            <div className="p-3 text-sm text-slate-500">No jobs yet.</div>
+            <div className="p-3 text-sm text-gray-400">No jobs yet.</div>
           )}
         </div>
       </section>
@@ -176,35 +176,35 @@ export default function Dashboard() {
       
       <section>
         <h2 className="text-xl font-semibold">Legacy Server Status</h2>
-        <div className="bg-white border rounded p-4">
+        <div className="bg-gray-800 border border-gray-700 rounded p-4">
           <div className="space-y-3">
             {/* Main Runner API (Fly) */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${healthError ? 'bg-red-500' : 'bg-green-500'}`}></div>
                 <div>
                   <div className="font-medium text-sm">Runner API</div>
-                  <div className="text-xs text-slate-500">Fly.io</div>
+                  <div className="text-xs text-gray-400">Fly.io</div>
                 </div>
               </div>
               <div className="text-right">
                 <StatusPill value={healthError ? 'down' : 'healthy'} />
-                <div className="text-xs text-slate-500 mt-1">beacon-runner-change-me</div>
+                <div className="text-xs text-gray-400 mt-1">beacon-runner-change-me</div>
               </div>
             </div>
 
             {/* Hybrid Router (Railway) */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${hybridErr ? 'bg-red-500' : 'bg-green-500'}`}></div>
                 <div>
                   <div className="font-medium text-sm">Hybrid Router</div>
-                  <div className="text-xs text-slate-500">Railway</div>
+                  <div className="text-xs text-gray-400">Railway</div>
                 </div>
               </div>
               <div className="text-right">
                 <StatusPill value={hybridHealth?.status || (hybridErr ? 'down' : 'healthy')} />
-                <div className="text-xs text-slate-500 mt-1">project-beacon-production.up.railway.app</div>
+                <div className="text-xs text-gray-400 mt-1">project-beacon-production.up.railway.app</div>
               </div>
             </div>
 
@@ -218,7 +218,7 @@ export default function Dashboard() {
                 })()}
                 <div>
                   <div className="font-medium text-sm">Golem Provider (EU)</div>
-                  <div className="text-xs text-slate-500">Fly.io</div>
+                  <div className="text-xs text-gray-400">Fly.io</div>
                 </div>
               </div>
               <div className="text-right">
@@ -226,22 +226,22 @@ export default function Dashboard() {
                   const eu = Array.isArray(hybridProviders) ? hybridProviders.find(p => (p.type === 'golem') && (p.region === 'eu-west')) : null;
                   return <StatusPill value={eu ? (eu.healthy ? 'healthy' : 'degraded') : 'unknown'} />;
                 })()}
-                <div className="text-xs text-slate-500 mt-1">beacon-golem-simple</div>
+                <div className="text-xs text-gray-400 mt-1">beacon-golem-simple</div>
               </div>
             </div>
 
             {/* Monitoring */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-slate-400"></div>
                 <div>
                   <div className="font-medium text-sm">beacon-prom-agent</div>
-                  <div className="text-xs text-slate-500">Prometheus Agent</div>
+                  <div className="text-xs text-gray-400">Prometheus Agent</div>
                 </div>
               </div>
               <div className="text-right">
                 <StatusPill value="suspended" />
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                <div className="text-xs text-gray-400 mt-1">fly.io</div>
               </div>
             </div>
 
@@ -251,12 +251,12 @@ export default function Dashboard() {
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
                   <div className="font-medium text-sm">projectbeacon.netlify.app</div>
-                  <div className="text-xs text-slate-500">Portal & Docs</div>
+                  <div className="text-xs text-gray-400">Portal & Docs</div>
                 </div>
               </div>
               <div className="text-right">
                 <StatusPill value="deployed" />
-                <div className="text-xs text-slate-500 mt-1">netlify</div>
+                <div className="text-xs text-gray-400 mt-1">netlify</div>
               </div>
             </div>
           </div>
@@ -264,38 +264,38 @@ export default function Dashboard() {
       </section>
       <section>
         <h2 className="text-xl font-semibold">GPU Status</h2>
-        <div className="bg-white border rounded p-4">
+        <div className="bg-gray-800 border border-gray-700 rounded p-4">
           <div className="space-y-3">
             {/* Regional GPU Services */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
                   <div className="font-medium text-sm">US</div>
-                  <div className="text-xs text-slate-500">T4/A10 • US-East/Central/West</div>
+                  <div className="text-xs text-gray-400">T4/A10 • US-East/Central/West</div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   healthy
                 </span>
-                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+                <div className="text-xs text-gray-400 mt-1">modal.com</div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-b-0">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
                   <div className="font-medium text-sm">EU</div>
-                  <div className="text-xs text-slate-500">T4/A10 • EU-West/North</div>
+                  <div className="text-xs text-gray-400">T4/A10 • EU-West/North</div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   healthy
                 </span>
-                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+                <div className="text-xs text-gray-400 mt-1">modal.com</div>
               </div>
             </div>
 
@@ -304,14 +304,14 @@ export default function Dashboard() {
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <div>
                   <div className="font-medium text-sm">APAC</div>
-                  <div className="text-xs text-slate-500">T4/A10 • AP-Southeast/Northeast</div>
+                  <div className="text-xs text-gray-400">T4/A10 • AP-Southeast/Northeast</div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   healthy
                 </span>
-                <div className="text-xs text-slate-500 mt-1">modal.com</div>
+                <div className="text-xs text-gray-400 mt-1">modal.com</div>
               </div>
             </div>
           </div>
@@ -319,22 +319,22 @@ export default function Dashboard() {
       </section>
       <section>
         <h2 className="text-xl font-semibold">API Services</h2>
-        <div className="bg-white border rounded p-4">
+        <div className="bg-gray-800 border border-gray-700 rounded p-4">
           <div className="space-y-3">
             {/* Railway Service */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-100">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                 <div>
                   <div className="font-medium text-sm">Railway Router</div>
-                  <div className="text-xs text-slate-500">Hybrid API • Multi-region</div>
+                  <div className="text-xs text-gray-400">Hybrid API • Multi-region</div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   healthy
                 </span>
-                <div className="text-xs text-slate-500 mt-1">railway.app</div>
+                <div className="text-xs text-gray-400 mt-1">railway.app</div>
               </div>
             </div>
 
@@ -344,14 +344,14 @@ export default function Dashboard() {
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <div>
                   <div className="font-medium text-sm">Fly.io Router</div>
-                  <div className="text-xs text-slate-500">Legacy API • Deprecated</div>
+                  <div className="text-xs text-gray-400">Legacy API • Deprecated</div>
                 </div>
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   suspended
                 </span>
-                <div className="text-xs text-slate-500 mt-1">fly.io</div>
+                <div className="text-xs text-gray-400 mt-1">fly.io</div>
               </div>
             </div>
           </div>
@@ -360,25 +360,25 @@ export default function Dashboard() {
       <section>
         <h2 className="text-xl font-semibold">System status</h2>
         {loadingHealth ? (
-          <div className="bg-white border rounded p-3 animate-pulse">
-            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
-            <div className="h-4 bg-slate-100 rounded w-full mt-2"></div>
-            <div className="h-4 bg-slate-100 rounded w-5/6 mt-2"></div>
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 animate-pulse">
+            <div className="h-4 bg-gray-600 rounded w-2/3"></div>
+            <div className="h-4 bg-gray-700 rounded w-full mt-2"></div>
+            <div className="h-4 bg-gray-700 rounded w-5/6 mt-2"></div>
           </div>
         ) : healthError ? (
-          <div className="bg-white border rounded p-3">
+          <div className="bg-gray-800 border border-gray-700 rounded p-3">
             <div className="text-sm text-red-600">Backend unavailable - Health service offline</div>
           </div>
         ) : (
-          <div className="bg-white border rounded p-3">
+          <div className="bg-gray-800 border border-gray-700 rounded p-3">
             {!health || Object.keys(health || {}).length === 0 ? (
-              <div className="text-sm text-slate-500">No status available.</div>
+              <div className="text-sm text-gray-400">No status available.</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {/* Core Services */}
                 {['database', 'redis', 'ipfs'].map(service => health[service] && (
                   <div key={service} className="border rounded p-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">{service}</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-400">{service}</div>
                     <div className="mt-1 text-sm flex items-center gap-2">
                       <StatusPill value={health[service]} />
                     </div>
@@ -388,7 +388,7 @@ export default function Dashboard() {
                 {/* Golem Network */}
                 {health.yagna && (
                   <div className="border rounded p-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Golem Network</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-400">Golem Network</div>
                     <div className="mt-1 text-sm flex items-center gap-2">
                       <StatusPill value={health.yagna} />
                     </div>
@@ -399,10 +399,10 @@ export default function Dashboard() {
                 {/* Any other services */}
                 {Object.entries(health).filter(([k]) => !['database', 'redis', 'ipfs', 'yagna', 'overall'].includes(k)).map(([k, v]) => (
                   <div key={k} className="border rounded p-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">{k}</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-400">{k}</div>
                     <div className="mt-1 text-sm flex items-center gap-2">
                       {typeof v === 'object' && v !== null ? (
-                        <span className="font-mono text-xs bg-slate-50 px-2 py-1 rounded overflow-hidden text-ellipsis">
+                        <span className="font-mono text-xs bg-gray-700 px-2 py-1 rounded overflow-hidden text-ellipsis">
                           {truncateMiddle(JSON.stringify(v))}
                         </span>
                       ) : (
@@ -419,12 +419,12 @@ export default function Dashboard() {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent executions</h2>
-          <Link to="/executions" className="text-sm text-beacon-600 underline decoration-dotted">See all Executions</Link>
+          <Link to="/executions" className="text-sm text-orange-400 underline decoration-dotted">See all Executions</Link>
         </div>
         {loadingExecs ? (
-          <div className="bg-white border rounded overflow-hidden">
+          <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+              <thead className="bg-gray-700 text-gray-300">
                 <tr>
                   <th className="text-left px-3 py-2">ID</th>
                   <th className="text-left px-3 py-2">Job</th>
@@ -437,19 +437,19 @@ export default function Dashboard() {
                 {Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td className="px-3 py-2">
-                      <div className="h-3 w-24 bg-slate-200 rounded" />
+                      <div className="h-3 w-24 bg-gray-600 rounded" />
                     </td>
                     <td className="px-3 py-2">
-                      <div className="h-3 w-20 bg-slate-200 rounded" />
+                      <div className="h-3 w-20 bg-gray-600 rounded" />
                     </td>
                     <td className="px-3 py-2">
-                      <div className="h-5 w-14 bg-slate-200 rounded-full" />
+                      <div className="h-5 w-14 bg-gray-600 rounded-full" />
                     </td>
                     <td className="px-3 py-2">
-                      <div className="h-3 w-16 bg-slate-200 rounded" />
+                      <div className="h-3 w-16 bg-gray-600 rounded" />
                     </td>
                     <td className="px-3 py-2">
-                      <div className="h-3 w-28 bg-slate-200 rounded" />
+                      <div className="h-3 w-28 bg-gray-600 rounded" />
                     </td>
                   </tr>
                 ))}
@@ -457,14 +457,14 @@ export default function Dashboard() {
             </table>
           </div>
         ) : (
-          <div className="bg-white border rounded overflow-hidden">
+          <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">
             {execsError ? (
               <div className="p-3 text-sm text-red-600">Backend unavailable - Executions service offline</div>
             ) : (!executions || executions.length === 0) ? (
-              <div className="p-3 text-sm text-slate-500">No executions yet.</div>
+              <div className="p-3 text-sm text-gray-400">No executions yet.</div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-slate-600">
+                <thead className="bg-gray-700 text-gray-300">
                   <tr>
                     <th className="text-left px-3 py-2">ID</th>
                     <th className="text-left px-3 py-2">Job</th>
@@ -480,13 +480,13 @@ export default function Dashboard() {
                     const status = e?.status || e?.state || 'unknown';
                     const created = e?.created_at || e?.started_at || e?.createdAt || e?.startedAt;
                     return (
-                      <tr key={id} className="hover:bg-slate-50">
+                      <tr key={id} className="hover:bg-gray-700">
                         <td className="px-3 py-2 font-mono whitespace-nowrap" title={id}>{truncateMiddle(String(id))}</td>
                         <td className="px-3 py-2 font-mono whitespace-nowrap" title={jobId || ''}>{truncateMiddle(String(jobId || '—'))}</td>
                         <td className="px-3 py-2"><StatusPill value={status} /></td>
                         <td className="px-3 py-2 text-xs" title={formatDate(created)}>{timeAgo(created)}</td>
                         <td className="px-3 py-2 flex items-center gap-2">
-                          {id && <Link className="text-beacon-600 text-xs underline decoration-dotted" to={`/executions/${encodeURIComponent(id)}`}>View</Link>}
+                          {id && <Link className="text-orange-400 text-xs underline decoration-dotted" to={`/executions/${encodeURIComponent(id)}`}>View</Link>}
                           {id && <CopyButton text={String(id)} label="Copy ID" />}
                         </td>
                       </tr>
@@ -501,9 +501,9 @@ export default function Dashboard() {
       <section>
         <h2 className="text-xl font-semibold">Recent diffs</h2>
         {loadingDiffs ? (
-          <div className="bg-white border rounded overflow-hidden">
+          <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+              <thead className="bg-gray-700 text-gray-300">
                 <tr>
                   <th className="text-left px-3 py-2">ID</th>
                   <th className="text-left px-3 py-2">Type</th>
@@ -515,25 +515,25 @@ export default function Dashboard() {
               <tbody className="divide-y">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td className="px-3 py-2"><div className="h-3 w-24 bg-slate-200 rounded" /></td>
-                    <td className="px-3 py-2"><div className="h-3 w-16 bg-slate-200 rounded" /></td>
-                    <td className="px-3 py-2"><div className="h-3 w-20 bg-slate-200 rounded" /></td>
-                    <td className="px-3 py-2"><div className="h-3 w-16 bg-slate-200 rounded" /></td>
-                    <td className="px-3 py-2"><div className="h-3 w-28 bg-slate-200 rounded" /></td>
+                    <td className="px-3 py-2"><div className="h-3 w-24 bg-gray-600 rounded" /></td>
+                    <td className="px-3 py-2"><div className="h-3 w-16 bg-gray-600 rounded" /></td>
+                    <td className="px-3 py-2"><div className="h-3 w-20 bg-gray-600 rounded" /></td>
+                    <td className="px-3 py-2"><div className="h-3 w-16 bg-gray-600 rounded" /></td>
+                    <td className="px-3 py-2"><div className="h-3 w-28 bg-gray-600 rounded" /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="bg-white border rounded overflow-hidden">
+          <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">
             {diffsError ? (
               <div className="p-3 text-sm text-red-600">Backend unavailable - Diffs service offline</div>
             ) : (!diffs || diffs.length === 0) ? (
-              <div className="p-3 text-sm text-slate-500">No diffs yet.</div>
+              <div className="p-3 text-sm text-gray-400">No diffs yet.</div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-slate-600">
+                <thead className="bg-gray-700 text-gray-300">
                   <tr>
                     <th className="text-left px-3 py-2">ID</th>
                     <th className="text-left px-3 py-2">Type</th>
@@ -549,13 +549,13 @@ export default function Dashboard() {
                     const jobId = d?.job_id || d?.jobId || d?.job?.id;
                     const created = d?.created_at || d?.createdAt;
                     return (
-                      <tr key={id} className="hover:bg-slate-50">
+                      <tr key={id} className="hover:bg-gray-700">
                         <td className="px-3 py-2 font-mono whitespace-nowrap" title={id}>{truncateMiddle(String(id))}</td>
                         <td className="px-3 py-2 text-xs">{String(type)}</td>
                         <td className="px-3 py-2 font-mono whitespace-nowrap" title={jobId || ''}>{truncateMiddle(String(jobId || '—'))}</td>
                         <td className="px-3 py-2 text-xs" title={formatDate(created)}>{timeAgo(created)}</td>
                         <td className="px-3 py-2 flex items-center gap-2">
-                          {id && <Link className="text-beacon-600 text-xs underline decoration-dotted" to={`/diffs/${encodeURIComponent(id)}`}>View</Link>}
+                          {id && <Link className="text-orange-400 text-xs underline decoration-dotted" to={`/diffs/${encodeURIComponent(id)}`}>View</Link>}
                           {id && <CopyButton text={String(id)} label="Copy ID" />}
                         </td>
                       </tr>
