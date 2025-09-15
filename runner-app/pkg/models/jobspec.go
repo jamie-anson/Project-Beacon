@@ -273,9 +273,15 @@ type ExecutionSummary struct {
 
 // Validation methods
 func (js *JobSpec) Validate() error {
-	// Accept either ID or JobSpecID field
+	// Auto-generate ID if missing (for job creation)
 	if js.ID == "" && js.JobSpecID == "" {
-		return fmt.Errorf("jobspec ID is required")
+		// Generate ID from benchmark name and timestamp
+		timestamp := time.Now().Unix()
+		if js.Benchmark.Name != "" {
+			js.ID = fmt.Sprintf("%s-%d", js.Benchmark.Name, timestamp)
+		} else {
+			js.ID = fmt.Sprintf("job-%d", timestamp)
+		}
 	}
 	// Normalize: if JobSpecID is provided but ID is empty, copy it over
 	if js.ID == "" && js.JobSpecID != "" {

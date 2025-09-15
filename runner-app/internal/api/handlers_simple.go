@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -87,18 +86,6 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 			}
 			l.Info().Str("job_id", spec.ID).Int("questions_count", len(arr)).Msg("questions validation passed for bias-detection v1")
 		}
-	}
-
-	// Auto-generate ID if missing (for job creation endpoint)
-	if spec.ID == "" && spec.JobSpecID == "" {
-		// Generate ID from benchmark name and timestamp
-		timestamp := time.Now().Unix()
-		if spec.Benchmark.Name != "" {
-			spec.ID = fmt.Sprintf("%s-%d", spec.Benchmark.Name, timestamp)
-		} else {
-			spec.ID = fmt.Sprintf("job-%d", timestamp)
-		}
-		l.Info().Str("generated_id", spec.ID).Msg("auto-generated job ID")
 	}
 
 	// Log questions presence after struct binding
