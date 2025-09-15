@@ -404,7 +404,7 @@ export default function BiasDetection() {
                   <select
                     value={minRegions}
                     onChange={(e) => setMinRegions(parseInt(e.target.value))}
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-beacon-500 focus:border-beacon-500"
+                    className="w-full border border-gray-600 bg-gray-700 text-gray-100 rounded-md px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
                   >
                     {Array.from({ length: selectedRegions.length }, (_, i) => i + 1).map(num => (
                       <option key={num} value={num}>{num}</option>
@@ -418,7 +418,7 @@ export default function BiasDetection() {
                   <select
                     value={minSuccessRate}
                     onChange={(e) => setMinSuccessRate(parseFloat(e.target.value))}
-                    className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-beacon-500 focus:border-beacon-500"
+                    className="w-full border border-gray-600 bg-gray-700 text-gray-100 rounded-md px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value={0.33}>33% (1/3 regions)</option>
                     <option value={0.67}>67% (2/3 regions)</option>
