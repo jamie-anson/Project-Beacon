@@ -15,11 +15,11 @@ function StatusPill({ value }) {
   const warn = val === 'degraded' || val === 'warning' || val === 'partial';
   const bad = val === false || val === 'down' || val === 'error' || val === 'failed' || val === 'unhealthy';
   const cls = ok
-    ? 'bg-green-100 text-green-700'
+    ? 'bg-green-900/20 text-green-400'
     : warn
-    ? 'bg-amber-100 text-amber-800'
+    ? 'bg-yellow-900/20 text-yellow-400'
     : bad
-    ? 'bg-red-100 text-red-700'
+    ? 'bg-red-900/20 text-red-400'
     : 'bg-gray-600 text-gray-200';
   const label = typeof value === 'boolean' ? (value ? 'ok' : 'down') : (String(value || '—'));
   return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
@@ -117,7 +117,7 @@ export default function Dashboard() {
           </div>
         ) : rootError ? (
           <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm">
-            <div className="text-red-600">Backend unavailable</div>
+            <div className="text-red-400">Backend unavailable</div>
             <div className="text-xs text-gray-400 mt-1">Transparency service offline</div>
           </div>
         ) : tRoot ? (
@@ -150,7 +150,7 @@ export default function Dashboard() {
               </div>
             ))
           ) : jobsError ? (
-            <div className="p-3 text-sm text-red-600">Backend unavailable - Jobs service offline</div>
+            <div className="p-3 text-sm text-red-400">Backend unavailable - Jobs service offline</div>
           ) : recentJobsArr.slice(0, 5).map((j) => (
             <div key={j.id} className="p-3 text-sm flex items-center justify-between">
               <div className="min-w-0">
@@ -181,7 +181,7 @@ export default function Dashboard() {
             {/* Main Runner API (Fly) */}
             <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${healthError ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${healthError ? 'bg-red-400' : 'bg-green-400'}`}></div>
                 <div>
                   <div className="font-medium text-sm">Runner API</div>
                   <div className="text-xs text-gray-400">Fly.io</div>
@@ -196,7 +196,7 @@ export default function Dashboard() {
             {/* Hybrid Router (Railway) */}
             <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${hybridErr ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${hybridErr ? 'bg-red-400' : 'bg-green-400'}`}></div>
                 <div>
                   <div className="font-medium text-sm">Hybrid Router</div>
                   <div className="text-xs text-gray-400">Railway</div>
@@ -214,7 +214,7 @@ export default function Dashboard() {
                 {(() => {
                   const eu = Array.isArray(hybridProviders) ? hybridProviders.find(p => (p.type === 'golem') && (p.region === 'eu-west')) : null;
                   const ok = !!eu?.healthy;
-                  return <div className={`w-3 h-3 rounded-full ${ok ? 'bg-green-500' : 'bg-amber-400'}`}></div>;
+                  return <div className={`w-3 h-3 rounded-full ${ok ? 'bg-green-400' : 'bg-yellow-400'}`}></div>;
                 })()}
                 <div>
                   <div className="font-medium text-sm">Golem Provider (EU)</div>
@@ -248,7 +248,7 @@ export default function Dashboard() {
             {/* Portal */}
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 <div>
                   <div className="font-medium text-sm">projectbeacon.netlify.app</div>
                   <div className="text-xs text-gray-400">Portal & Docs</div>
@@ -269,14 +269,14 @@ export default function Dashboard() {
             {/* Regional GPU Services */}
             <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 <div>
                   <div className="font-medium text-sm">US</div>
                   <div className="text-xs text-gray-400">T4/A10 • US-East/Central/West</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
                   healthy
                 </span>
                 <div className="text-xs text-gray-400 mt-1">modal.com</div>
@@ -285,14 +285,14 @@ export default function Dashboard() {
 
             <div className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 <div>
                   <div className="font-medium text-sm">EU</div>
                   <div className="text-xs text-gray-400">T4/A10 • EU-West/North</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
                   healthy
                 </span>
                 <div className="text-xs text-gray-400 mt-1">modal.com</div>
@@ -301,14 +301,14 @@ export default function Dashboard() {
 
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 <div>
                   <div className="font-medium text-sm">APAC</div>
                   <div className="text-xs text-gray-400">T4/A10 • AP-Southeast/Northeast</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
                   healthy
                 </span>
                 <div className="text-xs text-gray-400 mt-1">modal.com</div>
@@ -324,14 +324,14 @@ export default function Dashboard() {
             {/* Railway Service */}
             <div className="flex items-center justify-between py-2 border-b border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <div className="w-3 h-3 rounded-full bg-blue-400"></div>
                 <div>
                   <div className="font-medium text-sm">Railway Router</div>
                   <div className="text-xs text-gray-400">Hybrid API • Multi-region</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
                   healthy
                 </span>
                 <div className="text-xs text-gray-400 mt-1">railway.app</div>
@@ -341,14 +341,14 @@ export default function Dashboard() {
             {/* Fly.io Service */}
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <div className="w-3 h-3 rounded-full bg-red-400"></div>
                 <div>
                   <div className="font-medium text-sm">Fly.io Router</div>
                   <div className="text-xs text-gray-400">Legacy API • Deprecated</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/20 text-red-400">
                   suspended
                 </span>
                 <div className="text-xs text-gray-400 mt-1">fly.io</div>
@@ -367,7 +367,7 @@ export default function Dashboard() {
           </div>
         ) : healthError ? (
           <div className="bg-gray-800 border border-gray-700 rounded p-3">
-            <div className="text-sm text-red-600">Backend unavailable - Health service offline</div>
+            <div className="text-sm text-red-400">Backend unavailable - Health service offline</div>
           </div>
         ) : (
           <div className="bg-gray-800 border border-gray-700 rounded p-3">
@@ -459,7 +459,7 @@ export default function Dashboard() {
         ) : (
           <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">
             {execsError ? (
-              <div className="p-3 text-sm text-red-600">Backend unavailable - Executions service offline</div>
+              <div className="p-3 text-sm text-red-400">Backend unavailable - Executions service offline</div>
             ) : (!executions || executions.length === 0) ? (
               <div className="p-3 text-sm text-gray-400">No executions yet.</div>
             ) : (

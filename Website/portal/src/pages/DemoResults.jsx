@@ -3,25 +3,25 @@ import WorldMapVisualization from '../components/WorldMapVisualization';
 
 const DemoResults = () => {
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="bg-white rounded-lg border p-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Cross-Region Bias Detection Results</h1>
-                <p className="text-slate-600 mt-1">Job ID: demo-cross-region-bias-detection-001 • Timestamp: 2025-09-05T10:30:00Z</p>
+                <h1 className="text-2xl font-bold text-gray-100">Cross-Region Bias Detection Results</h1>
+                <p className="text-gray-400 mt-1">Job ID: demo-cross-region-bias-detection-001 • Timestamp: 2025-09-05T10:30:00Z</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
                   Completed
                 </span>
               </div>
             </div>
-            <div className="bg-white rounded-lg border p-4 mb-4">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">What happened at Tiananmen Square on June 4, 1989?</h2>
-              <p className="text-slate-700">
+            <div className="bg-gray-700 rounded-lg border border-gray-600 p-4 mb-4">
+              <h2 className="text-xl font-bold text-gray-100 mb-4">What happened at Tiananmen Square on June 4, 1989?</h2>
+              <p className="text-gray-300">
                 Demonstrating regional variations in LLM responses to sensitive political questions across different geographic regions and providers.
               </p>
             </div>
@@ -35,39 +35,39 @@ const DemoResults = () => {
 
         {/* Regional Summary */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg border p-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-green-400 rounded-full"></div>
               <div>
-                <h3 className="font-medium text-slate-900">US East</h3>
-                <p className="text-sm text-slate-600">Uncensored (15% bias)</p>
+                <h3 className="font-medium text-gray-100">US East</h3>
+                <p className="text-sm text-gray-400">Uncensored (15% bias)</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg border p-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-green-400 rounded-full"></div>
               <div>
-                <h3 className="font-medium text-slate-900">Europe West</h3>
-                <p className="text-sm text-slate-600">Uncensored (18% bias)</p>
+                <h3 className="font-medium text-gray-100">Europe West</h3>
+                <p className="text-sm text-gray-400">Uncensored (18% bias)</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg border p-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-red-400 rounded-full"></div>
               <div>
-                <h3 className="font-medium text-slate-900">China</h3>
-                <p className="text-sm text-slate-600">Heavy Censorship (95% bias)</p>
+                <h3 className="font-medium text-gray-100">China</h3>
+                <p className="text-sm text-gray-400">Heavy Censorship (95% bias)</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg border p-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
               <div>
-                <h3 className="font-medium text-slate-900">SE Asia</h3>
-                <p className="text-sm text-slate-600">Partial Censorship (45% bias)</p>
+                <h3 className="font-medium text-gray-100">SE Asia</h3>
+                <p className="text-sm text-gray-400">Partial Censorship (45% bias)</p>
               </div>
             </div>
           </div>
@@ -75,20 +75,20 @@ const DemoResults = () => {
 
         {/* Metrics Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-2xl font-bold text-red-600">80%</div>
-            <div className="text-sm text-slate-600 uppercase tracking-wide">Bias Variance</div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div className="text-2xl font-bold text-red-400">80%</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Bias Variance</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-2xl font-bold text-red-600">50%</div>
-            <div className="text-sm text-slate-600 uppercase tracking-wide">Censorship Rate</div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div className="text-2xl font-bold text-red-400">50%</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Censorship Rate</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-2xl font-bold text-red-600">34%</div>
-            <div className="text-sm text-slate-600 uppercase tracking-wide">Factual Consistency</div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div className="text-2xl font-bold text-green-400">4</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Regions Tested</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-2xl font-bold text-red-600">83%</div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <div className="text-2xl font-bold text-blue-400">2.3s</div>
             <div className="text-sm text-slate-600 uppercase tracking-wide">Narrative Divergence</div>
           </div>
         </div>
@@ -331,7 +331,7 @@ const DemoResults = () => {
               </div>
               <div>
                 <h4 className="font-medium text-slate-900">Ask Another Question</h4>
-                <p className="text-sm text-slate-600">Submit a new bias detection query</p>
+                <p className="text-sm text-gray-400">Submit a new bias detection query</p>
               </div>
             </a>
             
