@@ -54,20 +54,27 @@ func NewJobsHandler(jobsService *service.JobsService, cfg *config.Config, redisC
 // CreateJob handles job creation requests
 func (h *JobsHandler) CreateJob(c *gin.Context) {
 	l := logging.FromContext(c.Request.Context())
-	l.Info().Msg("api: CreateJob request")
+	l.Info().Msg("DIAGNOSTIC: CreateJob request started")
 	
 	// Parse and process JobSpec using the processor (includes validation and ID generation)
 	spec, raw, err := h.jobSpecProcessor.ProcessJobSpec(c)
 	if err != nil {
-		l.Error().Err(err).Msg("JobSpec processing failed")
+		l.Error().Err(err).Msg("DIAGNOSTIC: JobSpec processing failed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	
+	l.Info().
+		Str("job_id", spec.ID).
+		Str("request_body_length", strconv.Itoa(len(raw))).
+		Msg("DIAGNOSTIC: JobSpec processed successfully with ID")
+	
 	// Run security pipeline (trust evaluation, rate limiting, replay protection, signature verification)
 	clientIP := c.ClientIP()
+	l.Info().Str("client_ip", clientIP).Str("job_id", spec.ID).Msg("DIAGNOSTIC: Starting security validation")
+	
 	if err := h.securityPipeline.ValidateJobSpec(c.Request.Context(), spec, raw, clientIP); err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("Security validation failed")
+		l.Error().Err(err).Str("job_id", spec.ID).Msg("DIAGNOSTIC: Security validation failed")
 		// Check if it's a structured error with specific response
 		if validationErr, ok := err.(*security.ValidationError); ok {
 			// Handle specific HTTP status codes for certain error types
@@ -77,59 +84,80 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 			} else if validationErr.ErrorCode == "protection_unavailable:replay" {
 				status = http.StatusServiceUnavailable
 			}
+			l.Error().
+				Str("error_code", validationErr.ErrorCode).
+				Str("error_message", validationErr.Message).
+				Int("http_status", status).
+				Msg("DIAGNOSTIC: Returning structured error response")
 			c.JSON(status, gin.H{"error": validationErr.Message, "error_code": validationErr.ErrorCode})
 		} else {
+			l.Error().
+				Str("error_message", err.Error()).
+				Int("http_status", http.StatusBadRequest).
+				Msg("DIAGNOSTIC: Returning generic error response")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
 		return
 	}
 	
-	l.Info().Str("job_id_after_validation_success", spec.ID).Msg("JobSpec ID after successful validation")
+	l.Info().Str("job_id", spec.ID).Msg("DIAGNOSTIC: Security validation passed successfully")
 
 	
 	// Marshal canonical JSON for persistence/outbox
 	jobspecJSON, err := json.Marshal(spec)
 	if err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("failed to marshal jobspec")
+		l.Error().Err(err).Str("job_id", spec.ID).Msg("DIAGNOSTIC: Failed to marshal jobspec")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal jobspec"})
 		return
 	}
+	
+	l.Info().Str("job_id", spec.ID).Int("json_length", len(jobspecJSON)).Msg("DIAGNOSTIC: JobSpec marshaled successfully")
 
 	if h.jobsService == nil || h.jobsService.DB == nil {
-		l.Error().Msg("persistence unavailable")
+		l.Error().Msg("DIAGNOSTIC: Persistence unavailable")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "persistence unavailable"})
 		return
 	}
 	
 	// Idempotency support
 	idemKey, hasKey := GetIdempotencyKey(c)
+	l.Info().Bool("has_idempotency_key", hasKey).Str("idempotency_key", idemKey).Msg("DIAGNOSTIC: Checking idempotency")
+	
 	if hasKey && h.jobsService != nil {
+		l.Info().Str("job_id", spec.ID).Msg("DIAGNOSTIC: Using idempotent path")
 		jobID, reused, ierr := h.jobsService.IdempotentCreateJob(c.Request.Context(), idemKey, spec, jobspecJSON)
 		if ierr != nil {
-			l.Error().Err(ierr).Str("job_id", spec.ID).Msg("IdempotentCreateJob error")
+			l.Error().Err(ierr).Str("job_id", spec.ID).Msg("DIAGNOSTIC: IdempotentCreateJob error")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": ierr.Error()})
 			return
 		}
 		if reused {
-			l.Info().Str("job_id", jobID).Bool("idempotent", true).Msg("idempotent key reused; returning existing job")
-			c.JSON(http.StatusOK, gin.H{"id": jobID, "idempotent": true})
+			l.Info().Str("job_id", jobID).Bool("idempotent", true).Msg("DIAGNOSTIC: Idempotent key reused; returning existing job")
+			response := gin.H{"id": jobID, "idempotent": true}
+			l.Info().Interface("response", response).Int("status", http.StatusOK).Msg("DIAGNOSTIC: Sending idempotent response")
+			c.JSON(http.StatusOK, response)
 			return
 		}
-		l.Info().Str("job_id", jobID).Msg("job enqueued (idempotent create)")
+		l.Info().Str("job_id", jobID).Msg("DIAGNOSTIC: Job enqueued (idempotent create)")
 		metrics.JobsEnqueuedTotal.Inc()
-		c.JSON(http.StatusAccepted, gin.H{"id": jobID, "status": "enqueued"})
+		response := gin.H{"id": jobID, "status": "enqueued"}
+		l.Info().Interface("response", response).Int("status", http.StatusAccepted).Msg("DIAGNOSTIC: Sending idempotent success response")
+		c.JSON(http.StatusAccepted, response)
 		return
 	}
 
 	// Non-idempotent path
+	l.Info().Str("job_id", spec.ID).Msg("DIAGNOSTIC: Using non-idempotent path")
 	if err := h.jobsService.CreateJob(c.Request.Context(), spec, jobspecJSON); err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("CreateJob service error")
+		l.Error().Err(err).Str("job_id", spec.ID).Msg("DIAGNOSTIC: CreateJob service error")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	l.Info().Str("job_id", spec.ID).Msg("job enqueued")
+	l.Info().Str("job_id", spec.ID).Msg("DIAGNOSTIC: Job enqueued successfully")
 	metrics.JobsEnqueuedTotal.Inc()
-	c.JSON(http.StatusAccepted, gin.H{"id": spec.ID, "status": "enqueued"})
+	response := gin.H{"id": spec.ID, "status": "enqueued"}
+	l.Info().Interface("response", response).Int("status", http.StatusAccepted).Msg("DIAGNOSTIC: Sending final success response")
+	c.JSON(http.StatusAccepted, response)
 }
 
 // GetJob handles job retrieval requests
