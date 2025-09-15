@@ -90,7 +90,7 @@ export default function JobDetail() {
       {job && (
         <section>
           <h3 className="font-medium">JobSpec</h3>
-          <pre className="bg-slate-100 p-3 rounded text-xs overflow-auto">{JSON.stringify(job, null, 2)}</pre>
+          <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-auto border border-gray-600">{JSON.stringify(job, null, 2)}</pre>
         </section>
       )}
 
