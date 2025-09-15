@@ -160,6 +160,8 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		admin.PUT("/flags", adminHandler.UpdateFlags)
 		admin.GET("/config", adminHandler.GetConfig)
 		admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
+		admin.POST("/repair-stuck-jobs", adminHandler.RepairStuckJobsHandler)
+		admin.GET("/stuck-jobs-stats", adminHandler.GetStuckJobsStats)
 		admin.GET("/port", adminHandler.GetPortInfo)
 		admin.GET("/hints", adminHandler.GetHints)
 		admin.GET("/circuit-breaker-stats", adminHandler.GetCircuitBreakerStats)

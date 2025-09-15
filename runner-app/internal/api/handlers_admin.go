@@ -1,14 +1,15 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"net"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/flags"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
-	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 )
 
 // AdminHandler bundles simple admin operations
@@ -146,12 +147,12 @@ func (h *AdminHandler) RepublishStuckJobs(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	l := logging.FromContext(ctx)
+	// l := logging.FromContext(ctx)
 	
 	// Find jobs stuck in "created" status
 	stuckJobs, err := h.jobsService.JobsRepo.ListJobsByStatus(ctx, "created", 100)
 	if err != nil {
-		l.Error().Err(err).Msg("failed to find stuck jobs")
+		log.Printf("Failed to find stuck jobs: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to find stuck jobs"})
 		return
 	}
@@ -169,17 +170,81 @@ func (h *AdminHandler) RepublishStuckJobs(c *gin.Context) {
 		// Republish job to outbox
 		err := h.jobsService.RepublishJob(ctx, job.ID)
 		if err != nil {
-			l.Error().Err(err).Str("job_id", job.ID).Msg("failed to republish job")
+			log.Printf("Failed to republish stuck job %s: %v", job.ID, err)
 			continue
 		}
 		republished++
-		l.Info().Str("job_id", job.ID).Msg("republished stuck job")
+		log.Printf("Republished stuck job: %s", job.ID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "republished stuck jobs",
 		"total_found": len(stuckJobs),
 		"republished": republished,
+	})
+}
+
+// RepairStuckJobsHandler handles job repair requests
+func (h *AdminHandler) RepairStuckJobsHandler(c *gin.Context) {
+	if h.jobsService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Jobs service not available",
+		})
+		return
+	}
+
+	// Parse max age parameter (default: 30 minutes)
+	maxAgeStr := c.DefaultQuery("max_age", "30m")
+	maxAge, err := time.ParseDuration(maxAgeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid max_age parameter",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Create repair service and run repair
+	repairService := service.NewJobRepairService(h.jobsService)
+	summary, err := repairService.RepairStuckJobs(c.Request.Context(), maxAge)
+	if err != nil {
+		log.Printf("Failed to repair stuck jobs: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to repair stuck jobs",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Job repair completed",
+		"summary": summary,
+	})
+}
+
+// GetStuckJobsStats returns statistics about potentially stuck jobs
+func (h *AdminHandler) GetStuckJobsStats(c *gin.Context) {
+	if h.jobsService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Jobs service not available",
+		})
+		return
+	}
+
+	repairService := service.NewJobRepairService(h.jobsService)
+	stats, err := repairService.GetStuckJobsStats(c.Request.Context())
+	if err != nil {
+		log.Printf("Failed to get stuck jobs stats: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get stuck jobs stats",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"stats": stats,
+		"timestamp": time.Now().UTC(),
 	})
 }
 
