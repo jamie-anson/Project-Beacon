@@ -75,8 +75,9 @@ Implement multi-region job execution and cross-region diff visualization like th
 
 - [ ] **Multi-Region Job Submission UI**
   - [ ] Add region selection interface (US, EU, Asia checkboxes)
-  - [ ] Implement region preference ordering with drag-and-drop
-  - [ ] Add estimated cost calculation for multi-region execution
+  - [ ] Add model selection per region (Llama 3.2-1B, Mistral 7B, Qwen 2.5-1.5B)
+  - [ ] Implement region + model combination matrix
+  - [ ] Add estimated cost calculation for multi-region + multi-model execution
   - [ ] Show real-time region availability status from hybrid router
 
 - [ ] **Enhanced Job Progress Tracking**
@@ -105,16 +106,18 @@ Implement multi-region job execution and cross-region diff visualization like th
   - [ ] Include trend indicators and risk assessments
 
 ### Regional Results Display
-- [ ] **Individual Region Cards**
+- [ ] **Individual Region + Model Cards**
   - [ ] Create region-specific result cards with flag icons
-  - [ ] Show provider ID, model, and censorship status
+  - [ ] Show provider ID, selected model, and censorship status
   - [ ] Display full response text with syntax highlighting
   - [ ] Add factual accuracy and political sensitivity scores
   - [ ] Include detected keywords with color-coded tags
+  - [ ] Group by model for cross-region comparison
 
 - [ ] **Cross-Region Analysis Table**
-  - [ ] Build comparative analysis table (Casualty Reporting, Event Characterization, etc.)
-  - [ ] Highlight narrative differences across regions
+  - [ ] Build comparative analysis table by model (Casualty Reporting, Event Characterization, etc.)
+  - [ ] Highlight narrative differences across regions for same model
+  - [ ] Add model selector to switch between Llama/Mistral/Qwen comparisons
   - [ ] Add hover effects and responsive design
   - [ ] Include export functionality for analysis data
 
@@ -273,7 +276,10 @@ Implement multi-region job execution and cross-region diff visualization like th
 - [ ] Integrate with existing portal styling (Tailwind classes)
 
 #### 2. BiasDetection Component Enhancement
-**File:** `/portal/src/pages/BiasDetection.jsx` (line 741)
+**File:** `/portal/src/pages/BiasDetection.jsx` (line 341-374)
+- [ ] Update region selection UI to include model selection per region
+- [ ] Add model dropdown/checkboxes within each region card
+- [ ] Update job submission to include selected models per region
 - [ ] Replace "Refresh" button with conditional "View Cross-Region Diffs" button
 - [ ] Add logic to show button only when job has multi-region executions completed
 - [ ] Implement navigation to `/portal/results/{jobId}/diffs` route
@@ -314,10 +320,12 @@ Implement multi-region job execution and cross-region diff visualization like th
 
 #### 7. Data Processing and Analysis
 **Files:** `/portal/src/lib/diffAnalysis.js`
-- [ ] Create bias variance calculation functions
-- [ ] Implement censorship detection algorithms
-- [ ] Add narrative divergence analysis
+- [ ] Create bias variance calculation functions per model
+- [ ] Implement censorship detection algorithms across regions for same model
+- [ ] Add narrative divergence analysis within model comparisons
 - [ ] Create keyword extraction and categorization
+- [ ] Add model-specific bias pattern detection
+- [ ] Implement cross-model comparison metrics
 
 **Next Steps (Implementation Focus):**
 1. **Week 1:** Create CrossRegionDiffView component and enhance BiasDetection
@@ -350,7 +358,24 @@ Portal → Runner API
 └── POST /api/v1/executions/{id}/analyze-diffs
 
 Data Flow:
-Job Completion → Diff Analysis → Portal Display
+Job Completion → Multi-Model Diff Analysis → Portal Display
+
+Model Comparison Matrix:
+Llama 3.2-1B: US vs EU vs ASIA
+Mistral 7B: US vs EU vs ASIA  
+Qwen 2.5-1.5B: US vs EU vs ASIA
+
+const availableRegions = [
+    { code: 'US', name: 'United States', cost: 0.0003 },
+    { code: 'EU', name: 'Europe', cost: 0.0004 },
+    { code: 'ASIA', name: 'Asia Pacific', cost: 0.0005 }
+  ];
+  
+  const availableModels = [
+    { id: 'llama3.2:1b', name: 'Llama 3.2-1B', provider: 'Meta' },
+    { id: 'mistral:7b', name: 'Mistral 7B', provider: 'Mistral AI' },
+    { id: 'qwen2.5:1.5b', name: 'Qwen 2.5-1.5B', provider: 'Alibaba' }
+  ];
 ```
 
 ### Google Maps Integration
@@ -358,10 +383,11 @@ Job Completion → Diff Analysis → Portal Display
 // WorldMapChart.jsx structure
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 
-const WorldMapChart = ({ biasData, onRegionClick }) => {
+const WorldMapChart = ({ biasData, selectedModel, onRegionClick }) => {
   // Use existing VITE_GOOGLE_MAPS_API_KEY
-  // Configure bias score markers with color coding
-  // Handle interactive info windows
+  // Configure bias score markers with color coding per model
+  // Handle interactive info windows with model-specific data
+  // Add model selector to filter map view
   // Emit region selection events
 };
 ```

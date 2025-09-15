@@ -784,10 +784,27 @@ export default function BiasDetection() {
               })}
             </div>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
               <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
+              {(() => {
+                const execs = activeJob?.executions || [];
+                const completedRegions = execs.filter(e => (e?.status || e?.state) === 'completed').length;
+                const hasMultiRegionResults = isMultiRegion && completedRegions >= 2;
+                
+                if (hasMultiRegionResults && activeJob?.id) {
+                  return (
+                    <Link 
+                      to={`/portal/results/${activeJob.id}/diffs`}
+                      className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700"
+                    >
+                      View Cross-Region Diffs
+                    </Link>
+                  );
+                }
+                return null;
+              })()}
               {activeJob?.id && (
-                <Link to={`/jobs/${activeJob.id}`} className="ml-2 text-sm text-beacon-600 underline decoration-dotted">View full results</Link>
+                <Link to={`/jobs/${activeJob.id}`} className="text-sm text-beacon-600 underline decoration-dotted">View full results</Link>
               )}
             </div>
           </div>
