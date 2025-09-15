@@ -10,12 +10,12 @@ function StatusPill({ value }) {
   const warn = val === 'degraded' || val === 'warning' || val === 'partial' || val === 'pending';
   const bad = val === false || val === 'down' || val === 'error' || val === 'failed' || val === 'unhealthy';
   const cls = ok
-    ? 'bg-green-100 text-green-700'
+    ? 'bg-green-900/20 text-green-400'
     : warn
-    ? 'bg-amber-100 text-amber-800'
+    ? 'bg-yellow-900/20 text-yellow-400'
     : bad
-    ? 'bg-red-100 text-red-700'
-    : 'bg-slate-100 text-slate-700';
+    ? 'bg-red-900/20 text-red-400'
+    : 'bg-gray-700 text-gray-300';
   const label = typeof value === 'boolean' ? (value ? 'ok' : 'down') : (String(value || '—'));
   return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
 }
@@ -74,13 +74,13 @@ export default function ExecutionDetail() {
         <div className="flex items-center gap-2">
           <Link to="/executions" className="text-beacon-600 hover:text-beacon-700">← Back to Executions</Link>
         </div>
-        <div className="bg-white border rounded-lg p-6">
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-6 bg-slate-200 rounded w-1/3"></div>
-            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+            <div className="h-6 bg-gray-700 rounded w-1/3"></div>
+            <div className="h-4 bg-gray-700 rounded w-1/2"></div>
             <div className="space-y-2">
-              <div className="h-3 bg-slate-200 rounded"></div>
-              <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-700 rounded"></div>
+              <div className="h-3 bg-gray-700 rounded w-3/4"></div>
             </div>
           </div>
         </div>
@@ -94,14 +94,14 @@ export default function ExecutionDetail() {
         <div className="flex items-center gap-2">
           <Link to="/executions" className="text-beacon-600 hover:text-beacon-700">← Back to Executions</Link>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <div className="flex items-center gap-2 text-red-800">
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-6">
+          <div className="flex items-center gap-2 text-red-400">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"></path>
             </svg>
             <span className="font-medium">Execution not found</span>
           </div>
-          <p className="mt-1 text-red-700 text-sm">
+          <p className="mt-1 text-red-300 text-sm">
             {executionError?.message || `Execution ${id} could not be found in the executions list.`}
           </p>
         </div>
@@ -119,12 +119,12 @@ export default function ExecutionDetail() {
       </div>
 
       {/* Execution Header */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="border-b bg-slate-50 px-6 py-4">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+        <div className="border-b border-gray-700 bg-gray-900 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-slate-900">Execution {execution.id}</h1>
-              <p className="text-sm text-slate-600 mt-1">
+              <h1 className="text-xl font-semibold text-gray-100">Execution {execution.id}</h1>
+              <p className="text-sm text-gray-300 mt-1">
                 Job ID: {execution.job_id ? (
                   <Link to={`/jobs/${execution.job_id}`} className="text-beacon-600 hover:text-beacon-700 underline decoration-dotted">
                     {execution.job_id}
@@ -143,30 +143,30 @@ export default function ExecutionDetail() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-slate-600">Region:</span>
-                <span className="font-semibold text-beacon-600">{execution.region || 'N/A'}</span>
+                <span className="text-gray-400">Region:</span>
+                <span className="font-semibold text-blue-400">{execution.region || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Started:</span>
-                <span>{formatDate(execution.started_at)}</span>
+                <span className="text-gray-400">Started:</span>
+                <span className="text-gray-200">{formatDate(execution.started_at)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Provider:</span>
-                <code className="text-xs bg-slate-100 px-2 py-1 rounded">{execution.provider_id || 'N/A'}</code>
+                <span className="text-gray-400">Provider:</span>
+                <code className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">{execution.provider_id || 'N/A'}</code>
               </div>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-slate-600">Duration:</span>
-                <span className="font-mono">{formatDuration(execution.duration)}</span>
+                <span className="text-gray-400">Duration:</span>
+                <span className="font-mono text-gray-200">{formatDuration(execution.duration)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Completed:</span>
-                <span>{formatDate(execution.completed_at)}</span>
+                <span className="text-gray-400">Completed:</span>
+                <span className="text-gray-200">{formatDate(execution.completed_at)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Exit Code:</span>
-                <span className="font-mono">{execution.exit_code ?? 'N/A'}</span>
+                <span className="text-gray-400">Exit Code:</span>
+                <span className="font-mono text-gray-200">{execution.exit_code ?? 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -174,36 +174,36 @@ export default function ExecutionDetail() {
       </div>
 
       {/* Receipt Section */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="border-b bg-slate-50 px-6 py-4">
-          <h2 className="font-semibold text-slate-900">Execution Receipt</h2>
-          <p className="text-sm text-slate-600 mt-1">Cryptographic proof of execution with detailed provenance</p>
+      <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+        <div className="border-b border-gray-700 bg-gray-900 px-6 py-4">
+          <h2 className="font-semibold text-gray-100">Execution Receipt</h2>
+          <p className="text-sm text-gray-300 mt-1">Cryptographic proof of execution with detailed provenance</p>
         </div>
 
         <div className="p-6">
           {receiptLoading ? (
             <div className="text-center py-8">
-              <div className="animate-spin inline-block w-6 h-6 border-2 border-beacon-600 border-t-transparent rounded-full"></div>
-              <p className="mt-2 text-slate-600">Loading receipt data...</p>
+              <div className="animate-spin inline-block w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+              <p className="mt-2 text-gray-300">Loading receipt data...</p>
             </div>
           ) : receiptError ? (
             <div className="text-center py-8">
-              <div className="text-slate-400 mb-2">📄</div>
-              <p className="text-slate-500">Receipt data not available</p>
-              <p className="text-sm text-slate-400 mt-1">{receiptError.message}</p>
+              <div className="text-gray-400 mb-2">📄</div>
+              <p className="text-gray-400">Receipt data not available</p>
+              <p className="text-sm text-gray-500 mt-1">{receiptError.message}</p>
             </div>
           ) : !hasReceiptData ? (
             <div className="text-center py-8">
-              <div className="text-slate-400 mb-2">📄</div>
-              <p className="text-slate-500">No receipt data available for this execution</p>
+              <div className="text-gray-400 mb-2">📄</div>
+              <p className="text-gray-400">No receipt data available for this execution</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* AI Output */}
               {receipt.output && (
                 <div className="space-y-3">
-                  <h4 className="font-medium text-slate-900 flex items-center gap-2">
-                    <span className="text-blue-500">🤖</span>
+                  <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                    <span className="text-blue-400">🤖</span>
                     AI Output
                   </h4>
                   
@@ -215,22 +215,22 @@ export default function ExecutionDetail() {
                    (receipt.output?.data?.data?.responses && Array.isArray(receipt.output.data.data.responses)) ? (
                     <div className="space-y-4">
                       {(receipt.output.data.responses || receipt.output.data.data.responses).map((response, index) => (
-                        <div key={response.question_id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="text-sm text-blue-900 font-medium mb-2">
+                        <div key={response.question_id || index} className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                          <div className="text-sm text-blue-300 font-medium mb-2">
                             {questionMap[response.question_id] || response.question || 'Question text not available'}
                           </div>
-                          <div className="text-black bg-white rounded p-3 border">
+                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
                             "{response.response || 'No response available'}"
                           </div>
-                          <div className="flex justify-between mt-2 text-xs text-slate-600">
-                            <span>Category: <span className="inline-block px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-medium">{response.category ? response.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}</span></span>
+                          <div className="flex justify-between mt-2 text-xs text-gray-400">
+                            <span>Category: <span className="inline-block px-2 py-0.5 rounded bg-gray-700 text-gray-300 font-medium">{response.category ? response.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}</span></span>
                             <span>Time: {response.inference_time ? `${response.inference_time.toFixed(2)}s` : 'N/A'}</span>
-                            <span className={response.success ? 'text-green-600' : 'text-red-600'}>
+                            <span className={response.success ? 'text-green-400' : 'text-red-400'}>
                               {response.success ? '✓ Success' : '✗ Failed'}
                             </span>
                           </div>
                           {response.error && (
-                            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                            <div className="mt-2 text-xs text-red-400 bg-red-900/20 p-2 rounded">
                               Error: {response.error}
                             </div>
                           )}
@@ -239,24 +239,24 @@ export default function ExecutionDetail() {
                       
                       {/* Summary for structured data */}
                       {(receipt.output.data.summary || receipt.output.data.data.summary) && (
-                        <div className="bg-slate-50 border rounded-lg p-4">
-                          <div className="text-sm font-medium text-slate-900 mb-2">Benchmark Summary</div>
+                        <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                          <div className="text-sm font-medium text-gray-100 mb-2">Benchmark Summary</div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-slate-600">Total Questions:</span>
-                              <span className="font-mono">{(receipt.output.data.summary || receipt.output.data.data.summary).total_questions || 0}</span>
+                              <span className="text-gray-400">Total Questions:</span>
+                              <span className="font-mono text-gray-200">{(receipt.output.data.summary || receipt.output.data.data.summary).total_questions || 0}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-600">Successful:</span>
-                              <span className="font-mono text-green-600">{(receipt.output.data.summary || receipt.output.data.data.summary).successful_responses || 0}</span>
+                              <span className="text-gray-400">Successful:</span>
+                              <span className="font-mono text-green-400">{(receipt.output.data.summary || receipt.output.data.data.summary).successful_responses || 0}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-600">Failed:</span>
-                              <span className="font-mono text-red-600">{(receipt.output.data.summary || receipt.output.data.data.summary).failed_responses || 0}</span>
+                              <span className="text-gray-400">Failed:</span>
+                              <span className="font-mono text-red-400">{(receipt.output.data.summary || receipt.output.data.data.summary).failed_responses || 0}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-600">Total Time:</span>
-                              <span className="font-mono">{(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time ? `${(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time.toFixed(2)}s` : 'N/A'}</span>
+                              <span className="text-gray-400">Total Time:</span>
+                              <span className="font-mono text-gray-200">{(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time ? `${(receipt.output.data.summary || receipt.output.data.data.summary).total_inference_time.toFixed(2)}s` : 'N/A'}</span>
                             </div>
                           </div>
                         </div>
@@ -265,20 +265,20 @@ export default function ExecutionDetail() {
                   ) : (
                     /* Fallback for simplified single output format */
                     <div className="space-y-3">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="text-sm text-blue-900 font-medium mb-2">Generated Response:</div>
-                        <div className="text-black bg-white rounded p-3 border">
+                      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                        <div className="text-sm text-blue-300 font-medium mb-2">Generated Response:</div>
+                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
                           "{receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Tokens Generated:</span>
-                          <span className="font-mono">{receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
+                          <span className="text-gray-400">Tokens Generated:</span>
+                          <span className="font-mono text-gray-200">{receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Execution Time:</span>
-                          <span className="font-mono">{receipt.output?.data?.metadata?.execution_time || 'N/A'}</span>
+                          <span className="text-gray-400">Execution Time:</span>
+                          <span className="font-mono text-gray-200">{receipt.output?.data?.metadata?.execution_time || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -286,8 +286,8 @@ export default function ExecutionDetail() {
                   
                   {receipt.output?.hash && (
                     <div className="text-xs">
-                      <span className="text-slate-600">Output Hash:</span>
-                      <code className="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">{truncateMiddle(receipt.output.hash)}</code>
+                      <span className="text-gray-400">Output Hash:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{truncateMiddle(receipt.output.hash)}</code>
                       <CopyButton text={receipt.output.hash} label="Copy" className="ml-2" />
                     </div>
                   )}
@@ -297,30 +297,30 @@ export default function ExecutionDetail() {
               {/* Provider Information */}
               {receipt.provenance?.provider_info && (
                 <div className="space-y-3">
-                  <h4 className="font-medium text-slate-900 flex items-center gap-2">
-                    <span className="text-purple-500">🏢</span>
+                  <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                    <span className="text-purple-400">🏢</span>
                     Provider Information
                   </h4>
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Name:</span>
-                          <span className="font-medium">{receipt.provenance.provider_info.name || 'N/A'}</span>
+                          <span className="text-gray-400">Name:</span>
+                          <span className="font-medium text-gray-200">{receipt.provenance.provider_info.name || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Score:</span>
-                          <span className="font-mono">{receipt.provenance.provider_info.score || 'N/A'}</span>
+                          <span className="text-gray-400">Score:</span>
+                          <span className="font-mono text-gray-200">{receipt.provenance.provider_info.score || 'N/A'}</span>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-slate-600">CPU:</span>
-                          <span className="font-mono">{receipt.provenance.provider_info.resources?.cpu || 'N/A'}</span>
+                          <span className="text-gray-400">CPU:</span>
+                          <span className="font-mono text-gray-200">{receipt.provenance.provider_info.resources?.cpu || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-600">Memory:</span>
-                          <span className="font-mono">{receipt.provenance.provider_info.resources?.memory || 'N/A'}MB</span>
+                          <span className="text-gray-400">Memory:</span>
+                          <span className="font-mono text-gray-200">{receipt.provenance.provider_info.resources?.memory || 'N/A'}MB</span>
                         </div>
                       </div>
                     </div>
@@ -330,45 +330,45 @@ export default function ExecutionDetail() {
 
               {/* Cryptographic Verification */}
               <div className="space-y-3">
-                <h4 className="font-medium text-slate-900 flex items-center gap-2">
-                  <span className="text-amber-500">🔐</span>
+                <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                  <span className="text-yellow-400">🔐</span>
                   Cryptographic Verification
                 </h4>
                 <div className="space-y-3">
                   {receipt.jobspec_id && (
                     <div className="text-sm">
-                      <span className="text-slate-600">JobSpec ID:</span>
-                      <code className="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">{truncateMiddle(receipt.jobspec_id)}</code>
+                      <span className="text-gray-400">JobSpec ID:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{truncateMiddle(receipt.jobspec_id)}</code>
                       <CopyButton text={receipt.jobspec_id} label="Copy" className="ml-2" />
                     </div>
                   )}
                   {receipt.public_key && (
                     <div className="text-sm">
-                      <span className="text-slate-600">Public Key:</span>
-                      <code className="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">{truncateMiddle(receipt.public_key)}</code>
+                      <span className="text-gray-400">Public Key:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{truncateMiddle(receipt.public_key)}</code>
                       <CopyButton text={receipt.public_key} label="Copy" className="ml-2" />
                     </div>
                   )}
                   {receipt.signature && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="text-sm font-medium text-green-800 mb-2 flex items-center justify-between">
+                    <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                      <div className="text-sm font-medium text-green-400 mb-2 flex items-center justify-between">
                         <span>Digital Signature:</span>
                         <CopyButton text={receipt.signature} label="Copy Signature" />
                       </div>
-                      <code className="text-xs text-green-700 break-all">{receipt.signature}</code>
+                      <code className="text-xs text-green-300 break-all">{receipt.signature}</code>
                     </div>
                   )}
                   {receipt.provenance?.benchmark_hash && (
                     <div className="text-sm">
-                      <span className="text-slate-600">Benchmark Hash:</span>
-                      <code className="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">{truncateMiddle(receipt.provenance.benchmark_hash)}</code>
+                      <span className="text-gray-400">Benchmark Hash:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{truncateMiddle(receipt.provenance.benchmark_hash)}</code>
                       <CopyButton text={receipt.provenance.benchmark_hash} label="Copy" className="ml-2" />
                     </div>
                   )}
                   {receipt.provenance?.execution_env?.container_image && (
                     <div className="text-sm">
-                      <span className="text-slate-600">Container Image:</span>
-                      <code className="ml-2 bg-slate-100 px-2 py-1 rounded text-slate-800">{receipt.provenance.execution_env.container_image}</code>
+                      <span className="text-gray-400">Container Image:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{receipt.provenance.execution_env.container_image}</code>
                     </div>
                   )}
                 </div>
