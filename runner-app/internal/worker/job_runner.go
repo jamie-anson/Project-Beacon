@@ -217,13 +217,14 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		metrics.JobsProcessedTotal.Inc()
 		if w.Bundler != nil {
 			go func(jid string) {
-				ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				// Inherit from worker context to respect shutdown signals
+				ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
 				defer cancel()
 				_, _ = w.Bundler.StoreBundle(ctx2, jid)
 			}(spec.ID)
 		}
 		if execID > 0 {
-			go w.verifyRegionAsync(context.Background(), execID, regionPref)
+			go w.verifyRegionAsync(ctx, execID, regionPref)
 		}
 		return nil
 	}
@@ -288,7 +289,8 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	// Best-effort: trigger IPFS bundling and CID persistence after success
 	if w.Bundler != nil {
 		go func(jid string) {
-			ctx2, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			// Inherit from worker context to respect shutdown signals
+			ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 			if _, berr := w.Bundler.StoreBundle(ctx2, jid); berr != nil {
 				l2 := logging.FromContext(ctx)
@@ -301,8 +303,8 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	// Only attempt if we have an execution row id
 	if execID > 0 {
 		go func(executionID int64, claimed string) {
-			// Short timeout to avoid blocking worker
-			pctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// Short timeout to avoid blocking worker, inherit from parent context
+			pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			var probe negotiation.PreflightProbe
 			if w.ProbeFactory != nil {
@@ -364,7 +366,7 @@ func mapRegionToRouter(r string) string {
 
 // Helper: spawn async verification using existing probe logic
 func (w *JobRunner) verifyRegionAsync(ctx context.Context, executionID int64, claimed string) {
-	// Short timeout to avoid blocking worker
+	// Short timeout to avoid blocking worker, inherit from parent context
 	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var probe negotiation.PreflightProbe
