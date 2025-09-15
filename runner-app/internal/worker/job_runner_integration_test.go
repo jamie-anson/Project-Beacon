@@ -22,6 +22,11 @@ func (f *fakeJobsRepo) GetJob(ctx context.Context, id string) (string, string, [
     return id, "queued", f.data[id], sql.NullTime{}, sql.NullTime{}, nil
 }
 
+func (f *fakeJobsRepo) UpdateJobStatus(ctx context.Context, jobID string, status string) error {
+    // Mock implementation for job status updates
+    return nil
+}
+
 type fakeExecRepo struct{
     inserted struct{
         jobID string

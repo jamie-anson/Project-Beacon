@@ -121,29 +121,135 @@ The monitoring tools will alert on:
 1. Use `admin requeue <job-id>` for specific job recovery
 2. Check job status with `admin stuck-jobs`
 
-## Integration with Production
+## Production Integration
 
-### Fly.io Deployment:
+### Deployment
+1. Copy scripts to production server
+2. Set environment variables:
+   ```bash
+   export RUNNER_BASE_URL="https://your-runner.fly.dev"
+   export ADMIN_TOKEN="your-admin-token"
+   export DATABASE_URL="your-database-url"
+   ```
+3. Run initial recovery:
+   ```bash
+   node bulk-job-recovery.js --dry-run
+   node bulk-job-recovery.js --execute
+   ```
+
+### Monitoring Setup
+1. Add to crontab for regular monitoring:
+   ```bash
+   # Check job queue health every 5 minutes
+   */5 * * * * cd /path/to/runner && node scripts/job-queue-monitor.js
+   ```
+
+2. Set up alerting based on script output
+3. Configure log aggregation for script outputs
+
+### Maintenance
+- Run `bulk-job-recovery.js` during maintenance windows
+- Monitor `job-queue-monitor.js` output for trends
+- Use admin CLI for quick diagnostics
+
+## Phase 6: Deployment Validation & Performance Testing
+
+### Deployment Validation Script
+`deployment-validation.js` - Comprehensive deployment health validation
+
+**Features:**
+- Health check validation (basic, database, Redis, admin API)
+- Performance testing (latency, concurrent requests)
+- Reliability testing (error handling, rate limiting, authentication)
+- Resource monitoring validation
+
+**Usage:**
 ```bash
-# Set admin token in Fly secrets
-fly secrets set ADMIN_TOKEN=your-secure-token
+# Basic validation
+node scripts/deployment-validation.js https://your-runner.fly.dev
 
-# Run recovery from local machine
-RUNNER_BASE_URL=https://your-app.fly.dev node bulk-job-recovery.js --execute
+# With admin token for full validation
+ADMIN_TOKEN=your-token node scripts/deployment-validation.js https://your-runner.fly.dev
 ```
 
-### Monitoring Setup:
+### Performance Testing Script
+`performance-test.js` - Load testing and performance benchmarking
+
+**Features:**
+- Multi-threaded load testing with worker threads
+- Configurable duration, concurrency, and ramp-up
+- Real-time resource monitoring during tests
+- Comprehensive performance metrics and scoring
+
+**Usage:**
 ```bash
-# Continuous monitoring (run in tmux/screen)
-RUNNER_BASE_URL=https://your-app.fly.dev node job-queue-monitor.js --interval 60
+# Basic performance test (60s, 10 concurrent)
+node scripts/performance-test.js https://your-runner.fly.dev
+
+# Custom test (30s, 20 concurrent)
+node scripts/performance-test.js https://your-runner.fly.dev 30000 20
+
+# With resource monitoring
+ADMIN_TOKEN=your-token node scripts/performance-test.js https://your-runner.fly.dev
 ```
 
-### Automated Recovery:
-Consider setting up cron jobs for regular health checks:
+### Blue-Green Deployment Script
+`blue-green-deploy.sh` - Zero-downtime deployment with rollback
+
+**Features:**
+- Automated blue-green deployment strategy
+- Health check validation and traffic switching
+- Automatic rollback on failure
+- Support for multiple deployment methods (Fly.io, Docker, etc.)
+- Integrated deployment validation and performance testing
+
+**Usage:**
 ```bash
-# Check for stuck jobs every hour
-0 * * * * cd /path/to/scripts && node bulk-job-recovery.js --dry-run
+# Basic blue-green deployment
+./scripts/blue-green-deploy.sh
+
+# With custom URLs
+./scripts/blue-green-deploy.sh --blue-url http://blue.example.com --green-url http://green.example.com
+
+# Deploy to Fly.io with old environment cleanup
+DEPLOYMENT_METHOD=fly ./scripts/blue-green-deploy.sh --stop-old-env
 ```
+
+**Environment Variables:**
+- `BLUE_URL` - Blue environment URL
+- `GREEN_URL` - Green environment URL  
+- `DEPLOYMENT_METHOD` - fly, docker, or simulate
+- `LOAD_BALANCER` - nginx, haproxy, cloudflare, or simulate
+- `ADMIN_TOKEN` - Admin API token for validation
+
+### Production Deployment Workflow
+
+1. **Pre-deployment Validation:**
+   ```bash
+   # Validate current production
+   node scripts/deployment-validation.js $PRODUCTION_URL
+   ```
+
+2. **Deploy with Blue-Green:**
+   ```bash
+   # Zero-downtime deployment
+   ./scripts/blue-green-deploy.sh
+   ```
+
+3. **Post-deployment Testing:**
+   ```bash
+   # Validate new deployment
+   node scripts/deployment-validation.js $NEW_PRODUCTION_URL
+   
+   # Run performance test
+   node scripts/performance-test.js $NEW_PRODUCTION_URL
+   ```
+
+4. **Monitoring:**
+   ```bash
+   # Continuous monitoring
+   node scripts/job-queue-monitor.js
+   ```
 
 ## Troubleshooting
 
