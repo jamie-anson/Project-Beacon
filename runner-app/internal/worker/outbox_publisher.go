@@ -28,22 +28,48 @@ func NewOutboxPublisher(db *sql.DB, q *queue.Client) *OutboxPublisher {
 func (p *OutboxPublisher) Start(ctx context.Context) {
 	l := logging.FromContext(ctx)
 	l.Info().Msg("outbox publisher started")
+	
+	// Add panic recovery for crash detection
+	defer func() {
+		if r := recover(); r != nil {
+			l.Error().Interface("panic", r).Msg("outbox publisher crashed with panic")
+			metrics.OutboxPublishErrorsTotal.Inc()
+		}
+		l.Warn().Msg("outbox publisher exiting")
+	}()
+	
 	backoff := time.Second
+	consecutiveErrors := 0
+	
 	for {
 		select {
 		case <-ctx.Done():
-			l.Warn().Err(ctx.Err()).Msg("outbox publisher stopping")
+			l.Warn().Err(ctx.Err()).Msg("outbox publisher stopping due to context cancellation")
 			return
 		default:
 		}
 
+		l.Debug().Msg("outbox publisher fetching unpublished entries")
 		rows, err := p.Outbox.FetchUnpublished(ctx, 100)
 		if err != nil {
-			l.Error().Err(err).Msg("outbox fetch error")
-			// Count fetch errors towards publish error budget
+			consecutiveErrors++
+			l.Error().Err(err).Int("consecutive_errors", consecutiveErrors).Msg("outbox fetch error")
 			metrics.OutboxPublishErrorsTotal.Inc()
-			time.Sleep(backoff)
+			
+			// Exponential backoff for consecutive errors
+			backoffDuration := time.Duration(consecutiveErrors) * backoff
+			if backoffDuration > 30*time.Second {
+				backoffDuration = 30 * time.Second
+			}
+			l.Warn().Dur("backoff", backoffDuration).Msg("outbox publisher backing off due to errors")
+			time.Sleep(backoffDuration)
 			continue
+		}
+		
+		// Reset error counter on successful fetch
+		if consecutiveErrors > 0 {
+			l.Info().Int("recovered_from_errors", consecutiveErrors).Msg("outbox publisher recovered from errors")
+			consecutiveErrors = 0
 		}
 
 		var publishedAny bool
@@ -97,36 +123,76 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 	}
 }
 
-// enqueueWithRetry sends the payload directly as JobRunner expects it
+// enqueueWithRetry sends the payload directly as JobRunner expects it with Redis connection resilience
 func (p *OutboxPublisher) enqueueWithRetry(ctx context.Context, topic string, payload []byte, outboxID int64) error {
+	l := logging.FromContext(ctx)
+	
 	// The JobRunner expects the original envelope format directly from JobsService.
 	// Validate that the payload is a proper job envelope before sending.
 	var envelope map[string]interface{}
 	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return err
+		l.Error().Err(err).Int64("outbox_id", outboxID).Msg("outbox payload JSON unmarshal failed")
+		return fmt.Errorf("invalid JSON payload: %w", err)
 	}
 	
 	// Ensure required fields are present for JobRunner.handleEnvelope()
-	if _, ok := envelope["id"]; !ok {
-		return fmt.Errorf("outbox payload missing required 'id' field")
-	}
-	if _, ok := envelope["enqueued_at"]; !ok {
-		return fmt.Errorf("outbox payload missing required 'enqueued_at' field")
-	}
-	if _, ok := envelope["attempt"]; !ok {
-		return fmt.Errorf("outbox payload missing required 'attempt' field")
+	requiredFields := []string{"id", "enqueued_at", "attempt"}
+	for _, field := range requiredFields {
+		if _, ok := envelope[field]; !ok {
+			l.Error().Str("missing_field", field).Int64("outbox_id", outboxID).Msg("outbox payload missing required field")
+			return fmt.Errorf("outbox payload missing required '%s' field", field)
+		}
 	}
 
 	// Debug logging to identify envelope format issue
-	l := logging.FromContext(ctx)
 	l.Debug().
 		Str("envelope_id", fmt.Sprintf("%v", envelope["id"])).
 		Str("envelope_json", string(payload)).
 		Int64("outbox_id", outboxID).
 		Msg("outbox publisher sending envelope")
 
-	// Send the original envelope directly - JobRunner expects this exact format
-	return p.Queue.Enqueue(ctx, topic, payload)
+	// Implement Redis connection retry with exponential backoff
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+	
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Send the original envelope directly - JobRunner expects this exact format
+		err := p.Queue.Enqueue(ctx, topic, payload)
+		if err == nil {
+			if attempt > 0 {
+				l.Info().Int("retry_attempt", attempt).Int64("outbox_id", outboxID).Msg("Redis enqueue succeeded after retry")
+			}
+			return nil
+		}
+		
+		// Log Redis connection error with details
+		l.Error().
+			Err(err).
+			Int("attempt", attempt+1).
+			Int("max_retries", maxRetries).
+			Int64("outbox_id", outboxID).
+			Str("topic", topic).
+			Msg("Redis enqueue failed")
+		
+		// Don't retry on last attempt
+		if attempt == maxRetries-1 {
+			l.Error().Err(err).Int64("outbox_id", outboxID).Msg("Redis enqueue failed after all retries")
+			return fmt.Errorf("Redis enqueue failed after %d retries: %w", maxRetries, err)
+		}
+		
+		// Exponential backoff
+		delay := time.Duration(1<<attempt) * baseDelay
+		l.Warn().Dur("delay", delay).Int("next_attempt", attempt+2).Msg("Redis enqueue retry backoff")
+		
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+			// Continue to next retry
+		}
+	}
+	
+	return fmt.Errorf("Redis enqueue failed after %d retries", maxRetries)
 }
 
 // updateOutboxMetrics collects and updates Prometheus metrics for outbox monitoring

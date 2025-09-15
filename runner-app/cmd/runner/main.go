@@ -184,9 +184,27 @@ func main() {
 		}
 		go jr.Start(workerCtx)
 
-		// Start OutboxPublisher (Postgres outbox -> Redis)
-		op := worker.NewOutboxPublisher(database.DB, q)
-		go op.Start(workerCtx)
+		// Start OutboxPublisher (Postgres outbox -> Redis) with auto-restart
+		go func() {
+			l := logging.FromContext(workerCtx)
+			for {
+				select {
+				case <-workerCtx.Done():
+					return
+				default:
+				}
+				
+				op := worker.NewOutboxPublisher(database.DB, q)
+				l.Info().Msg("starting outbox publisher")
+				op.Start(workerCtx)
+				
+				// If we reach here, the publisher stopped unexpectedly
+				if workerCtx.Err() == nil {
+					l.Warn().Msg("outbox publisher stopped unexpectedly, restarting in 5 seconds")
+					time.Sleep(5 * time.Second)
+				}
+			}
+		}()
 	}
 
 	// Start server in goroutine with helper-driven listener-first binding

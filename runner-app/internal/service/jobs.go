@@ -345,3 +345,4 @@ func (s *JobsService) RepublishJob(ctx context.Context, jobspecID string) error 
 	}
 	return nil
 }
+
