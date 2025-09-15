@@ -832,16 +832,16 @@ export default function BiasDetection() {
             {biasJobs.map(job => {
               const modelInfo = getModelInfo(job);
               return (
-                <div key={job.id} className="px-6 py-4 hover:bg-slate-50">
+                <div key={job.id} className="px-6 py-4 hover:bg-gray-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${modelInfo.color}`}>
                         {modelInfo.name}
                       </span>
-                      <span className="text-sm text-slate-600">{modelInfo.region}</span>
+                      <span className="text-sm text-gray-400">{modelInfo.region}</span>
                       <Link
                         to={`/jobs/${job.id}`}
-                        className="font-medium text-slate-900 hover:text-beacon-600"
+                        className="font-medium text-gray-100 hover:text-orange-400"
                       >
                         {job.id}
                       </Link>
@@ -850,13 +850,13 @@ export default function BiasDetection() {
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
                         {job.status}
                       </span>
-                      <span className="text-sm text-slate-500">
+                      <span className="text-sm text-gray-400">
                         {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Unknown'}
                       </span>
                     </div>
                   </div>
                   {job.benchmark?.description && (
-                    <p className="text-sm text-slate-600 mt-1">{job.benchmark.description}</p>
+                    <p className="text-sm text-gray-300 mt-1">{job.benchmark.description}</p>
                   )}
                 </div>
               );
