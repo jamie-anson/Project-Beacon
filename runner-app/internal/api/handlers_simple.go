@@ -96,6 +96,7 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 	}
 
 	// Validate spec
+	l.Info().Str("job_id_before_validation", spec.ID).Msg("JobSpec ID before validation")
 	validator := models.NewJobSpecValidator()
     // DEBUG: pre-verify canonical signable JSON using current and v1 encoders (gated)
     if logging.DebugEnabled() {
@@ -212,6 +213,7 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
         l.Warn().Str("job_id", spec.ID).Msg("RUNNER_SIG_BYPASS enabled: skipping signature verification (dev only)")
     } else {
         if err := validator.ValidateAndVerify(&spec); err != nil {
+            l.Info().Str("job_id_after_validation_error", spec.ID).Msg("JobSpec ID after validation error")
             // Map errors to clearer taxonomy
             msg := err.Error()
             code := "validation_error"
@@ -288,6 +290,8 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
             }
         }
     }
+
+    l.Info().Str("job_id_after_validation_success", spec.ID).Msg("JobSpec ID after successful validation")
 
 	// Marshal canonical JSON for persistence/outbox
 	jobspecJSON, err := json.Marshal(&spec)
