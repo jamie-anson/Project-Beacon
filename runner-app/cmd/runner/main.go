@@ -154,6 +154,13 @@ func main() {
 
 	// Start structured workers if DB is available
 	if database != nil && database.DB != nil {
+		// Recover stale processing jobs on startup (crash recovery)
+		recoveryService := service.NewJobRecoveryService(database.DB)
+		staleThreshold := 10 * time.Minute // Jobs processing for >10min are considered stale
+		if err := recoveryService.RecoverStaleJobs(context.Background(), staleThreshold); err != nil {
+			logger.Error().Err(err).Msg("failed to recover stale jobs on startup")
+		}
+
 		// Initialize Golem service for worker
 		apiKey := os.Getenv("GOLEM_API_KEY")
 		if apiKey == "" {

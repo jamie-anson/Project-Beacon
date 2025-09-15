@@ -24,6 +24,7 @@ import (
 // Small interfaces for testability
 type jobsRepoIface interface {
 	GetJob(ctx context.Context, id string) (idOut string, status string, data []byte, createdAt, updatedAt sql.NullTime, err error)
+	UpdateJobStatus(ctx context.Context, jobspecID string, status string) error
 }
 
 type execRepoIface interface {
@@ -118,6 +119,14 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}
 	l.Info().Str("job_id", env.ID).Int("attempt", env.Attempt).Msg("job envelope received")
 
+	// CRITICAL: Mark job as "processing" when dequeued from Redis
+	// This enables crash recovery and prevents job loss during restarts
+	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "processing"); err != nil {
+		l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as processing")
+		return fmt.Errorf("update job status to processing: %w", err)
+	}
+	l.Info().Str("job_id", env.ID).Msg("job marked as processing")
+
 	// Load stored JobSpec JSON
 	_, _, jobspecJSON, _, _, err := w.JobsRepo.GetJob(ctx, env.ID)
 	if err != nil {
@@ -188,6 +197,13 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 				l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("failed execution record created")
 			}
 			
+			// Mark job as failed in jobs table
+			if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed"); err != nil {
+				l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as failed")
+			} else {
+				l.Info().Str("job_id", env.ID).Msg("job marked as failed")
+			}
+			
 			metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "failed").Observe(time.Since(execStart).Seconds())
 			metrics.JobsFailedTotal.Inc()
 			return insErr
@@ -212,6 +228,13 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		}
 		
 		l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", hre.ProviderUsed).Msg("successful execution record created")
+		
+		// Mark job as completed in jobs table
+		if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "completed"); err != nil {
+			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as completed")
+		} else {
+			l.Info().Str("job_id", env.ID).Msg("job marked as completed")
+		}
 		
 		metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "completed").Observe(time.Since(execStart).Seconds())
 		metrics.JobsProcessedTotal.Inc()
@@ -249,6 +272,13 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("Golem failed execution record created")
 		}
 		
+		// Mark job as failed in jobs table
+		if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed"); err != nil {
+			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as failed")
+		} else {
+			l.Info().Str("job_id", env.ID).Msg("job marked as failed")
+		}
+		
 		// Metrics: failed execution
 		metrics.ExecutionDurationSeconds.WithLabelValues(region, "failed").Observe(time.Since(execStart).Seconds())
 		metrics.JobsFailedTotal.Inc()
@@ -277,6 +307,13 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}
 	
 	l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", res.ProviderID).Msg("Golem execution record created")
+
+	// Mark job as completed/failed in jobs table
+	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, status); err != nil {
+		l.Error().Err(err).Str("job_id", env.ID).Str("status", status).Msg("failed to update job status")
+	} else {
+		l.Info().Str("job_id", env.ID).Str("status", status).Msg("job status updated")
+	}
 
 	// Metrics: successful/finished execution
 	metrics.ExecutionDurationSeconds.WithLabelValues(region, status).Observe(time.Since(execStart).Seconds())
