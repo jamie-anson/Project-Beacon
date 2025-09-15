@@ -1,0 +1,124 @@
+package processors
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jamie-anson/project-beacon-runner/internal/logging"
+	"github.com/jamie-anson/project-beacon-runner/pkg/models"
+)
+
+// JobSpecProcessor handles JobSpec parsing and validation
+type JobSpecProcessor struct {
+	validator *models.JobSpecValidator
+}
+
+// NewJobSpecProcessor creates a new JobSpec processor
+func NewJobSpecProcessor() *JobSpecProcessor {
+	return &JobSpecProcessor{
+		validator: models.NewJobSpecValidator(),
+	}
+}
+
+// ParseRequest extracts and parses JobSpec from HTTP request
+func (p *JobSpecProcessor) ParseRequest(c *gin.Context) (*models.JobSpec, []byte, error) {
+	l := logging.FromContext(c.Request.Context())
+	
+	// Read raw body for signature verification fallback
+	raw, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		l.Error().Err(err).Msg("failed to read request body")
+		return nil, nil, fmt.Errorf("invalid request body: %w", err)
+	}
+	
+	// Reset body for JSON binding
+	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+	
+	var spec models.JobSpec
+	if err := c.ShouldBindJSON(&spec); err != nil {
+		l.Error().Err(err).Msg("invalid JSON")
+		return nil, nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	
+	l.Info().Str("job_id", spec.ID).Msg("JobSpec parsed successfully")
+	return &spec, raw, nil
+}
+
+// ValidateBiasDetectionQuestions enforces questions requirement for bias-detection v1
+func (p *JobSpecProcessor) ValidateBiasDetectionQuestions(spec *models.JobSpec, rawBody []byte) error {
+	l := logging.FromContext(nil) // TODO: Pass context through
+	
+	// Only apply to v1 bias-detection
+	if !strings.EqualFold(spec.Version, "v1") || !strings.Contains(strings.ToLower(spec.Benchmark.Name), "bias") {
+		return nil
+	}
+	
+	// Parse raw JSON to check questions field
+	var tmp map[string]interface{}
+	if err := json.Unmarshal(rawBody, &tmp); err != nil {
+		return fmt.Errorf("failed to parse raw JSON: %w", err)
+	}
+	
+	qv, ok := tmp["questions"]
+	if !ok {
+		l.Warn().Str("job_id", spec.ID).Msg("rejecting: missing questions for bias-detection v1")
+		return fmt.Errorf("questions are required for bias-detection v1 jobspec")
+	}
+	
+	arr, isArr := qv.([]interface{})
+	if !isArr || len(arr) == 0 {
+		l.Warn().Str("job_id", spec.ID).Msg("rejecting: empty questions for bias-detection v1")
+		return fmt.Errorf("questions must be a non-empty array for bias-detection v1 jobspec")
+	}
+	
+	l.Info().Str("job_id", spec.ID).Int("questions_count", len(arr)).Msg("questions validation passed for bias-detection v1")
+	return nil
+}
+
+// LogQuestions logs the presence of questions for debugging
+func (p *JobSpecProcessor) LogQuestions(spec *models.JobSpec) {
+	l := logging.FromContext(nil) // TODO: Pass context through
+	
+	if len(spec.Questions) > 0 {
+		l.Info().Str("job_id", spec.ID).Int("questions_present", len(spec.Questions)).Strs("questions", spec.Questions).Msg("JobSpec questions parsed successfully")
+	} else {
+		l.Info().Str("job_id", spec.ID).Msg("JobSpec has no questions field")
+	}
+}
+
+// ValidateJobSpec performs core JobSpec validation
+func (p *JobSpecProcessor) ValidateJobSpec(spec *models.JobSpec) error {
+	l := logging.FromContext(nil) // TODO: Pass context through
+	l.Info().Str("job_id_before_validation", spec.ID).Msg("JobSpec ID before validation")
+	
+	if err := p.validator.ValidateAndVerify(spec); err != nil {
+		l.Info().Str("job_id_after_validation_error", spec.ID).Msg("JobSpec ID after validation error")
+		return err
+	}
+	
+	l.Info().Str("job_id_after_validation_success", spec.ID).Msg("JobSpec ID after successful validation")
+	return nil
+}
+
+// ProcessJobSpec performs complete JobSpec processing pipeline
+func (p *JobSpecProcessor) ProcessJobSpec(c *gin.Context) (*models.JobSpec, []byte, error) {
+	// Parse request
+	spec, rawBody, err := p.ParseRequest(c)
+	if err != nil {
+		return nil, nil, err
+	}
+	
+	// Validate bias detection questions
+	if err := p.ValidateBiasDetectionQuestions(spec, rawBody); err != nil {
+		return nil, nil, err
+	}
+	
+	// Log questions for debugging
+	p.LogQuestions(spec)
+	
+	return spec, rawBody, nil
+}
