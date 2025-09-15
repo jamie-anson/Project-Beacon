@@ -56,17 +56,10 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 	l := logging.FromContext(c.Request.Context())
 	l.Info().Msg("api: CreateJob request")
 	
-	// Parse and process JobSpec using the processor (includes bias detection validation)
+	// Parse and process JobSpec using the processor (includes validation and ID generation)
 	spec, raw, err := h.jobSpecProcessor.ProcessJobSpec(c)
 	if err != nil {
 		l.Error().Err(err).Msg("JobSpec processing failed")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	
-	// Validate JobSpec using the processor
-	if err := h.jobSpecProcessor.ValidateJobSpec(spec); err != nil {
-		l.Error().Err(err).Str("job_id", spec.ID).Msg("JobSpec validation failed")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

@@ -120,5 +120,10 @@ func (p *JobSpecProcessor) ProcessJobSpec(c *gin.Context) (*models.JobSpec, []by
 	// Log questions for debugging
 	p.LogQuestions(spec)
 	
+	// Validate JobSpec (this includes ID generation if missing)
+	if err := p.ValidateJobSpec(spec); err != nil {
+		return nil, nil, err
+	}
+	
 	return spec, rawBody, nil
 }
