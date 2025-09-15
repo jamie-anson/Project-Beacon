@@ -29,6 +29,7 @@ type simpleAdapter interface {
 // RedisQueue provides Redis-based job queuing with retry logic
 type RedisQueue struct {
 	client        *redis.Client
+	circuitClient *RedisCircuitBreaker
 	testAdapter   simpleAdapter
 	queueName     string
 	retryQueue    string
@@ -68,8 +69,12 @@ func NewRedisQueue(redisURL string, queueName string) (*RedisQueue, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
+	// Create circuit breaker wrapper
+	circuitClient := NewRedisCircuitBreaker(client, "redis-queue-"+queueName)
+
 	return &RedisQueue{
 		client:            client,
+		circuitClient:     circuitClient,
 		queueName:         queueName,
 		retryQueue:        queueName + ":retry",
 		deadQueue:         queueName + ":dead",
@@ -85,33 +90,33 @@ func (q *RedisQueue) WithTestAdapter(ad simpleAdapter) *RedisQueue {
 	return q
 }
 
-// helpers to call either adapter or real client
+// helpers to call either adapter or circuit breaker client
 func (q *RedisQueue) lpush(ctx context.Context, key string, values ...interface{}) cmdErr {
 	if q.testAdapter != nil {
 		return q.testAdapter.LPush(ctx, key, values...)
 	}
-	return q.client.LPush(ctx, key, values...)
+	return q.circuitClient.LPush(ctx, key, values...)
 }
 
 func (q *RedisQueue) zadd(ctx context.Context, key string, members ...*redis.Z) cmdErr {
 	if q.testAdapter != nil {
 		return q.testAdapter.ZAdd(ctx, key, members...)
 	}
-	return q.client.ZAdd(ctx, key, members...)
+	return q.circuitClient.ZAdd(ctx, key, members...)
 }
 
 func (q *RedisQueue) del(ctx context.Context, keys ...string) cmdErr {
 	if q.testAdapter != nil {
 		return q.testAdapter.Del(ctx, keys...)
 	}
-	return q.client.Del(ctx, keys...)
+	return q.circuitClient.Del(ctx, keys...)
 }
 
 func (q *RedisQueue) zrem(ctx context.Context, key string, members ...interface{}) cmdErr {
 	if q.testAdapter != nil {
 		return q.testAdapter.ZRem(ctx, key, members...)
 	}
-	return q.client.ZRem(ctx, key, members...)
+	return q.circuitClient.ZRem(ctx, key, members...)
 }
 
 // Enqueue adds a job to the queue
@@ -161,8 +166,8 @@ func (q *RedisQueue) Dequeue(ctx context.Context) (*JobMessage, error) {
 		attribute.String("queue.name", q.queueName),
 	))
 	defer span.End()
-	// Try main queue first
-	result, err := q.client.BRPop(ctx, 1*time.Second, q.queueName).Result()
+	// Try main queue first using circuit breaker
+	result, err := q.circuitClient.BRPop(ctx, 1*time.Second, q.queueName).Result()
 	if err != nil {
 		if err == redis.Nil {
 			// Try retry queue
@@ -214,7 +219,7 @@ func (q *RedisQueue) dequeueRetry(ctx context.Context) (*JobMessage, error) {
 	now := time.Now()
 	
 	// Get jobs from retry queue that are ready to be retried
-	results, err := q.client.ZRangeByScore(ctx, q.retryQueue, &redis.ZRangeBy{
+	results, err := q.circuitClient.ZRangeByScore(ctx, q.retryQueue, &redis.ZRangeBy{
 		Min: "0",
 		Max: fmt.Sprintf("%d", now.Unix()),
 		Count: 1,
@@ -449,4 +454,20 @@ func (q *RedisQueue) RecoverStaleJobs(ctx context.Context) error {
 
 	span.SetAttributes(attribute.Int("recovered.count", recovered))
 	return nil
+}
+
+// GetCircuitBreakerStats returns circuit breaker statistics
+func (q *RedisQueue) GetCircuitBreakerStats() string {
+	if q.circuitClient == nil {
+		return "Circuit breaker not initialized"
+	}
+	stats := q.circuitClient.Stats()
+	return stats.String()
+}
+
+// LogCircuitBreakerStats logs current circuit breaker statistics
+func (q *RedisQueue) LogCircuitBreakerStats() {
+	if q.circuitClient != nil {
+		q.circuitClient.LogStats()
+	}
 }

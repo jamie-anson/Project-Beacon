@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client) *gin.Engine {
+func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client, queueClient ...interface{ GetCircuitBreakerStats() string }) *gin.Engine {
 	// Guard against nil arguments (allow nil for testing)
 	if cfg == nil {
 		panic("cfg must not be nil")
@@ -33,7 +33,11 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	
 	if jobsService != nil {
 		jobsHandler = NewJobsHandler(jobsService, cfg, redisClient)
-		adminHandler = NewAdminHandlerWithJobsService(cfg, jobsService)
+		if len(queueClient) > 0 && queueClient[0] != nil {
+			adminHandler = NewAdminHandlerWithQueue(cfg, jobsService, queueClient[0])
+		} else {
+			adminHandler = NewAdminHandlerWithJobsService(cfg, jobsService)
+		}
 		executionsHandler = NewExecutionsHandler(jobsService.ExecutionsRepo)
 	} else {
 		// For testing with nil service
@@ -158,6 +162,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
 		admin.GET("/port", adminHandler.GetPortInfo)
 		admin.GET("/hints", adminHandler.GetHints)
+		admin.GET("/circuit-breaker-stats", adminHandler.GetCircuitBreakerStats)
 	}
 
 	return r

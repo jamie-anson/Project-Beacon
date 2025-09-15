@@ -119,7 +119,7 @@ func main() {
 	}
 
 	// Setup routes with services and config
-	r = api.SetupRoutes(jobsService, cfg, redisClient)
+	r = api.SetupRoutes(jobsService, cfg, redisClient, q)
 
 	// Enable OpenTelemetry tracing for Gin routes
 	r.Use(otelgin.Middleware("runner-http"))

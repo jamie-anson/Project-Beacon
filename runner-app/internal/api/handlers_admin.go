@@ -15,6 +15,9 @@ import (
 type AdminHandler struct {
 	cfg         *config.Config
 	jobsService *service.JobsService
+	queueClient interface {
+		GetCircuitBreakerStats() string
+	}
 }
 
 func NewAdminHandler(cfg *config.Config) *AdminHandler {
@@ -23,6 +26,26 @@ func NewAdminHandler(cfg *config.Config) *AdminHandler {
 
 func NewAdminHandlerWithJobsService(cfg *config.Config, jobsService *service.JobsService) *AdminHandler {
 	return &AdminHandler{cfg: cfg, jobsService: jobsService}
+}
+
+func NewAdminHandlerWithQueue(cfg *config.Config, jobsService *service.JobsService, queueClient interface{ GetCircuitBreakerStats() string }) *AdminHandler {
+	return &AdminHandler{cfg: cfg, jobsService: jobsService, queueClient: queueClient}
+}
+
+// GetCircuitBreakerStats returns circuit breaker statistics for Redis operations
+func (h *AdminHandler) GetCircuitBreakerStats(c *gin.Context) {
+	if h.queueClient == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Queue service not available",
+		})
+		return
+	}
+
+	stats := h.queueClient.GetCircuitBreakerStats()
+	c.JSON(http.StatusOK, gin.H{
+		"circuit_breaker_stats": stats,
+		"timestamp": "2025-09-15T14:59:00Z",
+	})
 }
 
 // GetFlags returns current feature flags

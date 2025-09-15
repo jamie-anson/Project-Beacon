@@ -13,6 +13,7 @@ import (
 // Client wraps a Redis client for simple queue operations
 type Client struct {
 	redis *redis.Client
+	advancedQueue advQueue
 }
 
 // GetRedisClient returns the underlying Redis client for security features
@@ -51,6 +52,19 @@ func (c *Client) Close() error {
         return nil
     }
     return c.redis.Close()
+}
+
+// GetCircuitBreakerStats returns circuit breaker statistics if available
+func (c *Client) GetCircuitBreakerStats() string {
+	if c == nil || c.advancedQueue == nil {
+		return "Circuit breaker not available"
+	}
+	
+	if rq, ok := c.advancedQueue.(*RedisQueue); ok {
+		return rq.GetCircuitBreakerStats()
+	}
+	
+	return "Circuit breaker not available for this queue type"
 }
 
 // NewFromEnv initializes a Redis client using REDIS_URL env var or defaults
@@ -96,6 +110,9 @@ func (c *Client) StartWorker(ctx context.Context, queueName string, handler func
 		return
 	}
 	defer advancedQueue.Close()
+	
+	// Store the advanced queue for circuit breaker stats access
+	c.advancedQueue = advancedQueue
 
 	log.Printf("queue worker started for '%s' with retry support", queueName)
 	
