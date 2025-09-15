@@ -41,6 +41,12 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 	backoff := time.Second
 	consecutiveErrors := 0
 	
+	// Adaptive polling configuration
+	minPollInterval := 2 * time.Second    // Minimum poll interval when idle
+	maxPollInterval := 30 * time.Second   // Maximum poll interval when idle
+	currentPollInterval := minPollInterval
+	lastActivityTime := time.Now()
+	
 	for {
 		select {
 		case <-ctx.Done():
@@ -115,9 +121,31 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 		if !publishedAny {
 			// Update metrics for unpublished outbox items
 			p.updateOutboxMetrics(ctx)
-			// idle sleep
-			time.Sleep(500 * time.Millisecond)
+			
+			// Adaptive polling: increase interval when idle, reset when active
+			timeSinceActivity := time.Since(lastActivityTime)
+			if timeSinceActivity > 5*time.Minute {
+				// Scale up polling interval for long idle periods
+				currentPollInterval = maxPollInterval
+			} else if timeSinceActivity > time.Minute {
+				// Moderate scaling for medium idle periods
+				currentPollInterval = 10 * time.Second
+			} else {
+				// Keep responsive for recent activity
+				currentPollInterval = minPollInterval
+			}
+			
+			l.Debug().
+				Dur("poll_interval", currentPollInterval).
+				Dur("time_since_activity", timeSinceActivity).
+				Msg("outbox publisher idle, adaptive sleep")
+			
+			// Sleep with adaptive interval instead of fixed 500ms
+			time.Sleep(currentPollInterval)
 		} else {
+			// Reset activity tracking and use minimum interval
+			lastActivityTime = time.Now()
+			currentPollInterval = minPollInterval
 			l.Info().Int("rows_published", rowCount).Msg("outbox publisher completed batch")
 		}
 	}
