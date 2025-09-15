@@ -91,7 +91,7 @@ export default function Questions() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Questions</h2>
         <div className="flex items-center gap-2 text-sm">
-          <button onClick={() => window.location.href = '/portal/models'} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Models</button>
+          <button onClick={() => window.location.href = '/portal/models'} className="px-3 py-1.5 bg-blue-400 text-gray-900 rounded hover:bg-blue-300 hover:shadow-md active:scale-95 transition-all duration-200">Models</button>
         </div>
       </div>
 
@@ -102,10 +102,10 @@ export default function Questions() {
           Start with a smaller set for a quick signal, then re-run with the full set for comprehensive coverage.
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={() => setAll(true)} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">Select all</button>
-          <button onClick={() => setAll(false)} className="px-3 py-1.5 border border-gray-600 text-gray-300 rounded hover:bg-gray-700">Clear all</button>
+          <button onClick={() => setAll(true)} className="px-3 py-1.5 bg-blue-400 text-gray-900 rounded hover:bg-blue-300 hover:shadow-md active:scale-95 transition-all duration-200">Select all</button>
+          <button onClick={() => setAll(false)} className="px-3 py-1.5 bg-red-400 text-gray-900 rounded hover:bg-red-300 hover:shadow-md active:scale-95 transition-all duration-200">Clear all</button>
           <span className="text-xs text-gray-400">{selectedCount}/{totalCount} selected</span>
-          <button onClick={refetch} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
+          <button onClick={refetch} className="px-3 py-1.5 bg-green-400 text-gray-900 rounded hover:bg-green-300 hover:shadow-md active:scale-95 transition-all duration-200">Refresh</button>
         </div>
       </div>
 

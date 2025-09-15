@@ -4,18 +4,18 @@ import { Link } from 'react-router-dom';
 export default function JobSummaryCards({ biasJobs, loading }) {
   const getModelInfo = (job) => {
     const id = job.id || '';
-    if (id.includes('llama')) return { name: 'Llama 3.2-1B', region: 'US', color: 'bg-blue-100 text-blue-800' };
-    if (id.includes('qwen')) return { name: 'Qwen 2.5-1.5B', region: 'China', color: 'bg-red-100 text-red-800' };
-    if (id.includes('mistral')) return { name: 'Mistral 7B', region: 'EU', color: 'bg-green-100 text-green-800' };
-    return { name: 'Unknown', region: 'Unknown', color: 'bg-gray-100 text-gray-800' };
+    if (id.includes('llama')) return { name: 'Llama 3.2-1B', region: 'US', color: 'bg-blue-900/20 text-blue-400' };
+    if (id.includes('qwen')) return { name: 'Qwen 2.5-1.5B', region: 'China', color: 'bg-red-900/20 text-red-400' };
+    if (id.includes('mistral')) return { name: 'Mistral 7B', region: 'EU', color: 'bg-green-900/20 text-green-400' };
+    return { name: 'Unknown', region: 'Unknown', color: 'bg-gray-700 text-gray-300' };
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'running': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'bg-green-900/20 text-green-400';
+      case 'running': return 'bg-yellow-900/20 text-yellow-400';
+      case 'failed': return 'bg-red-900/20 text-red-400';
+      default: return 'bg-gray-700 text-gray-300';
     }
   };
 
@@ -107,15 +107,15 @@ export default function JobSummaryCards({ biasJobs, loading }) {
                   <div className="w-full h-2 bg-gray-700 rounded overflow-hidden">
                     <div className="h-full flex">
                       <div 
-                        className="h-full bg-green-500" 
+                        className="h-full bg-green-400" 
                         style={{ width: `${(completed / total) * 100}%` }}
                       ></div>
                       <div 
-                        className="h-full bg-yellow-500" 
+                        className="h-full bg-yellow-400" 
                         style={{ width: `${(running / total) * 100}%` }}
                       ></div>
                       <div 
-                        className="h-full bg-red-500" 
+                        className="h-full bg-red-400" 
                         style={{ width: `${(failed / total) * 100}%` }}
                       ></div>
                     </div>

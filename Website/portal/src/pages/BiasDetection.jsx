@@ -136,12 +136,12 @@ export default function BiasDetection() {
             <button
               onClick={onSubmitJob}
               disabled={isSubmitting || !isMetaMaskInstalled()}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
                 buttonClicked
-                  ? 'bg-green-600 text-white scale-95'
+                  ? 'bg-green-500 text-white scale-95 shadow-lg'
                   : isSubmitting
                   ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                  : 'bg-beacon-600 hover:bg-beacon-700 text-white'
+                  : 'bg-green-600 hover:bg-green-500 hover:shadow-lg active:scale-95 text-white'
               }`}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Bias Detection Job'}
