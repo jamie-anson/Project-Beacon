@@ -27,6 +27,7 @@ type JobSpec struct {
 // BenchmarkSpec defines the benchmark to be executed
 type BenchmarkSpec struct {
 	Name        string            `json:"name"`
+	Version     string            `json:"version,omitempty"`
 	Description string            `json:"description"`
 	Container   ContainerSpec     `json:"container"`
 	Input       InputSpec         `json:"input"`
@@ -286,6 +287,10 @@ func (js *JobSpec) Validate() error {
 	// Normalize: if JobSpecID is provided but ID is empty, copy it over
 	if js.ID == "" && js.JobSpecID != "" {
 		js.ID = js.JobSpecID
+	}
+	// Auto-populate version from benchmark if missing at root level
+	if js.Version == "" && js.Benchmark.Version != "" {
+		js.Version = js.Benchmark.Version
 	}
 	if js.Version == "" {
 		return fmt.Errorf("jobspec version is required")
