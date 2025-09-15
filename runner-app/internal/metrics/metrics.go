@@ -50,13 +50,6 @@ var (
 		prometheus.CounterOpts{Name: "jobs_deadletter_total", Help: "Jobs sent to dead-letter queue."},
 	)
 
-	OutboxUnpublishedCount = prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "outbox_unpublished_count", Help: "Number of unpublished outbox messages."},
-	)
-	OutboxOldestUnpublishedAge = prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "outbox_oldest_unpublished_age_seconds", Help: "Age in seconds of oldest unpublished outbox message."},
-	)
-
 	WebSocketConnections = prometheus.NewGauge(
 		prometheus.GaugeOpts{Name: "websocket_connections", Help: "Current number of active WebSocket connections."},
 	)
@@ -86,6 +79,38 @@ var (
 		},
 		[]string{"region"},
 	)
+
+	// Outbox metrics
+	OutboxUnpublishedCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "outbox_unpublished_count",
+		Help: "Current number of unpublished outbox entries",
+	})
+	OutboxOldestUnpublishedAge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "outbox_oldest_unpublished_age_seconds",
+		Help: "Age in seconds of the oldest unpublished outbox entry",
+	})
+
+	// Resource monitoring metrics
+	MemoryHeapAllocBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "memory_heap_alloc_bytes",
+		Help: "Current heap allocated memory in bytes",
+	})
+	MemoryHeapSysBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "memory_heap_sys_bytes", 
+		Help: "Current heap system memory in bytes",
+	})
+	MemoryStackInUseBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "memory_stack_inuse_bytes",
+		Help: "Current stack memory in use in bytes",
+	})
+	GoroutineCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "goroutine_count",
+		Help: "Current number of goroutines",
+	})
+	GCPauseDurationSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "gc_pause_duration_seconds",
+		Help: "Duration of the last GC pause in seconds",
+	})
 
 	// Negotiation telemetry
 	OffersSeenTotal = prometheus.NewCounterVec(
@@ -135,6 +160,11 @@ func RegisterAll() {
 		JobsDeadLetterTotal,
 		OutboxUnpublishedCount,
 		OutboxOldestUnpublishedAge,
+		MemoryHeapAllocBytes,
+		MemoryHeapSysBytes,
+		MemoryStackInUseBytes,
+		GoroutineCount,
+		GCPauseDurationSeconds,
 		WebSocketConnections,
 		WebSocketMessagesBroadcastTotal,
 		WebSocketMessagesDroppedTotal,

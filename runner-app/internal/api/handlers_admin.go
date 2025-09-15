@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -246,6 +247,31 @@ func (h *AdminHandler) GetStuckJobsStats(c *gin.Context) {
 		"stats": stats,
 		"timestamp": time.Now().UTC(),
 	})
+}
+
+// GetResourceStats returns current system resource usage statistics
+func (h *AdminHandler) GetResourceStats(c *gin.Context) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	
+	stats := map[string]interface{}{
+		"memory": map[string]interface{}{
+			"heap_alloc_mb":    float64(m.HeapAlloc) / 1024 / 1024,
+			"heap_sys_mb":      float64(m.HeapSys) / 1024 / 1024,
+			"stack_inuse_mb":   float64(m.StackInuse) / 1024 / 1024,
+			"heap_objects":     m.HeapObjects,
+			"mallocs":          m.Mallocs,
+			"frees":            m.Frees,
+		},
+		"gc": map[string]interface{}{
+			"cycles":           m.NumGC,
+			"pause_ms":         float64(m.PauseNs[(m.NumGC+255)%256]) / 1000000,
+		},
+		"goroutines":       runtime.NumGoroutine(),
+		"timestamp":        time.Now().UTC(),
+	}
+
+	c.JSON(http.StatusOK, stats)
 }
 
 func redactDSN(s string) string {
