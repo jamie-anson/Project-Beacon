@@ -59,6 +59,7 @@ type Config struct {
     TimestampMaxSkew    time.Duration
     TimestampMaxAge     time.Duration
     ReplayProtectionEnabled bool
+    AdminToken          string
 
 	// Queue names
 	JobsQueueName       string
@@ -113,6 +114,7 @@ func Load() *Config {
         TimestampMaxSkew:   time.Duration(getInt("TIMESTAMP_MAX_SKEW_MINUTES", 5)) * time.Minute,
         TimestampMaxAge:    time.Duration(getInt("TIMESTAMP_MAX_AGE_MINUTES", 10)) * time.Minute,
         ReplayProtectionEnabled: getBool("REPLAY_PROTECTION_ENABLED", true),
+        AdminToken:         getString("ADMIN_TOKEN", ""),
 
 		// Queue names
 		JobsQueueName:      getString("JOBS_QUEUE_NAME", "jobs"),

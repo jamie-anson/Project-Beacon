@@ -147,27 +147,17 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	// Emergency admin endpoint (temporary, no auth)
 	r.POST("/emergency/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
 
-	// Admin routes (RBAC; some public in debug mode)
+	// Admin routes (secured with admin token authentication)
 	admin := r.Group("/admin")
+	admin.Use(middleware.AdminAuthMiddleware(cfg))
+	admin.Use(middleware.AdminRateLimitMiddleware())
 	{
-		admin.GET("/flags", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.GetFlags)
-		admin.PUT("/flags", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.UpdateFlags)
-		admin.GET("/config", rbac.RequireAnyRole(rbac.RoleAdmin, rbac.RoleOperator), adminHandler.GetConfig)
-		if gin.Mode() == gin.DebugMode {
-			// Public in debug for emergency fixes
-			admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
-		} else {
-			admin.POST("/republish-stuck-jobs", rbac.RequireAnyRole(rbac.RoleAdmin), adminHandler.RepublishStuckJobs)
-		}
-
-		if gin.Mode() == gin.DebugMode {
-			// Public in debug for DX
-			admin.GET("/port", adminHandler.GetPortInfo)
-			admin.GET("/hints", adminHandler.GetHints)
-		} else {
-			admin.GET("/port", rbac.RequireAnyRole(rbac.RoleAdmin, rbac.RoleOperator), adminHandler.GetPortInfo)
-			admin.GET("/hints", rbac.RequireAnyRole(rbac.RoleAdmin, rbac.RoleOperator), adminHandler.GetHints)
-		}
+		admin.GET("/flags", adminHandler.GetFlags)
+		admin.PUT("/flags", adminHandler.UpdateFlags)
+		admin.GET("/config", adminHandler.GetConfig)
+		admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
+		admin.GET("/port", adminHandler.GetPortInfo)
+		admin.GET("/hints", adminHandler.GetHints)
 	}
 
 	return r
