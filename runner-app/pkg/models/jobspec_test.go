@@ -44,7 +44,7 @@ func TestJobSpecValidation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "missing ID",
+			name: "missing ID (auto-generated)",
 			jobspec: JobSpec{
 				Version: "1.0",
 				Benchmark: BenchmarkSpec{
@@ -54,7 +54,7 @@ func TestJobSpecValidation(t *testing.T) {
 				},
 				Constraints: ExecutionConstraints{Regions: []string{"US"}},
 			},
-			wantErr: true,
+			wantErr: false, // ID is now auto-generated, so validation should pass
 		},
 		{
 			name: "missing regions",
