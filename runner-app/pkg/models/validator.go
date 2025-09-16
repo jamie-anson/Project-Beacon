@@ -19,21 +19,27 @@ func NewJobSpecValidator() *JobSpecValidator {
 }
 
 // ValidateAndVerify performs both structural validation and signature verification
-func (v *JobSpecValidator) ValidateAndVerify(jobspec *JobSpec) error {
-    // CRITICAL: Verify signature FIRST before any modifications (like ID generation)
-    // The portal signs the payload without an ID, so we must verify before adding one
-    if jobspec.Signature != "" && jobspec.PublicKey != "" {
-        if err := jobspec.VerifySignature(); err != nil {
-            return fmt.Errorf("signature verification failed: %w", err)
-        }
-    }
+func (v *JobSpecValidator) ValidateAndVerify(jobSpec *JobSpec) error {
+	// Diagnostic logging for signature verification debugging
+	fmt.Printf("DEBUG: ValidateAndVerify called with signature present: %t, public_key present: %t\n", 
+		jobSpec.Signature != "", jobSpec.PublicKey != "")
+	
+	// Verify signature first (before validation which generates ID)
+	if jobSpec.Signature != "" && jobSpec.PublicKey != "" {
+		fmt.Printf("DEBUG: Starting signature verification process\n")
+		if err := jobSpec.VerifySignature(); err != nil {
+			fmt.Printf("DEBUG: Signature verification failed in ValidateAndVerify: %v\n", err)
+			return fmt.Errorf("signature verification failed: %w", err)
+		}
+		fmt.Printf("DEBUG: Signature verification succeeded in ValidateAndVerify\n")
+	}
 
-    // Then validate structure (including ID generation) after signature verification
-    if err := jobspec.Validate(); err != nil {
-        return fmt.Errorf("validation failed: %w", err)
-    }
+	// Then validate (this may generate ID if missing)
+	if err := jobSpec.Validate(); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 // ValidateJobSpecID checks if the job ID follows the expected format
