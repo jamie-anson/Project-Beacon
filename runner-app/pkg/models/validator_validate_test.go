@@ -28,7 +28,7 @@ func makeValidJobSpec() *JobSpec {
                 Hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 hex chars
             },
             Scoring: ScoringSpec{Method: "custom", Parameters: map[string]interface{}{}},
-            Metadata: map[string]string{},
+            Metadata: map[string]interface{}{},
         },
         Constraints: ExecutionConstraints{
             Regions:         []string{"US"},
@@ -56,11 +56,11 @@ func TestValidateAndVerify_Success_WithSignedJobSpec(t *testing.T) {
     }
 }
 
-func TestValidateAndVerify_Succeeds_MissingSignature(t *testing.T) {
+func TestValidateAndVerify_Fails_MissingSignature(t *testing.T) {
     js := makeValidJobSpec()
-    // Intentionally do not sign - signature verification is optional
+    // Intentionally do not sign - signature verification is now required
     v := NewJobSpecValidator()
-    if err := v.ValidateAndVerify(js); err != nil {
-        t.Fatalf("expected success without signature, got err: %v", err)
+    if err := v.ValidateAndVerify(js); err == nil {
+        t.Fatalf("expected failure without signature, got success")
     }
 }

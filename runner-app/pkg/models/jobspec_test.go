@@ -153,9 +153,10 @@ func TestReceiptVerifySignature_ErrorBranches(t *testing.T) {
 }
 
 func TestJobSpecValidate_ErrorBranchesAndDefaults(t *testing.T) {
-    // missing version
+    // missing version gets auto-populated with default "1.0"
     js := JobSpec{ID: "id", Benchmark: BenchmarkSpec{Name: "n", Container: ContainerSpec{Image:"img", Resources: ResourceSpec{CPU:"1", Memory:"1Mi"}}, Input: InputSpec{Hash:"h"}}, Constraints: ExecutionConstraints{Regions: []string{"US"}}}
-    if err := js.Validate(); err == nil { t.Fatalf("expected error for missing version") }
+    if err := js.Validate(); err != nil { t.Fatalf("expected success with auto-populated version, got: %v", err) }
+    if js.Version != "1.0" { t.Fatalf("expected version to be auto-populated to '1.0', got: %s", js.Version) }
 
     // missing benchmark name
     js = JobSpec{ID: "id", Version:"v", Benchmark: BenchmarkSpec{Container: ContainerSpec{Image:"img", Resources: ResourceSpec{CPU:"1", Memory:"1Mi"}}, Input: InputSpec{Hash:"h"}}, Constraints: ExecutionConstraints{Regions: []string{"US"}}}

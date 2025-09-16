@@ -12,6 +12,7 @@ import (
 
     "github.com/DATA-DOG/go-sqlmock"
     "github.com/jamie-anson/project-beacon-runner/internal/config"
+    "github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
 // Trust enforcement: when enabled and signing key is not in allowlist, CreateJob returns 400 with error_code
@@ -138,20 +139,40 @@ func TestContract_GetJob_200(t *testing.T) {
     defer db.Close()
 
     // Stored JobSpec row
-    type spec struct {
-        ID string `json:"id"`
-        Version string `json:"version"`
-        Benchmark map[string]any `json:"benchmark"`
-        Constraints map[string]any `json:"constraints"`
-        CreatedAt string `json:"created_at"`
-        PublicKey string `json:"public_key"`
-        Signature string `json:"signature"`
+    storedJobSpec := models.JobSpec{
+        ID:      "job-g200",
+        Version: "1.0",
+        Benchmark: models.BenchmarkSpec{
+            Name:        "Test",
+            Description: "",
+            Container: models.ContainerSpec{
+                Image: "alpine:latest",
+                Resources: models.ResourceSpec{
+                    CPU:    "",
+                    Memory: "",
+                },
+            },
+            Input: models.InputSpec{
+                Type: "",
+                Data: nil,
+                Hash: "abc123",
+            },
+            Scoring: models.ScoringSpec{
+                Method:     "",
+                Parameters: nil,
+            },
+            Metadata: nil,
+        },
+        Constraints: models.ExecutionConstraints{
+            Regions: []string{"US"},
+        },
+        Signature: "sig",
+        PublicKey: "pk",
     }
-    sj := spec{ID:"job-g200", Version:"1.0", Benchmark: map[string]any{"name":"Test","container":map[string]any{"image":"alpine:latest"}, "input": map[string]any{"hash":"abc123"}}, Constraints: map[string]any{"regions": []string{"US"}}, CreatedAt: time.Date(2024,1,1,0,0,0,0,time.UTC).Format(time.RFC3339), PublicKey:"pk", Signature:"sig"}
-    jobspecJSON, _ := json.Marshal(sj)
-    now := time.Now()
+    jobspecJSON, _ := json.Marshal(storedJobSpec)
+    fixedTime := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
     jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
-        AddRow(jobspecJSON, "created", now, now)
+        AddRow(jobspecJSON, "created", fixedTime, fixedTime)
     mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_data, status, created_at, updated_at 
         FROM jobs 
         WHERE jobspec_id = $1`)).

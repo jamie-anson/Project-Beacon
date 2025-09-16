@@ -20,18 +20,14 @@ func NewJobSpecValidator() *JobSpecValidator {
 
 // ValidateAndVerify performs both structural validation and signature verification
 func (v *JobSpecValidator) ValidateAndVerify(jobSpec *JobSpec) error {
-	// Diagnostic logging for signature verification debugging
-	fmt.Printf("DEBUG: ValidateAndVerify called with signature present: %t, public_key present: %t\n", 
-		jobSpec.Signature != "", jobSpec.PublicKey != "")
+	// Check if signature is required (this should be configurable, but for now enforce it)
+	if jobSpec.Signature == "" || jobSpec.PublicKey == "" {
+		return fmt.Errorf("signature is required")
+	}
 	
 	// Verify signature first (before validation which generates ID)
-	if jobSpec.Signature != "" && jobSpec.PublicKey != "" {
-		fmt.Printf("DEBUG: Starting signature verification process\n")
-		if err := jobSpec.VerifySignature(); err != nil {
-			fmt.Printf("DEBUG: Signature verification failed in ValidateAndVerify: %v\n", err)
-			return fmt.Errorf("signature verification failed: %w", err)
-		}
-		fmt.Printf("DEBUG: Signature verification succeeded in ValidateAndVerify\n")
+	if err := jobSpec.VerifySignature(); err != nil {
+		return fmt.Errorf("signature verification failed: %w", err)
 	}
 
 	// Then validate (this may generate ID if missing)
@@ -186,7 +182,7 @@ func (v *JobSpecValidator) SanitizeJobSpec(jobspec *JobSpec) {
 	}
 	
 	if jobspec.Benchmark.Metadata == nil {
-		jobspec.Benchmark.Metadata = make(map[string]string)
+		jobspec.Benchmark.Metadata = make(map[string]interface{})
 	}
 }
 

@@ -28,8 +28,10 @@ func validJobSpec() *JobSpec {
                 Data: map[string]any{"q": "hello"},
                 Hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // sha256("")
             },
-            Scoring:  ScoringSpec{Method: "custom", Parameters: map[string]any{"k": 1}},
-            Metadata: map[string]string{"m": "v"},
+            Scoring: ScoringSpec{Method: "custom", Parameters: map[string]any{"k": 1}},
+            Metadata: map[string]interface{}{
+                "source": "test",
+            },
         },
         Constraints: ExecutionConstraints{
             Regions:         []string{"us", "eu", "apac"},

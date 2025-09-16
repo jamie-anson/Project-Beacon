@@ -55,7 +55,7 @@ func DefaultAdminConfig() AdminConfig {
 		TransparencyLog: TransparencyLog{Enabled: true, Endpoint: te},
 		Features: Features{BiasDashboard: true, ProviderMap: true, WsLiveUpdates: true},
 		Constraints: Constraints{DefaultRegion: "US", MaxCost: 5.0, MaxDuration: 900},
-		Security: Security{RequireSignature: false, AllowedSubmitterKeys: []string{}},
+		Security: Security{RequireSignature: true, AllowedSubmitterKeys: []string{}},
 		Display: Display{MaintenanceMode: false, Banner: ""},
 	}
 }

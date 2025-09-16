@@ -108,6 +108,9 @@ func (r *JobsRepo) GetJobByID(ctx context.Context, jobspecID string) (*models.Jo
 		return nil, "", fmt.Errorf("failed to unmarshal jobspec: %w", err)
 	}
 
+	// Set the CreatedAt timestamp from the database
+	jobspec.CreatedAt = createdAt
+
 	return &jobspec, status, nil
 }
 
