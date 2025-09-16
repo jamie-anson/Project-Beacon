@@ -40,11 +40,11 @@ type JobSpec struct {
 type BenchmarkSpec struct {
 	Name        string            `json:"name"`
 	Version     string            `json:"version,omitempty"`
-	Description string            `json:"description"`
+	Description string            `json:"description,omitempty"`
 	Container   ContainerSpec     `json:"container"`
 	Input       InputSpec         `json:"input"`
-	Scoring     ScoringSpec       `json:"scoring"`
-	Metadata    map[string]string `json:"metadata"`
+	Scoring     ScoringSpec       `json:"scoring,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // ContainerSpec defines the execution environment
@@ -65,15 +65,15 @@ type ResourceSpec struct {
 
 // InputSpec defines the benchmark input
 type InputSpec struct {
-	Type string                 `json:"type"` // "prompt", "dataset", "file"
-	Data map[string]interface{} `json:"data"`
+	Type string                 `json:"type,omitempty"` // "prompt", "dataset", "file"
+	Data map[string]interface{} `json:"data,omitempty"`
 	Hash string                 `json:"hash"` // SHA256 hash for integrity
 }
 
 // ScoringSpec defines how results should be evaluated
 type ScoringSpec struct {
-	Method     string                 `json:"method"`     // "similarity", "accuracy", "custom"
-	Parameters map[string]interface{} `json:"parameters"`
+	Method     string                 `json:"method,omitempty"`     // "similarity", "accuracy", "custom"
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // ExecutionConstraints define where and how the benchmark should run
