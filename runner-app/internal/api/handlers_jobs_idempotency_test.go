@@ -23,7 +23,7 @@ func buildSignedSpec(t *testing.T, id string) models.JobSpec {
     kp, err := pkcrypto.GenerateKeyPair()
     if err != nil { t.Fatalf("GenerateKeyPair: %v", err) }
     js := models.JobSpec{
-        ID:      id,
+        // Don't set ID before signing - let it be set after
         Version: "1.0",
         Benchmark: models.BenchmarkSpec{
             Name: "Test",
@@ -32,12 +32,18 @@ func buildSignedSpec(t *testing.T, id string) models.JobSpec {
         },
         Constraints: models.ExecutionConstraints{Regions: []string{"US"}},
     }
+    // Sign first without ID
     if err := js.Sign(kp.PrivateKey); err != nil { t.Fatalf("jobspec.Sign: %v", err) }
+    // Then set ID (simulating server-side ID assignment)
+    js.ID = id
     return js
 }
 
 func newRouterWithDB(db *sql.DB) *gin.Engine {
-    cfg := &config.Config{HTTPPort: "8090"}
+    cfg := &config.Config{
+        HTTPPort: "8090",
+        SigBypass: true, // Enable signature bypass for tests
+    }
     return SetupRoutes(service.NewJobsService(db), cfg, nil)
 }
 

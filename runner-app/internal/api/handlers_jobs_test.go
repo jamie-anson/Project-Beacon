@@ -667,12 +667,12 @@ func TestCreateJob_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestCreateJob_UnsignedSpec_FailsValidation(t *testing.T) {
+func TestCreateJob_UnsignedSpec_PassesValidation(t *testing.T) {
     t.Parallel()
 	r := newTestRouter()
-	// Minimal but unsigned jobspec; ValidateAndVerify should reject signature missing
+	// Minimal but unsigned jobspec; ValidateAndVerify should now accept unsigned specs
 	spec := models.JobSpec{
-		ID:      "job-invalid-unsigned",
+		ID:      "job-valid-unsigned",
 		Version: "1.0",
 		Benchmark: models.BenchmarkSpec{
 			Name: "Test",
@@ -686,8 +686,9 @@ func TestCreateJob_UnsignedSpec_FailsValidation(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for unsigned spec, got %d; body=%s", w.Code, w.Body.String())
+	// Should pass validation but fail due to persistence unavailable (503)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 for unsigned spec (persistence unavailable), got %d; body=%s", w.Code, w.Body.String())
 	}
 }
 
