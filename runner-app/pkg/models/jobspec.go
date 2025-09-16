@@ -363,32 +363,17 @@ func (js *JobSpec) VerifySignature() error {
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
 
-	// DIAGNOSTIC: Log canonicalization details for debugging
-	if signableBytes, ok := signableData.([]byte); ok {
-		fmt.Printf("CANONICALIZATION DEBUG: Server generated: %s\n", string(signableBytes))
-	}
-	fmt.Printf("CANONICALIZATION DEBUG: Signature: %s\n", js.Signature)
-	fmt.Printf("CANONICALIZATION DEBUG: Public key: %s\n", js.PublicKey)
-
 	// Verify signature
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-		fmt.Printf("CANONICALIZATION DEBUG: Primary verification failed: %v\n", err)
 		// Try fallback canonicalization for backward compatibility
 		if fallbackData, fallbackErr := crypto.CanonicalizeJobSpecV1(js); fallbackErr == nil {
-			fmt.Printf("CANONICALIZATION DEBUG: Fallback V1 data: %s\n", string(fallbackData))
 			if fallbackVerifyErr := crypto.VerifyJSONSignature(fallbackData, js.Signature, publicKey); fallbackVerifyErr == nil {
-				fmt.Printf("CANONICALIZATION DEBUG: Fallback V1 verification succeeded\n")
 				return nil // Success with fallback
-			} else {
-				fmt.Printf("CANONICALIZATION DEBUG: Fallback V1 verification failed: %v\n", fallbackVerifyErr)
 			}
-		} else {
-			fmt.Printf("CANONICALIZATION DEBUG: Fallback V1 canonicalization failed: %v\n", fallbackErr)
 		}
 		return fmt.Errorf("signature verification failed: %w", err)
 	}
 
-	fmt.Printf("CANONICALIZATION DEBUG: Primary verification succeeded\n")
 	return nil
 }
 
