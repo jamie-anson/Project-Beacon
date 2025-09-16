@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamie-anson/Project-Beacon/runner-app/pkg/crypto"
+	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"
 )
 
 // WalletAuth represents wallet authentication data from the portal
@@ -364,33 +364,17 @@ func (js *JobSpec) VerifySignature() error {
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
 
-	// Debug: Print signable data for comparison
-	if signableBytes, ok := signableData.([]byte); ok {
-		fmt.Printf("SIGNATURE DEBUG: Signable data: %s\n", string(signableBytes))
-	} else {
-		fmt.Printf("SIGNATURE DEBUG: Signable data type: %T\n", signableData)
-	}
-	fmt.Printf("SIGNATURE DEBUG: Signature: %s\n", js.Signature)
-	fmt.Printf("SIGNATURE DEBUG: Public key: %s\n", js.PublicKey)
-
 	// Verify signature
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-		fmt.Printf("SIGNATURE DEBUG: Primary verification failed: %v\n", err)
 		// Try fallback canonicalization for backward compatibility
 		if fallbackData, fallbackErr := crypto.CanonicalizeJobSpecV1(js); fallbackErr == nil {
-			fmt.Printf("SIGNATURE DEBUG: Fallback data: %s\n", string(fallbackData))
 			if fallbackVerifyErr := crypto.VerifyJSONSignature(fallbackData, js.Signature, publicKey); fallbackVerifyErr == nil {
-				fmt.Printf("SIGNATURE DEBUG: Fallback verification succeeded\n")
 				return nil // Success with fallback
-			} else {
-				fmt.Printf("SIGNATURE DEBUG: Fallback verification failed: %v\n", fallbackVerifyErr)
 			}
-		} else {
-			fmt.Printf("SIGNATURE DEBUG: Fallback canonicalization failed: %v\n", fallbackErr)
 		}
 		return fmt.Errorf("signature verification failed: %w", err)
 	}
-	fmt.Printf("SIGNATURE DEBUG: Primary verification succeeded\n")
+
 	return nil
 }
 
