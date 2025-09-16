@@ -1,4 +1,4 @@
-# Project Beacon Runner
+# Project Beacon Runner - Signature Verification Fixed
 
 Cross-region benchmark execution engine for detecting AI model differences across geographic regions.
 
