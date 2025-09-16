@@ -363,16 +363,32 @@ func (js *JobSpec) VerifySignature() error {
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
 
-	// Verify signature
+	// Diagnostic logging for signature verification debugging
+	if signableBytes, ok := signableData.([]byte); ok {
+		fmt.Printf("DEBUG: Server canonical JSON (v2): %s\n", string(signableBytes))
+		fmt.Printf("DEBUG: Server canonical length: %d\n", len(signableBytes))
+	}
+	fmt.Printf("DEBUG: Signature: %s\n", js.Signature)
+	fmt.Printf("DEBUG: Public key: %s\n", js.PublicKey)
+
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-		// Try fallback canonicalization for backward compatibility
+		fmt.Printf("DEBUG: V2 signature verification failed: %v\n", err)
 		if fallbackData, fallbackErr := crypto.CanonicalizeJobSpecV1(js); fallbackErr == nil {
+			fmt.Printf("DEBUG: Fallback canonical JSON (v1): %s\n", string(fallbackData))
+			fmt.Printf("DEBUG: Fallback canonical length: %d\n", len(fallbackData))
 			if fallbackVerifyErr := crypto.VerifyJSONSignature(fallbackData, js.Signature, publicKey); fallbackVerifyErr == nil {
-				return nil // Success with fallback
+				fmt.Printf("DEBUG: V1 fallback signature verification succeeded\n")
+				return nil
+			} else {
+				fmt.Printf("DEBUG: V1 fallback signature verification failed: %v\n", fallbackVerifyErr)
 			}
+		} else {
+			fmt.Printf("DEBUG: Fallback canonicalization failed: %v\n", fallbackErr)
 		}
 		return fmt.Errorf("signature verification failed: %w", err)
 	}
+
+	fmt.Printf("DEBUG: V2 signature verification succeeded\n")
 
 	return nil
 }
