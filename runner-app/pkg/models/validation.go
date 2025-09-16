@@ -26,12 +26,33 @@ func (js *JobSpec) Validate() error {
 	if js.Version == "" {
 		js.Version = "1.0"
 	}
+	
+	// Handle portal compatibility: if benchmark.version exists but jobspec version doesn't, use it
+	if js.Benchmark.Version != "" && js.Version == "1.0" {
+		js.Version = js.Benchmark.Version
+	}
+	
 	if js.Version == "" {
 		return fmt.Errorf("jobspec version is required")
 	}
 	if js.Benchmark.Name == "" {
 		return fmt.Errorf("benchmark name is required")
 	}
+	
+	// Auto-populate missing benchmark fields for portal compatibility
+	if js.Benchmark.Description == "" {
+		js.Benchmark.Description = fmt.Sprintf("Benchmark: %s", js.Benchmark.Name)
+	}
+	if js.Benchmark.Scoring.Method == "" {
+		js.Benchmark.Scoring.Method = "default"
+		if js.Benchmark.Scoring.Parameters == nil {
+			js.Benchmark.Scoring.Parameters = make(map[string]interface{})
+		}
+	}
+	if js.Benchmark.Metadata == nil {
+		js.Benchmark.Metadata = make(map[string]interface{})
+	}
+	
 	if js.Benchmark.Container.Image == "" {
 		return fmt.Errorf("container image is required")
 	}
@@ -39,7 +60,7 @@ func (js *JobSpec) Validate() error {
 		return fmt.Errorf("at least one region constraint is required")
 	}
 	if js.Constraints.MinRegions < 1 {
-		js.Constraints.MinRegions = 3 // Default to 3 regions
+		js.Constraints.MinRegions = 1 // Default to 1 region for portal compatibility
 	}
 	if js.Constraints.MinSuccessRate == 0 {
 		js.Constraints.MinSuccessRate = 0.67 // Default to 67% success rate

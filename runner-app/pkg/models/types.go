@@ -33,6 +33,7 @@ type JobSpec struct {
 // BenchmarkSpec defines the benchmark to run
 type BenchmarkSpec struct {
 	Name        string                 `json:"name"`
+	Version     string                 `json:"version,omitempty"` // Portal compatibility
 	Description string                 `json:"description"`
 	Container   ContainerSpec          `json:"container"`
 	Input       InputSpec              `json:"input"`
