@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - '.github/**'  # Avoid recursive triggers
       - 'README.md'
       - 'docs/**'
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 # Prevent duplicate deployments by canceling in-progress runs
 concurrency:
