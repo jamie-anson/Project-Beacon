@@ -49,13 +49,13 @@ jobs:
           go build -v ./internal/api/...
           go build -v ./internal/store/...
           go build -v ./cmd/...
-          # Test only specific packages to avoid problematic worker tests
-          go test -v -tags=ci ./pkg/crypto
-          go test -v -tags=ci ./pkg/merkle  
-          go test -v -tags=ci ./pkg/models
-          go test -v -tags=ci ./internal/api
-          go test -v -tags=ci ./internal/store
-          # Skip ./internal/worker - contains complex integration tests unsuitable for CI
+          # Test only specific packages - completely skip worker tests
+          go test -v ./pkg/crypto
+          go test -v ./pkg/merkle  
+          go test -v ./pkg/models
+          go test -v ./internal/api
+          go test -v ./internal/store
+          # Build final binaries
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
           go build -o admin ./cmd/admin
