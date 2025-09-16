@@ -86,15 +86,15 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           echo "🔍 Running post-deployment validation..."
-          # Wait for deployment to be ready
-          sleep 30
-          
-          # Run deployment validation if staging URL is available
-          if [ ! -z "$STAGING_URL" ]; then
+          # Check if STAGING_URL is available
+          if [ -n "$STAGING_URL" ]; then
             echo "Validating deployment at $STAGING_URL"
+            sleep 30
             node scripts/deployment-validation.js "$STAGING_URL" || echo "⚠️ Validation failed - check logs"
           else
-            echo "ℹ️ STAGING_URL not set, skipping validation"
+            echo "ℹ️ STAGING_URL secret not configured, skipping deployment validation"
+            echo "To enable validation, configure STAGING_URL and ADMIN_TOKEN secrets in repository settings"
+            echo "✅ Build and Docker image push completed successfully"
           fi
         env:
           STAGING_URL: ${{ secrets.STAGING_URL }}
