@@ -42,8 +42,12 @@ jobs:
       - name: Build and test
         run: |
           go build -v ./...
-          go test -v -tags=ci ./pkg/crypto ./pkg/merkle ./pkg/models
-          go test -v -tags=ci ./internal/api ./internal/store
+          # Test only specific packages to avoid problematic worker tests
+          go test -v -tags=ci ./pkg/crypto
+          go test -v -tags=ci ./pkg/merkle  
+          go test -v -tags=ci ./pkg/models
+          go test -v -tags=ci ./internal/api
+          go test -v -tags=ci ./internal/store
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
           go build -o admin ./cmd/admin
