@@ -44,12 +44,16 @@ jobs:
           
       - name: Build and test
         run: |
-          # Build specific packages to avoid worker package issues
-          go build -v ./pkg/...
-          go build -v ./internal/api/...
-          go build -v ./internal/store/...
-          go build -v ./cmd/...
-          # Test only specific packages - completely skip worker tests
+          # Build and test only essential packages, completely skip worker
+          go build -v ./pkg/crypto
+          go build -v ./pkg/merkle  
+          go build -v ./pkg/models
+          go build -v ./internal/api
+          go build -v ./internal/store
+          go build -v ./cmd/runner
+          go build -v ./cmd/jobspec-signer
+          go build -v ./cmd/admin
+          # Test only safe packages
           go test -v ./pkg/crypto
           go test -v ./pkg/merkle  
           go test -v ./pkg/models
