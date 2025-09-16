@@ -333,28 +333,55 @@ func (js *JobSpec) Validate() error {
 }
 
 func (js *JobSpec) VerifySignature() error {
+	fmt.Printf("SIGNATURE_DEBUG: Starting signature verification for JobSpec ID: %s\n", js.ID)
+	fmt.Printf("SIGNATURE_DEBUG: Signature present: %t (length: %d)\n", js.Signature != "", len(js.Signature))
+	fmt.Printf("SIGNATURE_DEBUG: PublicKey present: %t (length: %d)\n", js.PublicKey != "", len(js.PublicKey))
+	
 	if js.Signature == "" {
+		fmt.Printf("SIGNATURE_DEBUG: ERROR - signature is empty\n")
 		return fmt.Errorf("signature is required")
 	}
 	if js.PublicKey == "" {
+		fmt.Printf("SIGNATURE_DEBUG: ERROR - public key is empty\n")
 		return fmt.Errorf("public key is required")
 	}
 
 	// Parse public key
 	publicKey, err := crypto.PublicKeyFromBase64(js.PublicKey)
 	if err != nil {
+		fmt.Printf("SIGNATURE_DEBUG: ERROR - failed to parse public key: %v\n", err)
 		return fmt.Errorf("invalid public key: %w", err)
 	}
+	fmt.Printf("SIGNATURE_DEBUG: Public key parsed successfully\n")
 
 	// Create signable data (without signature and public_key fields)
 	signableData, err := crypto.CreateSignableJobSpec(js)
 	if err != nil {
+		fmt.Printf("SIGNATURE_DEBUG: ERROR - failed to create signable data: %v\n", err)
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
+	
+	// Convert signableData to []byte for logging
+	var dataBytes []byte
+	if bytes, ok := signableData.([]byte); ok {
+		dataBytes = bytes
+	} else if str, ok := signableData.(string); ok {
+		dataBytes = []byte(str)
+	} else {
+		dataBytes = []byte(fmt.Sprintf("%v", signableData))
+	}
+	
+	fmt.Printf("SIGNATURE_DEBUG: Signable data created (length: %d)\n", len(dataBytes))
+	previewLen := min(200, len(dataBytes))
+	fmt.Printf("SIGNATURE_DEBUG: Signable data preview: %s\n", string(dataBytes[:previewLen]))
 
 	// Verify signature
+	fmt.Printf("SIGNATURE_DEBUG: Attempting primary signature verification\n")
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
+		fmt.Printf("SIGNATURE_DEBUG: Primary verification failed: %v\n", err)
+		
         // Fallback: accept v1 canonicalization if it verifies (temporary compatibility)
+        fmt.Printf("SIGNATURE_DEBUG: Trying v1 canonicalization fallback\n")
         if canonV1, cErr := crypto.CanonicalizeJobSpecV1(js); cErr == nil {
             if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
                 if ed25519.Verify(publicKey, canonV1, sigBytes) {
@@ -362,9 +389,13 @@ func (js *JobSpec) VerifySignature() error {
                     return nil
                 }
             }
+            fmt.Printf("SIGNATURE_DEBUG: v1 canonicalization failed\n")
+        } else {
+            fmt.Printf("SIGNATURE_DEBUG: v1 canonicalization error: %v\n", cErr)
         }
         
         // Backward compatibility: try v0 canonicalization
+        fmt.Printf("SIGNATURE_DEBUG: Trying v0 canonicalization fallback\n")
         if canonV0, cErr := crypto.CanonicalizeJobSpecV0(js); cErr == nil {
             if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
                 if ed25519.Verify(publicKey, canonV0, sigBytes) {
@@ -374,11 +405,16 @@ func (js *JobSpec) VerifySignature() error {
                     return nil // Accept v0 signature with warning
                 }
             }
+            fmt.Printf("SIGNATURE_DEBUG: v0 canonicalization failed\n")
+        } else {
+            fmt.Printf("SIGNATURE_DEBUG: v0 canonicalization error: %v\n", cErr)
         }
         
+        fmt.Printf("SIGNATURE_DEBUG: All signature verification methods failed\n")
         return fmt.Errorf("signature verification failed: %w", err)
     }
 
+	fmt.Printf("SIGNATURE_DEBUG: Primary signature verification successful\n")
 	return nil
 }
 
