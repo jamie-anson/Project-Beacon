@@ -2,7 +2,6 @@ package models
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
