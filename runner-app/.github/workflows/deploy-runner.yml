@@ -3,11 +3,14 @@ name: Build and Deploy Runner App
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
+    paths:
+      - 'runner-app/**'
+      - '!runner-app/README.md'
+      - '!runner-app/docs/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'runner-app/**'
   workflow_dispatch:
 
 # Prevent duplicate deployments by canceling in-progress runs
@@ -20,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .
+        working-directory: ./runner-app
     
     steps:
       - name: Checkout
@@ -30,7 +33,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-          cache-dependency-path: './go.sum'
+          cache-dependency-path: './runner-app/go.sum'
           
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
