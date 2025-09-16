@@ -42,8 +42,8 @@ jobs:
           
       - name: Build and test
         run: |
-          go mod download
-          go test ./...
+          go build -v ./...
+          go test -v -tags=ci ./...
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
           go build -o admin ./cmd/admin
