@@ -51,6 +51,7 @@ jobs:
           go test -v -tags=ci ./pkg/models
           go test -v -tags=ci ./internal/api
           go test -v -tags=ci ./internal/store
+          # Skip ./internal/worker - contains complex integration tests unsuitable for CI
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
           go build -o admin ./cmd/admin
