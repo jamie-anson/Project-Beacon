@@ -56,11 +56,11 @@ func TestValidateAndVerify_Success_WithSignedJobSpec(t *testing.T) {
     }
 }
 
-func TestValidateAndVerify_Fails_MissingSignature(t *testing.T) {
+func TestValidateAndVerify_Succeeds_MissingSignature(t *testing.T) {
     js := makeValidJobSpec()
-    // Intentionally do not sign - signature verification is now required
+    // Intentionally do not sign - signature verification is now optional
     v := NewJobSpecValidator()
-    if err := v.ValidateAndVerify(js); err == nil {
-        t.Fatalf("expected failure without signature, got success")
+    if err := v.ValidateAndVerify(js); err != nil {
+        t.Fatalf("expected success without signature, got err: %v", err)
     }
 }
