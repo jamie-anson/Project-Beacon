@@ -2,12 +2,12 @@ package models
 
 import (
 	"crypto/ed25519"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"
+	"github.com/jamie-anson/Project-Beacon/runner-app/pkg/crypto"
 )
 
 // WalletAuth represents wallet authentication data from the portal
@@ -352,45 +352,45 @@ func (js *JobSpec) VerifySignature() error {
 		return fmt.Errorf("public key is required")
 	}
 
-	// Parse public key
+	// Parse the public key
 	publicKey, err := crypto.PublicKeyFromBase64(js.PublicKey)
 	if err != nil {
 		return fmt.Errorf("invalid public key: %w", err)
 	}
 
-	// Create signable data (without signature and public_key fields)
+	// Create signable data by zeroing signature and public key fields
 	signableData, err := crypto.CreateSignableJobSpec(js)
 	if err != nil {
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
 
+	// Debug: Print signable data for comparison
+	if signableBytes, ok := signableData.([]byte); ok {
+		fmt.Printf("SIGNATURE DEBUG: Signable data: %s\n", string(signableBytes))
+	} else {
+		fmt.Printf("SIGNATURE DEBUG: Signable data type: %T\n", signableData)
+	}
+	fmt.Printf("SIGNATURE DEBUG: Signature: %s\n", js.Signature)
+	fmt.Printf("SIGNATURE DEBUG: Public key: %s\n", js.PublicKey)
+
 	// Verify signature
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
-        // Fallback: accept v1 canonicalization if it verifies (temporary compatibility)
-        if canonV1, cErr := crypto.CanonicalizeJobSpecV1(js); cErr == nil {
-            if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
-                if ed25519.Verify(publicKey, canonV1, sigBytes) {
-                    fmt.Printf("COMPAT: JobSpec %s verified with v1 canonicalization (accepting; please re-sign/update)\n", js.ID)
-                    return nil
-                }
-            }
-        }
-        
-        // Backward compatibility: try v0 canonicalization
-        if canonV0, cErr := crypto.CanonicalizeJobSpecV0(js); cErr == nil {
-            if sigBytes, sErr := base64.StdEncoding.DecodeString(js.Signature); sErr == nil {
-                if ed25519.Verify(publicKey, canonV0, sigBytes) {
-                    // Log deprecation warning using fmt.Printf for now
-                    // TODO: Replace with proper structured logging when available
-                    fmt.Printf("DEPRECATED: JobSpec %s signed with v0 canonicalization - please re-sign with current method\n", js.ID)
-                    return nil // Accept v0 signature with warning
-                }
-            }
-        }
-        
-        return fmt.Errorf("signature verification failed: %w", err)
-    }
-
+		fmt.Printf("SIGNATURE DEBUG: Primary verification failed: %v\n", err)
+		// Try fallback canonicalization for backward compatibility
+		if fallbackData, fallbackErr := crypto.CanonicalizeJobSpecV1(js); fallbackErr == nil {
+			fmt.Printf("SIGNATURE DEBUG: Fallback data: %s\n", string(fallbackData))
+			if fallbackVerifyErr := crypto.VerifyJSONSignature(fallbackData, js.Signature, publicKey); fallbackVerifyErr == nil {
+				fmt.Printf("SIGNATURE DEBUG: Fallback verification succeeded\n")
+				return nil // Success with fallback
+			} else {
+				fmt.Printf("SIGNATURE DEBUG: Fallback verification failed: %v\n", fallbackVerifyErr)
+			}
+		} else {
+			fmt.Printf("SIGNATURE DEBUG: Fallback canonicalization failed: %v\n", fallbackErr)
+		}
+		return fmt.Errorf("signature verification failed: %w", err)
+	}
+	fmt.Printf("SIGNATURE DEBUG: Primary verification succeeded\n")
 	return nil
 }
 
