@@ -240,7 +240,7 @@ func main() {
 			Str("addr", resolved).
 			Str("strategy", strategy).
 			Str("addr_file", cfg.AddrFile).
-			Msg("Project Beacon Runner started")
+			Msg("Starting Project Beacon Runner with signature verification fix")
 		if _, port, err := net.SplitHostPort(resolved); err == nil && port != "" {
 			logger.Info().Msg("Hint: curl http://localhost:" + port + "/health ; curl -H 'Authorization: Bearer $ADMIN_TOKEN' http://localhost:" + port + "/admin/port")
 		}
