@@ -198,16 +198,21 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 		}
 		delete(m, "signature")
 		delete(m, "public_key")
+		delete(m, "id")  // Remove ID for portal compatibility
 		return m, nil
 	}
 	t := v.Type()
 	copy := reflect.New(t).Elem()
 	copy.Set(v)
-	// Zero fields named "Signature" and "PublicKey" if they exist
+	// Zero fields named "Signature", "PublicKey", and "ID" if they exist
+	// ID is zeroed because portal signs payload without ID, but server adds ID during validation
 	if f := copy.FieldByName("Signature"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
 		f.SetString("")
 	}
 	if f := copy.FieldByName("PublicKey"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
+		f.SetString("")
+	}
+	if f := copy.FieldByName("ID"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
 		f.SetString("")
 	}
 	return copy.Interface(), nil
