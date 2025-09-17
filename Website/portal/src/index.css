@@ -1,9 +1,9 @@
+/* Catppuccin Mocha theme for dark mode - must come first */
+@import "@catppuccin/tailwindcss/mocha.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Catppuccin Mocha theme for dark mode */
-@import "@catppuccin/tailwindcss/mocha.css";
 
 :root {
   --beacon-accent: #fab387; /* catppuccin peach */
