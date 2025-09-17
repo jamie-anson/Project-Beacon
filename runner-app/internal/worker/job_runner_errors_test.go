@@ -18,6 +18,11 @@ func TestHandleEnvelope_GetJob_DBError(t *testing.T) {
     db, mock, _ := sqlmock.New()
     defer db.Close()
 
+    // Expect UPDATE to set status to processing (this happens first)
+    mock.ExpectExec(regexp.QuoteMeta("UPDATE jobs SET status = $1, updated_at = NOW() WHERE jobspec_id = $2")).
+        WithArgs("processing", "job-err").
+        WillReturnResult(sqlmock.NewResult(0, 1))
+    
     // Force SELECT to error
     mock.ExpectQuery(regexp.QuoteMeta("SELECT jobspec_id, status, jobspec_data, created_at, updated_at FROM jobs WHERE jobspec_id = $1")).
         WithArgs("job-err").

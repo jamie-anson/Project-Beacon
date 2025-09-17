@@ -10,7 +10,7 @@ import time
 from typing import Dict, Any
 
 class HybridRouterTester:
-    def __init__(self, base_url: str = "https://project-beacon-production.up.railway.app"):
+    def __init__(self, base_url: str = "https://beacon-hybrid-router.fly.dev"):
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=30.0)
     
@@ -70,10 +70,48 @@ class HybridRouterTester:
         except Exception as e:
             return {"success": False, "error": str(e)}
     
+    async def test_env_endpoint(self) -> Dict[str, Any]:
+        """Test environment variables endpoint"""
+        try:
+            response = await self.client.get(f"{self.base_url}/env")
+            return {
+                "success": response.status_code == 200,
+                "status_code": response.status_code,
+                "data": response.json() if response.status_code == 200 else response.text
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def test_modal_health(self) -> Dict[str, Any]:
+        """Test Modal health endpoint"""
+        try:
+            response = await self.client.get(f"{self.base_url}/modal-health")
+            return {
+                "success": response.status_code == 200,
+                "status_code": response.status_code,
+                "data": response.json() if response.status_code == 200 else response.text
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def test_websocket_hint(self) -> Dict[str, Any]:
+        """Test WebSocket HTTP hint endpoint (optional feature)"""
+        try:
+            response = await self.client.get(f"{self.base_url}/ws")
+            return {
+                "success": response.status_code == 200,
+                "status_code": response.status_code,
+                "data": response.json() if response.status_code == 200 else response.text,
+                "websocket_enabled": response.status_code == 200
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "websocket_enabled": False}
+    
     async def run_all_tests(self):
         """Run all tests"""
         print("🧪 Testing Project Beacon Hybrid Router...")
         print(f"📡 Base URL: {self.base_url}")
+        print("ℹ️  Note: WebSocket functionality may be disabled in some deployments")
         print()
         
         # Test health check
@@ -115,9 +153,50 @@ class HybridRouterTester:
             print(f"❌ Metrics failed: {metrics_result.get('error', 'Unknown error')}")
         print()
         
+        # Test environment endpoint
+        print("4️⃣ Testing environment endpoint...")
+        env_result = await self.test_env_endpoint()
+        if env_result["success"]:
+            print("✅ Environment endpoint working")
+            env_data = env_result["data"]
+            golem_endpoints = env_data.get("GOLEM_PROVIDER_ENDPOINTS", "")
+            modal_base = env_data.get("MODAL_API_BASE", "")
+            print(f"   🔗 Golem Endpoints: {golem_endpoints[:50]}..." if golem_endpoints else "   🔗 Golem Endpoints: Not configured")
+            print(f"   🚀 Modal Base: {modal_base}" if modal_base else "   🚀 Modal Base: Not configured")
+        else:
+            print(f"❌ Environment endpoint failed: {env_result.get('error', 'Unknown error')}")
+        print()
+        
+        # Test Modal health endpoint
+        print("5️⃣ Testing Modal health endpoint...")
+        modal_health_result = await self.test_modal_health()
+        if modal_health_result["success"]:
+            print("✅ Modal health endpoint working")
+            print(f"   📊 Status: {modal_health_result['data'].get('status', 'unknown')}")
+        else:
+            print(f"❌ Modal health failed: {modal_health_result.get('error', 'Unknown error')}")
+        print()
+        
+        # Test WebSocket hint endpoint (optional)
+        print("6️⃣ Testing WebSocket hint endpoint...")
+        ws_hint_result = await self.test_websocket_hint()
+        if ws_hint_result["success"]:
+            print("✅ WebSocket hint endpoint working")
+            print(f"   💬 Message: {ws_hint_result['data'].get('message', '')[:60]}...")
+            print("   🔌 WebSocket functionality: ENABLED")
+        else:
+            websocket_enabled = ws_hint_result.get("websocket_enabled", False)
+            if ws_hint_result.get("status_code") == 404:
+                print("ℹ️  WebSocket endpoint not found (feature disabled)")
+                print("   🔌 WebSocket functionality: DISABLED")
+            else:
+                print(f"❌ WebSocket hint failed: {ws_hint_result.get('error', 'Unknown error')}")
+                print("   🔌 WebSocket functionality: UNKNOWN")
+        print()
+
         # Test inference (only if providers are healthy)
         if health_result["success"] and health_result["data"].get("providers_healthy", 0) > 0:
-            print("4️⃣ Testing inference...")
+            print("7️⃣ Testing inference...")
             inference_result = await self.test_inference()
             if inference_result["success"]:
                 print("✅ Inference completed")
@@ -129,7 +208,7 @@ class HybridRouterTester:
             else:
                 print(f"❌ Inference failed: {inference_result.get('error', 'Unknown error')}")
         else:
-            print("4️⃣ Skipping inference test (no healthy providers)")
+            print("7️⃣ Skipping inference test (no healthy providers)")
         print()
         
         await self.client.aclose()
