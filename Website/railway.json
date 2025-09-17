@@ -1,15 +1,12 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile.runner",
-    "watchPatterns": [
-      "../runner-app/**"
-    ]
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "healthcheckPath": "/health",
     "healthcheckTimeout": 120,
-    "restartPolicyType": "ON_FAILURE"
+    "restartPolicyType": "ON_FAILURE",
+    "startCommand": "python hybrid_router.py"
   }
 }
