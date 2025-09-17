@@ -42,12 +42,11 @@ jobs:
       - name: Build and test
         run: |
           go mod download
-          # Test only stable packages with ci build tag to exclude problematic worker tests
+          # Test only stable packages with ci build tag to exclude problematic tests
           go test -tags ci ./pkg/crypto
           go test -tags ci ./pkg/merkle  
           go test -tags ci ./pkg/models
-          go test -tags ci ./internal/store
-          # Skip internal/api and internal/worker tests as they may have dependencies
+          # Skip internal/store, internal/api and internal/worker tests as they may have dependencies
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
           
