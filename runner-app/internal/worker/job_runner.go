@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
@@ -13,11 +14,11 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/jobspec"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
+	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
-	"github.com/jamie-anson/project-beacon-runner/internal/geoip"
-	models "github.com/jamie-anson/project-beacon-runner/pkg/models"
+	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
 // JobRunner consumes job envelopes from Redis and executes single-region runs
@@ -26,6 +27,7 @@ type jobsRepoIface interface {
 	GetJob(ctx context.Context, id string) (idOut string, status string, data []byte, createdAt, updatedAt sql.NullTime, err error)
 	UpdateJobStatus(ctx context.Context, jobspecID string, status string) error
 }
+
 
 type execRepoIface interface {
 	InsertExecution(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte) (int64, error)
@@ -38,24 +40,34 @@ type ProbeFactory func() negotiation.PreflightProbe
 type JobRunner struct {
 	DB           *sql.DB
 	Queue        *queue.Client
+	QueueName    string
 	JobsRepo     jobsRepoIface
 	ExecRepo     execRepoIface
+	ExecutionSvc *service.ExecutionService
 	Golem        *golem.Service
 	Hybrid       *hybrid.Client
 	Bundler      *ipfs.Bundler
-	QueueName    string
 	ProbeFactory ProbeFactory
+	Executor     Executor
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
-	return &JobRunner{
-		DB:       db,
-		Queue:    q,
-		JobsRepo: store.NewJobsRepo(db),
-		ExecRepo: store.NewExecutionsRepo(db),
-		Golem:    gsvc,
-		Bundler:  bundler,
+	jr := &JobRunner{
+		DB:           db,
+		Queue:        q,
+		JobsRepo:     store.NewJobsRepo(db),
+		ExecRepo:     store.NewExecutionsRepo(db),
+		Golem:        gsvc,
+		Bundler:      bundler,
+		ExecutionSvc: service.NewExecutionService(db),
 	}
+	
+	// Set default executor to Golem
+	if gsvc != nil {
+		jr.Executor = NewGolemExecutor(gsvc)
+	}
+	
+	return jr
 }
 
 // NewJobRunnerWithQueue allows specifying the queue name explicitly.
@@ -63,6 +75,14 @@ func NewJobRunnerWithQueue(db *sql.DB, q *queue.Client, gsvc *golem.Service, bun
 	jr := NewJobRunner(db, q, gsvc, bundler)
 	jr.QueueName = queueName
 	return jr
+}
+
+// SetHybridClient configures the hybrid client and switches to hybrid executor if available
+func (w *JobRunner) SetHybridClient(client *hybrid.Client) {
+	w.Hybrid = client
+	if client != nil {
+		w.Executor = NewHybridExecutor(client)
+	}
 }
 
 // Start begins consuming from the jobs queue and processing each job
@@ -100,328 +120,238 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("invalid envelope: %w", err)
 	}
 	
-	// Debug log parsed envelope
-	l.Debug().
-		Str("parsed_id", env.ID).
-		Time("parsed_enqueued_at", env.EnqueuedAt).
-		Int("parsed_attempt", env.Attempt).
-		Str("parsed_request_id", env.RequestID).
-		Msg("job runner parsed envelope")
-	
-	if env.ID == "" {
-		return fmt.Errorf("missing job id in envelope")
-	}
 
-	// Inject request_id into context for downstream correlation (DB logs, tracing, etc.)
-	if env.RequestID != "" {
-		ctx = context.WithValue(ctx, "request_id", env.RequestID)
-		l = logging.FromContext(ctx)
-	}
-	l.Info().Str("job_id", env.ID).Int("attempt", env.Attempt).Msg("job envelope received")
-
-	// CRITICAL: Mark job as "processing" when dequeued from Redis
-	// This enables crash recovery and prevents job loss during restarts
+	// Mark job as processing and fetch JobSpec
 	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "processing"); err != nil {
-		l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as processing")
 		return fmt.Errorf("update job status to processing: %w", err)
 	}
-	l.Info().Str("job_id", env.ID).Msg("job marked as processing")
 
-	// Load stored JobSpec JSON
 	_, _, jobspecJSON, _, _, err := w.JobsRepo.GetJob(ctx, env.ID)
 	if err != nil {
+		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("get job: %w", err), "unknown", nil)
 		return fmt.Errorf("get job: %w", err)
 	}
-	if len(jobspecJSON) == 0 {
-		return fmt.Errorf("empty jobspec JSON for %s", env.ID)
-	}
 
-	// Validate/parse JobSpec
-	validator := jobspec.NewValidator()
-	spec, err := validator.ValidateJobSpec(jobspecJSON)
+	spec, err := jobspec.NewValidator().ValidateJobSpec(jobspecJSON)
 	if err != nil {
+		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("jobspec validate: %w", err), "unknown", nil)
+		_ = w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed")
 		return fmt.Errorf("jobspec validate: %w", err)
 	}
 
-	// Choose first region (MVP single-region)
 	if len(spec.Constraints.Regions) == 0 {
+		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("no regions in job constraints"), "unknown", nil)
+		_ = w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed")
 		return fmt.Errorf("no regions in job constraints")
 	}
-	region := spec.Constraints.Regions[0]
 
-	// Queue latency metric if we have enqueued_at
+	// Queue latency metric
 	if !env.EnqueuedAt.IsZero() {
-		latency := time.Since(env.EnqueuedAt).Seconds()
-		metrics.QueueLatencySeconds.WithLabelValues(region).Observe(latency)
+		metrics.QueueLatencySeconds.WithLabelValues(spec.Constraints.Regions[0]).Observe(time.Since(env.EnqueuedAt).Seconds())
 	}
 
-	// Execute single region
-	execStart := time.Now()
-	l.Info().Str("job_id", env.ID).Str("region", region).Bool("hybrid_enabled", w.Hybrid != nil).Msg("starting job execution")
-	
-	// Prefer Hybrid Router if configured
+	// Choose executor and execute
+	executor := w.Executor
 	if w.Hybrid != nil {
-		prompt := extractPrompt(spec)
-		model := extractModel(spec)
-		regionPref := mapRegionToRouter(region)
-		
-		l.Info().Str("job_id", env.ID).Str("region", regionPref).Str("model", model).Str("prompt", prompt).Msg("calling hybrid router")
-		
-		req := hybrid.InferenceRequest{
-			Model:            model,
-			Prompt:           prompt,
-			Temperature:      0.1,
-			MaxTokens:        128,
-			RegionPreference: regionPref,
-			CostPriority:     true,
-		}
-		
-		l.Debug().Str("job_id", env.ID).Interface("request", req).Msg("hybrid router request details")
-		
-		hre, herr := w.Hybrid.RunInference(ctx, req)
-		
-		l.Info().Str("job_id", env.ID).Bool("success", hre != nil && hre.Success).Err(herr).Msg("hybrid router response received")
-		if herr != nil || hre == nil || !hre.Success {
-			l.Error().Err(herr).Str("job_id", env.ID).Str("region", regionPref).Msg("hybrid router inference error")
-			out := map[string]any{"error": fmt.Sprintf("hybrid error: %v", herr)}
-			if hre != nil && hre.Error != "" { out["router_error"] = hre.Error }
-			outJSON, _ := json.Marshal(out)
-			startedAt := time.Now().UTC()
-			completedAt := startedAt
-			
-			l.Info().Str("job_id", env.ID).Str("region", regionPref).Msg("inserting failed execution record")
-			execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, "", regionPref, "failed", startedAt, completedAt, outJSON, nil)
-			if insErr != nil {
-				l.Error().Err(insErr).Str("job_id", env.ID).Msg("failed to insert execution record")
-			} else {
-				l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("failed execution record created")
-			}
-			
-			// Mark job as failed in jobs table
-			if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed"); err != nil {
-				l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as failed")
-			} else {
-				l.Info().Str("job_id", env.ID).Msg("job marked as failed")
-			}
-			
-			metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "failed").Observe(time.Since(execStart).Seconds())
-			metrics.JobsFailedTotal.Inc()
-			return insErr
-		}
-		// Success via Hybrid
-		l.Info().Str("job_id", env.ID).Str("provider", hre.ProviderUsed).Str("region", regionPref).Msg("hybrid router execution successful")
-		
-		out := map[string]any{
-			"response": hre.Response,
-			"provider": hre.ProviderUsed,
-			"metadata": hre.Metadata,
-		}
-		outJSON, _ := json.Marshal(out)
-		startedAt := execStart.UTC()
-		completedAt := time.Now().UTC()
-		
-		l.Info().Str("job_id", env.ID).Str("provider", hre.ProviderUsed).Str("region", regionPref).Msg("inserting successful execution record")
-		execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, hre.ProviderUsed, regionPref, "completed", startedAt, completedAt, outJSON, nil)
-		if err != nil {
-			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to insert successful execution record")
-			return fmt.Errorf("insert execution: %w", err)
-		}
-		
-		l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", hre.ProviderUsed).Msg("successful execution record created")
-		
-		// Mark job as completed in jobs table
-		if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "completed"); err != nil {
-			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as completed")
-		} else {
-			l.Info().Str("job_id", env.ID).Msg("job marked as completed")
-		}
-		
-		metrics.ExecutionDurationSeconds.WithLabelValues(regionPref, "completed").Observe(time.Since(execStart).Seconds())
-		metrics.JobsProcessedTotal.Inc()
-		if w.Bundler != nil {
-			go func(jid string) {
-				// Inherit from worker context to respect shutdown signals
-				ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
-				defer cancel()
-				_, _ = w.Bundler.StoreBundle(ctx2, jid)
-			}(spec.ID)
-		}
-		if execID > 0 {
-			go w.verifyRegionAsync(ctx, execID, regionPref)
-		}
-		return nil
+		executor = NewHybridExecutor(w.Hybrid)
+	}
+	if executor == nil {
+		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("no executor configured"), "unknown", nil)
+		return fmt.Errorf("no executor configured")
 	}
 
-	l.Info().Str("job_id", env.ID).Str("region", region).Msg("falling back to Golem execution")
-	res, err := golem.ExecuteSingleRegion(ctx, w.Golem, spec, region)
-	if err != nil {
-		l.Error().Err(err).Str("job_id", env.ID).Str("region", region).Msg("Golem execution error")
-		// Persist failed execution row with error details in output
-		out := map[string]any{"error": err.Error()}
-		outJSON, _ := json.Marshal(out)
-		// res may be nil on error; avoid dereference and use safe defaults
-		providerID := ""
-		startedAt := time.Now().UTC()
-		completedAt := startedAt
-		
-		l.Info().Str("job_id", env.ID).Str("region", region).Msg("inserting Golem failed execution record")
-		execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, region, "failed", startedAt, completedAt, outJSON, nil)
-		if insErr != nil {
-			l.Error().Err(insErr).Str("job_id", env.ID).Msg("failed to insert Golem execution record")
-		} else {
-			l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Msg("Golem failed execution record created")
-		}
-		
-		// Mark job as failed in jobs table
-		if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed"); err != nil {
-			l.Error().Err(err).Str("job_id", env.ID).Msg("failed to mark job as failed")
-		} else {
-			l.Info().Str("job_id", env.ID).Msg("job marked as failed")
-		}
-		
-		// Metrics: failed execution
-		metrics.ExecutionDurationSeconds.WithLabelValues(region, "failed").Observe(time.Since(execStart).Seconds())
-		metrics.JobsFailedTotal.Inc()
-		return insErr
-	}
-
-	l.Info().Str("job_id", env.ID).Str("provider", res.ProviderID).Str("region", region).Msg("Golem execution successful")
+	l.Info().Str("job_id", env.ID).Strs("regions", spec.Constraints.Regions).Msg("starting multi-region execution")
 	
-	// Marshal output and receipt
-	outJSON, _ := json.Marshal(res.Execution.Output)
-	recJSON, _ := json.Marshal(res.Receipt)
-
-	status := "completed"
-	var startedAt, completedAt time.Time
-	if res.Execution != nil {
-		status = res.Execution.Status
-		startedAt = res.Execution.StartedAt
-		completedAt = res.Execution.CompletedAt
-	}
-
-	l.Info().Str("job_id", env.ID).Str("provider", res.ProviderID).Str("region", region).Str("status", status).Msg("inserting Golem execution record")
-	execID, err := w.ExecRepo.InsertExecution(ctx, spec.ID, res.ProviderID, region, status, startedAt, completedAt, outJSON, recJSON)
+	results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor, time.Now())
 	if err != nil {
-		l.Error().Err(err).Str("job_id", env.ID).Msg("failed to insert Golem execution record")
-		return fmt.Errorf("insert execution: %w", err)
+		return err
 	}
 	
-	l.Info().Str("job_id", env.ID).Int64("execution_id", execID).Str("provider", res.ProviderID).Msg("Golem execution record created")
-
-	// Mark job as completed/failed in jobs table
-	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, status); err != nil {
-		l.Error().Err(err).Str("job_id", env.ID).Str("status", status).Msg("failed to update job status")
-	} else {
-		l.Info().Str("job_id", env.ID).Str("status", status).Msg("job status updated")
-	}
-
-	// Metrics: successful/finished execution
-	metrics.ExecutionDurationSeconds.WithLabelValues(region, status).Observe(time.Since(execStart).Seconds())
-	if status == "failed" {
-		metrics.JobsFailedTotal.Inc()
-	} else {
-		metrics.JobsProcessedTotal.Inc()
-	}
-
-	// Best-effort: trigger IPFS bundling and CID persistence after success
-	if w.Bundler != nil {
-		go func(jid string) {
-			// Inherit from worker context to respect shutdown signals
-			ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
-			defer cancel()
-			if _, berr := w.Bundler.StoreBundle(ctx2, jid); berr != nil {
-				l2 := logging.FromContext(ctx)
-				l2.Error().Err(berr).Str("job_id", jid).Msg("bundler error")
-			}
-		}(spec.ID)
-	}
-
-	// Preflight region verification (best-effort, non-fatal)
-	// Only attempt if we have an execution row id
-	if execID > 0 {
-		go func(executionID int64, claimed string) {
-			// Short timeout to avoid blocking worker, inherit from parent context
-			pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-			var probe negotiation.PreflightProbe
-			if w.ProbeFactory != nil {
-				probe = w.ProbeFactory()
-			} else {
-				probe = negotiation.NewPreflightProbe(negotiation.DefaultHTTPIPFetcher(5*time.Second), geoip.NewResolver())
-			}
-			observed, _, verr := probe.Verify(pctx, "")
-			if verr != nil {
-				// Log and continue; do not fail the job
-				l2 := logging.FromContext(ctx)
-				l2.Warn().Err(verr).Int64("execution_id", executionID).Msg("preflight verification skipped")
-				return
-			}
-			verified := (observed == claimed)
-			// Persist verification fields
-			_ = w.ExecRepo.UpdateRegionVerification(context.Background(), executionID,
-				sql.NullString{String: claimed, Valid: true},
-				sql.NullString{String: observed, Valid: true},
-				sql.NullBool{Bool: verified, Valid: true},
-				sql.NullString{String: "preflight-geoip", Valid: true},
-				sql.NullString{}, // evidence ref optional, not stored yet
-			)
-		}(execID, region)
-	}
-
-	return nil
+	return w.processExecutionResults(ctx, env.ID, spec, results, time.Now())
 }
 
-// Helper: extract a prompt string from JobSpec input (fallback to generic)
-func extractPrompt(spec *models.JobSpec) string {
-    if spec != nil && spec.Benchmark.Input.Type == "prompt" {
-        if v, ok := spec.Benchmark.Input.Data["prompt"].(string); ok && v != "" {
-            return v
-        }
-    }
-    return "Who are you? Describe yourself in 2-3 sentences."
-}
-
-// Helper: choose a model name (can be extended later)
-func extractModel(_ *models.JobSpec) string {
-    // In future, derive from spec.Metadata or Benchmark.Name
-    return "llama-3.2-1b"
-}
-
-// Helper: map runner regions (US, EU, APAC) to router regions
-func mapRegionToRouter(r string) string {
-	switch r {
-	case "US":
-		return "us-east"
-	case "EU":
-		return "eu-west"
-	case "APAC":
-		return "asia-pacific"
-	default:
-		return "eu-west"
-	}
-}
-
-// Helper: spawn async verification using existing probe logic
+// verifyRegionAsync spawns async verification using existing probe logic
 func (w *JobRunner) verifyRegionAsync(ctx context.Context, executionID int64, claimed string) {
-	// Short timeout to avoid blocking worker, inherit from parent context
 	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	
 	var probe negotiation.PreflightProbe
 	if w.ProbeFactory != nil {
 		probe = w.ProbeFactory()
 	} else {
-		probe = negotiation.NewPreflightProbe(negotiation.DefaultHTTPIPFetcher(5*time.Second), geoip.NewResolver())
+		return // No probe factory available
 	}
-	observed, _, verr := probe.Verify(pctx, "")
-	if verr != nil {
-		return
+
+	observed, _, err := probe.Verify(pctx, claimed)
+	if err != nil {
+		return // Log error but don't fail the job
 	}
-	verified := (observed == claimed)
-	_ = w.ExecRepo.UpdateRegionVerification(context.Background(), executionID,
+
+	verified := observed == claimed
+	_ = w.ExecRepo.UpdateRegionVerification(pctx, executionID,
 		sql.NullString{String: claimed, Valid: true},
 		sql.NullString{String: observed, Valid: true},
 		sql.NullBool{Bool: verified, Valid: true},
-		sql.NullString{String: "preflight-geoip", Valid: true},
-		sql.NullString{},
-	)
+		sql.NullString{String: "preflight_probe", Valid: true},
+		sql.NullString{})
 }
+
+type ExecutionResult struct {
+	Region      string
+	ProviderID  string
+	Status      string
+	OutputJSON  []byte
+	ReceiptJSON []byte
+	Error       error
+	StartedAt   time.Time
+	CompletedAt time.Time
+	ExecutionID int64
+}
+
+// executeAllRegions executes a job across all specified regions in parallel
+func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *models.JobSpec, regions []string, executor Executor, execStart time.Time) ([]ExecutionResult, error) {
+	l := logging.FromContext(ctx)
+	
+	// Parallel execution coordination
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var results []ExecutionResult
+	
+	l.Info().Str("job_id", jobID).Int("region_count", len(regions)).Msg("starting parallel region execution")
+	
+	// Execute each region in parallel
+	for _, region := range regions {
+		wg.Add(1)
+		go func(r string) {
+			defer wg.Done()
+			
+			result := w.executeSingleRegion(ctx, jobID, spec, r, executor)
+			
+			// Thread-safe result collection
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+		}(region)
+	}
+	
+	// Wait for all regions to complete
+	wg.Wait()
+	
+	// Return results for processing
+	return results, nil
+}
+
+// processExecutionResults analyzes execution results and updates job status
+func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, spec *models.JobSpec, results []ExecutionResult, execStart time.Time) error {
+	l := logging.FromContext(ctx)
+	
+	// Count successes and failures
+	successCount, failureCount, firstError := 0, 0, error(nil)
+	for _, result := range results {
+		if result.Error != nil || result.Status == "failed" {
+			failureCount++
+			if firstError == nil {
+				firstError = result.Error
+			}
+		} else {
+			successCount++
+		}
+	}
+	
+	// Determine job status
+	successRate := float64(successCount) / float64(len(results))
+	minSuccessRate := spec.Constraints.MinSuccessRate
+	if minSuccessRate == 0 {
+		minSuccessRate = 0.67
+	}
+	
+	jobStatus := "failed"
+	if successRate >= minSuccessRate {
+		jobStatus = "completed"
+	}
+	
+	l.Info().Str("job_id", jobID).Int("successful", successCount).Int("failed", failureCount).Float64("success_rate", successRate).Msg("multi-region execution completed")
+	
+	// Update job status and metrics
+	if err := w.JobsRepo.UpdateJobStatus(ctx, jobID, jobStatus); err != nil {
+		return fmt.Errorf("failed to update job status: %w", err)
+	}
+	
+	if jobStatus == "failed" {
+		metrics.JobsFailedTotal.Inc()
+	} else {
+		metrics.JobsProcessedTotal.Inc()
+	}
+	
+	// Trigger IPFS bundling for successful jobs
+	if w.Bundler != nil && jobStatus != "failed" {
+		go func() {
+			ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			_, _ = w.Bundler.StoreBundle(ctx2, spec.ID)
+		}()
+	}
+	
+	if jobStatus == "failed" && firstError != nil {
+		return fmt.Errorf("multi-region execution failed: %w", firstError)
+	}
+	
+	return nil
+}
+
+// executeSingleRegion executes a job in a single region and returns the result
+func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec *models.JobSpec, region string, executor Executor) ExecutionResult {
+	l := logging.FromContext(ctx)
+	
+	regionStart := time.Now()
+	l.Info().Str("job_id", jobID).Str("region", region).Msg("starting region execution")
+	
+	// Execute job in this region
+	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, spec, region)
+	
+	// Determine actual region for metrics (hybrid executor may map regions)
+	actualRegion := region
+	if w.Hybrid != nil {
+		actualRegion = mapRegionToRouter(region)
+	}
+	
+	regionEnd := time.Now()
+	result := ExecutionResult{
+		Region:      actualRegion,
+		ProviderID:  providerID,
+		Status:      status,
+		OutputJSON:  outputJSON,
+		ReceiptJSON: receiptJSON,
+		Error:       err,
+		StartedAt:   regionStart.UTC(),
+		CompletedAt: regionEnd.UTC(),
+	}
+	
+	// Handle execution result logging
+	if err != nil {
+		l.Error().Err(err).Str("job_id", jobID).Str("region", actualRegion).Msg("region execution failed")
+		result.Status = "failed"
+	} else {
+		l.Info().Str("job_id", jobID).Str("provider", providerID).Str("region", actualRegion).Str("status", status).Msg("region execution successful")
+	}
+	
+	// Insert execution record in database
+	execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, actualRegion, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON)
+	if insErr != nil {
+		l.Error().Err(insErr).Str("job_id", jobID).Str("region", actualRegion).Msg("failed to insert execution record")
+	} else {
+		result.ExecutionID = execID
+		l.Info().Str("job_id", jobID).Int64("execution_id", execID).Str("region", actualRegion).Msg("execution record created")
+	}
+	
+	// Update metrics
+	metrics.ExecutionDurationSeconds.WithLabelValues(actualRegion, result.Status).Observe(time.Since(regionStart).Seconds())
+	
+	// Best-effort: region verification
+	if execID > 0 {
+		go w.verifyRegionAsync(ctx, execID, actualRegion)
+	}
+	
+	return result
+}
+

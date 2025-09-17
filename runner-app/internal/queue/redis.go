@@ -16,6 +16,24 @@ type Client struct {
 	advancedQueue advQueue
 }
 
+// tryDequeueSimpleOnce attempts a single BRPOP with a short timeout and returns a raw payload if available.
+func (c *Client) tryDequeueSimpleOnce(ctx context.Context, queue string, timeout time.Duration) ([]byte, error) {
+    if c == nil || c.redis == nil {
+        return nil, nil
+    }
+    res, err := c.redis.BRPop(ctx, timeout, queue).Result()
+    if err != nil {
+        if err == redis.Nil {
+            return nil, nil
+        }
+        return nil, err
+    }
+    if len(res) != 2 {
+        return nil, nil
+    }
+    return []byte(res[1]), nil
+}
+
 // GetRedisClient returns the underlying Redis client for security features
 func (c *Client) GetRedisClient() *redis.Client {
 	if c == nil {
@@ -133,12 +151,25 @@ func (c *Client) StartWorker(ctx context.Context, queueName string, handler func
 		message, err := advancedQueue.Dequeue(ctx)
 		if err != nil {
 			log.Printf("queue dequeue error: %v", err)
+			// Fallback: try to read a raw envelope once from the simple queue
+			if payload, ferr := c.tryDequeueSimpleOnce(ctx, queueName, 500*time.Millisecond); ferr == nil && payload != nil {
+				if hErr := handler(payload); hErr != nil {
+					log.Printf("queue handler error (fallback simple): %v", hErr)
+				}
+				continue
+			}
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		
 		if message == nil {
-			continue // No message available
+			// Also attempt a non-blocking simple dequeue to pick up raw envelopes
+			if payload, _ := c.tryDequeueSimpleOnce(ctx, queueName, 200*time.Millisecond); payload != nil {
+				if hErr := handler(payload); hErr != nil {
+					log.Printf("queue handler error (fallback simple no-msg): %v", hErr)
+				}
+			}
+			continue // No advanced message available
 		}
 
 		// Process the job
@@ -148,9 +179,14 @@ func (c *Client) StartWorker(ctx context.Context, queueName string, handler func
 			payloadJSON, _ := json.Marshal(message.Payload)
 			payload = payloadJSON
 		} else {
-			// For simple envelope messages (current format)
+			// For simple envelope messages (current format). Some producers publish only {id,enqueued_at,attempt}.
+			// Prefer JobSpecID, but fall back to message.ID when JobSpecID is empty (raw outbox envelope case).
+			jobID := message.JobSpecID
+			if jobID == "" {
+				jobID = message.ID
+			}
 			envelope := map[string]interface{}{
-				"id":          message.ID,
+				"id":          jobID,
 				"enqueued_at": message.EnqueuedAt,
 				"attempt":     message.Attempts,
 			}

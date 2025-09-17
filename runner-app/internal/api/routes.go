@@ -127,7 +127,13 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			{
 				executions.GET("", executionsHandler.ListExecutions)
 				executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
+				executions.GET("/:id/details", executionsHandler.GetExecutionDetails)
+				// TODO: Implement for Track C (Cross-Region Diffs)
+				// executions.GET("/:id/cross-region-diff", executionsHandler.GetCrossRegionDiff)
+				// executions.GET("/:id/regions", executionsHandler.GetRegionResults)
 			}
+			// Job-scoped executions (includes rows without receipts)
+			v1.GET("/jobs/:id/executions/all", executionsHandler.ListAllExecutionsForJob)
 		}
 
 		// Diffs endpoint for portal
@@ -168,9 +174,12 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		admin.GET("/flags", adminHandler.GetFlags)
 		admin.PUT("/flags", adminHandler.UpdateFlags)
 		admin.GET("/config", adminHandler.GetConfig)
+		admin.POST("/republish-job", adminHandler.RepublishJobByID)
 		admin.POST("/republish-stuck-jobs", adminHandler.RepublishStuckJobs)
 		admin.POST("/repair-stuck-jobs", adminHandler.RepairStuckJobsHandler)
 		admin.GET("/stuck-jobs-stats", adminHandler.GetStuckJobsStats)
+		admin.GET("/outbox-stats", adminHandler.GetOutboxStats)
+		admin.GET("/queue-stats", adminHandler.GetQueueRuntimeStats)
 		admin.GET("/resource-stats", adminHandler.GetResourceStats)
 		admin.GET("/port", adminHandler.GetPortInfo)
 		admin.GET("/hints", adminHandler.GetHints)

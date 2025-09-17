@@ -5,6 +5,7 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "io"
     "net/http"
     "time"
 )
@@ -55,24 +56,72 @@ type InferenceResponse struct {
 }
 
 func (c *Client) RunInference(ctx context.Context, req InferenceRequest) (*InferenceResponse, error) {
+	// Try common endpoint variants to be resilient to router path changes
+	paths := []string{"/inference", "/api/v1/inference", "/api/inference", "/v1/inference"}
+	var lastErr error
+	for _, p := range paths {
+		out, err := c.postInference(ctx, c.baseURL+p, req)
+		if err == nil {
+			return out, nil
+		}
+		
+		// If it's a router error (not HTTP error), return the response with the error
+		if IsRouterError(err) {
+			return out, err
+		}
+		
+		// If 404, try next path; otherwise, keep the error and continue
+		if IsNotFound(err) {
+			lastErr = fmt.Errorf("router http 404 on %s: %w", p, err)
+			continue
+		}
+		// Non-404 errors: remember but still try other paths in case of proxy rewrites
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("router inference failed: unknown error")
+	}
+	return nil, lastErr
+}
+
+func (c *Client) postInference(ctx context.Context, url string, req InferenceRequest) (*InferenceResponse, error) {
 	b, _ := json.Marshal(req)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/inference", bytes.NewReader(b))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
-		return nil, err
+		return nil, NewNetworkError("failed to create HTTP request", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
+	
 	res, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, err
+		// Check if it's a timeout error
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, NewTimeoutError("HTTP request timeout", err)
+		}
+		return nil, NewNetworkError("HTTP request failed", err)
 	}
 	defer res.Body.Close()
+	
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("router http %d", res.StatusCode)
+		// Include a snippet of the response body for diagnostics
+		body, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
+		return nil, NewHTTPError(res.StatusCode, string(body), url)
 	}
+	
 	var out InferenceResponse
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return nil, err
+		return nil, NewJSONError("failed to decode response", err)
+	}
+	
+	if !out.Success {
+		// Propagate router error for higher-level logging/persistence
+		msg := out.Error
+		if msg == "" {
+			msg = "unsuccessful"
+		}
+		return &out, NewRouterError(msg)
 	}
 	return &out, nil
 }
+

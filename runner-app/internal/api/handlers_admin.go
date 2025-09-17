@@ -6,11 +6,13 @@ import (
 	"net"
 	"runtime"
 	"time"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/flags"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
+	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 )
 
 // AdminHandler bundles simple admin operations
@@ -20,6 +22,83 @@ type AdminHandler struct {
 	queueClient interface {
 		GetCircuitBreakerStats() string
 	}
+}
+
+// GetOutboxStats returns DB outbox unpublished stats
+func (h *AdminHandler) GetOutboxStats(c *gin.Context) {
+    if h.jobsService == nil || h.jobsService.Outbox == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "outbox not available"})
+        return
+    }
+    count, oldest, err := h.jobsService.Outbox.GetUnpublishedStats(c.Request.Context())
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get outbox stats", "details": err.Error()})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"unpublished_count": count, "oldest_age_seconds": oldest})
+}
+
+// GetQueueRuntimeStats returns Redis queue lengths (main, retry, dead, processing)
+func (h *AdminHandler) GetQueueRuntimeStats(c *gin.Context) {
+    if h.queueClient == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue not available"})
+        return
+    }
+    // Try to access underlying queue client for stats
+    qc, ok := h.queueClient.(*queue.Client)
+    if !ok || qc == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue client does not expose stats"})
+        return
+    }
+    // Use RedisQueue stats if advanced queue is initialized; otherwise fall back to simple LLEN
+    if rq, ok := any(qc).(*queue.Client); ok && rq != nil {
+        // queue.Client has no direct stats, so attempt best-effort simple LLENs
+        rc := rq.GetRedisClient()
+        if rc == nil {
+            c.JSON(http.StatusServiceUnavailable, gin.H{"error": "redis client not available"})
+            return
+        }
+        // Determine queue name from config
+        qname := h.cfg.JobsQueueName
+        mainLen := rc.LLen(c.Request.Context(), qname).Val()
+        deadLen := rc.LLen(c.Request.Context(), qname+":dead").Val()
+        retryLen := rc.ZCard(c.Request.Context(), qname+":retry").Val()
+        // processing is a set of keys pattern; approximate by key count
+        processingKeys, _ := rc.Keys(c.Request.Context(), qname+":processing:*").Result()
+        c.JSON(http.StatusOK, gin.H{
+            "queue": qname,
+            "main": mainLen,
+            "retry": retryLen,
+            "dead": deadLen,
+            "processing": len(processingKeys),
+        })
+        return
+    }
+    c.JSON(http.StatusServiceUnavailable, gin.H{"error": "unable to access queue stats"})
+}
+
+// RepublishJobByID republishes a specific job to the outbox queue.
+// Body: {"job_id": "<jobspec_id>"}
+func (h *AdminHandler) RepublishJobByID(c *gin.Context) {
+    if h.jobsService == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "jobs service not available"})
+        return
+    }
+    var req struct{ JobID string `json:"job_id"` }
+    body, err := c.GetRawData()
+    if err != nil || len(body) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body"})
+        return
+    }
+    if err := json.Unmarshal(body, &req); err != nil || req.JobID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "missing_job_id"})
+        return
+    }
+    if err := h.jobsService.RepublishJob(c.Request.Context(), req.JobID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "republish_failed", "details": err.Error()})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "republished", "job_id": req.JobID})
 }
 
 func NewAdminHandler(cfg *config.Config) *AdminHandler {
