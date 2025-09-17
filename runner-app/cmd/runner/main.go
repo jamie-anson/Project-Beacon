@@ -318,3 +318,4 @@ func initOpenTelemetry(ctx context.Context, serviceName string) (*trace.TracerPr
 	return tp, func() {}
 }
 // Trigger deployment test
+// Test final deployment fix
