@@ -91,7 +91,7 @@ cover:
 	@echo "Running coverage across all packages (excluding ./cmd/)..."
 	@PKGS=$$(go list ./... | grep -v "^github.com/jamie-anson/project-beacon-runner/cmd/"); \
 	PKGCSV=$$(echo $$PKGS | tr ' ' ','); \
-	go test -race -timeout=$(TIMEOUT) -coverpkg=$$PKGCSV -coverprofile=coverage.out $$PKGS
+	go test -race -timeout=$(TIMEOUT) -tags ci -coverpkg=$$PKGCSV -coverprofile=coverage.out $$PKGS
 
 cover-html: cover
 	@echo "Generating coverage HTML report (coverage.html)..."
