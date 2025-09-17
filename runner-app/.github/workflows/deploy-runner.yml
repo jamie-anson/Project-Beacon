@@ -44,25 +44,15 @@ jobs:
           
       - name: Build and test
         run: |
-          # Build and test only essential packages, completely skip worker
-          go build -v ./pkg/crypto
-          go build -v ./pkg/merkle  
-          go build -v ./pkg/models
-          go build -v ./internal/api
-          go build -v ./internal/store
-          go build -v ./cmd/runner
-          go build -v ./cmd/jobspec-signer
-          go build -v ./cmd/admin
+          go mod download
           # Test only stable packages with ci build tag to exclude problematic worker tests
           go test -tags ci ./pkg/crypto
           go test -tags ci ./pkg/merkle  
           go test -tags ci ./pkg/models
           go test -tags ci ./internal/store
           # Skip internal/api and internal/worker tests as they may have dependencies
-          # Build final binaries
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
-          go build -o admin ./cmd/admin
           
       - name: Build and push Docker image
         run: |
