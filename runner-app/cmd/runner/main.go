@@ -320,3 +320,4 @@ func initOpenTelemetry(ctx context.Context, serviceName string) (*trace.TracerPr
 // Trigger deployment test
 // Test final deployment fix
 // Final test of corrected workflow
+// SUCCESS TEST: Only stable package tests
