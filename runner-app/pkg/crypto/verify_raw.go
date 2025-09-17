@@ -26,7 +26,7 @@ func VerifySignatureRaw(raw []byte, signatureB64 string, publicKeyB64 string, re
         return fmt.Errorf("prepare signable: %w", err)
     }
 
-    // Canonicalize
+    // Canonicalize to bytes that must match client-side canonical JSON
     canon, err := CanonicalizeGenericV1(generic)
     if err != nil {
         return fmt.Errorf("canonicalize: %w", err)
@@ -38,8 +38,8 @@ func VerifySignatureRaw(raw []byte, signatureB64 string, publicKeyB64 string, re
         return fmt.Errorf("invalid public key: %w", err)
     }
 
-    // Verify
-    if err := VerifyJSONSignature(canon, signatureB64, pk); err != nil {
+    // Verify directly against canonical bytes
+    if err := VerifySignatureBytes(canon, signatureB64, pk); err != nil {
         // Also try raw (unpadded) base64 signature if needed
         if _, err2 := base64.StdEncoding.DecodeString(signatureB64); err2 != nil {
             if _, err3 := base64.RawStdEncoding.DecodeString(signatureB64); err3 == nil {

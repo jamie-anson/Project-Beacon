@@ -1,6 +1,7 @@
 package processors
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -50,7 +51,7 @@ func (p *JobSpecProcessor) ParseRequest(c *gin.Context) (*models.JobSpec, []byte
 
 // ValidateBiasDetectionQuestions enforces questions requirement for bias-detection v1
 func (p *JobSpecProcessor) ValidateBiasDetectionQuestions(spec *models.JobSpec, rawBody []byte) error {
-	l := logging.FromContext(nil) // TODO: Pass context through
+	l := logging.FromContext(context.TODO()) // TODO: Pass context through
 	
 	// Only apply to v1 bias-detection
 	if !strings.EqualFold(spec.Version, "v1") || !strings.Contains(strings.ToLower(spec.Benchmark.Name), "bias") {
@@ -81,7 +82,7 @@ func (p *JobSpecProcessor) ValidateBiasDetectionQuestions(spec *models.JobSpec, 
 
 // LogQuestions logs the presence of questions for debugging
 func (p *JobSpecProcessor) LogQuestions(spec *models.JobSpec) {
-	l := logging.FromContext(nil) // TODO: Pass context through
+	l := logging.FromContext(context.TODO()) // TODO: Pass context through
 	
 	if len(spec.Questions) > 0 {
 		l.Info().Str("job_id", spec.ID).Int("questions_present", len(spec.Questions)).Strs("questions", spec.Questions).Msg("JobSpec questions parsed successfully")
@@ -92,14 +93,13 @@ func (p *JobSpecProcessor) LogQuestions(spec *models.JobSpec) {
 
 // ValidateJobSpec performs core JobSpec validation
 func (p *JobSpecProcessor) ValidateJobSpec(spec *models.JobSpec) error {
-	l := logging.FromContext(nil) // TODO: Pass context through
+	l := logging.FromContext(context.TODO()) // TODO: Pass context through
 	l.Info().Str("job_id_before_validation", spec.ID).Msg("JobSpec ID before validation")
-	
-	if err := p.validator.ValidateAndVerify(spec); err != nil {
+	// Perform structural validation only here; signature verification is handled in SecurityPipeline
+	if err := spec.Validate(); err != nil {
 		l.Info().Str("job_id_after_validation_error", spec.ID).Msg("JobSpec ID after validation error")
 		return err
 	}
-	
 	l.Info().Str("job_id_after_validation_success", spec.ID).Msg("JobSpec ID after successful validation")
 	return nil
 }

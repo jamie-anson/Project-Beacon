@@ -3,7 +3,11 @@ package security
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"os"
 	"strings"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
@@ -150,10 +154,73 @@ func (s *SecurityPipeline) validateTimestampAndNonce(ctx context.Context, spec *
 // validateSignature performs signature verification with fallback
 func (s *SecurityPipeline) validateSignature(ctx context.Context, spec *models.JobSpec, rawBody []byte, clientIP string) error {
 	l := logging.FromContext(ctx)
-	
-	validator := models.NewJobSpecValidator()
-	err := validator.ValidateAndVerify(spec)
-	if err != nil {
+    mode := strings.ToLower(os.Getenv("SIGN_CANON_MODE"))
+    if mode == "" {
+        mode = "auto"
+    }
+    l.Debug().Str("sign_canon_mode", mode).Msg("signature verification mode")
+
+	// SIGN_DEBUG: compute and log canonicalization fingerprints (client-struct vs raw-body)
+	if os.Getenv("SIGN_DEBUG") != "" {
+		// Client path (struct-based, with CreateSignableJobSpec)
+		var clientLen int
+		var clientSha string
+		if signable, derr := beaconcrypto.CreateSignableJobSpec(spec); derr == nil {
+			if canon, cerr := beaconcrypto.CanonicalJSON(signable); cerr == nil {
+				clientLen = len(canon)
+				sum := sha256.Sum256(canon)
+				clientSha = hex.EncodeToString(sum[:])
+			}
+		}
+
+		// Raw path (from rawBody with minimal field stripping)
+		var rawLen int
+		var rawSha string
+		var hasExecType, hasEstCost, hasCreatedAt bool
+		if len(rawBody) > 0 {
+			if generic, gerr := beaconcrypto.StripKeysFromJSON(rawBody, []string{"id", "signature", "public_key"}); gerr == nil {
+				if canon2, kerr := beaconcrypto.CanonicalizeGenericV1(generic); kerr == nil {
+					rawLen = len(canon2)
+					sum2 := sha256.Sum256(canon2)
+					rawSha = hex.EncodeToString(sum2[:])
+				}
+			}
+			// field presence checks
+			var obj map[string]interface{}
+			if jerr := json.Unmarshal(rawBody, &obj); jerr == nil {
+				if m, ok := obj["metadata"].(map[string]interface{}); ok {
+					_, hasExecType = m["execution_type"]
+					_, hasEstCost = m["estimated_cost"]
+				}
+				_, hasCreatedAt = obj["created_at"]
+			}
+		}
+
+		l.Info().
+			Int("client_canonical_len", clientLen).
+			Str("client_canonical_sha256", clientSha).
+			Int("raw_canonical_len", rawLen).
+			Str("raw_canonical_sha256", rawSha).
+			Bool("has_execution_type", hasExecType).
+			Bool("has_estimated_cost", hasEstCost).
+			Bool("has_created_at", hasCreatedAt).
+			Msg("sign-debug: canonical fingerprints")
+	}
+
+    // If mode is raw-first, attempt raw-body canonicalization before struct verification
+    if mode == "raw" && len(rawBody) > 0 && spec.PublicKey != "" && spec.Signature != "" {
+        if ferr := beaconcrypto.VerifySignatureRaw(rawBody, spec.Signature, spec.PublicKey, []string{"id", "signature", "public_key"}); ferr == nil {
+            l.Info().Str("job_id", spec.ID).Msg("signature verify (raw-first) succeeded")
+            return nil
+        } else {
+            s.recordSignatureFailure(ctx, clientIP, spec.PublicKey)
+            l.Warn().Err(ferr).Str("job_id", spec.ID).Msg("signature verify (raw-first) failed; falling back to struct mode")
+        }
+    }
+
+    validator := models.NewJobSpecValidator()
+    err := validator.ValidateAndVerify(spec)
+    if err != nil {
 		// Map errors to clearer taxonomy
 		msg := err.Error()
 		code := "validation_error"
@@ -170,19 +237,19 @@ func (s *SecurityPipeline) validateSignature(ctx context.Context, spec *models.J
 			code = "signature_mismatch"
 		}
 		
-		// Fallback: try raw-body canonicalization for portal compatibility
-		if code == "signature_mismatch" && len(rawBody) > 0 && spec.PublicKey != "" && spec.Signature != "" {
-			if ferr := beaconcrypto.VerifySignatureRaw(rawBody, spec.Signature, spec.PublicKey, []string{"signature", "public_key"}); ferr == nil {
-				l.Info().Str("job_id", spec.ID).Msg("compat signature verify (raw) succeeded; accepting")
-				return nil
-			} else {
-				// Record signature failure for rate limiting when fallback fails too
-				s.recordSignatureFailure(ctx, clientIP, spec.PublicKey)
-			}
-		} else if code == "signature_mismatch" {
-			// Record signature failure for rate limiting
-			s.recordSignatureFailure(ctx, clientIP, spec.PublicKey)
-		}
+		        // Fallback: try raw-body canonicalization for portal compatibility (only in auto mode)
+        if mode == "auto" && code == "signature_mismatch" && len(rawBody) > 0 && spec.PublicKey != "" && spec.Signature != "" {
+            if ferr := beaconcrypto.VerifySignatureRaw(rawBody, spec.Signature, spec.PublicKey, []string{"id", "signature", "public_key"}); ferr == nil {
+                l.Info().Str("job_id", spec.ID).Msg("compat signature verify (raw) succeeded; accepting")
+                return nil
+            } else {
+                // Record signature failure for rate limiting when fallback fails too
+                s.recordSignatureFailure(ctx, clientIP, spec.PublicKey)
+            }
+        } else if code == "signature_mismatch" {
+            // Record signature failure for rate limiting
+            s.recordSignatureFailure(ctx, clientIP, spec.PublicKey)
+        }
 		
 		if code != "signature_mismatch" {
 			// Record signature failure for canonicalization mismatch too

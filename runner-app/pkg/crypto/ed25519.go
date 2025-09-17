@@ -17,6 +17,22 @@ type KeyPair struct {
 	PrivateKey ed25519.PrivateKey
 }
 
+// VerifySignatureBytes verifies an Ed25519 signature against canonical JSON bytes.
+// Callers must supply the exact bytes that were signed (already canonicalized).
+func VerifySignatureBytes(canonicalJSON []byte, signatureBase64 string, publicKey ed25519.PublicKey) error {
+    // Decode signature
+    signature, err := base64.StdEncoding.DecodeString(signatureBase64)
+    if err != nil {
+        return fmt.Errorf("failed to decode signature: %w", err)
+    }
+
+    // Verify signature directly against provided bytes
+    if !ed25519.Verify(publicKey, canonicalJSON, signature) {
+        return fmt.Errorf("signature verification failed")
+    }
+    return nil
+}
+
 // GenerateKeyPair creates a new Ed25519 key pair
 func GenerateKeyPair() (*KeyPair, error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)

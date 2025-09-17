@@ -112,6 +112,15 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			})
 		})
 
+		// Admin-only debug endpoints
+		debug := v1.Group("/debug")
+		{
+			// Protect with admin auth and rate limiting
+			debug.Use(middleware.AdminAuthMiddleware(cfg))
+			debug.Use(middleware.AdminRateLimitMiddleware())
+			debug.POST("/verify", DebugVerify)
+		}
+
 		// Executions endpoints for portal
 		if executionsHandler != nil {
 			executions := v1.Group("/executions")

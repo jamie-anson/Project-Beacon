@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { getExecutions, getExecutionReceipt } from '../lib/api.js';
+import { getExecutions, getExecution, getExecutionReceipt } from '../lib/api.js';
 import CopyButton from '../components/CopyButton.jsx';
 
 function StatusPill({ value }) {
@@ -62,9 +62,16 @@ export default function ExecutionDetail() {
     return executionsData.find(exec => String(exec.id) === String(id));
   }, [executionsData, id]);
 
+  // Fetch both receipt and individual execution data
   const { data: receipt, loading: receiptLoading, error: receiptError } = useQuery(
     `receipt-${id}`, 
     () => getExecutionReceipt(id), 
+    { interval: 30000 }
+  );
+
+  const { data: executionData, loading: executionDataLoading, error: executionDataError } = useQuery(
+    `execution-${id}`, 
+    () => getExecution(id), 
     { interval: 30000 }
   );
 
@@ -110,6 +117,8 @@ export default function ExecutionDetail() {
   }
 
   const hasReceiptData = receipt && typeof receipt === 'object';
+  const hasOutputData = executionData && executionData.output_data && typeof executionData.output_data === 'object';
+  const hasAnyData = hasReceiptData || hasOutputData;
 
   return (
     <div className="space-y-6">
@@ -152,8 +161,14 @@ export default function ExecutionDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Provider:</span>
-                <code className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">{execution.provider_id || 'N/A'}</code>
+                <code className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">{execution.provider_id || executionData?.provider_id || 'N/A'}</code>
               </div>
+              {executionData?.model && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Model:</span>
+                  <span className="font-mono text-purple-400">{executionData.model}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -176,31 +191,138 @@ export default function ExecutionDetail() {
       {/* Receipt Section */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
         <div className="border-b border-gray-700 bg-gray-900 px-6 py-4">
-          <h2 className="font-semibold text-gray-100">Execution Receipt</h2>
-          <p className="text-sm text-gray-300 mt-1">Cryptographic proof of execution with detailed provenance</p>
+          <h2 className="font-semibold text-gray-100">Execution Results</h2>
+          <p className="text-sm text-gray-300 mt-1">AI responses and execution output with cryptographic provenance</p>
         </div>
 
         <div className="p-6">
-          {receiptLoading ? (
+          {(receiptLoading || executionDataLoading) ? (
             <div className="text-center py-8">
               <div className="animate-spin inline-block w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full"></div>
-              <p className="mt-2 text-gray-300">Loading receipt data...</p>
+              <p className="mt-2 text-gray-300">Loading execution results...</p>
             </div>
-          ) : receiptError ? (
+          ) : (receiptError && executionDataError) ? (
             <div className="text-center py-8">
               <div className="text-gray-400 mb-2">📄</div>
-              <p className="text-gray-400">Receipt data not available</p>
-              <p className="text-sm text-gray-500 mt-1">{receiptError.message}</p>
+              <p className="text-gray-400">Execution results not available</p>
+              <p className="text-sm text-gray-500 mt-1">{receiptError?.message || executionDataError?.message}</p>
             </div>
-          ) : !hasReceiptData ? (
+          ) : !hasAnyData ? (
             <div className="text-center py-8">
               <div className="text-gray-400 mb-2">📄</div>
-              <p className="text-gray-400">No receipt data available for this execution</p>
+              <p className="text-gray-400">No execution output or receipt data available for this execution</p>
             </div>
           ) : (
             <div className="space-y-6">
-              {/* AI Output */}
-              {receipt.output && (
+              {/* AI Output from Receipt (Legacy) */}
+              {hasReceiptData && receipt.output && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                    <span className="text-blue-400">🤖</span>
+                    AI Output (Receipt)
+                  </h4>
+                  {/* Receipt output rendering logic stays the same */}
+                  {/* ... existing receipt output code ... */}
+                </div>
+              )}
+              
+              {/* AI Output from Execution Data (New) */}
+              {hasOutputData && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                    <span className="text-green-400">🚀</span>
+                    Execution Output
+                  </h4>
+                  
+                  {/* Debug: Log the execution output structure */}
+                  {console.log('Execution output structure:', executionData.output_data) || null}
+                  
+                  {/* Check if we have structured question-answer data */}
+                  {(executionData.output_data?.responses && Array.isArray(executionData.output_data.responses)) || 
+                   (executionData.output_data?.data?.responses && Array.isArray(executionData.output_data.data.responses)) ? (
+                    <div className="space-y-4">
+                      {(executionData.output_data.responses || executionData.output_data.data.responses).map((response, index) => (
+                        <div key={response.question_id || index} className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                          <div className="text-sm text-green-300 font-medium mb-2">
+                            {questionMap[response.question_id] || response.question || 'Question text not available'}
+                          </div>
+                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                            "{response.response || response.answer || 'No response available'}"
+                          </div>
+                          <div className="flex justify-between mt-2 text-xs text-gray-400">
+                            <span>Category: <span className="inline-block px-2 py-0.5 rounded bg-gray-700 text-gray-300 font-medium">{response.category ? response.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A'}</span></span>
+                            <span>Time: {response.inference_time ? `${response.inference_time.toFixed(2)}s` : 'N/A'}</span>
+                            <span className={response.success ? 'text-green-400' : 'text-red-400'}>
+                              {response.success ? '✓ Success' : '✗ Failed'}
+                            </span>
+                          </div>
+                          {response.error && (
+                            <div className="mt-2 text-xs text-red-400 bg-red-900/20 p-2 rounded">
+                              Error: {response.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Summary for structured data */}
+                      {(executionData.output_data.summary || executionData.output_data.data?.summary) && (
+                        <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                          <div className="text-sm font-medium text-gray-100 mb-2">Execution Summary</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Total Questions:</span>
+                              <span className="font-mono text-gray-200">{(executionData.output_data.summary || executionData.output_data.data.summary).total_questions || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Successful:</span>
+                              <span className="font-mono text-green-400">{(executionData.output_data.summary || executionData.output_data.data.summary).successful_responses || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Failed:</span>
+                              <span className="font-mono text-red-400">{(executionData.output_data.summary || executionData.output_data.data.summary).failed_responses || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Total Time:</span>
+                              <span className="font-mono text-gray-200">{(executionData.output_data.summary || executionData.output_data.data.summary).total_inference_time ? `${(executionData.output_data.summary || executionData.output_data.data.summary).total_inference_time.toFixed(2)}s` : 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Fallback for simplified single output format */
+                    <div className="space-y-3">
+                      <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                        <div className="text-sm text-green-300 font-medium mb-2">Generated Response:</div>
+                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                          "{executionData.output_data?.text_output || executionData.output_data?.stdout || executionData.output_data?.output || JSON.stringify(executionData.output_data, null, 2) || 'No output available'}"
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Tokens Generated:</span>
+                          <span className="font-mono text-gray-200">{executionData.output_data?.metadata?.tokens_generated || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Execution Time:</span>
+                          <span className="font-mono text-gray-200">{executionData.output_data?.metadata?.execution_time || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {executionData.output_data?.hash && (
+                    <div className="text-xs">
+                      <span className="text-gray-400">Output Hash:</span>
+                      <code className="ml-2 bg-gray-700 px-2 py-1 rounded text-gray-300">{truncateMiddle(executionData.output_data.hash)}</code>
+                      <CopyButton text={executionData.output_data.hash} label="Copy" className="ml-2" />
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Legacy Receipt Output (preserve existing logic) */}
+              {hasReceiptData && receipt.output && (
                 <div className="space-y-3">
                   <h4 className="font-medium text-gray-100 flex items-center gap-2">
                     <span className="text-blue-400">🤖</span>
