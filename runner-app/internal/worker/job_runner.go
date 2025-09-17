@@ -162,12 +162,12 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	l.Info().Str("job_id", env.ID).Strs("regions", spec.Constraints.Regions).Msg("starting multi-region execution")
 	
-	results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor, time.Now())
+	results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor)
 	if err != nil {
 		return err
 	}
 	
-	return w.processExecutionResults(ctx, env.ID, spec, results, time.Now())
+	return w.processExecutionResults(ctx, env.ID, spec, results)
 }
 
 // verifyRegionAsync spawns async verification using existing probe logic
@@ -209,7 +209,7 @@ type ExecutionResult struct {
 }
 
 // executeAllRegions executes a job across all specified regions in parallel
-func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *models.JobSpec, regions []string, executor Executor, execStart time.Time) ([]ExecutionResult, error) {
+func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *models.JobSpec, regions []string, executor Executor) ([]ExecutionResult, error) {
 	l := logging.FromContext(ctx)
 	
 	// Parallel execution coordination
@@ -242,7 +242,7 @@ func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *m
 }
 
 // processExecutionResults analyzes execution results and updates job status
-func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, spec *models.JobSpec, results []ExecutionResult, execStart time.Time) error {
+func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, spec *models.JobSpec, results []ExecutionResult) error {
 	l := logging.FromContext(ctx)
 	
 	// Count successes and failures

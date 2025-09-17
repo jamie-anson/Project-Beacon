@@ -33,10 +33,12 @@ func (f *fakeAdapter) LPush(ctx context.Context, key string, values ...interface
     return r8.NewStatusResult("OK", nil)
 }
 
-func (f *fakeAdapter) ZAdd(ctx context.Context, key string, members ...*r8.Z) cmdErr {
+func (f *fakeAdapter) ZAdd(ctx context.Context, key string, members ...interface{}) cmdErr {
     f.zaddCalls++
     if len(members) > 0 {
-        f.lastZ = members[0]
+        if z, ok := members[0].(*r8.Z); ok {
+            f.lastZ = z
+        }
     }
     if f.zaddErr != nil {
         return r8.NewIntResult(0, f.zaddErr)

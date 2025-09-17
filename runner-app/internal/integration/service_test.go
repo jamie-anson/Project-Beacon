@@ -248,7 +248,7 @@ func createValidJobSpec() *models.JobSpec {
 					"algorithm": "cosine",
 				},
 			},
-			Metadata: map[string]string{
+			Metadata: map[string]interface{}{
 				"category": "text-generation",
 				"language": "en",
 			},

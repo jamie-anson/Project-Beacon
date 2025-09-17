@@ -71,12 +71,6 @@ func (r *RetryHandler) zrem(ctx context.Context, key string, members ...interfac
 	return r.circuitClient.ZRem(ctx, key, members...)
 }
 
-func (r *RetryHandler) del(ctx context.Context, keys ...string) cmdErr {
-	if r.testAdapter != nil {
-		return r.testAdapter.Del(ctx, keys...)
-	}
-	return r.circuitClient.Del(ctx, keys...)
-}
 
 // DequeueRetry attempts to dequeue from the retry queue
 func (r *RetryHandler) DequeueRetry(ctx context.Context) (*JobMessage, error) {
@@ -191,8 +185,8 @@ func (r *RetryHandler) moveToDeadQueue(ctx context.Context, message *JobMessage,
 		return fmt.Errorf("failed to add job to dead queue: %w", err)
 	}
 
-	log.Printf("Job %s moved to dead queue after %d attempts: %v",
-		message.ID, message.Attempts, fmt.Errorf(message.Error))
+	log.Printf("Job %s moved to dead queue after %d attempts: %s",
+		message.ID, message.Attempts, message.Error)
 	span.SetAttributes(attribute.Bool("job.dead_letter", true))
 	return nil
 }
