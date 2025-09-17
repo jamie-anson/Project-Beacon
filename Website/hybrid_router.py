@@ -16,6 +16,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import uvicorn
+from contextlib import asynccontextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -315,7 +316,11 @@ class HybridRouter:
 # FastAPI app
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Project Beacon Hybrid Router", version="1.0.0")
+app = FastAPI(
+    title="Project Beacon Hybrid Router", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # Add CORS middleware
 app.add_middleware(
@@ -335,16 +340,22 @@ app.add_middleware(
 
 router = HybridRouter()
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize router on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application lifespan events"""
+    # Startup
     logger.info("Starting Project Beacon Hybrid Router...")
     await router.health_check_providers()
     try:
         configured = [f"{p.name}({p.type.value},{p.region})@{p.endpoint}" for p in router.providers]
         logger.info(f"Initialized with {len(router.providers)} providers: {configured}")
-    except Exception:
-        logger.info(f"Initialized with {len(router.providers)} providers")
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+    
+    yield
+    
+    # Shutdown (if needed)
+    logger.info("Shutting down Project Beacon Hybrid Router...")
 
 @app.get("/health")
 async def health_check():
