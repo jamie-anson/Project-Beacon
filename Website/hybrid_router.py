@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class ProviderType(Enum):
     GOLEM = "golem"
     MODAL = "modal"
-    RUNPOD = "runpod"
+    # RUNPOD = "runpod"  # Removed - not using RunPod
 
 @dataclass
 class Provider:
@@ -79,24 +79,40 @@ class HybridRouter:
                 max_concurrent=5
             ))
 
-        # Option B: Region-specific endpoints via dedicated env vars
-        region_envs = [
-            ("us-east", os.getenv("GOLEM_US_ENDPOINT", "")),
-            ("eu-west", os.getenv("GOLEM_EU_ENDPOINT", "")),
-            ("asia-pacific", os.getenv("GOLEM_APAC_ENDPOINT", "")),
-        ]
-        for region, endpoint in region_envs:
-            e = (endpoint or "").strip()
-            if not e:
-                continue
-            self.providers.append(Provider(
-                name=f"golem-{region}",
-                type=ProviderType.GOLEM,
-                endpoint=e,
-                region=region,
-                cost_per_second=0.0001,
-                max_concurrent=5
-            ))
+        # Option B: Individual environment variables (fallback) - COMMENTED OUT
+        # golem_us = os.getenv("GOLEM_US_ENDPOINT")
+        # golem_eu = os.getenv("GOLEM_EU_ENDPOINT") 
+        # golem_apac = os.getenv("GOLEM_APAC_ENDPOINT")
+        # 
+        # if golem_us:
+        #     self.providers.append(Provider(
+        #         name="golem-us-east",
+        #         type=ProviderType.GOLEM,
+        #         endpoint=golem_us,
+        #         region="us-east",
+        #         cost_per_second=0.0001,
+        #         max_concurrent=5
+        #     ))
+        # 
+        # if golem_eu:
+        #     self.providers.append(Provider(
+        #         name="golem-eu-west",
+        #         type=ProviderType.GOLEM,
+        #         endpoint=golem_eu,
+        #         region="eu-west",
+        #         cost_per_second=0.0001,
+        #         max_concurrent=5
+        #     ))
+        # 
+        # if golem_apac:
+        #     self.providers.append(Provider(
+        #         name="golem-asia-pacific",
+        #         type=ProviderType.GOLEM,
+        #         endpoint=golem_apac,
+        #         region="asia-pacific",
+        #         cost_per_second=0.0001,
+        #         max_concurrent=5
+        #     ))
         
         # Modal serverless (burst capacity)
         modal_endpoint = os.getenv("MODAL_API_BASE")
@@ -111,18 +127,18 @@ class HybridRouter:
                     max_concurrent=10
                 ))
         
-        # RunPod serverless (cost optimization)
-        runpod_endpoint = os.getenv("RUNPOD_API_BASE")
-        if runpod_endpoint:
-            for region in ["us-east", "eu-west", "asia-pacific"]:
-                self.providers.append(Provider(
-                    name=f"runpod-{region}",
-                    type=ProviderType.RUNPOD,
-                    endpoint=runpod_endpoint,
-                    region=region,
-                    cost_per_second=0.00025,  # 15% savings claimed
-                    max_concurrent=8
-                ))
+        # RunPod serverless - REMOVED (not using RunPod)
+        # runpod_endpoint = os.getenv("RUNPOD_API_BASE")
+        # if runpod_endpoint:
+        #     for region in ["us-east", "eu-west", "asia-pacific"]:
+        #         self.providers.append(Provider(
+        #             name=f"runpod-{region}",
+        #             type=ProviderType.RUNPOD,
+        #             endpoint=runpod_endpoint,
+        #             region=region,
+        #             cost_per_second=0.00025,  # 15% savings claimed
+        #             max_concurrent=8
+        #         ))
     
     def _get_region_from_endpoint(self, endpoint: str) -> str:
         """Extract region from endpoint URL"""
@@ -160,11 +176,11 @@ class HybridRouter:
                 else:
                     provider.healthy = False
             
-            elif provider.type == ProviderType.RUNPOD:
-                # RunPod health check
-                headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
-                response = await self.client.get(f"{provider.endpoint}/health", headers=headers, timeout=5.0)
-                provider.healthy = response.status_code == 200
+            # elif provider.type == ProviderType.RUNPOD:
+            #     # RunPod health check - REMOVED
+            #     headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
+            #     response = await self.client.get(f"{provider.endpoint}/health", headers=headers, timeout=5.0)
+            #     provider.healthy = response.status_code == 200
             
             provider.last_health_check = time.time()
             
@@ -189,7 +205,7 @@ class HybridRouter:
         
         # Sort by cost priority or performance priority
         if request.cost_priority:
-            # Prefer Golem (lowest cost) -> RunPod -> Modal
+            # Prefer Golem (lowest cost) -> Modal
             healthy_providers.sort(key=lambda p: (p.cost_per_second, p.avg_latency))
         else:
             # Prefer lowest latency providers
@@ -217,8 +233,8 @@ class HybridRouter:
                 result = await self._run_golem_inference(provider, request)
             elif provider.type == ProviderType.MODAL:
                 result = await self._run_modal_inference(provider, request)
-            elif provider.type == ProviderType.RUNPOD:
-                result = await self._run_runpod_inference(provider, request)
+            # elif provider.type == ProviderType.RUNPOD:
+            #     result = await self._run_runpod_inference(provider, request)  # REMOVED
             else:
                 raise ValueError(f"Unknown provider type: {provider.type}")
             
@@ -289,29 +305,29 @@ class HybridRouter:
         else:
             return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
     
-    async def _run_runpod_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
-        """Run inference on RunPod provider"""
-        payload = {
-            "input": {
-                "model": request.model,
-                "prompt": request.prompt,
-                "temperature": request.temperature,
-                "max_tokens": request.max_tokens
-            }
-        }
-        
-        headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
-        response = await self.client.post(f"{provider.endpoint}/run", json=payload, headers=headers)
-        
-        if response.status_code == 200:
-            result = response.json()
-            return {
-                "success": True,
-                "response": result.get("output", {}).get("response", ""),
-                "metadata": result.get("output", {})
-            }
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+    # async def _run_runpod_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
+    #     """Run inference on RunPod provider - REMOVED"""
+    #     payload = {
+    #         "input": {
+    #             "model": request.model,
+    #             "prompt": request.prompt,
+    #             "temperature": request.temperature,
+    #             "max_tokens": request.max_tokens
+    #         }
+    #     }
+    #     
+    #     headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
+    #     response = await self.client.post(f"{provider.endpoint}/run", json=payload, headers=headers)
+    #     
+    #     if response.status_code == 200:
+    #         result = response.json()
+    #         return {
+    #             "success": True,
+    #             "response": result.get("output", {}).get("response", ""),
+    #             "metadata": result.get("output", {})
+    #         }
+    #     else:
+    #         return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
 
 # FastAPI app
 from fastapi.middleware.cors import CORSMiddleware
@@ -432,7 +448,7 @@ async def env_dump():
         "GOLEM_PROVIDER_ENDPOINTS": os.getenv("GOLEM_PROVIDER_ENDPOINTS"),
         "MODAL_API_BASE": os.getenv("MODAL_API_BASE"),
         "MODAL_HEALTH_ENDPOINT": os.getenv("MODAL_HEALTH_ENDPOINT"),
-        "RUNPOD_API_BASE": os.getenv("RUNPOD_API_BASE"),
+        # "RUNPOD_API_BASE": os.getenv("RUNPOD_API_BASE"),  # REMOVED
     }
 
 # WebSocket connection manager
