@@ -6,8 +6,7 @@
     "build:static": "node scripts/build-static.js",
     "build:docs": "docusaurus build docs --out-dir ../dist/docs",
     "build:docs:with-cid": "DOCS_BUILD_CID=${DOCS_BUILD_CID:-$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder')} docusaurus build docs --out-dir ../dist/docs",
-    "build": "npm run build:deps && npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize",
-    "build:deps": "cd portal && npm ci",
+    "build": "npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize",
     "build:portal": "cp demo-results/world.json portal/public/ 2>/dev/null || echo 'Warning: world.json not found, continuing...' && VITE_DOCS_CID=\"$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder')\" VITE_BUILD_COMMIT=\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\" npm run --prefix portal build",
     "build:finalize": "mkdir -p dist/portal && cp -R portal/dist/* dist/portal/ && mkdir -p dist/demo-results && cp -R demo-results/* dist/demo-results/",
     "build:docs:standalone": "docusaurus build docs --out-dir dist-docs-standalone --base-url /",
@@ -29,11 +28,15 @@
     "test:portal:signing": "node scripts/test-portal-signing.js",
     "generate:wallet-auth": "node scripts/generate-wallet-auth.js"
   },
-  "devDependencies": {
+  "dependencies": {
     "@docusaurus/core": "^3.4.0",
     "@docusaurus/preset-classic": "^3.4.0",
     "@docusaurus/theme-mermaid": "^3.4.0",
     "@docusaurus/types": "^3.4.0",
+    "fs-extra": "^11.3.1",
+    "prism-react-renderer": "^2.4.0"
+  },
+  "devDependencies": {
     "@playwright/test": "^1.55.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
@@ -41,10 +44,8 @@
     "concurrently": "^8.2.2",
     "ethers": "^5.7.2",
     "form-data": "^4.0.4",
-    "fs-extra": "^11.3.1",
     "http-server": "^14.1.1",
     "playwright": "^1.55.0",
-    "prism-react-renderer": "^2.4.0",
     "typescript": "^5.4.5"
   }
 }

@@ -1,6 +1,6 @@
 [build]
   # Simplified build process - build components step by step with error handling
-  command = "npm run build"
+  command = "npm ci && cd portal && npm ci && cd .. && npm run build"
   publish = "dist"
 
 [build.environment]
