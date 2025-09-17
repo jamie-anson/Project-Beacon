@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['python39', 'pip']
+
+[phases.install]
+cmds = ['pip install -r requirements.txt']
+
+[phases.build]
+cmds = ['echo "No build step needed for Python FastAPI"']
+
+[start]
+cmd = 'python hybrid_router.py'
