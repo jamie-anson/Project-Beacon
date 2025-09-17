@@ -2,9 +2,9 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "runner-app/Dockerfile",
+    "dockerfilePath": "flyio-deployment/Dockerfile",
     "watchPatterns": [
-      "runner-app/**"
+      "flyio-deployment/**"
     ]
   },
   "deploy": {
