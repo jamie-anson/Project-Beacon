@@ -1,11 +1,13 @@
 [build]
-  # Simplified build process - build components step by step with error handling
-  command = "npm ci && cd portal && npm ci && cd .. && npm run build"
+  # Conservative build approach with explicit steps
+  command = "npm ci --production=false && cd portal && npm ci && cd .. && npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--no-audit --fund=false"
+  NPM_FLAGS = "--no-audit --fund=false --legacy-peer-deps"
+  # Increase memory for Node.js builds
+  NODE_OPTIONS = "--max-old-space-size=4096"
   # Default IPFS gateway for production portal links (overridable per-deploy)
   VITE_IPFS_GATEWAY = "https://ipfs.io"
   # Enable WebSocket client in portal by default

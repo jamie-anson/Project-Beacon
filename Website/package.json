@@ -26,7 +26,9 @@
     "validate:pre-deploy": "node scripts/pre-deploy-validation.js",
     "submit:signed": "node scripts/submit-signed-job.js",
     "test:portal:signing": "node scripts/test-portal-signing.js",
-    "generate:wallet-auth": "node scripts/generate-wallet-auth.js"
+    "generate:wallet-auth": "node scripts/generate-wallet-auth.js",
+    "build:netlify": "node scripts/netlify-build.js",
+    "build:minimal": "npm run build:static && npm run build:docs && mkdir -p dist/portal && echo 'Minimal build completed'"
   },
   "dependencies": {
     "@docusaurus/core": "^3.4.0",
