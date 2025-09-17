@@ -393,3 +393,7 @@ export const getInfrastructureHealth = () => httpHybrid('/infrastructure/health'
 // Individual execution and receipt APIs
 export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}`);
 export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURIComponent(id)}/receipt`);
+
+// Cross-region diff APIs
+export const getCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`);
+export const getRegionResults = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/regions`);

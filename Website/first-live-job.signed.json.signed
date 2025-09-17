@@ -1,0 +1,73 @@
+{
+  "id": "first-live-job-2025-08-30-18-21",
+  "version": "1.0",
+  "benchmark": {
+    "name": "First Live Job - Project Beacon",
+    "description": "Historic first live job execution on Golem network for Project Beacon",
+    "container": {
+      "image": "alpine",
+      "tag": "3.18",
+      "command": [
+        "sh",
+        "-c",
+        "echo '🚀 PROJECT BEACON FIRST LIVE JOB SUCCESS!' \u0026\u0026 echo 'Timestamp:' $(date) \u0026\u0026 echo 'Provider: 0x536ec34be8b1395d54f69b8895f902f9b65b235b' \u0026\u0026 echo 'GPU Models: llama3.2:1b, qwen2.5:1.5b, mistral:7b' \u0026\u0026 echo 'Status: LIVE AND OPERATIONAL' \u0026\u0026 echo 'Mission: Day-1 Launch Complete'"
+      ],
+      "environment": {
+        "LAUNCH_DATE": "2025-08-30",
+        "TEST_TYPE": "first_live_execution"
+      },
+      "resources": {
+        "cpu": "500m",
+        "memory": "256Mi"
+      }
+    },
+    "input": {
+      "type": "command",
+      "data": {
+        "message": "First live execution for Project Beacon Day-1 launch"
+      },
+      "hash": "sha256:first-live-job-hash-2025-08-30-18-21"
+    },
+    "scoring": {
+      "method": "success_rate",
+      "parameters": {
+        "expected_output": "PROJECT BEACON FIRST LIVE JOB SUCCESS"
+      }
+    },
+    "metadata": {
+      "category": "live_execution",
+      "priority": "high"
+    }
+  },
+  "constraints": {
+    "regions": [
+      "US"
+    ],
+    "min_regions": 1,
+    "min_success_rate": 0.67,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000,
+    "providers": [
+      {
+        "region": "US",
+        "min_score": 0.9,
+        "max_price": 0.1
+      }
+    ]
+  },
+  "metadata": {
+    "nonce": "first-live-job-nonce-1725037294000",
+    "priority": "high",
+    "requester": "project-beacon-team",
+    "tags": [
+      "first_live",
+      "day1_launch",
+      "historic",
+      "golem"
+    ],
+    "timestamp": "2025-08-30T17:21:34Z"
+  },
+  "created_at": "0001-01-01T00:00:00Z",
+  "signature": "rnigA1GVCwys7Ny2+I27Vm3uMVCd5UL9GcXzVhGCegDchjS+dHlzXpNHmPrYbYPW3ZQ5O/uWF87CB6259RH1DQ==",
+  "public_key": "/yRnRt4lvdGCweqHSJ3dM56YOZUBnsZM7BF/zQPWlO8="
+}
