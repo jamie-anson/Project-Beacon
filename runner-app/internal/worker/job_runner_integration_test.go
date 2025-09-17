@@ -114,12 +114,15 @@ func TestJobRunner_Preflight_Success(t *testing.T) {
     before, err := metrics.Summary()
     require.NoError(t, err)
 
+    golemSvc := golem.NewService("", "testnet")
     jr := &JobRunner{
-        DB:        nil,
-        JobsRepo:  &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, claimed)}},
-        ExecRepo:  &fakeExecRepo{execID: 101, verifications: make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)},
-        Golem:     golem.NewService("", "testnet"),
-        Bundler:   nil,
+        DB:           nil,
+        JobsRepo:     &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, claimed)}},
+        ExecRepo:     &fakeExecRepo{execID: 101, verifications: make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)},
+        ExecutionSvc: nil, // Not needed for successful test case
+        Golem:        golemSvc,
+        Executor:     NewGolemExecutor(golemSvc),
+        Bundler:      nil,
         ProbeFactory: func() negotiation.PreflightProbe { return &fakeProbe{observed: claimed} },
     }
 
@@ -136,7 +139,7 @@ func TestJobRunner_Preflight_Success(t *testing.T) {
         require.Equal(t, claimed, v.claimed)
         require.Equal(t, claimed, v.observed)
         require.True(t, v.verified)
-        require.Equal(t, "preflight-geoip", v.method)
+        require.Equal(t, "preflight_probe", v.method)
     case <-time.After(2 * time.Second):
         t.Fatal("timeout waiting for UpdateRegionVerification")
     }
@@ -158,12 +161,15 @@ func TestJobRunner_Preflight_Mismatch(t *testing.T) {
     before, err := metrics.Summary()
     require.NoError(t, err)
 
+    golemSvc := golem.NewService("", "testnet")
     jr := &JobRunner{
-        DB:        nil,
-        JobsRepo:  &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, claimed)}},
-        ExecRepo:  &fakeExecRepo{execID: 202, verifications: make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)},
-        Golem:     golem.NewService("", "testnet"),
-        Bundler:   nil,
+        DB:           nil,
+        JobsRepo:     &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, claimed)}},
+        ExecRepo:     &fakeExecRepo{execID: 202, verifications: make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)},
+        ExecutionSvc: nil, // Not needed for successful test case
+        Golem:        golemSvc,
+        Executor:     NewGolemExecutor(golemSvc),
+        Bundler:      nil,
         ProbeFactory: func() negotiation.PreflightProbe { return &fakeProbe{observed: observed} },
     }
 
@@ -199,10 +205,13 @@ func TestJobRunner_Preflight_ProbeError_NoPersistence(t *testing.T) {
     require.NoError(t, err)
 
     verCh := make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)
+    golemSvc := golem.NewService("", "testnet")
     jr := &JobRunner{
-        JobsRepo:  &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, region)}},
-        ExecRepo:  &fakeExecRepo{execID: 303, verifications: verCh},
-        Golem:     golem.NewService("", "testnet"),
+        JobsRepo:     &fakeJobsRepo{data: map[string][]byte{jobID: mkJobSpecJSON(jobID, region)}},
+        ExecRepo:     &fakeExecRepo{execID: 303, verifications: verCh},
+        ExecutionSvc: nil, // Not needed for successful test case
+        Golem:        golemSvc,
+        Executor:     NewGolemExecutor(golemSvc),
         ProbeFactory: func() negotiation.PreflightProbe { return &fakeProbeErr{err: context.DeadlineExceeded} },
     }
 
@@ -245,10 +254,13 @@ func TestJobRunner_Preflight_MultiRegion_OnlyChosenPersisted(t *testing.T) {
     b, _ := json.Marshal(js)
 
     verCh := make(chan struct{executionID int64; claimed, observed string; verified bool; method string}, 1)
+    golemSvc := golem.NewService("", "testnet")
     jr := &JobRunner{
-        JobsRepo:  &fakeJobsRepo{data: map[string][]byte{jobID: b}},
-        ExecRepo:  &fakeExecRepo{execID: 404, verifications: verCh},
-        Golem:     golem.NewService("", "testnet"),
+        JobsRepo:     &fakeJobsRepo{data: map[string][]byte{jobID: b}},
+        ExecRepo:     &fakeExecRepo{execID: 404, verifications: verCh},
+        ExecutionSvc: nil, // Not needed for successful test case
+        Golem:        golemSvc,
+        Executor:     NewGolemExecutor(golemSvc),
         ProbeFactory: func() negotiation.PreflightProbe { return &fakeProbe{observed: regions[0]} },
     }
 
