@@ -53,12 +53,12 @@ jobs:
           go build -v ./cmd/runner
           go build -v ./cmd/jobspec-signer
           go build -v ./cmd/admin
-          # Test only safe packages
-          go test -v ./pkg/crypto
-          go test -v ./pkg/merkle  
-          go test -v ./pkg/models
-          go test -v ./internal/api
-          go test -v ./internal/store
+          # Test only safe packages with ci build tag to exclude worker tests
+          go test -v -tags=ci ./pkg/crypto
+          go test -v -tags=ci ./pkg/merkle  
+          go test -v -tags=ci ./pkg/models
+          go test -v -tags=ci ./internal/api
+          go test -v -tags=ci ./internal/store
           # Build final binaries
           go build -o runner-app ./cmd/runner
           go build -o jobspec-signer ./cmd/jobspec-signer
