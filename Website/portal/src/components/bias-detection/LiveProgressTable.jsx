@@ -66,6 +66,7 @@ export default function LiveProgressTable({
   const execs = activeJob?.executions || [];
   const total = selectedRegions.length;
   const jobCompleted = isCompleted || String(activeJob?.status || '').toLowerCase() === 'completed';
+  const jobId = activeJob?.id || activeJob?.job?.id;
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
@@ -77,6 +78,7 @@ export default function LiveProgressTable({
     failed = 0;
   }
   const pct = Math.round((completed / Math.max(total, 1)) * 100);
+  const overallCompleted = jobCompleted || (total > 0 && completed >= total);
 
   return (
     <div className="p-4 space-y-3">
@@ -219,16 +221,11 @@ export default function LiveProgressTable({
       <div className="flex items-center justify-end gap-2">
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
         {(() => {
-          const execs = activeJob?.executions || [];
-          const totalRegions = Array.isArray(selectedRegions) ? selectedRegions.length : 0;
-          const execCount = execs.length;
-          const completedRegions = execs.filter(e => (e?.status || e?.state) === 'completed').length;
-          const multiRegion = (totalRegions >= 2) || (execCount >= 2);
-          const showDiffCta = (jobCompleted || diffReady) && multiRegion && activeJob?.id;
+          const showDiffCta = !!jobId; // always show when we have a job id
           if (showDiffCta) {
             return (
               <Link 
-                to={`/portal/results/${activeJob.id}/diffs`}
+                to={`/portal/results/${jobId}/diffs`}
                 className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700"
               >
                 View Cross-Region Diffs
