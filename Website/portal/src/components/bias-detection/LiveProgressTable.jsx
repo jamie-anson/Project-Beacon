@@ -32,11 +32,17 @@ export default function LiveProgressTable({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'running': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'stalled': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'bg-green-900/20 text-green-400 border-green-700';
+      case 'running': 
+      case 'processing': return 'bg-yellow-900/20 text-yellow-400 border-yellow-700';
+      case 'connecting': 
+      case 'queued': return 'bg-blue-900/20 text-blue-400 border-blue-700';
+      case 'completing': return 'bg-purple-900/20 text-purple-400 border-purple-700';
+      case 'failed': return 'bg-red-900/20 text-red-400 border-red-700';
+      case 'stalled': return 'bg-orange-900/20 text-orange-400 border-orange-700';
+      case 'refreshing': return 'bg-cyan-900/20 text-cyan-400 border-cyan-700';
+      case 'pending': return 'bg-gray-900/20 text-gray-400 border-gray-700';
+      default: return 'bg-gray-900/20 text-gray-400 border-gray-700';
     }
   };
 
@@ -125,7 +131,7 @@ export default function LiveProgressTable({
           const eta = e?.eta;
 
           const getEnhancedStatus = () => {
-            if (loadingActive) return '—';
+            if (loadingActive) return 'refreshing';
             if (!e) return 'pending';
             
             // Check for infrastructure errors
@@ -133,17 +139,34 @@ export default function LiveProgressTable({
               return 'failed';
             }
             
-            // Check for timeout or stale jobs
-            if (status === 'running' && started) {
-              const startTime = new Date(started);
-              const now = new Date();
-              const runningTime = (now - startTime) / 1000 / 60; // minutes
-              if (runningTime > 30) { // 30+ minutes is suspicious
+            // Enhanced status detection based on execution state
+            const currentStatus = status || 'pending';
+            const now = new Date();
+            const startTime = started ? new Date(started) : null;
+            const runningTime = startTime ? (now - startTime) / 1000 / 60 : 0; // minutes
+            
+            // Detect granular states
+            if (currentStatus === 'created' || currentStatus === 'enqueued') {
+              return 'queued';
+            }
+            
+            if (currentStatus === 'running') {
+              // Check if it's been running for a while (might be stalled)
+              if (runningTime > 30) {
                 return 'stalled';
+              }
+              
+              // Detect sub-states of running based on timing
+              if (runningTime < 0.5) { // First 30 seconds
+                return 'connecting';
+              } else if (runningTime < 25) { // Most of execution time
+                return 'processing';
+              } else {
+                return 'completing'; // Taking longer, probably finishing up
               }
             }
             
-            return status;
+            return currentStatus;
           };
 
           const enhancedStatus = getEnhancedStatus();
@@ -161,7 +184,7 @@ export default function LiveProgressTable({
               </div>
               <div className="px-3 py-2">
                 <div className="flex flex-col gap-1">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(enhancedStatus)}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(enhancedStatus)}`}>
                     {String(enhancedStatus)}
                   </span>
                   {(e?.error || e?.failure_reason) && (
