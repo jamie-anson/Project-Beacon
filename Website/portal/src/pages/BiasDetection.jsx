@@ -16,6 +16,8 @@ export default function BiasDetection() {
   const [buttonClicked, setButtonClicked] = useState(false);
   const [completedJob, setCompletedJob] = useState(null);
   const [completionTimer, setCompletionTimer] = useState(null);
+  // Dynamic polling interval state (avoid referencing activeJob before it's initialized)
+  const [pollMs, setPollMs] = useState(5000);
   
   const {
     biasJobs,
@@ -82,8 +84,16 @@ export default function BiasDetection() {
   const { data: activeJob, loading: loadingActive, error: activeErr, refetch: refetchActive } = useQuery(
     activeJobId ? `job:${activeJobId}` : null,
     () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 3 }) : Promise.resolve(null),
-    { interval: getPollingInterval(activeJob) }
+    { interval: pollMs }
   );
+
+  // Update polling interval reactively when the active job changes state
+  useEffect(() => {
+    const next = getPollingInterval(activeJob);
+    if (typeof next === 'number' && next > 0 && next !== pollMs) {
+      setPollMs(next);
+    }
+  }, [activeJob, pollMs]);
 
   useEffect(() => {
     // Handle job completion - keep progress visible for 60 seconds
