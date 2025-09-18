@@ -2,14 +2,19 @@
 
 import os
 from fastapi import APIRouter
+from typing import Optional
 
 router = APIRouter()
 
 
 @router.get("/providers")
-async def list_providers():
-    """List all providers and their status"""
+async def list_providers(region: Optional[str] = None):
+    """List all providers and their status (optionally filter by region)"""
     from ..main import router_instance
+    
+    providers = router_instance.providers
+    if region:
+        providers = [p for p in providers if p.region == region]
     
     return {
         "providers": [
@@ -23,7 +28,7 @@ async def list_providers():
                 "success_rate": p.success_rate,
                 "last_health_check": p.last_health_check
             }
-            for p in router_instance.providers
+            for p in providers
         ]
     }
 

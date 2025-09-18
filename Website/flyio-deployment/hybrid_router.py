@@ -74,7 +74,7 @@ class HybridRouter:
                 type=ProviderType.GOLEM,
                 endpoint=endpoint,
                 region=self._get_region_from_endpoint(endpoint),
-                cost_per_second=0.0001,  # Very low cost
+                cost_per_second=0.0005,  # Higher cost than Modal
                 max_concurrent=5
             ))
 
@@ -93,18 +93,23 @@ class HybridRouter:
                 type=ProviderType.GOLEM,
                 endpoint=e,
                 region=region,
-                cost_per_second=0.0001,
+                cost_per_second=0.0005,
                 max_concurrent=5
             ))
         
-        # Modal serverless (burst capacity)
-        modal_endpoint = os.getenv("MODAL_API_BASE")
-        if modal_endpoint:
-            for region in ["us-east", "eu-west", "asia-pacific"]:
+        # Modal serverless (burst capacity) - Regional endpoints
+        modal_endpoints = {
+            "us-east": os.getenv("MODAL_US_ENDPOINT"),
+            "eu-west": os.getenv("MODAL_EU_ENDPOINT"), 
+            "asia-pacific": os.getenv("MODAL_APAC_ENDPOINT")
+        }
+        
+        for region, endpoint in modal_endpoints.items():
+            if endpoint:
                 self.providers.append(Provider(
                     name=f"modal-{region}",
                     type=ProviderType.MODAL,
-                    endpoint=modal_endpoint,
+                    endpoint=endpoint,
                     region=region,
                     cost_per_second=0.0003,  # T4 pricing
                     max_concurrent=10
@@ -277,11 +282,12 @@ class HybridRouter:
             "model": request.model,
             "prompt": request.prompt,
             "temperature": request.temperature,
-            "max_tokens": request.max_tokens
+            "max_tokens": request.max_tokens,
+            "region": provider.region  # Pass region to Modal function
         }
         
-        headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
-        response = await self.client.post(provider.endpoint, json=payload, headers=headers)
+        # Modal web endpoints don't need authentication
+        response = await self.client.post(provider.endpoint, json=payload)
         
         if response.status_code == 200:
             return response.json()
@@ -368,8 +374,14 @@ async def inference_endpoint(request: InferenceRequest, background_tasks: Backgr
     return await router.run_inference(request)
 
 @app.get("/providers")
-async def list_providers():
-    """List all providers and their status"""
+async def list_providers(region: str = None):
+    """List all providers and their status, optionally filtered by region"""
+    providers = router.providers
+    
+    # Filter by region if specified
+    if region:
+        providers = [p for p in providers if p.region == region]
+    
     return {
         "providers": [
             {

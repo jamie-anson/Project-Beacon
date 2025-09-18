@@ -253,7 +253,11 @@ class HybridRouter:
             "temperature": request.temperature,
             "max_tokens": request.max_tokens
         }
-        
+        # IMPORTANT: Forward the selected provider's region to Modal's unified inference API
+        # This ensures the Modal web endpoint routes to the correct regional function
+        # e.g., region == "asia-pacific" will invoke run_inference_apac
+        payload["region"] = provider.region
+
         headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
         response = await self.client.post(provider.endpoint, json=payload, headers=headers)
         

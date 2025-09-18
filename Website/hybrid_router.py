@@ -296,6 +296,9 @@ class HybridRouter:
             "temperature": request.temperature,
             "max_tokens": request.max_tokens
         }
+        # IMPORTANT: Forward the selected provider's region to Modal's unified inference API
+        # Ensures correct regional routing (e.g., "asia-pacific" -> run_inference_apac)
+        payload["region"] = provider.region
         
         headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
         response = await self.client.post(provider.endpoint, json=payload, headers=headers)
@@ -395,8 +398,11 @@ async def inference_endpoint(request: InferenceRequest, background_tasks: Backgr
     return await router.run_inference(request)
 
 @app.get("/providers")
-async def list_providers():
-    """List all providers and their status"""
+async def list_providers(region: Optional[str] = None):
+    """List all providers and their status (optionally filter by region)"""
+    providers = router.providers
+    if region:
+        providers = [p for p in providers if p.region == region]
     return {
         "providers": [
             {
@@ -409,7 +415,7 @@ async def list_providers():
                 "success_rate": p.success_rate,
                 "last_health_check": p.last_health_check
             }
-            for p in router.providers
+            for p in providers
         ]
     }
 
