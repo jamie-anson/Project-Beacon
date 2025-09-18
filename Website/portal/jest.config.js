@@ -20,5 +20,12 @@ export default {
     '!src/**/*.d.ts'
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html']
+  coverageReporters: ['text', 'lcov', 'html'],
+  // Fix timeout issues in CI/CD environments
+  testTimeout: 30000,
+  maxWorkers: 1,
+  workerIdleMemoryLimit: '512MB',
+  // Disable file watching and haste map caching for CI
+  watchman: false,
+  cache: false
 };
