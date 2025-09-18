@@ -62,11 +62,19 @@ export default function LiveProgressTable({
 
   // Overall progress calculation
   const execs = activeJob?.executions || [];
-  const completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
-  const running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
-  const failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
   const total = selectedRegions.length;
-  const pct = Math.round((completed / total) * 100);
+  const jobCompleted = String(activeJob?.status || '').toLowerCase() === 'completed';
+  let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
+  let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
+  let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
+  if (jobCompleted) {
+    // If the job is complete but we might not have full per-region execution info,
+    // present a simple, clear UX: mark progress as fully completed.
+    completed = total;
+    running = 0;
+    failed = 0;
+  }
+  const pct = Math.round((completed / Math.max(total, 1)) * 100);
 
   return (
     <div className="p-4 space-y-3">
@@ -125,7 +133,7 @@ export default function LiveProgressTable({
         </div>
         {['US','EU','ASIA'].map((r) => {
           const e = (activeJob?.executions || []).find((x) => (x?.region || x?.region_claimed || '').toUpperCase?.() === r);
-          const status = e?.status || e?.state || 'pending';
+          const status = jobCompleted ? 'completed' : (e?.status || e?.state || 'pending');
           const started = e?.started_at || e?.created_at;
           const provider = e?.provider_id || e?.provider;
           const retries = e?.retries;
@@ -133,7 +141,7 @@ export default function LiveProgressTable({
 
           const getEnhancedStatus = () => {
             if (loadingActive) return 'refreshing';
-            if (!e) return 'pending';
+            if (!e) return jobCompleted ? 'completed' : 'pending';
             
             // Check for infrastructure errors
             if (e?.error || e?.failure_reason) {
