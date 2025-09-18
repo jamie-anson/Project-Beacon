@@ -1,9 +1,10 @@
 name: Deploy Website to IPFS and Netlify
 
 permissions:
-  contents: read
-  pull-requests: write
-  statuses: write
+  contents: write          # For commit comments and repository access
+  pull-requests: write     # For PR comments
+  statuses: write         # For status updates
+  deployments: write      # For GitHub deployment records
 
 on:
   push:
