@@ -18,8 +18,6 @@ jobs:
   deploy-preview:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    environment:
-      name: preview
     
     steps:
     - name: Checkout code
@@ -105,8 +103,6 @@ jobs:
   deploy-production:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
-    environment:
-      name: production
     permissions:
       contents: read
       deployments: write
@@ -172,7 +168,7 @@ jobs:
         BUILD_COMMIT=$(git rev-parse --short HEAD)
         echo "Building portal with CID: $DOCS_BUILD_CID, Commit: $BUILD_COMMIT"
         cd portal
-        VITE_API_BASE="https://beacon-runner-change-me.fly.dev/api/v1" VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" npm run build
+        VITE_API_BASE="https://projectbeacon.netlify.app" VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" VITE_HYBRID_BASE="https://project-beacon-production.up.railway.app" npm run build
         cd ..
 
         # Stage portal into dist
