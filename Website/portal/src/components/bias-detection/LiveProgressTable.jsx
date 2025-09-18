@@ -218,9 +218,11 @@ export default function LiveProgressTable({
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
         {(() => {
           const execs = activeJob?.executions || [];
-          const completedRegions = execs.filter(e => (e?.status || e?.state) === 'completed').length;
           const totalRegions = selectedRegions.length;
-          const hasMultiRegionResults = totalRegions >= 2 && completedRegions >= 2;
+          const completedRegions = execs.filter(e => (e?.status || e?.state) === 'completed').length;
+          const jobCompleted = String(activeJob?.status || '').toLowerCase() === 'completed';
+          // If the whole job completed, allow diffs button when it was multi-region
+          const hasMultiRegionResults = jobCompleted ? (totalRegions >= 2) : (totalRegions >= 2 && completedRegions >= 2);
           
           if (hasMultiRegionResults && activeJob?.id) {
             return (
