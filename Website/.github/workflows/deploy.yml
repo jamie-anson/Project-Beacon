@@ -168,7 +168,7 @@ jobs:
         BUILD_COMMIT=$(git rev-parse --short HEAD)
         echo "Building portal with CID: $DOCS_BUILD_CID, Commit: $BUILD_COMMIT"
         cd portal
-        VITE_API_BASE="https://projectbeacon.netlify.app" VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" VITE_HYBRID_BASE="https://project-beacon-production.up.railway.app" npm run build
+        VITE_ENABLE_WS="1" VITE_API_BASE="https://projectbeacon.netlify.app" VITE_DOCS_CID="$DOCS_BUILD_CID" VITE_BUILD_COMMIT="$BUILD_COMMIT" VITE_HYBRID_BASE="https://project-beacon-production.up.railway.app" npm run build
         cd ..
 
         # Stage portal into dist

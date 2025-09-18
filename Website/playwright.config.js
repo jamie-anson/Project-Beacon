@@ -37,8 +37,8 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    // Serve the built site so /portal/* is available from dist/ like in production
-    command: 'npx http-server -c-1 -p 3000 dist',
+    // Serve the built site with a minimal proxy for /health, /api/* and /hybrid/* to the hybrid router
+    command: 'node scripts/serve-dist-with-proxy.js --port 3000 --target https://project-beacon-production.up.railway.app',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

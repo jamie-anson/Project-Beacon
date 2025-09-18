@@ -372,23 +372,78 @@ async function httpHybrid(path, opts = {}) {
   const direct = `${HYBRID_BASE}${path.startsWith('/') ? path : '/' + path}`;
   const proxy = `/hybrid${path.startsWith('/') ? path : '/' + path}`;
   const common = { ...opts, headers: { 'Accept': 'application/json', ...(opts.headers || {}) }, mode: 'cors', credentials: 'omit' };
+  // Try direct first; on any failure (non-ok or thrown), fall back to proxy
   try {
-    // Try direct first
     const r1 = await fetch(direct, common);
     if (r1.ok) return r1.status === 204 ? null : r1.json();
-    // Fallback to proxy
+  } catch (err) {
+    // Swallow and try proxy next (common for CORS in local/dev builds)
+    try { console.warn(`[Hybrid] direct request failed, falling back to proxy: ${direct} -> ${proxy}:`, err?.message || String(err)); } catch {}
+  }
+  try {
     const r2 = await fetch(proxy, common);
     if (!r2.ok) throw new Error(`${r2.status} ${r2.statusText}`);
     return r2.status === 204 ? null : r2.json();
   } catch (err) {
-    console.warn(`[Hybrid] request failed (direct=${direct})`, err.message);
+    console.warn(`[Hybrid] proxy request failed (proxy=${proxy})`, err?.message || String(err));
     throw err;
   }
 }
 
 export const getHybridHealth = () => httpHybrid('/health');
 export const getHybridProviders = () => httpHybrid('/providers').then(d => Array.isArray(d?.providers) ? d.providers : []);
-export const getInfrastructureHealth = () => httpHybrid('/infrastructure/health');
+
+// Compose infrastructure health from available hybrid endpoints and normalize
+export const getInfrastructureHealth = async () => {
+  const [healthRes, providersRes] = await Promise.allSettled([
+    httpHybrid('/health'),
+    httpHybrid('/providers'),
+  ]);
+
+  const health = healthRes.status === 'fulfilled' ? healthRes.value : null;
+  const providersArr = providersRes.status === 'fulfilled' && Array.isArray(providersRes.value?.providers)
+    ? providersRes.value.providers
+    : [];
+
+  const providersHealthy = providersArr.filter(p => p?.healthy).length;
+  const providersTotal = providersArr.length;
+  const derivedOverall = providersTotal === 0
+    ? (health?.status || 'unknown')
+    : (providersHealthy === providersTotal ? 'healthy' : (providersHealthy > 0 ? 'degraded' : 'down'));
+  const overall_status = String(health?.status || derivedOverall || 'unknown').toLowerCase();
+
+  const services = {
+    router: {
+      status: overall_status,
+      response_time_ms: null,
+      error: healthRes.status === 'rejected' ? (healthRes.reason?.message || String(healthRes.reason || '')) : null,
+    },
+  };
+
+  for (const p of providersArr) {
+    const key = `${String(p.type || 'provider')}_${String(p.region || 'unknown')}`;
+    services[key] = {
+      status: p.healthy ? 'healthy' : 'down',
+      response_time_ms: Number.isFinite(p?.avg_latency) ? Math.round(Number(p.avg_latency) * 1000) : null,
+      error: null,
+    };
+  }
+
+  const vals = Object.values(services);
+  const healthy_services = vals.filter(s => s.status === 'healthy').length;
+  const degraded_services = vals.filter(s => s.status === 'degraded').length;
+  const down_services = vals.filter(s => s.status === 'down').length;
+
+  return {
+    overall_status,
+    services,
+    healthy_services,
+    degraded_services,
+    down_services,
+    total_services: Object.keys(services).length,
+    last_checked: new Date().toISOString(),
+  };
+};
 
 // Individual execution and receipt APIs
 export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}`);

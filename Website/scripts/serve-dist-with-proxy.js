@@ -10,6 +10,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
@@ -60,11 +61,12 @@ function serveSpa(res) {
 function proxyRequest(req, res, targetBase) {
   try {
     const targetUrl = new URL(req.url, targetBase);
+    const client = targetUrl.protocol === 'https:' ? https : http;
     const opts = {
       method: req.method,
       headers: req.headers,
     };
-    const proxReq = http.request(targetUrl, (proxRes) => {
+    const proxReq = client.request(targetUrl, (proxRes) => {
       res.writeHead(proxRes.statusCode || 502, proxRes.headers);
       proxRes.pipe(res);
     });
@@ -87,7 +89,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   // Minimal proxy for API endpoints expected by the portal build
-  if (url.pathname === '/health' || url.pathname.startsWith('/api/')) {
+  if (url.pathname === '/health' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/hybrid/')) {
     return proxyRequest(req, res, TARGET);
   }
 
@@ -98,7 +100,11 @@ const server = http.createServer((req, res) => {
     if (st.isDirectory()) fp = path.join(fp, 'index.html');
     return serveFile(res, fp);
   } catch {
-    // SPA fallback for /portal/* and other client routes
+    // SPA fallback
+    if (url.pathname.startsWith('/portal')) {
+      const portalIndex = path.join(ROOT, 'portal', 'index.html');
+      return serveFile(res, portalIndex);
+    }
     return serveSpa(res);
   }
 });
