@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '../state/useQuery.js';
 import useWs from '../state/useWs.js';
-import { getJob } from '../lib/api.js';
+import { getJob, getCrossRegionDiff } from '../lib/api.js';
 import WalletConnection from '../components/WalletConnection.jsx';
 import { isMetaMaskInstalled } from '../lib/wallet.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
@@ -17,6 +17,7 @@ export default function BiasDetection() {
   const [buttonClicked, setButtonClicked] = useState(false);
   const [completedJob, setCompletedJob] = useState(null);
   const [completionTimer, setCompletionTimer] = useState(null);
+  const [diffReady, setDiffReady] = useState(false);
   // Dynamic polling interval state (avoid referencing activeJob before it's initialized)
   const [pollMs, setPollMs] = useState(5000);
   
@@ -123,6 +124,13 @@ export default function BiasDetection() {
     const status = activeJob?.status;
     if (status && (status === 'completed' || status === 'failed' || status === 'cancelled')) {
       setCompletedJob(activeJob);
+      // Attempt to generate cross-region diff for completed jobs
+      if (status === 'completed' && activeJob?.id) {
+        setDiffReady(false);
+        getCrossRegionDiff(activeJob.id)
+          .then(() => setDiffReady(true))
+          .catch(() => setDiffReady(false));
+      }
       
       // Clear any existing timer
       if (completionTimer) {
@@ -263,12 +271,13 @@ export default function BiasDetection() {
               )}
             </div>
           </div>
-          <LiveProgressTable
+          <LiveProgressTable 
             activeJob={activeJob || completedJob}
             selectedRegions={selectedRegions}
             loadingActive={loadingActive}
             refetchActive={refetchActive}
             activeJobId={activeJobId}
+            diffReady={diffReady}
             isCompleted={!!completedJob}
             onDismiss={dismissCompletedJob}
           />
