@@ -7,7 +7,9 @@ export default function LiveProgressTable({
   selectedRegions, 
   loadingActive, 
   refetchActive,
-  activeJobId 
+  activeJobId,
+  isCompleted = false,
+  diffReady = false,
 }) {
   const timeAgo = (ts) => {
     if (!ts) return '';
@@ -63,7 +65,7 @@ export default function LiveProgressTable({
   // Overall progress calculation
   const execs = activeJob?.executions || [];
   const total = selectedRegions.length;
-  const jobCompleted = String(activeJob?.status || '').toLowerCase() === 'completed';
+  const jobCompleted = isCompleted || String(activeJob?.status || '').toLowerCase() === 'completed';
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
@@ -218,13 +220,12 @@ export default function LiveProgressTable({
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
         {(() => {
           const execs = activeJob?.executions || [];
-          const totalRegions = selectedRegions.length;
+          const totalRegions = Array.isArray(selectedRegions) ? selectedRegions.length : 0;
+          const execCount = execs.length;
           const completedRegions = execs.filter(e => (e?.status || e?.state) === 'completed').length;
-          const jobCompleted = String(activeJob?.status || '').toLowerCase() === 'completed';
-          // If the whole job completed, allow diffs button when it was multi-region
-          const hasMultiRegionResults = jobCompleted ? (totalRegions >= 2) : (totalRegions >= 2 && completedRegions >= 2);
-          
-          if (hasMultiRegionResults && activeJob?.id) {
+          const multiRegion = (totalRegions >= 2) || (execCount >= 2);
+          const showDiffCta = (jobCompleted || diffReady) && multiRegion && activeJob?.id;
+          if (showDiffCta) {
             return (
               <Link 
                 to={`/portal/results/${activeJob.id}/diffs`}
