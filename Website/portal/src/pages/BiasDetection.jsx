@@ -14,6 +14,8 @@ import QuickActions from '../components/bias-detection/QuickActions.jsx';
 export default function BiasDetection() {
   const [selectedComparison, setSelectedComparison] = useState('all');
   const [buttonClicked, setButtonClicked] = useState(false);
+  const [completedJob, setCompletedJob] = useState(null);
+  const [completionTimer, setCompletionTimer] = useState(null);
   
   const {
     biasJobs,
@@ -39,21 +41,71 @@ export default function BiasDetection() {
     setTimeout(() => setButtonClicked(false), 200);
   };
 
+  const dismissCompletedJob = () => {
+    if (completionTimer) {
+      clearTimeout(completionTimer);
+      setCompletionTimer(null);
+    }
+    setActiveJobId('');
+    setCompletedJob(null);
+    try { sessionStorage.removeItem('beacon:active_bias_job_id'); } catch {}
+  };
+
+  // Dynamic polling interval based on job state
+  const getPollingInterval = (job) => {
+    if (!job) return 5000; // Default 5 seconds
+    
+    const status = job?.status;
+    const executions = job?.executions || [];
+    const hasRunningExecutions = executions.some(e => 
+      ['running', 'created', 'enqueued'].includes(e?.status || e?.state)
+    );
+    
+    // Fast polling for active jobs
+    if (status === 'running' || hasRunningExecutions) {
+      const jobAge = job?.created_at ? (Date.now() - new Date(job.created_at)) / 1000 : 0;
+      
+      if (jobAge < 30) return 2000;      // First 30 seconds: 2s interval
+      if (jobAge < 300) return 3000;     // First 5 minutes: 3s interval  
+      return 5000;                      // After 5 minutes: 5s interval
+    }
+    
+    // Slower polling for completed/failed jobs
+    if (status === 'completed' || status === 'failed') {
+      return 10000; // 10 seconds
+    }
+    
+    return 5000; // Default
+  };
+
   // Poll active job if any
   const { data: activeJob, loading: loadingActive, error: activeErr, refetch: refetchActive } = useQuery(
     activeJobId ? `job:${activeJobId}` : null,
     () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 3 }) : Promise.resolve(null),
-    { interval: 5000 }
+    { interval: getPollingInterval(activeJob) }
   );
 
   useEffect(() => {
-    // Clear session if job completed or failed
+    // Handle job completion - keep progress visible for 60 seconds
     const status = activeJob?.status;
     if (status && (status === 'completed' || status === 'failed' || status === 'cancelled')) {
-      setActiveJobId('');
-      try { sessionStorage.removeItem('beacon:active_bias_job_id'); } catch {}
+      setCompletedJob(activeJob);
+      
+      // Clear any existing timer
+      if (completionTimer) {
+        clearTimeout(completionTimer);
+      }
+      
+      // Set timer to clear after 60 seconds
+      const timer = setTimeout(() => {
+        setActiveJobId('');
+        setCompletedJob(null);
+        try { sessionStorage.removeItem('beacon:active_bias_job_id'); } catch {}
+      }, 60000);
+      
+      setCompletionTimer(timer);
     }
-  }, [activeJob, setActiveJobId]);
+  }, [activeJob, setActiveJobId, completionTimer]);
 
   useEffect(() => {
     // If backend returns 404 for the active job, clear it
@@ -62,6 +114,15 @@ export default function BiasDetection() {
       try { sessionStorage.removeItem('beacon:active_bias_job_id'); } catch {}
     }
   }, [activeErr, setActiveJobId]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (completionTimer) {
+        clearTimeout(completionTimer);
+      }
+    };
+  }, [completionTimer]);
 
   if (loading) {
     return (
@@ -151,18 +212,32 @@ export default function BiasDetection() {
       </section>
 
       {/* Live Progress Section */}
-      {activeJobId && (
+      {(activeJobId || completedJob) && (
         <section className="bg-gray-800 rounded-lg border border-gray-700">
           <div className="px-6 py-4 border-b border-gray-700">
-            <h3 className="text-lg font-medium text-gray-100">Live Progress</h3>
-            <p className="text-sm text-gray-400 mt-1">Real-time execution status across regions</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-100">Live Progress</h3>
+                <p className="text-sm text-gray-400 mt-1">Real-time execution status across regions</p>
+              </div>
+              {completedJob && (
+                <button
+                  onClick={dismissCompletedJob}
+                  className="text-xs text-gray-400 hover:text-gray-300 px-2 py-1 rounded border border-gray-600 hover:border-gray-500"
+                >
+                  Dismiss
+                </button>
+              )}
+            </div>
           </div>
           <LiveProgressTable
-            activeJob={activeJob}
+            activeJob={activeJob || completedJob}
             selectedRegions={selectedRegions}
             loadingActive={loadingActive}
             refetchActive={refetchActive}
             activeJobId={activeJobId}
+            isCompleted={!!completedJob}
+            onDismiss={dismissCompletedJob}
           />
         </section>
       )}
