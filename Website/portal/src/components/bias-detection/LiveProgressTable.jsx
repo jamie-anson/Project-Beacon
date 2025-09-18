@@ -381,11 +381,11 @@ export default function LiveProgressTable({
           const isExpanded = expandedRegions.has(r);
           
           return (
-            <React.Fragment key={r}>
-              <div 
-                className="grid grid-cols-7 text-sm border-t border-gray-600 hover:bg-gray-700 cursor-pointer transition-colors"
-                onClick={() => toggleRegionExpansion(r)}
-              >
+            <div 
+              key={r}
+              className="grid grid-cols-7 text-sm border-t border-gray-600 hover:bg-gray-700 cursor-pointer transition-colors"
+              onClick={() => toggleRegionExpansion(r)}
+            >
                 <div className="px-3 py-2 font-medium flex items-center gap-2">
                   <button className="flex items-center gap-1 hover:text-blue-400">
                     <svg 
