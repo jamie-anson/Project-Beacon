@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+// Force rebuild to clear cache issues
 
 export default function LiveProgressTable({ 
   activeJob, 
@@ -139,7 +140,7 @@ export default function LiveProgressTable({
               return 'failed';
             }
             
-            // Enhanced status detection based on execution state
+            // Live Progress Table - Enhanced with dynamic status detection
             const currentStatus = status || 'pending';
             const now = new Date();
             const startTime = started ? new Date(started) : null;
