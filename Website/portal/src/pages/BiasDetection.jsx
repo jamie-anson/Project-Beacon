@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '../state/useQuery.js';
+import useWs from '../state/useWs.js';
 import { getJob } from '../lib/api.js';
 import WalletConnection from '../components/WalletConnection.jsx';
 import { isMetaMaskInstalled } from '../lib/wallet.js';
@@ -83,7 +84,7 @@ export default function BiasDetection() {
   // Poll active job if any
   const { data: activeJob, loading: loadingActive, error: activeErr, refetch: refetchActive } = useQuery(
     activeJobId ? `job:${activeJobId}` : null,
-    () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 3 }) : Promise.resolve(null),
+    () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 10 }) : Promise.resolve(null),
     { interval: pollMs }
   );
 
@@ -94,6 +95,28 @@ export default function BiasDetection() {
       setPollMs(next);
     }
   }, [activeJob, pollMs]);
+
+  // Subscribe to WebSocket job/execution updates and refetch the active job when relevant
+  useWs('/ws', {
+    onMessage: (evt) => {
+      try {
+        const jId = activeJobId;
+        if (!jId) return;
+        const t = String(evt?.type || '').toLowerCase();
+        const evtJobId = evt?.job?.id || evt?.job_id || evt?.execution?.job_id;
+        if (!evtJobId) return;
+        if (evtJobId === jId && (
+          t.includes('job') ||
+          t.includes('exec') ||
+          t === 'execution_update' ||
+          t === 'job_update'
+        )) {
+          // Light debounce: avoid spamming refetches when many frames arrive at once
+          refetchActive();
+        }
+      } catch {}
+    }
+  });
 
   useEffect(() => {
     // Handle job completion - keep progress visible for 60 seconds
