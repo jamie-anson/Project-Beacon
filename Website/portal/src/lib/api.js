@@ -450,5 +450,30 @@ export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)
 export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURIComponent(id)}/receipt`);
 
 // Cross-region diff APIs
-export const getCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`);
+// Cross-region diff APIs (robust):
+// Some backends expose GET (fetch existing) and/or POST (generate) for the same route.
+export const getCrossRegionDiff = async (jobId) => {
+  try {
+    return await httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`);
+  } catch (e) {
+    // If GET not supported, try POST to generate
+    try {
+      const created = await httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });
+      return created;
+    } catch (e2) {
+      throw e2;
+    }
+  }
+};
+
+export const createCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });
+export const findDiffsByJob = async (jobId, { limit = 1 } = {}) => {
+  const qs = new URLSearchParams();
+  if (jobId) qs.set('job_id', jobId);
+  qs.set('limit', String(limit));
+  const data = await httpV1(`/diffs?${qs.toString()}`);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.diffs)) return data.diffs;
+  return [];
+};
 export const getRegionResults = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/regions`);
