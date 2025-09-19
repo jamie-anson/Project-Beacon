@@ -1,6 +1,6 @@
 [build]
   # Conservative build approach with explicit steps
-  command = "npm ci --production=false && cd portal && npm ci && cd .. && npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize"
+  command = "npm install --no-audit --legacy-peer-deps && cd portal && npm install --no-audit --legacy-peer-deps && cd .. && npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize"
   publish = "dist"
 
 [build.environment]
