@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { compareDiffs } from '../../lib/api';
 // Force rebuild to clear cache issues
 
 export default function LiveProgressTable({ 
@@ -25,6 +26,50 @@ export default function LiveProgressTable({
       const day = Math.floor(hr / 24);
       return `${day}d ago`;
     } catch { return String(ts); }
+
+function prefillFromExecutions(activeJob, setters) {
+  const { setARegion, setBRegion, setAText, setBText, setError } = setters || {};
+  try {
+    const execs = Array.isArray(activeJob?.executions) ? activeJob.executions : [];
+    if (execs.length === 0) throw new Error('No executions available to prefill');
+    const completed = execs.filter(e => String(e?.status || e?.state || '').toLowerCase() === 'completed');
+    const pick = (regionCode) => completed.find(e => (e?.region || e?.region_claimed || '').toUpperCase() === regionCode);
+    // Prefer US/EU, fallback to any two
+    let eA = pick('US') || completed[0] || execs[0];
+    let eB = pick('EU') || completed.find(e => e !== eA) || execs.find(e => e !== eA);
+    const rA = normalizeRegion(eA?.region || eA?.region_claimed);
+    const rB = normalizeRegion(eB?.region || eB?.region_claimed);
+    const tA = extractExecText(eA);
+    const tB = extractExecText(eB);
+    if (setARegion) setARegion(rA);
+    if (setBRegion) setBRegion(rB);
+    if (setAText) setAText(tA || '');
+    if (setBText) setBText(tB || '');
+  } catch (err) {
+    if (setError) setError(err?.message || String(err));
+  }
+}
+
+function normalizeRegion(r) {
+  const v = String(r || '').toUpperCase();
+  if (v === 'US') return 'us-east';
+  if (v === 'EU') return 'eu-west';
+  if (v === 'ASIA') return 'asia-pacific';
+  return 'us-east';
+}
+
+function extractExecText(exec) {
+  const out = exec?.output || exec?.result || {};
+  try {
+    if (out.responses && Array.isArray(out.responses) && out.responses.length > 0) {
+      const r = out.responses[0];
+      return r.response || r.answer || r.output || '';
+    }
+    if (out.text_output) return out.text_output;
+    if (out.output) return out.output;
+  } catch {}
+  return '';
+}
   };
 
   const truncateMiddle = (str, head = 6, tail = 4) => {
@@ -220,6 +265,7 @@ export default function LiveProgressTable({
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-2">
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
+        <QuickCompareCTA activeJob={activeJob} />
         {(() => {
           const showDiffCta = !!jobId; // always show when we have a job id
           if (showDiffCta) {
@@ -238,6 +284,93 @@ export default function LiveProgressTable({
           <Link to={`/jobs/${activeJob.id}`} className="text-sm text-beacon-600 underline decoration-dotted">View full results</Link>
         )}
       </div>
+    </div>
+  );
+}
+
+function QuickCompareCTA({ activeJob }) {
+  const [open, setOpen] = useState(false);
+  const [aRegion, setARegion] = useState('us-east');
+  const [bRegion, setBRegion] = useState('eu-west');
+  const [aText, setAText] = useState('');
+  const [bText, setBText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  async function onCompare() {
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const res = await compareDiffs({ a: { region: aRegion, text: aText }, b: { region: bRegion, text: bText }, algorithm: 'simple' });
+      setResult(res);
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+        title="Ad-hoc compare two texts using the backend diffs service"
+      >
+        {open ? 'Close Quick Compare' : 'Quick Compare (Backend)'}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-[36rem] max-w-[90vw] z-10 bg-gray-800 border border-gray-600 rounded shadow-lg p-3 space-y-2">
+          <div className="text-sm font-medium text-gray-200">Ad-hoc Compare</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Region A</label>
+              <select value={aRegion} onChange={e => setARegion(e.target.value)} className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600">
+                <option value="us-east">us-east</option>
+                <option value="eu-west">eu-west</option>
+                <option value="asia-pacific">asia-pacific</option>
+              </select>
+              <textarea value={aText} onChange={e => setAText(e.target.value)} rows={6} placeholder="Paste text A here" className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600"></textarea>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Region B</label>
+              <select value={bRegion} onChange={e => setBRegion(e.target.value)} className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600">
+                <option value="eu-west">eu-west</option>
+                <option value="us-east">us-east</option>
+                <option value="asia-pacific">asia-pacific</option>
+              </select>
+              <textarea value={bText} onChange={e => setBText(e.target.value)} rows={6} placeholder="Paste text B here" className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600"></textarea>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-400">Backend: diffs compare (simple)</div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setAText(''); setBText(''); setResult(null); setError(''); }} className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500">Clear</button>
+              <button onClick={() => prefillFromExecutions(activeJob, { setARegion, setBRegion, setAText, setBText, setError })} className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500" title="Prefill from latest completed region outputs">Use latest outputs</button>
+              <button onClick={onCompare} disabled={loading || (!aText && !bText)} className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700 disabled:opacity-50">
+                {loading ? 'Comparing…' : 'Compare'}
+              </button>
+            </div>
+          </div>
+          {error && (
+            <div className="text-xs text-red-500">{error}</div>
+          )}
+          {result && (
+            <div className="space-y-2">
+              <div className="text-xs text-gray-300">Similarity: <span className="font-mono">{(result?.similarity ?? 0).toFixed(2)}</span></div>
+              <div className="max-h-40 overflow-auto border border-gray-600 rounded">
+                {(result?.segments || []).map((s, i) => (
+                  <div key={i} className="text-xs grid grid-cols-3 gap-2 px-2 py-1 border-b border-gray-700">
+                    <div className="font-mono text-gray-400">{s.type}</div>
+                    <div className="font-mono text-gray-200 truncate" title={s.a}>{s.a}</div>
+                    <div className="font-mono text-gray-200 truncate" title={s.b}>{s.b}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

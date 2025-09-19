@@ -453,20 +453,32 @@ export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURICompon
 // Cross-region diff APIs (robust):
 // Some backends expose GET (fetch existing) and/or POST (generate) for the same route.
 export const getCrossRegionDiff = async (jobId) => {
-  try {
-    return await httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`);
-  } catch (e) {
-    // If GET not supported, try POST to generate
+  const id = encodeURIComponent(jobId);
+  const candidates = [
+    // Plan-aligned endpoints (prefer these)
+    { path: `/executions/${id}/cross-region`, method: 'GET' },
+    { path: `/executions/${id}/cross-region`, method: 'POST' },
+    { path: `/executions/${id}/diff-analysis`, method: 'GET' },
+    { path: `/executions/${id}/diff-analysis`, method: 'POST' },
+    // Legacy/older experimental endpoint
+    { path: `/executions/${id}/cross-region-diff`, method: 'GET' },
+    { path: `/executions/${id}/cross-region-diff`, method: 'POST' },
+  ];
+  let lastErr;
+  for (const c of candidates) {
     try {
-      const created = await httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });
-      return created;
-    } catch (e2) {
-      throw e2;
+      const res = await httpV1(c.path, c.method === 'POST' ? { method: 'POST' } : {});
+      return res;
+    } catch (err) {
+      lastErr = err;
+      // Continue to next candidate
     }
   }
+  throw lastErr || new Error('cross-region diff endpoints unavailable');
 };
 
 export const createCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });
+export const createCrossRegionJob = (payload) => httpV1('/jobs/cross-region', { method: 'POST', body: JSON.stringify(payload) });
 export const findDiffsByJob = async (jobId, { limit = 1 } = {}) => {
   const qs = new URLSearchParams();
   if (jobId) qs.set('job_id', jobId);
@@ -477,3 +489,44 @@ export const findDiffsByJob = async (jobId, { limit = 1 } = {}) => {
   return [];
 };
 export const getRegionResults = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/regions`);
+
+// ------------------------------
+// Diffs Backend (FastAPI on Railway)
+// ------------------------------
+let DIFFS_BASE = '';
+try {
+  const ls = localStorage.getItem('beacon:diffs_base');
+  if (ls && ls.trim()) DIFFS_BASE = ls.replace(/\/$/, '');
+} catch {}
+try {
+  const env = import.meta?.env?.VITE_DIFFS_BASE;
+  if (!DIFFS_BASE && env && typeof env === 'string' && env.trim()) DIFFS_BASE = env.replace(/\/$/, '');
+} catch {}
+
+// If no explicit base, use same-origin proxy configured in netlify.toml
+if (!DIFFS_BASE) DIFFS_BASE = '/backend-diffs';
+
+async function httpDiffs(path, opts = {}) {
+  const url = `${DIFFS_BASE}${path.startsWith('/') ? path : '/' + path}`;
+  const fetchOptions = {
+    ...opts,
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json; charset=utf-8', ...(opts.headers || {}) },
+  };
+  fetchOptions.mode = 'cors';
+  fetchOptions.credentials = 'omit';
+  const res = await fetch(url, fetchOptions);
+  if (!res.ok) {
+    let msg = `${res.status} ${res.statusText}`;
+    try { const b = await res.json(); msg = b?.error || b?.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// Compare two region outputs
+export const compareDiffs = ({ a, b, algorithm = 'simple' }) =>
+  httpDiffs('/api/v1/diffs/compare', { method: 'POST', body: JSON.stringify({ a, b, algorithm }) });
+
+// List recent diff results from backend
+export const listRecentDiffs = ({ limit = 10 } = {}) =>
+  httpDiffs(`/api/v1/diffs/recent?limit=${encodeURIComponent(String(limit))}`);

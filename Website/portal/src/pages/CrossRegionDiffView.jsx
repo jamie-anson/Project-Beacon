@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import WorldMapVisualization from '../components/WorldMapVisualization';
-import { getJob, getCrossRegionDiff, getRegionResults } from '../lib/api.js';
+import { getJob, getCrossRegionDiff, getRegionResults, listRecentDiffs } from '../lib/api.js';
 import { useQuery } from '../state/useQuery.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
@@ -26,6 +26,13 @@ export default function CrossRegionDiffView() {
     jobId ? `job:${jobId}` : null,
     () => jobId ? getJob({ id: jobId, include: 'executions' }) : Promise.resolve(null),
     { interval: 0 } // No polling for diff view
+  );
+
+  // Fetch recent diffs from the backend
+  const { data: recentDiffs } = useQuery(
+    'recent-diffs',
+    () => listRecentDiffs({ limit: 10 }),
+    { interval: 15000 }
   );
 
   // Fetch real cross-region diff analysis data
@@ -471,6 +478,50 @@ export default function CrossRegionDiffView() {
           ))}
         </div>
       )}
+
+      {/* Recent Diffs (Persisted) */}
+      <div className="bg-white rounded-lg border p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-medium text-slate-900">Recent Diffs</h3>
+          <span className="text-xs text-slate-500">Latest 10</span>
+        </div>
+        {!recentDiffs || (Array.isArray(recentDiffs) && recentDiffs.length === 0) ? (
+          <div className="text-sm text-slate-600">No recent diffs yet.</div>
+        ) : (
+          <div className="divide-y border rounded">
+            {(recentDiffs || []).map((d) => (
+              <div key={d.id} className="p-3 grid grid-cols-5 gap-3 text-sm">
+                <div className="col-span-2">
+                  <div className="text-xs text-slate-500">ID</div>
+                  <div className="font-mono text-slate-900">{d.id}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">When</div>
+                  <div>{new Date(d.created_at).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Similarity</div>
+                  <div className="font-mono">{(d.similarity ?? 0).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Regions</div>
+                  <div className="font-mono">{d?.a?.region} vs {d?.b?.region}</div>
+                </div>
+                <div className="col-span-5 mt-2 grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 rounded p-2">
+                    <div className="text-xs text-slate-500">A</div>
+                    <div className="text-xs truncate" title={d?.a?.text}>{d?.a?.text}</div>
+                  </div>
+                  <div className="bg-slate-50 rounded p-2">
+                    <div className="text-xs text-slate-500">B</div>
+                    <div className="text-xs truncate" title={d?.b?.text}>{d?.b?.text}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Cross-Region Analysis Table */}
       {selectedModelData && (

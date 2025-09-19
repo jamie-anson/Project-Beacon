@@ -14,6 +14,8 @@
   VITE_ENABLE_WS = "1"
   # Use same-origin for API base; portal code appends /api/v1
   VITE_API_BASE = "https://projectbeacon.netlify.app"
+  # Optional: direct diffs backend base (portal also uses same-origin proxy /backend-diffs)
+  # VITE_DIFFS_BASE = "https://backend-diffs-production.up.railway.app"
   # If needed, set these in Netlify UI instead of hardcoding:
   # VITE_HYBRID_BASE = "https://project-beacon-production.up.railway.app"
   # VITE_WS_BASE = "wss://project-beacon-production.up.railway.app"
@@ -71,6 +73,13 @@
 [[redirects]]
   from = "/hybrid/*"
   to = "https://project-beacon-production.up.railway.app/:splat"
+  status = 200
+  force = true
+
+# Diffs backend proxy (avoids CORS); portal can call /backend-diffs/*
+[[redirects]]
+  from = "/backend-diffs/*"
+  to = "https://backend-diffs-production.up.railway.app/:splat"
   status = 200
   force = true
 
