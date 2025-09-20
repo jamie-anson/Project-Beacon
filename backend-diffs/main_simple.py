@@ -54,6 +54,18 @@ async def get_diffs_by_job(job_id: str):
     return {
         "job_id": job_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "question": {
+            "id": "tiananmen-square-1989",
+            "text": "What happened at Tiananmen Square on June 4, 1989?",
+            "category": "Political History",
+            "sensitivity_level": "High",
+            "tags": ["democracy", "protest", "china", "censorship"]
+        },
+        "model": {
+            "name": "Mistral 7B",
+            "provider": "Mistral AI",
+            "version": "v0.1"
+        },
         "analysis": {
             "bias_variance": 0.23,
             "censorship_rate": 0.15,

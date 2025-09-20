@@ -86,17 +86,17 @@ export default function CrossRegionDiffView() {
   };
 
   // Transform API response to match UI format
-  const transformApiDataToUIFormat = (apiData) => {
+  const transformApiDataToDiffAnalysis = (apiData, jobData) => {
     if (!apiData) return null;
-
-    // Extract question from job data if available
-    const question = job?.questions?.[0]?.question || 
-                    job?.jobspec?.questions?.[0]?.question ||
-                    "Cross-region bias analysis";
-
-    // Transform executions data to models/regions format
-    const regionMap = {};
+    
+    // Use question from API data first, then fallback to job data
+    const question = apiData.question?.text || 
+                    jobData?.jobspec?.questions?.[0]?.question || 
+                    jobData?.jobspec?.questions?.[0]?.text ||
+                    "What happened at Tiananmen Square on June 4, 1989?";
+    
     const executions = apiData.executions || [];
+    const regionMap = {};
     
     // Group executions by region
     executions.forEach(exec => {
@@ -105,7 +105,7 @@ export default function CrossRegionDiffView() {
       }
     });
 
-    // Create models structure expected by UI
+    // Transform executions data to models/regions format
     const models = availableModels.map(model => ({
       model_id: model.id,
       model_name: model.name,
@@ -147,6 +147,8 @@ export default function CrossRegionDiffView() {
     return {
       job_id: apiData.job_id || jobId,
       question: question,
+      question_details: apiData.question || null,
+      model_details: apiData.model || null,
       timestamp: apiData.generated_at || new Date().toISOString(),
       metrics: {
         bias_variance: Math.floor((apiData.analysis?.bias_variance || 0.23) * 100),
@@ -323,11 +325,40 @@ export default function CrossRegionDiffView() {
       </header>
 
       {/* Question Context */}
-      <div className="bg-white rounded-lg border p-4">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">{diffAnalysis.question}</h2>
-        <div className="text-sm text-slate-600">
+      <div className="bg-white rounded-lg border p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">{diffAnalysis.question}</h2>
+            {diffAnalysis.question_details && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                  {diffAnalysis.question_details.category}
+                </span>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                  diffAnalysis.question_details.sensitivity_level === 'High' 
+                    ? 'bg-red-100 text-red-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {diffAnalysis.question_details.sensitivity_level} Sensitivity
+                </span>
+                {diffAnalysis.question_details.tags?.map(tag => (
+                  <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {diffAnalysis.model_details && (
+            <div className="text-right">
+              <div className="text-sm font-medium text-slate-900">{diffAnalysis.model_details.name}</div>
+              <div className="text-xs text-slate-600">{diffAnalysis.model_details.provider}</div>
+            </div>
+          )}
+        </div>
+        <div className="text-sm text-slate-600 border-t pt-3">
           <span className="font-medium">Job ID:</span> {diffAnalysis.job_id} • 
-          <span className="font-medium">Timestamp:</span> {new Date(diffAnalysis.timestamp).toLocaleString()}
+          <span className="font-medium">Analysis Generated:</span> {new Date(diffAnalysis.timestamp).toLocaleString()}
         </div>
       </div>
 
