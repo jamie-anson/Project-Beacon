@@ -88,6 +88,22 @@ def generate_diff_segments(text_a: str, text_b: str) -> List[DiffSegment]:
     
     return segments
 
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "service": "backend-diffs",
+        "version": "0.1.0",
+        "endpoints": [
+            "/health",
+            "/api/v1/diffs/compare",
+            "/api/v1/diffs/recent",
+            "/api/v1/diffs/by-job/{job_id}",
+            "/api/v1/diffs/cross-region/{job_id}",
+            "/api/v1/diffs/jobs/{job_id}"
+        ]
+    }
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
@@ -142,6 +158,7 @@ async def list_recent_diffs(limit: int = Query(10, ge=1, le=50)):
 @app.get("/api/v1/diffs/by-job/{job_id}")
 async def get_diffs_by_job(job_id: str):
     """Get cross-region analysis for a specific job (mock implementation)"""
+    print(f"[DEBUG] get_diffs_by_job called with job_id: {job_id}")
     
     # Mock cross-region analysis data
     # In production, this would fetch actual job execution data and analyze it
