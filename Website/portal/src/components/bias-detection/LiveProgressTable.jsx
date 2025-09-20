@@ -124,6 +124,8 @@ function extractExecText(exec) {
   }
   const pct = Math.round((completed / Math.max(total, 1)) * 100);
   const overallCompleted = jobCompleted || (total > 0 && completed >= total);
+  const actionsDisabled = !overallCompleted;
+  const showShimmer = !overallCompleted && running > 0;
 
   return (
     <div className="p-4 space-y-3">
@@ -134,8 +136,8 @@ function extractExecText(exec) {
             <span>Overall Progress</span>
             <span className="text-gray-400">{completed}/{total} regions · {pct}%</span>
           </div>
-          <div className="w-full h-3 bg-gray-700 rounded overflow-hidden">
-            <div className="h-full flex">
+          <div className={`w-full h-3 bg-gray-700 rounded overflow-hidden relative ${showShimmer ? 'animate-pulse' : ''}`}>
+            <div className="h-full flex relative z-10">
               <div 
                 className="h-full bg-green-500" 
                 style={{ width: `${(completed / total) * 100}%` }}
@@ -149,6 +151,9 @@ function extractExecText(exec) {
                 style={{ width: `${(failed / total) * 100}%` }}
               ></div>
             </div>
+            {showShimmer && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+            )}
           </div>
         </div>
         
@@ -265,20 +270,29 @@ function extractExecText(exec) {
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-2">
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
-        <QuickCompareCTA activeJob={activeJob} />
+        <QuickCompareCTA activeJob={activeJob} disabled={actionsDisabled} />
         {(() => {
           const showDiffCta = !!jobId; // always show when we have a job id
-          if (showDiffCta) {
+          if (!showDiffCta) return null;
+          if (actionsDisabled) {
             return (
-              <Link 
-                to={`/portal/results/${jobId}/diffs`}
-                className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700"
+              <button
+                disabled
+                className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm opacity-50 cursor-not-allowed"
+                title="Available when job completes"
               >
                 View Cross-Region Diffs
-              </Link>
+              </button>
             );
           }
-          return null;
+          return (
+            <Link 
+              to={`/results/${jobId}/diffs`}
+              className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700"
+            >
+              View Cross-Region Diffs
+            </Link>
+          );
         })()}
         {activeJob?.id && (
           <Link to={`/jobs/${activeJob.id}`} className="text-sm text-beacon-600 underline decoration-dotted">View full results</Link>
@@ -288,7 +302,7 @@ function extractExecText(exec) {
   );
 }
 
-function QuickCompareCTA({ activeJob }) {
+function QuickCompareCTA({ activeJob, disabled = false }) {
   const [open, setOpen] = useState(false);
   const [aRegion, setARegion] = useState('us-east');
   const [bRegion, setBRegion] = useState('eu-west');
@@ -313,13 +327,14 @@ function QuickCompareCTA({ activeJob }) {
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(v => !v)}
-        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-        title="Ad-hoc compare two texts using the backend diffs service"
+        onClick={() => !disabled && setOpen(v => !v)}
+        disabled={disabled}
+        className={`px-3 py-1.5 bg-blue-600 text-white rounded text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+        title={disabled ? 'Available when job completes' : 'Ad-hoc compare two texts using the backend diffs service'}
       >
         {open ? 'Close Quick Compare' : 'Quick Compare (Backend)'}
       </button>
-      {open && (
+      {open && !disabled && (
         <div className="absolute right-0 mt-2 w-[36rem] max-w-[90vw] z-10 bg-gray-800 border border-gray-600 rounded shadow-lg p-3 space-y-2">
           <div className="text-sm font-medium text-gray-200">Ad-hoc Compare</div>
           <div className="grid grid-cols-2 gap-2">
