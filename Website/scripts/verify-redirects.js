@@ -11,8 +11,9 @@ if (!fs.existsSync(redirectsPath)) {
 }
 
 const txt = fs.readFileSync(redirectsPath, 'utf8');
-const hasHealth = /\n?\s*\/backend-diffs\/health\b/.test(txt);
-const hasSplat = /\n?\s*\/backend-diffs\/\*\b/.test(txt);
+const lines = txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+const hasHealth = lines.some((l) => l.startsWith('/backend-diffs/health '));
+const hasSplat = lines.some((l) => l.startsWith('/backend-diffs/* '));
 
 if (!hasHealth || !hasSplat) {
   console.error('[verify-redirects] Missing backend-diffs rules in dist/_redirects');
