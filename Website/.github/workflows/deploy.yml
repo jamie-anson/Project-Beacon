@@ -35,13 +35,21 @@ jobs:
         sudo apt-get update -y
         sudo apt-get install -y jq
 
-    - name: Install dependencies (portal)
-      working-directory: portal
-      run: npm ci
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd portal && npm ci
 
-    - name: Build (portal)
-      working-directory: portal
-      run: npm run build
+    - name: Build for preview
+      run: |
+        echo "🏗️ Building for preview deployment"
+        npm run build:static
+        npm run build:docs
+        npm run postbuild:cid
+        npm run build:docs:with-cid
+        npm run build:portal
+        npm run build:finalize
+        echo "✅ Preview build complete"
 
     - name: Deploy portal to IPFS (Storacha)
       id: ipfs_portal_preview
@@ -61,7 +69,7 @@ jobs:
       id: netlify-preview
       run: |
         DEPLOY_URL=$(netlify deploy \
-          --dir=portal/dist \
+          --dir=dist \
           --site=${{ secrets.NETLIFY_SITE_ID }} \
           --auth=${{ secrets.NETLIFY_AUTH_TOKEN }} \
           --alias=pr-${{ github.event.number }} \
@@ -81,8 +89,10 @@ jobs:
           **Preview URL:** ${deployUrl}
 
           **What's included:**
-          - 🎛️ Portal (Vite) at \`${deployUrl}\`
-          - 📄 Root static pages may not be part of preview unless included in portal build
+          - 🎛️ Portal (Vite) at \`${deployUrl}/portal\`
+          - 📚 Documentation at \`${deployUrl}/docs\`
+          - 📄 Root static pages at \`${deployUrl}\`
+          - 🔧 Full redirect rules active in preview
 
           **Build Info:**
           - **Commit:** \`${{ github.event.pull_request.head.sha }}\`
@@ -142,6 +152,12 @@ jobs:
         npm run build:static
         npm run build:docs
         echo "✅ Base static + docs build complete"
+    
+    - name: Generate and verify redirects
+      run: |
+        echo "🔧 Generating and verifying redirects..."
+        npm run postbuild:redirects
+        echo "✅ Redirects generated and verified"
 
     - name: Deploy docs to IPFS (Storacha)
       id: ipfs
@@ -223,9 +239,23 @@ jobs:
         curl -f -s "$DEPLOY_URL/docs/" > /dev/null || (echo "❌ Docs check failed" && exit 1)
         echo "✅ Docs responding"
         
-        # Check portal
-        curl -f -s "$DEPLOY_URL/portal/" > /dev/null || (echo "❌ Portal check failed" && exit 1)
-        echo "✅ Portal responding"
+        # Check portal root
+        curl -f -s "$DEPLOY_URL/portal/" > /dev/null || (echo "❌ Portal root check failed" && exit 1)
+        echo "✅ Portal root responding"
+        
+        # Check portal deep links
+        curl -f -s "$DEPLOY_URL/portal/questions" > /dev/null || (echo "❌ Portal questions check failed" && exit 1)
+        echo "✅ Portal questions responding"
+        
+        curl -f -s "$DEPLOY_URL/portal/jobs" > /dev/null || (echo "❌ Portal jobs check failed" && exit 1)
+        echo "✅ Portal jobs responding"
+        
+        # Check backend proxies
+        curl -f -s "$DEPLOY_URL/backend-diffs/health" > /dev/null || (echo "❌ Backend diffs health check failed" && exit 1)
+        echo "✅ Backend diffs health responding"
+        
+        curl -f -s "$DEPLOY_URL/health" > /dev/null || (echo "❌ Runner health check failed" && exit 1)
+        echo "✅ Runner health responding"
         
         echo "🎉 All endpoints verified successfully!"
     

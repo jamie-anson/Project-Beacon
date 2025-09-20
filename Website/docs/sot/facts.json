@@ -1,0 +1,873 @@
+[
+  {
+    "id": "srv-0001",
+    "action": "add",
+    "type": "server",
+    "subject": "runner",
+    "env": "prod",
+    "data": {
+      "name": "fly-runner",
+      "url": "https://beacon-runner-change-me.fly.dev",
+      "provider": "fly.io",
+      "region": "iad"
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Primary Runner API"
+  },
+  {
+    "id": "srv-0002",
+    "action": "add",
+    "type": "server",
+    "subject": "router",
+    "env": "prod",
+    "data": {
+      "name": "railway-router",
+      "url": "https://project-beacon-production.up.railway.app",
+      "provider": "railway",
+      "region": "iad"
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Hybrid router (provider discovery only). Not full Runner API."
+  },
+  {
+    "id": "prt-0001",
+    "action": "add",
+    "type": "port",
+    "subject": "runner",
+    "env": "local",
+    "data": {
+      "port": 8090,
+      "protocol": "http"
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Runner local default"
+  },
+  {
+    "id": "trm-0001",
+    "action": "add",
+    "type": "terminal",
+    "subject": "A",
+    "env": "local",
+    "data": {
+      "purpose": "Yagna daemon",
+      "default_port": 7465
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "trm-0002",
+    "action": "add",
+    "type": "terminal",
+    "subject": "B",
+    "env": "local",
+    "data": {
+      "purpose": "Go API server",
+      "default_port": 8090
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "trm-0003",
+    "action": "add",
+    "type": "terminal",
+    "subject": "C",
+    "env": "local",
+    "data": {
+      "purpose": "Actions (curl, tests)",
+      "default_port": 8787
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "trm-0004",
+    "action": "add",
+    "type": "terminal",
+    "subject": "D",
+    "env": "local",
+    "data": {
+      "purpose": "Postgres + Redis (docker compose)",
+      "default_port": 8787
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "trm-0005",
+    "action": "add",
+    "type": "terminal",
+    "subject": "E",
+    "env": "local",
+    "data": {
+      "purpose": "Fly/Upstash/Neon (cloud infra ops)",
+      "default_port": 8787
+    },
+    "effective_at": "2025-09-20T17:14:26+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "rte-0001",
+    "action": "add",
+    "type": "routing_policy",
+    "subject": "redirects",
+    "env": "all",
+    "data": {
+      "source_of_truth": "dist/_redirects",
+      "generator": "scripts/write-redirects.js",
+      "verification": "scripts/verify-redirects.js",
+      "netlify_toml_redirects": "prohibited (use only for build/env/headers)",
+      "order": [
+        "backend-diffs: /backend-diffs/health -> Railway 200!",
+        "backend-diffs: /backend-diffs/* -> Railway 200!",
+        "api: /api/v1/* -> Runner 200!",
+        "health: /health -> Runner 200!",
+        "hybrid: /hybrid/* -> Hybrid Router 200!",
+        "ws: /ws, /ws/* -> Hybrid Router 200!",
+        "docs: /docs/*, /docs -> /docs/index.html 200",
+        "portal assets: /portal/assets/* -> passthrough 200",
+        "portal spa: /portal/*, /portal -> /portal/index.html 200",
+        "demo: /demo-results/* -> passthrough 200"
+      ],
+      "env_params": {
+        "REDIRECT_DIFFS_BASE": "https://backend-diffs-production.up.railway.app",
+        "REDIRECT_RUNNER_BASE": "https://beacon-runner-change-me.fly.dev",
+        "REDIRECT_HYBRID_BASE": "https://project-beacon-production.up.railway.app"
+      }
+    },
+    "effective_at": "2025-09-20T17:55:07+01:00",
+    "notes": "Single source of truth for redirects and SPA fallbacks lives in dist/_redirects. Use env-param bases for proxies."
+  },
+  {
+    "id": "trm-0006",
+    "action": "add",
+    "type": "terminal",
+    "subject": "F",
+    "env": "local",
+    "data": {
+      "purpose": "Vite dev server",
+      "default_port": 8787
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "trm-0007",
+    "action": "add",
+    "type": "terminal",
+    "subject": "H",
+    "env": "local",
+    "data": {
+      "purpose": "Mock backend",
+      "default_port": 8787
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Terminal mapping"
+  },
+  {
+    "id": "dpr-0001",
+    "action": "deprecate",
+    "type": "terminal",
+    "subject": "C",
+    "env": "local",
+    "data": {
+      "reason": "Terminal C is a general action shell; no default port",
+      "supersedes": "trm-0003"
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Correcting earlier entry"
+  },
+  {
+    "id": "trm-0008",
+    "action": "add",
+    "type": "terminal",
+    "subject": "C",
+    "env": "local",
+    "data": {
+      "purpose": "Actions (curl, tests)"
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Terminal mapping (no default port)"
+  },
+  {
+    "id": "dpr-0002",
+    "action": "deprecate",
+    "type": "terminal",
+    "subject": "D",
+    "env": "local",
+    "data": {
+      "reason": "Terminal D controls services with multiple ports; default port 8787 was inaccurate",
+      "supersedes": "trm-0004"
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Correcting earlier entry"
+  },
+  {
+    "id": "trm-0009",
+    "action": "add",
+    "type": "terminal",
+    "subject": "D",
+    "env": "local",
+    "data": {
+      "purpose": "Postgres + Redis (docker compose)",
+      "ports": { "postgres": 5432, "redis": 6379 }
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Terminal mapping with explicit service ports"
+  },
+  {
+    "id": "dpr-0003",
+    "action": "deprecate",
+    "type": "terminal",
+    "subject": "E",
+    "env": "local",
+    "data": {
+      "reason": "Terminal E is cloud infra ops; no default port",
+      "supersedes": "trm-0005"
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Correcting earlier entry"
+  },
+  {
+    "id": "trm-0010",
+    "action": "add",
+    "type": "terminal",
+    "subject": "E",
+    "env": "local",
+    "data": {
+      "purpose": "Fly/Upstash/Neon (cloud infra ops)"
+    },
+    "effective_at": "2025-09-20T18:09:36+01:00",
+    "notes": "Terminal mapping (no default port)"
+  },
+  {
+    "id": "git-0001",
+    "action": "add",
+    "type": "git_structure",
+    "subject": "local",
+    "env": "local",
+    "data": {
+      "path": "/Users/Jammie/Desktop/Project Beacon/Website",
+      "structure": "monorepo",
+      "subdirs": ["portal/", "backend/", "runner-app/", "docs/", "scripts/", ".github/"],
+      "deployment_targets": {
+        "portal": "netlify",
+        "backend": "railway", 
+        "runner-app": "fly.io"
+      }
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Local git structure - monorepo with multiple deployment targets"
+  },
+  {
+    "id": "git-0002",
+    "action": "add",
+    "type": "git_structure",
+    "subject": "github",
+    "env": "prod",
+    "data": {
+      "repo": "jamie-anson/Project-Beacon",
+      "url": "https://github.com/jamie-anson/Project-Beacon",
+      "branch_strategy": "main + feature branches",
+      "ci_cd": "github_actions",
+      "workflows": ["deploy.yml", "sot-validate.yml", "test.yml", "e2e-remote.yml"]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "GitHub repo structure and CI/CD configuration"
+  },
+  {
+    "id": "api-0001",
+    "action": "add",
+    "type": "api_base",
+    "subject": "runner",
+    "env": "prod",
+    "data": {
+      "base_url": "https://beacon-runner-change-me.fly.dev",
+      "api_prefix": "/api/v1",
+      "endpoints": [
+        "GET /health",
+        "POST /jobs",
+        "GET /jobs/:id",
+        "GET /executions",
+        "GET /executions/:id", 
+        "GET /questions",
+        "GET /transparency/root",
+        "GET /transparency/proof/:id",
+        "GET /ws (websocket)"
+      ]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Runner API endpoints"
+  },
+  {
+    "id": "api-0002",
+    "action": "add",
+    "type": "api_base",
+    "subject": "router",
+    "env": "prod",
+    "data": {
+      "base_url": "https://project-beacon-production.up.railway.app",
+      "api_prefix": "/",
+      "endpoints": [
+        "GET /health",
+        "GET /providers",
+        "POST /inference",
+        "GET /ws (websocket)"
+      ]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Hybrid router API endpoints (provider discovery only)"
+  },
+  {
+    "id": "flg-0001",
+    "action": "add",
+    "type": "flags",
+    "subject": "runner",
+    "env": "all",
+    "data": {
+      "environment_vars": [
+        "PORT (default: 8090)",
+        "DATABASE_URL",
+        "REDIS_URL", 
+        "TRUSTED_KEYS_FILE",
+        "ADMIN_TOKENS",
+        "GOLEM_YAGNA_APPKEY",
+        "HYBRID_ROUTER_URL"
+      ],
+      "feature_flags": [
+        "ENABLE_SIGNATURE_VERIFICATION (default: true)",
+        "ENABLE_TRUST_POLICY (default: true)",
+        "ENABLE_WEBSOCKETS (default: true)"
+      ]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Runner service configuration flags"
+  },
+  {
+    "id": "flg-0002",
+    "action": "add",
+    "type": "flags",
+    "subject": "portal",
+    "env": "all",
+    "data": {
+      "build_vars": [
+        "VITE_API_BASE (default: /api/v1)",
+        "VITE_WS_BASE (default: /ws)",
+        "VITE_GOOGLE_MAPS_API_KEY",
+        "VITE_ENABLE_WS (default: false)",
+        "VITE_ENABLE_IDEMPOTENCY (default: false)"
+      ],
+      "runtime_flags": [
+        "localStorage: beacon:enable_ws",
+        "localStorage: beacon:enable_idempotency"
+      ]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Portal build and runtime configuration flags"
+  },
+  {
+    "id": "flg-0003",
+    "action": "add",
+    "type": "flags",
+    "subject": "router",
+    "env": "all",
+    "data": {
+      "environment_vars": [
+        "PORT (default: 8080)",
+        "MODAL_US_URL",
+        "MODAL_EU_URL", 
+        "MODAL_APAC_URL",
+        "RUNPOD_US_URL",
+        "RUNPOD_EU_URL",
+        "RUNPOD_APAC_URL"
+      ],
+      "feature_flags": [
+        "ENABLE_WEBSOCKETS (default: true)",
+        "ENABLE_CORS (default: true)"
+      ]
+    },
+    "effective_at": "2025-09-20T18:13:40+01:00",
+    "notes": "Hybrid router configuration flags"
+  },
+  {
+    "id": "db-0001",
+    "action": "add",
+    "type": "database_schema",
+    "subject": "runner",
+    "env": "all",
+    "data": {
+      "tables": ["jobs", "executions", "outbox", "idempotency_keys"],
+      "key_fields": {
+        "jobs": "id (uuid), status, jobspec_hash",
+        "executions": "id (serial), job_id, region, status",
+        "outbox": "id (serial), payload, processed_at",
+        "idempotency_keys": "key (varchar), created_at"
+      },
+      "connection_pools": {
+        "max_connections": 10,
+        "idle_timeout": "5m"
+      }
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Runner database schema and connection settings"
+  },
+  {
+    "id": "db-0002",
+    "action": "add",
+    "type": "database_connection",
+    "subject": "production",
+    "env": "prod",
+    "data": {
+      "provider": "neon",
+      "connection_via": "DATABASE_URL environment variable",
+      "ssl_mode": "require",
+      "timeout": "5s"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Production database connection configuration"
+  },
+  {
+    "id": "auth-0001",
+    "action": "add",
+    "type": "authentication",
+    "subject": "trusted_keys",
+    "env": "all",
+    "data": {
+      "format": "Ed25519 public keys (base64)",
+      "location": "TRUSTED_KEYS_FILE environment variable",
+      "verification_algorithm": "Ed25519",
+      "canonicalization": "deterministic JSON with ID field removed"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Cryptographic signature verification system"
+  },
+  {
+    "id": "auth-0002",
+    "action": "add",
+    "type": "authentication",
+    "subject": "admin_tokens",
+    "env": "all",
+    "data": {
+      "format": "Bearer tokens",
+      "header": "Authorization: Bearer <token>",
+      "source": "ADMIN_TOKENS environment variable (comma-separated)",
+      "scope": "Admin API endpoints only"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Admin authentication system"
+  },
+  {
+    "id": "auth-0003",
+    "action": "add",
+    "type": "security_policy",
+    "subject": "cors",
+    "env": "all",
+    "data": {
+      "allowed_origins": ["https://projectbeacon.netlify.app", "localhost:*"],
+      "allowed_methods": ["GET", "POST", "OPTIONS"],
+      "allowed_headers": ["Content-Type", "Authorization", "Idempotency-Key"],
+      "credentials": false
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "CORS policy configuration"
+  },
+  {
+    "id": "ext-0001",
+    "action": "add",
+    "type": "external_dependency",
+    "subject": "golem_network",
+    "env": "all",
+    "data": {
+      "testnet_endpoints": ["https://yagna.testnet.golem.network"],
+      "mainnet_endpoints": ["https://yagna.mainnet.golem.network"],
+      "payment_network": "polygon",
+      "required_tokens": ["tGLM", "tETH"],
+      "node_id": "0x536ec34be8b1395d54f69b8895f902f9b65b235b"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Golem network configuration and endpoints"
+  },
+  {
+    "id": "ext-0002",
+    "action": "add",
+    "type": "external_dependency",
+    "subject": "modal_providers",
+    "env": "prod",
+    "data": {
+      "us_east": "https://jamie-anson--project-beacon-hf-run-inference-us.modal.run",
+      "eu_west": "https://jamie-anson--project-beacon-hf-run-inference-eu.modal.run",
+      "asia_pacific": "https://jamie-anson--project-beacon-hf-run-inference-apac.modal.run",
+      "models": ["llama3.2:1b", "mistral:7b", "qwen2.5:1.5b"]
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Modal serverless GPU provider endpoints"
+  },
+  {
+    "id": "ext-0003",
+    "action": "add",
+    "type": "external_dependency",
+    "subject": "ipfs_gateway",
+    "env": "all",
+    "data": {
+      "local_node": "http://127.0.0.1:5001",
+      "public_gateways": ["https://ipfs.io", "https://gateway.pinata.cloud"],
+      "pinning_service": "pinata",
+      "storage_format": "CAR files for receipts"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "IPFS storage and gateway configuration"
+  },
+  {
+    "id": "ext-0004",
+    "action": "add",
+    "type": "external_dependency",
+    "subject": "redis_queues",
+    "env": "all",
+    "data": {
+      "queue_names": ["jobs", "jobs:dead"],
+      "connection_via": "REDIS_URL environment variable",
+      "retry_policy": "exponential backoff (1s, 2s, 4s, 8s, 16s)",
+      "dead_letter_timeout": "5 minutes"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Redis queue configuration and retry policies"
+  },
+  {
+    "id": "build-0001",
+    "action": "add",
+    "type": "build_artifact",
+    "subject": "docker_images",
+    "env": "all",
+    "data": {
+      "runner": "project-beacon-runner",
+      "golem_provider": "beacon-golem-provider",
+      "llm_benchmarks": ["llama-3.2-1b", "mistral-7b", "qwen-2.5-1.5b"],
+      "registry": "local + fly.io registry"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Docker image naming conventions"
+  },
+  {
+    "id": "build-0002",
+    "action": "add",
+    "type": "deployment_id",
+    "subject": "fly_apps",
+    "env": "prod",
+    "data": {
+      "runner": "beacon-runner-change-me",
+      "golem_us": "beacon-golem-us",
+      "golem_eu": "beacon-golem-eu",
+      "golem_apac": "beacon-golem-apac",
+      "regions": ["iad", "fra", "sin"]
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Fly.io application names and regions"
+  },
+  {
+    "id": "build-0003",
+    "action": "add",
+    "type": "deployment_id",
+    "subject": "railway_projects",
+    "env": "prod",
+    "data": {
+      "hybrid_router": "26123d99-d3c5-4c96-a251-00bf2bc39348",
+      "url": "https://project-beacon-production.up.railway.app",
+      "connected_repo": "jamie-anson/Project-Beacon"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Railway project configuration"
+  },
+  {
+    "id": "build-0004",
+    "action": "add",
+    "type": "deployment_id",
+    "subject": "netlify_site",
+    "env": "prod",
+    "data": {
+      "site_name": "projectbeacon",
+      "url": "https://projectbeacon.netlify.app",
+      "build_command": "npm run build",
+      "publish_directory": "dist"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Netlify site configuration"
+  },
+  {
+    "id": "mon-0001",
+    "action": "add",
+    "type": "monitoring",
+    "subject": "health_checks",
+    "env": "all",
+    "data": {
+      "endpoints": [
+        "GET /health (runner)",
+        "GET /health (router)",
+        "GET :8080/health (golem providers)"
+      ],
+      "expected_response": "200 OK with JSON status",
+      "timeout": "5s",
+      "retry_interval": "30s"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Health check endpoint specifications"
+  },
+  {
+    "id": "mon-0002",
+    "action": "add",
+    "type": "monitoring",
+    "subject": "logging",
+    "env": "all",
+    "data": {
+      "log_levels": ["DEBUG", "INFO", "WARN", "ERROR"],
+      "structured_format": "JSON with timestamp, level, message, context",
+      "aggregation": "fly.io logs, railway logs, netlify functions logs",
+      "retention": "7 days (fly), 30 days (railway)"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Logging configuration and aggregation"
+  },
+  {
+    "id": "mon-0003",
+    "action": "add",
+    "type": "monitoring",
+    "subject": "metrics",
+    "env": "prod",
+    "data": {
+      "job_metrics": ["jobs_created", "jobs_completed", "jobs_failed", "execution_time"],
+      "api_metrics": ["request_count", "response_time", "error_rate"],
+      "infrastructure_metrics": ["cpu_usage", "memory_usage", "disk_usage"],
+      "collection_interval": "1m"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Metrics collection and monitoring"
+  },
+  {
+    "id": "dev-0001",
+    "action": "add",
+    "type": "development_workflow",
+    "subject": "local_startup",
+    "env": "local",
+    "data": {
+      "sequence": [
+        "Terminal D: docker compose up (postgres + redis)",
+        "Terminal A: yagna daemon start",
+        "Terminal B: go run cmd/runner/main.go (port 8090)",
+        "Terminal F: npm run dev (vite dev server, port 8787)",
+        "Terminal C: testing and curl commands"
+      ],
+      "prerequisites": ["Docker", "Go 1.21+", "Node.js 18+", "Yagna installed"]
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Local development startup sequence"
+  },
+  {
+    "id": "dev-0002",
+    "action": "add",
+    "type": "development_workflow",
+    "subject": "testing_environments",
+    "env": "all",
+    "data": {
+      "unit_tests": "go test ./... (runner), npm test (portal)",
+      "integration_tests": "playwright tests, e2e API tests",
+      "load_testing": "manual via scripts/",
+      "staging": "preview deployments on netlify, fly.io staging apps"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Testing environment configuration"
+  },
+  {
+    "id": "dev-0003",
+    "action": "add",
+    "type": "development_workflow",
+    "subject": "release_process",
+    "env": "all",
+    "data": {
+      "branching": "feature branches → main",
+      "ci_cd": "GitHub Actions on push/PR",
+      "deployment_triggers": "push to main (auto-deploy)",
+      "rollback": "manual via platform dashboards",
+      "versioning": "git tags + semantic versioning"
+    },
+    "effective_at": "2025-09-20T18:15:17+01:00",
+    "notes": "Release and deployment workflow"
+  },
+  {
+    "id": "docker-0001",
+    "action": "add",
+    "type": "docker_image",
+    "subject": "runner",
+    "env": "all",
+    "data": {
+      "dockerfile": "Dockerfile",
+      "context": "runner-app/",
+      "base_image": "golang:1.21-alpine",
+      "final_image": "alpine:latest",
+      "build_command": "docker build -t project-beacon-runner .",
+      "ports": ["8090:8090"],
+      "volumes": ["/tmp/trusted_keys.json:/tmp/trusted_keys.json:ro"]
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Runner application Docker configuration"
+  },
+  {
+    "id": "docker-0002",
+    "action": "add",
+    "type": "docker_image",
+    "subject": "golem_provider",
+    "env": "all",
+    "data": {
+      "dockerfile": "golem-provider/Dockerfile",
+      "context": "golem-provider/",
+      "base_image": "ubuntu:22.04",
+      "build_command": "docker build -t beacon-golem-provider .",
+      "ports": ["7464:7464", "7465:7465", "8080:8080"],
+      "volumes": ["yagna_data:/root/.local/share/yagna"],
+      "environment": ["YAGNA_APPKEY", "GOLEM_NODE_NAME"]
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Golem provider Docker configuration"
+  },
+  {
+    "id": "docker-0003",
+    "action": "add",
+    "type": "docker_image",
+    "subject": "llm_benchmarks",
+    "env": "all",
+    "data": {
+      "dockerfiles": {
+        "llama": "llm-benchmark/llama-3.2-1b/Dockerfile",
+        "mistral": "llm-benchmark/mistral-7b/Dockerfile",
+        "qwen": "llm-benchmark/qwen-2.5-1.5b/Dockerfile"
+      },
+      "base_image": "python:3.11-slim",
+      "common_deps": ["ollama", "requests", "json"],
+      "build_pattern": "docker build -t {model}-benchmark .",
+      "runtime": "wasmtime or vm",
+      "resource_limits": "4-8GB RAM, 2-4 CPU cores"
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "LLM benchmark container configurations"
+  },
+  {
+    "id": "docker-0004",
+    "action": "add",
+    "type": "docker_compose",
+    "subject": "local_development",
+    "env": "local",
+    "data": {
+      "file": "docker-compose.yml",
+      "services": {
+        "postgres": "postgres:15-alpine (port 5432)",
+        "redis": "redis:7-alpine (port 6379)",
+        "runner": "project-beacon-runner (port 8090)"
+      },
+      "networks": ["beacon-network"],
+      "volumes": ["postgres_data", "redis_data", "yagna_data"],
+      "startup_command": "docker compose up -d"
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Local development Docker Compose setup"
+  },
+  {
+    "id": "docker-0005",
+    "action": "add",
+    "type": "docker_registry",
+    "subject": "image_storage",
+    "env": "all",
+    "data": {
+      "local": "Docker Desktop local registry",
+      "fly_registry": "registry.fly.io/{app-name}",
+      "public_images": "docker.io for base images",
+      "private_images": "fly.io registry for app deployments",
+      "tagging_strategy": "latest, git-sha, semantic-version"
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Docker registry and image storage strategy"
+  },
+  {
+    "id": "docker-0006",
+    "action": "add",
+    "type": "docker_build_context",
+    "subject": "monorepo_builds",
+    "env": "all",
+    "data": {
+      "runner_context": "runner-app/ (relative to repo root)",
+      "golem_context": "golem-provider/ (relative to repo root)",
+      "benchmark_context": "llm-benchmark/{model}/ (per model)",
+      "shared_files": ["scripts/", "docs/sot/facts.json"],
+      "dockerignore": [".git", "node_modules", "*.md", "tests/"]
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Docker build context configuration for monorepo"
+  },
+  {
+    "id": "docker-0007",
+    "action": "add",
+    "type": "docker_networking",
+    "subject": "container_communication",
+    "env": "all",
+    "data": {
+      "local_network": "beacon-network (bridge)",
+      "host_access": "host.docker.internal for Mac/Windows",
+      "port_mapping": {
+        "postgres": "5432:5432",
+        "redis": "6379:6379", 
+        "runner": "8090:8090",
+        "yagna": "7464:7464, 7465:7465"
+      },
+      "service_discovery": "container names as hostnames"
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Docker networking and service discovery"
+  },
+  {
+    "id": "docker-0008",
+    "action": "add",
+    "type": "docker_volumes",
+    "subject": "data_persistence",
+    "env": "all",
+    "data": {
+      "named_volumes": {
+        "postgres_data": "PostgreSQL data persistence",
+        "redis_data": "Redis data persistence", 
+        "yagna_data": "Yagna daemon state and keys"
+      },
+      "bind_mounts": {
+        "trusted_keys": "/tmp/trusted_keys.json:/tmp/trusted_keys.json:ro",
+        "logs": "./logs:/app/logs (optional)"
+      },
+      "backup_strategy": "docker volume backup for critical data"
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Docker volume management and data persistence"
+  },
+  {
+    "id": "docker-0009",
+    "action": "add",
+    "type": "docker_deployment",
+    "subject": "platform_specific",
+    "env": "all",
+    "data": {
+      "fly_io": {
+        "dockerfile": "Dockerfile.railway or Dockerfile",
+        "build_context": "sent to fly.io builders",
+        "registry": "registry.fly.io automatic",
+        "deployment": "flyctl deploy"
+      },
+      "railway": {
+        "dockerfile": "Dockerfile (auto-detected)",
+        "build_context": "GitHub repo root",
+        "registry": "internal railway registry", 
+        "deployment": "git push to main (auto-deploy)"
+      },
+      "local": {
+        "build": "docker build -t {name} .",
+        "run": "docker run -p {ports} {name}",
+        "compose": "docker compose up"
+      }
+    },
+    "effective_at": "2025-09-20T18:16:31+01:00",
+    "notes": "Platform-specific Docker deployment patterns"
+  }
+]

@@ -1,0 +1,44 @@
+name: SoT Validation
+
+on:
+  pull_request:
+    paths:
+      - docs/sot/**
+      - scripts/sot-validate.mjs
+      - .github/workflows/sot-validate.yml
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - docs/sot/**
+      - scripts/sot-validate.mjs
+      - .github/workflows/sot-validate.yml
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate schema
+        run: node scripts/sot-validate.mjs --file docs/sot/facts.json
+
+      - name: Enforce append-only
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            REF="origin/${{ github.base_ref }}"
+          else
+            REF="HEAD^"
+          fi
+          echo "Comparing against $REF"
+          node scripts/sot-validate.mjs --file docs/sot/facts.json --compare-ref "$REF"

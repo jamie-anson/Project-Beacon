@@ -58,17 +58,8 @@ async function main() {
 `;
   await fs.writeFile(headersPath, headers.trimStart(), 'utf8');
 
-  // Write Netlify-style _redirects to support SPA fallbacks and backend proxy
-  const redirectsPath = path.join(dist, '_redirects');
-  const redirectLines = [
-    '/backend-diffs/health https://backend-diffs-production.up.railway.app/health 200!',
-    '/backend-diffs/* https://backend-diffs-production.up.railway.app/:splat 200',
-    '/docs/* /docs/index.html 200',
-    '/docs /docs/index.html 200',
-    '/portal/* /portal/index.html 200',
-    '/demo-results/* /demo-results/:splat 200',
-  ];
-  await fs.writeFile(redirectsPath, redirectLines.join('\n'), 'utf8');
+  // Note: _redirects generation is now handled by scripts/write-redirects.js
+  // This ensures single source of truth for all redirect rules
 
   console.log('Static site copied to dist/.');
 
@@ -78,6 +69,8 @@ async function main() {
     rewrites: [
       { source: '/docs', destination: '/docs/index.html' },
       { source: '/docs/(.*)', destination: '/docs/index.html' },
+      { source: '/portal', destination: '/portal/index.html' },
+      { source: '/portal/(.*)', destination: '/portal/index.html' },
     ],
   };
   await fs.writeFile(path.join(dist, 'serve.json'), JSON.stringify(serveJson, null, 2));
