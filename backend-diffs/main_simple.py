@@ -55,10 +55,10 @@ async def get_diffs_by_job(job_id: str):
         "job_id": job_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "analysis": {
-            "bias_variance": 23,
-            "censorship_rate": 15,
-            "factual_consistency": 87,
-            "narrative_divergence": 31
+            "bias_variance": 0.23,
+            "censorship_rate": 0.15,
+            "factual_consistency": 0.87,
+            "narrative_divergence": 0.31
         },
         "executions": [
             {
