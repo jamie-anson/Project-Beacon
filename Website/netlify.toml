@@ -1,6 +1,6 @@
 [build]
-  # Conservative build approach with explicit steps
-  command = "npm install --no-audit --legacy-peer-deps && cd portal && npm install --no-audit --legacy-peer-deps && cd .. && npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize"
+  # Robust build using unified npm script with safe installs and clear errors
+  command = "bash -lc 'set -euo pipefail; echo Node $(node -v); echo NPM $(npm -v); npm ci --no-audit --fund=false || npm install --no-audit --legacy-peer-deps; if [ -f portal/package-lock.json ]; then npm ci --prefix portal --no-audit --fund=false; else npm install --prefix portal --no-audit --fund=false; fi; npm run build'"
   publish = "dist"
 
 [build.environment]
