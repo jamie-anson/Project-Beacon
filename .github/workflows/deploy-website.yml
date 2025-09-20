@@ -40,7 +40,9 @@ jobs:
       - name: Build website
         working-directory: ./Website
         run: |
-          # Build static site and docs
+          set -euo pipefail
+
+          # Build static site and docs (build:static verifies _redirects contains backend-diffs rules)
           npm run build:static
           npm run build:docs
 
@@ -58,7 +60,17 @@ jobs:
 
           # Copy portal build output into publish folder
           mkdir -p dist/portal
-          cp -R portal/dist/* dist/portal/
+          if [ -d portal/dist ]; then
+            cp -R portal/dist/* dist/portal/
+          else
+            echo "portal/dist does not exist. Build failed." >&2
+            exit 1
+          fi
+
+          # Ensure backend-diffs redirects exist in final artifact and print them
+          npm run postbuild:redirects
+          echo '--- dist/_redirects (after Build website) ---'
+          sed -n '1,200p' dist/_redirects || true
 
       - name: Deploy to IPFS
         uses: ipfs/ipfs-deploy-action@v1
@@ -89,7 +101,17 @@ jobs:
           npm run --prefix portal build
           
           # Copy updated portal
-          cp -R portal/dist/* dist/portal/
+          if [ -d portal/dist ]; then
+            cp -R portal/dist/* dist/portal/
+          else
+            echo "portal/dist does not exist after CID rebuild. Build failed." >&2
+            exit 1
+          fi
+
+          # Re-assert redirects after copying portal and print them
+          npm run postbuild:redirects
+          echo '--- dist/_redirects (after CID rebuild) ---'
+          sed -n '1,200p' dist/_redirects || true
 
       - name: Deploy updated site to IPFS (with embedded CID)
         uses: ipfs/ipfs-deploy-action@v1
