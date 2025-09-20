@@ -167,7 +167,7 @@ export default function App() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/bias-detection" element={<BiasDetection />} />
-        <Route path="/portal/results/:jobId/diffs" element={<CrossRegionDiffView />} />
+        <Route path="/results/:jobId/diffs" element={<CrossRegionDiffView />} />
         <Route path="/world" element={<WorldView />} />
         <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />

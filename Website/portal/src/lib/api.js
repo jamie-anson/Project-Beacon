@@ -454,39 +454,53 @@ export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURICompon
 // Some backends expose GET (fetch existing) and/or POST (generate) for the same route.
 export const getCrossRegionDiff = async (jobId) => {
   const id = encodeURIComponent(jobId);
-  const candidates = [
-    // Plan-aligned endpoints (prefer these)
+  // Try the diffs backend first (preferred in production)
+  const diffsCandidates = [
+    { path: `/api/v1/diffs/by-job/${id}`, method: 'GET' },
+    { path: `/api/v1/diffs/cross-region/${id}`, method: 'GET' },
+    { path: `/api/v1/diffs/jobs/${id}`, method: 'GET' },
+  ];
+  let lastErr;
+  for (const c of diffsCandidates) {
+    try {
+      const res = await httpDiffs(c.path, c.method === 'POST' ? { method: 'POST' } : {});
+      if (res) return res;
+    } catch (err) { lastErr = err; }
+  }
+  // Fallback to runner legacy endpoints if diffs backend does not have it
+  const runnerCandidates = [
     { path: `/executions/${id}/cross-region`, method: 'GET' },
     { path: `/executions/${id}/cross-region`, method: 'POST' },
     { path: `/executions/${id}/diff-analysis`, method: 'GET' },
     { path: `/executions/${id}/diff-analysis`, method: 'POST' },
-    // Legacy/older experimental endpoint
     { path: `/executions/${id}/cross-region-diff`, method: 'GET' },
     { path: `/executions/${id}/cross-region-diff`, method: 'POST' },
   ];
-  let lastErr;
-  for (const c of candidates) {
+  for (const c of runnerCandidates) {
     try {
       const res = await httpV1(c.path, c.method === 'POST' ? { method: 'POST' } : {});
-      return res;
-    } catch (err) {
-      lastErr = err;
-      // Continue to next candidate
-    }
+      if (res) return res;
+    } catch (err) { lastErr = err; }
   }
+  // As a last-resort, try to infer from recent diffs on the diffs backend
+  try {
+    const recents = await listRecentDiffs({ limit: 10 });
+    const match = (recents || []).find((d) => String(d?.job_id || d?.job)?.includes(jobId));
+    if (match) return match;
+  } catch (e) { lastErr = e; }
   throw lastErr || new Error('cross-region diff endpoints unavailable');
 };
 
 export const createCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });
 export const createCrossRegionJob = (payload) => httpV1('/jobs/cross-region', { method: 'POST', body: JSON.stringify(payload) });
 export const findDiffsByJob = async (jobId, { limit = 1 } = {}) => {
-  const qs = new URLSearchParams();
-  if (jobId) qs.set('job_id', jobId);
-  qs.set('limit', String(limit));
-  const data = await httpV1(`/diffs?${qs.toString()}`);
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.diffs)) return data.diffs;
-  return [];
+  try {
+    const recents = await listRecentDiffs({ limit: Math.max(limit, 10) });
+    const filtered = (recents || []).filter((d) => !jobId || String(d?.job_id || d?.job || '').includes(jobId));
+    return filtered.slice(0, limit);
+  } catch {
+    return [];
+  }
 };
 export const getRegionResults = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/regions`);
 
