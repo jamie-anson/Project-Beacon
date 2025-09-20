@@ -17,9 +17,17 @@ export default {
     },
   },
   plugins: [
-    require("@catppuccin/tailwindcss")({
-      prefix: "ctp",
-      defaultFlavour: "mocha",
-    }),
-  ],
+    // Catppuccin plugin - optional to prevent build failures
+    (() => {
+      try {
+        return require("@catppuccin/tailwindcss")({
+          prefix: "ctp",
+          defaultFlavour: "mocha",
+        });
+      } catch (e) {
+        console.warn('Catppuccin Tailwind plugin not available, skipping...');
+        return null;
+      }
+    })(),
+  ].filter(Boolean),
 };
