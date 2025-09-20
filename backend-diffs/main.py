@@ -155,6 +155,11 @@ async def list_recent_diffs(limit: int = Query(10, ge=1, le=50)):
     """List recent diff comparisons"""
     return recent_diffs[-limit:]
 
+@app.get("/api/v1/diffs/test/{job_id}")
+async def test_job_endpoint(job_id: str):
+    """Simple test endpoint to verify path parameters work"""
+    return {"test": "success", "job_id": job_id}
+
 @app.get("/api/v1/diffs/by-job/{job_id}")
 async def get_diffs_by_job(job_id: str):
     """Get cross-region analysis for a specific job (mock implementation)"""
