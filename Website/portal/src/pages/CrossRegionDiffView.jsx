@@ -51,7 +51,7 @@ export default function CrossRegionDiffView() {
       const diffData = await getCrossRegionDiff(jobId);
       
       // Transform API response to match UI expectations
-      const transformedData = transformApiDataToUIFormat(diffData);
+      const transformedData = transformApiDataToDiffAnalysis(diffData, job);
       
       setDiffAnalysis(transformedData);
       setLoading(false);
