@@ -16,6 +16,7 @@ export default function useWs(path = '/ws', opts = {}) {
   }
 
   function wsEnabled() {
+    // Explicit opt-in required to prevent runaway connection attempts
     try {
       const lsVal = localStorage.getItem('beacon:enable_ws');
       if (lsVal != null) return isTruthy(lsVal);
@@ -24,6 +25,7 @@ export default function useWs(path = '/ws', opts = {}) {
       const envVal = import.meta?.env?.VITE_ENABLE_WS;
       if (envVal != null) return isTruthy(envVal);
     } catch {}
+    // Default: disabled to prevent console spam and connection issues
     return false;
   }
 
@@ -79,15 +81,21 @@ export default function useWs(path = '/ws', opts = {}) {
       };
       ws.onclose = () => {
         setConnected(false);
-        if (!closedRef.current) {
+        if (!closedRef.current && retryRef.current < 5) {
+          // Cap retries at 5 attempts to prevent runaway reconnections
           const delay = Math.min(30000, 1000 * Math.pow(2, retryRef.current++));
           setRetries(retryRef.current);
           setNextDelayMs(delay);
           setTimeout(connect, delay);
+        } else if (retryRef.current >= 5) {
+          console.warn('WebSocket max retries reached (5), stopping reconnection attempts');
+          setError(new Error('WebSocket connection failed after 5 retries'));
         }
       };
       ws.onerror = (e) => {
-        console.warn('WebSocket connection failed - backend may be offline');
+        if (retryRef.current === 0) {
+          console.warn('WebSocket connection failed - backend may be offline or WebSocket not supported');
+        }
         setError(e);
       };
       ws.onmessage = (evt) => {
