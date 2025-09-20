@@ -7,7 +7,7 @@ WORKDIR /app
 COPY backend-diffs/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend-diffs/main.py .
+COPY backend-diffs/main_simple.py ./main.py
 
 # Expose port
 EXPOSE 8000
