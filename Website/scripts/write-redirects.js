@@ -8,7 +8,7 @@ const redirectsPath = path.join(dist, '_redirects');
 fs.mkdirSync(dist, { recursive: true });
 
 // Environment-parameterized upstream targets with safe defaults
-const REDIRECT_DIFFS_BASE = process.env.REDIRECT_DIFFS_BASE || 'https://backend-diffs-production.up.railway.app';
+const REDIRECT_DIFFS_BASE = process.env.REDIRECT_DIFFS_BASE || 'https://fabulous-renewal-production-5d69.up.railway.app';
 const REDIRECT_RUNNER_BASE = process.env.REDIRECT_RUNNER_BASE || 'https://beacon-runner-change-me.fly.dev';
 const REDIRECT_HYBRID_BASE = process.env.REDIRECT_HYBRID_BASE || 'https://project-beacon-production.up.railway.app';
 
