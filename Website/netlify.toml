@@ -1,6 +1,6 @@
 [build]
-  # Robust build using unified npm script with safe installs and clear errors
-  command = "bash -lc 'set -euo pipefail; echo Node $(node -v); echo NPM $(npm -v); npm ci --no-audit --fund=false || npm install --no-audit --legacy-peer-deps; if [ -f portal/package-lock.json ]; then npm ci --prefix portal --no-audit --fund=false; else npm install --prefix portal --no-audit --fund=false; fi; npm run build'"
+  # Use the proven package.json build scripts instead of complex bash
+  command = "npm run build:netlify"
   publish = "dist"
 
 [build.environment]
