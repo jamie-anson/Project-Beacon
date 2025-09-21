@@ -14,6 +14,7 @@ modal-deployment/
 observability/
 demo-results/
 attestations/
+backend-diffs/  # Ignore backend-diffs to prevent Railway from choosing it
 
 # Only include files needed for hybrid router Docker build
 !flyio-deployment/
