@@ -121,12 +121,17 @@ export default function useWs(path = '/ws', opts = {}) {
   }, [path, onMessage]);
 
   useEffect(() => {
+    if (!wsEnabled()) {
+      setConnected(false);
+      setError(new Error('WebSocket disabled by config'));
+      return;
+    }
     connect();
     return () => {
       closedRef.current = true;
       try { wsRef.current && wsRef.current.close(); } catch {}
     };
-  }, [connect]);
+  }, [connect, wsEnabled]);
 
   return { connected, error, socket: wsRef.current, retries, nextDelayMs };
 }
