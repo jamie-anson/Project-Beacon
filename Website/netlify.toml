@@ -10,8 +10,8 @@
   NODE_OPTIONS = "--max-old-space-size=4096"
   # Default IPFS gateway for production portal links (overridable per-deploy)
   VITE_IPFS_GATEWAY = "https://ipfs.io"
-  # Enable WebSocket client in portal by default
-  VITE_ENABLE_WS = "1"
+  # WebSocket client disabled by default (no WS server running)
+  VITE_ENABLE_WS = "0"
   # Use same-origin for API base; portal code appends /api/v1
   VITE_API_BASE = "https://projectbeacon.netlify.app"
   # Direct diffs backend base (avoid relying on proxy while we stabilize redirects)
@@ -39,4 +39,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://project-beacon-production.up.railway.app https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'self'; referrer 'strict-origin-when-cross-origin'"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://project-beacon-production.up.railway.app https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; frame-ancestors 'self'; referrer 'strict-origin-when-cross-origin'"
