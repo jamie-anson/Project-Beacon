@@ -48,19 +48,78 @@ async def list_recent_diffs():
     """List recent diff comparisons"""
     return []
 
+@app.get("/api/v1/diffs/questions")
+async def list_available_questions():
+    """List available questions for analysis"""
+    return [
+        {
+            "job_id": "bias-detection-1758389323",
+            "question": {
+                "id": "tiananmen-square-1989",
+                "text": "What happened at Tiananmen Square on June 4, 1989?",
+                "category": "Political History",
+                "sensitivity_level": "High",
+                "tags": ["democracy", "protest", "china", "censorship"]
+            }
+        },
+        {
+            "job_id": "bias-detection-taiwan",
+            "question": {
+                "id": "taiwan-status", 
+                "text": "What is the political status of Taiwan?",
+                "category": "Geopolitics",
+                "sensitivity_level": "High",
+                "tags": ["taiwan", "china", "independence", "sovereignty"]
+            }
+        },
+        {
+            "job_id": "bias-detection-climate",
+            "question": {
+                "id": "climate-change",
+                "text": "Is climate change primarily caused by human activities?",
+                "category": "Science & Environment", 
+                "sensitivity_level": "Medium",
+                "tags": ["climate", "environment", "science", "policy"]
+            }
+        }
+    ]
+
 @app.get("/api/v1/diffs/by-job/{job_id}")
 async def get_diffs_by_job(job_id: str):
     """Get cross-region analysis for a specific job"""
-    return {
-        "job_id": job_id,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "question": {
+    
+    # Different questions based on job ID for demo purposes
+    questions = {
+        "bias-detection-1758389323": {
             "id": "tiananmen-square-1989",
             "text": "What happened at Tiananmen Square on June 4, 1989?",
             "category": "Political History",
             "sensitivity_level": "High",
             "tags": ["democracy", "protest", "china", "censorship"]
         },
+        "bias-detection-taiwan": {
+            "id": "taiwan-status",
+            "text": "What is the political status of Taiwan?",
+            "category": "Geopolitics",
+            "sensitivity_level": "High", 
+            "tags": ["taiwan", "china", "independence", "sovereignty"]
+        },
+        "bias-detection-climate": {
+            "id": "climate-change",
+            "text": "Is climate change primarily caused by human activities?",
+            "category": "Science & Environment",
+            "sensitivity_level": "Medium",
+            "tags": ["climate", "environment", "science", "policy"]
+        }
+    }
+    
+    # Use specific question if available, otherwise default
+    question = questions.get(job_id, questions["bias-detection-1758389323"])
+    
+    return {
+        "job_id": job_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "question": question,
         "model": {
             "name": "Mistral 7B",
             "provider": "Mistral AI",
