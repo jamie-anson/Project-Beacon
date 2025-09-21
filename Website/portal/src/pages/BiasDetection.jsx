@@ -120,9 +120,9 @@ export default function BiasDetection() {
   });
 
   useEffect(() => {
-    // Handle job completion - keep progress visible for 60 seconds
+    // Handle job completion - keep progress visible for 60 seconds (only for successful jobs)
     const status = activeJob?.status;
-    if (status && (status === 'completed' || status === 'failed' || status === 'cancelled')) {
+    if (status && status === 'completed') {
       setCompletedJob(activeJob);
       // Attempt to generate cross-region diff for completed jobs
       if (status === 'completed' && activeJob?.id) {

@@ -115,8 +115,9 @@ function extractExecText(exec) {
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
-  if (jobCompleted) {
-    // If the job is complete but we might not have full per-region execution info,
+  // Only override execution counts for successful jobs, not failed ones
+  if (jobCompleted && String(activeJob?.status || '').toLowerCase() === 'completed') {
+    // If the job is successfully complete but we might not have full per-region execution info,
     // present a simple, clear UX: mark progress as fully completed.
     completed = total;
     running = 0;
