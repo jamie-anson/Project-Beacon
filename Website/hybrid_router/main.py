@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core import HybridRouter
-from .api import health_router, inference_router, providers_router, websocket_router
+from .api import health_router, inference_router, providers_router, websocket_router, maps_router
 from .config import CORS_ORIGINS, get_port, HOST
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ app.include_router(health_router)
 app.include_router(inference_router)
 app.include_router(providers_router)
 app.include_router(websocket_router)
+app.include_router(maps_router)
 
 
 if __name__ == "__main__":

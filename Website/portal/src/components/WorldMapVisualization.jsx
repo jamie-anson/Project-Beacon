@@ -17,7 +17,10 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'demo-key',
+    url: import.meta.env.VITE_API_BASE?.includes('localhost')
+      ? 'http://localhost:8080/maps/api.js'
+      : 'https://project-beacon-production.up.railway.app/maps/api.js'
   });
 
   // Realistic country boundary coordinates (simplified GeoJSON-based)

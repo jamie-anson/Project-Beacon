@@ -19,7 +19,7 @@
   # If needed, set these in Netlify UI instead of hardcoding:
   # VITE_HYBRID_BASE = "https://project-beacon-production.up.railway.app"
   # VITE_WS_BASE = "wss://project-beacon-production.up.railway.app"
-  # Google Maps API key for production (set in Netlify dashboard)
+  # Restrict Google Maps API key to only our domain (set in Google Cloud Console)
   # VITE_GOOGLE_MAPS_API_KEY = "REPLACE_WITH_NEW_KEY"
 
 # All redirects now handled by dist/_redirects (single source of truth)
@@ -39,4 +39,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'self'"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline' https://project-beacon-production.up.railway.app https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'self'; referrer 'strict-origin-when-cross-origin'"
