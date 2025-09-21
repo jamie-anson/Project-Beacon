@@ -9,33 +9,34 @@
 - **Railway Backend**: ✅ https://project-beacon-production.up.railway.app/health (responding)
 
 ### ❌ Failing Services
-- **Railway Hybrid Router**: ❌ `/providers` endpoint returning 404
-- **GitHub Actions**: ❌ CORS integration test failing
-- **Portal API Integration**: ❌ Likely failing due to missing `/providers` endpoint
+- **Railway Hybrid Router**: ❌ Deploy failed - "Could not find root directory: /hybrid_router/"
+- **Netlify Build**: ❌ Build failed - missing import on line 433
+- **GitHub Actions**: ❌ Rollup module error - npm dependency issue with package-lock.json
+- **Portal API Integration**: ❌ Failing due to all backend issues
 
 ---
 
 ## 🔍 Root Cause Analysis
 
-### Issue 1: Railway Deployment Mismatch
-**Problem:** Railway is deploying the old `backend` service instead of the new `hybrid_router`
-- **Current Deployment**: `backend/app/main.py` (basic backend service)
-- **Expected Deployment**: `hybrid_router/main.py` (hybrid router with `/providers`)
-- **Evidence**: `/health` returns `"service": "backend"` instead of hybrid router
+### Issue 1: Railway Directory Structure Error
+**Problem:** Railway can't find `/hybrid_router/` directory
+- **Error**: "Could not find root directory: /hybrid_router/"
+- **Cause**: Dockerfile.railway trying to copy `./hybrid_router` but Railway build context is different
+- **Fix Needed**: Adjust COPY paths for Railway's build context
 
-### Issue 2: Dockerfile.railway Configuration
-**Problem:** Railway Dockerfile is copying wrong files
-```dockerfile
-# Current (WRONG):
-COPY Website/hybrid_router_new.py Website/requirements.txt ./
-COPY Website/hybrid_router ./hybrid_router
+### Issue 2: Netlify Build Import Error
+**Problem:** Missing import causing build failure on line 433
+- **Error**: Build failed due to missing import
+- **Location**: Line 433 in unknown file
+- **Fix Needed**: Identify and fix missing import statement
 
-# Should be:
-COPY hybrid_router_new.py requirements.txt ./
-COPY hybrid_router ./hybrid_router
-```
+### Issue 3: GitHub Actions npm/Rollup Error
+**Problem:** Rollup module dependency issue
+- **Error**: "Cannot find module @rollup/rollup-linux-x64-gnu"
+- **Cause**: npm bug with optional dependencies + corrupted package-lock.json
+- **Fix Needed**: Clean npm cache and regenerate package-lock.json
 
-### Issue 3: CORS Test Failure
+### Issue 4: CORS Test Failure (Secondary)
 **Problem:** Portal form submission failing CORS validation
 - **Test**: `should successfully submit job with proper CORS handling`
 - **Likely Cause**: Portal trying to reach `/providers` endpoint that doesn't exist
@@ -44,7 +45,36 @@ COPY hybrid_router ./hybrid_router
 
 ## 🛠️ Fix Plan (Priority Order)
 
-### Phase 1: Fix Railway Hybrid Router Deployment (30 mins)
+### Phase 0: Emergency Fixes (IMMEDIATE - 15 mins)
+
+#### 0.1 Fix GitHub Actions npm Issue
+```bash
+# Remove corrupted package files
+rm -rf node_modules package-lock.json
+rm -rf portal/node_modules portal/package-lock.json
+
+# Clean npm cache
+npm cache clean --force
+
+# Reinstall dependencies
+npm install
+cd portal && npm install && cd ..
+```
+
+#### 0.2 Fix Railway Dockerfile Context
+```dockerfile
+# Railway sees the entire repo, so paths should be:
+COPY hybrid_router_new.py requirements.txt ./
+COPY hybrid_router/ ./hybrid_router/
+```
+
+#### 0.3 Find and Fix Netlify Import Error
+```bash
+# Search for line 433 import issues
+grep -n "import" **/*.js **/*.jsx **/*.ts **/*.tsx | grep ":433:"
+```
+
+### Phase 1: Fix Railway Hybrid Router Deployment (20 mins)
 
 #### 1.1 Fix Dockerfile.railway Paths
 ```dockerfile

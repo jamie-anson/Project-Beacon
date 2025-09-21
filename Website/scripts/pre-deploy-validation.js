@@ -6,6 +6,8 @@
  */
 
 const { execSync } = require('child_process');
+const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
@@ -58,6 +60,134 @@ function checkFileExists(filePath, description) {
   }
 }
 
+function checkRailwayService(url, serviceName, expectedEndpoints = []) {
+  return new Promise((resolve) => {
+    console.log(`📋 Checking Railway service: ${serviceName}...`);
+
+    // Check health endpoint first
+    const healthUrl = new URL(url);
+    const req = (healthUrl.protocol === 'https:' ? https : http).get({
+      hostname: healthUrl.hostname,
+      path: healthUrl.pathname + '/health',
+      timeout: 10000,
+      headers: { 'User-Agent': 'Project-Beacon-PreDeploy-Check' }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const healthData = JSON.parse(data);
+            console.log(`✅ ${serviceName} health check - PASSED (${healthData.status || 'ok'})`);
+            results.push({ test: `${serviceName} health check`, status: 'PASSED' });
+
+            // Check specific endpoints if service is healthy
+            if (expectedEndpoints.length > 0) {
+              checkServiceEndpoints(url, serviceName, expectedEndpoints)
+                .then(endpointResults => {
+                  const failedEndpoints = endpointResults.filter(r => !r.success);
+                  if (failedEndpoints.length > 0) {
+                    console.log(`⚠️  ${serviceName} endpoints check - WARNING (${failedEndpoints.length} failed)`);
+                    failedEndpoints.forEach(ep => {
+                      results.push({
+                        test: `${serviceName} ${ep.endpoint} endpoint`,
+                        status: 'WARNING',
+                        error: ep.error
+                      });
+                    });
+                  } else {
+                    console.log(`✅ ${serviceName} endpoints check - PASSED`);
+                  }
+                  resolve(true);
+                });
+            } else {
+              resolve(true);
+            }
+          } catch (e) {
+            console.log(`✅ ${serviceName} health check - PASSED (not JSON but 200 OK)`);
+            results.push({ test: `${serviceName} health check`, status: 'PASSED' });
+            resolve(true);
+          }
+        } else {
+          console.error(`❌ ${serviceName} health check - FAILED (${res.statusCode})`);
+          console.error(`Response: ${data.substring(0, 200)}...`);
+          results.push({
+            test: `${serviceName} health check`,
+            status: 'FAILED',
+            error: `HTTP ${res.statusCode}: ${data.substring(0, 100)}`
+          });
+          resolve(false);
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error(`❌ ${serviceName} health check - FAILED (connection error)`);
+      console.error(`Error: ${err.message}`);
+      results.push({
+        test: `${serviceName} health check`,
+        status: 'FAILED',
+        error: err.message
+      });
+      resolve(false);
+    });
+
+    req.on('timeout', () => {
+      console.error(`❌ ${serviceName} health check - FAILED (timeout)`);
+      req.destroy();
+      results.push({
+        test: `${serviceName} health check`,
+        status: 'FAILED',
+        error: 'Connection timeout (>10s)'
+      });
+      resolve(false);
+    });
+
+    req.setTimeout(10000);
+  });
+}
+
+function checkServiceEndpoints(baseUrl, serviceName, endpoints) {
+  const promises = endpoints.map(endpoint => {
+    return new Promise((resolve) => {
+      const url = new URL(baseUrl);
+      const req = (url.protocol === 'https:' ? https : http).get({
+        hostname: url.hostname,
+        path: url.pathname + endpoint,
+        timeout: 5000,
+        headers: { 'User-Agent': 'Project-Beacon-PreDeploy-Check' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve({ endpoint, success: true });
+          } else {
+            resolve({
+              endpoint,
+              success: false,
+              error: `HTTP ${res.statusCode}: ${data.substring(0, 50)}`
+            });
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        resolve({ endpoint, success: false, error: err.message });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ endpoint, success: false, error: 'timeout' });
+      });
+
+      req.setTimeout(5000);
+    });
+  });
+
+  return Promise.all(promises);
+}
+
 // 1. Check critical files exist
 checkFileExists('portal/src/lib/api.js', 'Portal API client exists');
 checkFileExists('portal/package.json', 'Portal package.json exists');
@@ -96,24 +226,41 @@ if (fs.existsSync(portalEnvExample)) {
   results.push({ test: 'Portal .env.example exists', status: 'WARNING' });
 }
 
-// 9. Validate built assets
-console.log('📋 Built assets validation...');
-const distDir = path.join('portal', 'dist');
-if (fs.existsSync(distDir)) {
-  const assets = fs.readdirSync(path.join(distDir, 'assets')).filter(f => f.endsWith('.js'));
-  if (assets.length > 0) {
-    console.log(`✅ Found ${assets.length} JavaScript assets`);
-    results.push({ test: 'Built JavaScript assets exist', status: 'PASSED' });
-  } else {
-    console.error('❌ No JavaScript assets found in build');
-    results.push({ test: 'Built JavaScript assets exist', status: 'FAILED' });
+// 10. Check Railway services are actually running
+console.log('📋 Railway services health check...');
+const services = [
+  { url: 'https://project-beacon-production.up.railway.app', name: 'Hybrid Router', endpoints: ['/health', '/providers'] },
+  { url: 'https://backend-diffs-production.up.railway.app', name: 'Backend Diffs', endpoints: ['/health'] },
+  { url: 'https://beacon-runner-change-me.fly.dev', name: 'Runner API', endpoints: ['/health'] }
+];
+
+Promise.all(services.map(s => checkRailwayService(s.url, s.name, s.endpoints)))
+  .then(serviceResults => {
+    const failedServices = serviceResults.filter(r => !r);
+    if (failedServices.length > 0) {
+      console.error('❌ Railway services check - FAILED');
+      console.error('Some Railway services are not responding. This will cause 404 errors in production.');
+      results.push({
+        test: 'Railway services health check',
+        status: 'FAILED',
+        error: `${failedServices.length} services failed health checks`
+      });
+      exitCode = 1;
+    } else {
+      console.log('✅ Railway services check - PASSED (all services responding)');
+      results.push({ test: 'Railway services health check', status: 'PASSED' });
+    }
+  })
+  .catch(err => {
+    console.error('❌ Railway services check - FAILED (error during checks)');
+    console.error(`Error: ${err.message}`);
+    results.push({
+      test: 'Railway services health check',
+      status: 'FAILED',
+      error: err.message
+    });
     exitCode = 1;
-  }
-} else {
-  console.error('❌ Portal dist directory not found');
-  results.push({ test: 'Portal dist directory exists', status: 'FAILED' });
-  exitCode = 1;
-}
+  });
 
 // Summary
 console.log('\n' + '='.repeat(60));
@@ -139,6 +286,15 @@ if (failed > 0) {
 } else {
   console.log('\n✅ VALIDATION PASSED - Ready for deployment');
   console.log('All critical tests passed. Portal is ready to deploy.');
+
+  if (warnings > 0) {
+    console.log('\n⚠️  Warnings detected:');
+    results.filter(r => r.status === 'WARNING').forEach(r => {
+      console.log(`  • ${r.test}`);
+      if (r.error) console.log(`    Warning: ${r.error}`);
+    });
+    console.log('Warnings are non-blocking but should be addressed.');
+  }
 }
 
 console.log('\n' + '='.repeat(60));

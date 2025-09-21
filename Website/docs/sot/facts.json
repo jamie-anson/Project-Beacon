@@ -567,65 +567,208 @@
   {
     "id": "build-0003",
     "action": "add",
-    "type": "deployment_id",
-    "subject": "railway_projects",
+    "type": "railway_services",
+    "subject": "deployment_architecture",
     "env": "prod",
     "data": {
-      "hybrid_router": "26123d99-d3c5-4c96-a251-00bf2bc39348",
-      "url": "https://project-beacon-production.up.railway.app",
-      "connected_repo": "jamie-anson/Project-Beacon"
+      "project_beacon": {
+        "service_id": "26123d99-d3c5-4c96-a251-00bf2bc39348",
+        "url": "https://project-beacon-production.up.railway.app",
+        "purpose": "Hybrid Router Service",
+        "description": "Handles provider discovery, multi-region routing, and WebSocket connections",
+        "build_context": "hybrid_router/",
+        "dockerfile": "Dockerfile",
+        "expected_endpoints": [
+          "GET /health - Returns hybrid-router service info",
+          "GET /providers - Returns available providers with regions/costs",
+          "POST /inference - Handles inference requests",
+          "GET /ws - WebSocket endpoint",
+          "GET /env - Debug endpoint for environment variables"
+        ],
+        "required_env_vars": [
+          "MODAL_API_BASE",
+          "MODAL_HEALTH_ENDPOINT",
+          "GOLEM_PROVIDER_ENDPOINTS",
+          "GOOGLE_MAPS_API_KEY"
+        ],
+        "health_check": {
+          "path": "/health",
+          "expected_response": {"service": "hybrid-router"},
+          "timeout": "10s"
+        },
+        "current_status": "active",
+        "last_updated": "2025-09-21T14:00:00+01:00"
+      },
+      "fabulous_renewal": {
+        "service_id": "backend-diffs-production-5d69",
+        "url": "https://fabulous-renewal-production-5d69.up.railway.app",
+        "purpose": "Backend Diffs Service",
+        "description": "Handles diffs functionality, job processing, and data analysis",
+        "build_context": "backend-diffs/",
+        "dockerfile": "Dockerfile",
+        "expected_endpoints": [
+          "GET /health - Returns backend-diffs service info",
+          "GET /backend-diffs/health - Diffs health endpoint",
+          "POST /backend-diffs/jobs - Job processing",
+          "GET /backend-diffs/results - Diff results"
+        ],
+        "required_env_vars": [
+          "DATABASE_URL",
+          "REDIS_URL"
+        ],
+        "health_check": {
+          "path": "/health",
+          "expected_response": {"service": "backend-diffs"},
+          "timeout": "5s"
+        },
+        "current_status": "active",
+        "replaces": "backend_diffs_original",
+        "last_updated": "2025-09-21T14:00:00+01:00"
+      },
+      "backend_diffs_original": {
+        "service_id": "backend-diffs-production",
+        "url": "https://backend-diffs-production.up.railway.app",
+        "purpose": "Backend Diffs Service (Legacy)",
+        "description": "Original backend-diffs service, now deprecated",
+        "build_context": "backend-diffs/",
+        "dockerfile": "Dockerfile",
+        "expected_endpoints": [
+          "GET /health - Returns backend-diffs service info"
+        ],
+        "current_status": "deprecated",
+        "replaced_by": "fabulous_renewal",
+        "last_updated": "2025-09-21T14:00:00+01:00"
+      }
     },
-    "effective_at": "2025-09-20T18:15:17+01:00",
-    "notes": "Railway project configuration"
+    "effective_at": "2025-09-21T14:00:00+01:00",
+    "notes": "Railway services architecture - definitive source of truth for what runs where"
   },
   {
-    "id": "build-0004",
+    "id": "build-0003-routing",
     "action": "add",
-    "type": "deployment_id",
-    "subject": "netlify_site",
+    "type": "routing_configuration",
+    "subject": "netlify_redirects",
     "env": "prod",
     "data": {
-      "site_name": "projectbeacon",
-      "url": "https://projectbeacon.netlify.app",
-      "build_command": "npm run build",
-      "publish_directory": "dist"
+      "redirects_file": "dist/_redirects",
+      "generated_by": "scripts/write-redirects.js",
+      "route_mapping": {
+        "/backend-diffs/*": {
+          "target_service": "fabulous_renewal",
+          "url": "https://fabulous-renewal-production-5d69.up.railway.app",
+          "purpose": "Backend diffs functionality"
+        },
+        "/hybrid/*": {
+          "target_service": "project_beacon",
+          "url": "https://project-beacon-production.up.railway.app",
+          "purpose": "Provider discovery and multi-region routing"
+        },
+        "/api/v1/*": {
+          "target_service": "beacon_runner",
+          "url": "https://beacon-runner-change-me.fly.dev",
+          "purpose": "Runner API endpoints"
+        },
+        "/health": {
+          "target_service": "beacon_runner",
+          "url": "https://beacon-runner-change-me.fly.dev",
+          "purpose": "Health check endpoint"
+        },
+        "/ws": {
+          "target_service": "project_beacon",
+          "url": "https://project-beacon-production.up.railway.app",
+          "purpose": "WebSocket connections"
+        }
+      },
+      "health_checks": {
+        "fabulous_renewal": "/health",
+        "project_beacon": "/health",
+        "beacon_runner": "/health"
+      }
     },
-    "effective_at": "2025-09-20T18:15:17+01:00",
-    "notes": "Netlify site configuration"
+    "effective_at": "2025-09-21T14:00:00+01:00",
+    "notes": "Netlify redirects configuration - maps routes to Railway services"
   },
   {
-    "id": "mon-0001",
+    "id": "build-0003-troubleshooting",
     "action": "add",
-    "type": "monitoring",
-    "subject": "health_checks",
+    "type": "service_identification",
+    "subject": "troubleshooting_guide",
     "env": "all",
     "data": {
-      "endpoints": [
-        "GET /health (runner)",
-        "GET /health (router)",
-        "GET :8080/health (golem providers)"
+      "how_to_identify_service": {
+        "check_health_endpoint": "curl https://[service-url]/health | jq '.service'",
+        "expected_responses": {
+          "project_beacon_hybrid_router": {"service": "hybrid-router"},
+          "fabulous_renewal_backend_diffs": {"service": "backend-diffs"},
+          "beacon_runner": {"service": "runner"}
+        }
+      },
+      "common_issues": {
+        "wrong_service_running": {
+          "symptoms": [
+            "/hybrid/providers returns 404",
+            "/health shows wrong service name",
+            "Expected endpoints not available"
+          ],
+          "diagnosis": "Railway service running wrong code/directory",
+          "fix": "Update Railway service root directory to correct build context"
+        },
+        "missing_environment_variables": {
+          "symptoms": [
+            "/providers returns 'Not Found'",
+            "Service starts but endpoints fail"
+          ],
+          "diagnosis": "Required environment variables not set",
+          "fix": "Set required env vars in Railway service settings"
+        }
+      },
+      "deployment_commands": {
+        "deploy_hybrid_router": "cd hybrid_router && railway up",
+        "deploy_backend_diffs": "cd backend-diffs && railway up",
+        "set_env_vars": "railway variables --set KEY=value",
+        "check_logs": "railway logs",
+        "redeploy": "railway redeploy"
+      }
+    },
+    "effective_at": "2025-09-21T14:00:00+01:00",
+    "notes": "Troubleshooting guide for Railway services identification and issues"
+  },
+  {
+    "id": "build-0003-quickref",
+    "action": "add",
+    "type": "quick_reference",
+    "subject": "railway_services_guide",
+    "env": "all",
+    "data": {
+      "service_identification": {
+        "one_liner": "curl https://[url]/health | jq '.service'",
+        "meaning": {
+          "hybrid-router": "✅ Project Beacon running hybrid router",
+          "backend-diffs": "❌ Project Beacon running wrong service",
+          "runner": "✅ Beacon Runner working"
+        }
+      },
+      "fix_wrong_service": [
+        "Go to Railway Dashboard",
+        "Select Project Beacon service",
+        "Settings → Build & Deploy",
+        "Change Root Directory to 'hybrid_router/'",
+        "Click Deploy"
       ],
-      "expected_response": "200 OK with JSON status",
-      "timeout": "5s",
-      "retry_interval": "30s"
+      "verify_fix": [
+        "curl https://project-beacon-production.up.railway.app/health",
+        "Should show: {\"service\": \"hybrid-router\"}",
+        "Test: curl https://project-beacon-production.up.railway.app/providers",
+        "Should return providers JSON, not 404"
+      ],
+      "emergency_commands": {
+        "check_all_services": "for url in project-beacon-production.up.railway.app fabulous-renewal-production-5d69.up.railway.app beacon-runner-change-me.fly.dev; do echo $url:; curl -s https://$url/health | jq '.service'; done",
+        "force_redeploy_hybrid": "cd hybrid_router && railway up && railway variables --set MODAL_API_BASE='https://jamie-anson--project-beacon-hf-run-inference-us.modal.run'",
+        "check_routes": "node scripts/write-redirects.js && cat dist/_redirects"
+      }
     },
-    "effective_at": "2025-09-20T18:15:17+01:00",
-    "notes": "Health check endpoint specifications"
-  },
-  {
-    "id": "mon-0002",
-    "action": "add",
-    "type": "monitoring",
-    "subject": "logging",
-    "env": "all",
-    "data": {
-      "log_levels": ["DEBUG", "INFO", "WARN", "ERROR"],
-      "structured_format": "JSON with timestamp, level, message, context",
-      "aggregation": "fly.io logs, railway logs, netlify functions logs",
-      "retention": "7 days (fly), 30 days (railway)"
-    },
-    "effective_at": "2025-09-20T18:15:17+01:00",
-    "notes": "Logging configuration and aggregation"
+    "effective_at": "2025-09-21T14:00:00+01:00",
+    "notes": "Quick reference guide for Railway services - one-stop troubleshooting"
   },
   {
     "id": "mon-0003",
