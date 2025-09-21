@@ -8,3 +8,4 @@
 Deployment trigger - update timestamp to force fresh Netlify build
 Last updated: 2025-09-21T02:22:00+01:00
 FORCE DEPLOY: Dark theme, question context, WebSocket fix, LiveProgressTable fixZ
+DEPLOY: Final portal fixes - dark theme, question context, progress table
