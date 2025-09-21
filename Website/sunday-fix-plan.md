@@ -292,7 +292,8 @@ npm test -- cors-integration
 
 ### 🎯 **Completed Emergency Fixes:**
 - ✅ **GitHub Actions npm/Rollup Error**: Fixed corrupted dependencies, regenerated package-lock.json
-- ✅ **Railway Dockerfile Context**: Fixed COPY paths, added proper directory structure
+- ✅ **Netlify Dependency Mismatch**: Fixed React 19 vs 18 version conflicts, clean package-lock.json
+- ✅ **Railway Config Conflict**: Removed railway.backend.json, using railway.json → Dockerfile.railway
 - ✅ **Local Build Validation**: All builds working locally after npm fixes
 - ✅ **Dependencies Deployed**: Clean npm install completed, no more rollup errors
 
@@ -307,10 +308,11 @@ npm test -- cors-integration
 3. **Debug Netlify import error** if it persists after dependency fixes
 4. **Validate portal integration** with working backend
 
-### 📊 **Expected Timeline:**
-- **16:00**: Railway deployment should complete
-- **16:05**: `/providers` endpoint should be available  
-- **16:10**: GitHub Actions should pass
-- **16:15**: All systems operational
+### 📊 **Updated Timeline (16:05):**
+- **16:10**: Railway hybrid router deployment should complete
+- **16:15**: `/providers` endpoint should be available  
+- **16:20**: GitHub Actions should pass with clean dependencies
+- **16:25**: Netlify should build successfully
+- **16:30**: All systems operational and portal working
 
 **Status**: ✅ Emergency fixes deployed, monitoring deployments | **Owner**: Development Team | **Priority**: P0 Critical
