@@ -79,13 +79,14 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         model_path = f"/models/{model_name}"
         tokenizer, model = load_model_and_tokenizer(model_name, model_path)
         
-        # Prepare input
+        # Prepare input and move to model device to avoid CPU/GPU mismatch
         inputs = tokenizer(prompt, return_tensors="pt")
+        input_ids = inputs["input_ids"].to(model.device)
         
         # Generate response
         with torch.no_grad():
             outputs = model.generate(
-                inputs.input_ids,
+                input_ids,
                 max_new_tokens=max_tokens,
                 temperature=temperature,
                 do_sample=True if temperature > 0 else False,
