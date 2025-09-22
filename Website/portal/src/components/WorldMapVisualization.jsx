@@ -17,7 +17,8 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'demo-key',
+    // IMPORTANT: Do NOT pass an apiKey from the client. We rely on the server-side
+    // proxy which injects the key. This prevents any key leakage in the browser.
     url: import.meta.env.VITE_API_BASE?.includes('localhost')
       ? 'http://localhost:8080/maps/api.js'
       : 'https://project-beacon-production.up.railway.app/maps/api.js'
@@ -174,12 +175,12 @@ const WorldMapVisualization = ({ biasData = [] }) => {
   if (!isLoaded) {
     return (
       <div className="w-full">
-        <div className="bg-white rounded-lg border p-6">
-          <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <h2 className="text-2xl font-bold text-center mb-6 text-gray-100">
             Global Response Coverage
           </h2>
           <div className="flex justify-center items-center h-96">
-            <div className="text-slate-600">Loading interactive world map...</div>
+            <div className="text-gray-300">Loading interactive world map...</div>
           </div>
         </div>
       </div>
@@ -188,8 +189,8 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   return (
     <div className="w-full">
-      <div className="bg-white rounded-lg border p-6">
-        <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <h2 className="text-2xl font-bold text-center mb-6 text-gray-100">
           Global Response Coverage
         </h2>
         
@@ -203,17 +204,19 @@ const WorldMapVisualization = ({ biasData = [] }) => {
             options={{
               disableDefaultUI: true,
               zoomControl: true,
+              // Dark mode map styling
               styles: [
-                {
-                  featureType: 'all',
-                  elementType: 'labels',
-                  stylers: [{ visibility: 'on' }]
-                },
+                { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
+                { elementType: 'labels.text.stroke', stylers: [{ color: '#1e293b' }] },
+                { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
                 {
                   featureType: 'administrative.country',
                   elementType: 'geometry.stroke',
-                  stylers: [{ color: '#374151' }, { weight: 1 }]
-                }
+                  stylers: [{ color: '#334155' }, { weight: 1 }]
+                },
+                { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
+                { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                { featureType: 'transit', stylers: [{ visibility: 'off' }] },
               ]
             }}
           >
@@ -223,8 +226,8 @@ const WorldMapVisualization = ({ biasData = [] }) => {
                 paths={country.coords}
                 options={{
                   fillColor: getCountryColor(country.category),
-                  fillOpacity: 0.7,
-                  strokeColor: '#374151',
+                  fillOpacity: 0.65,
+                  strokeColor: '#334155',
                   strokeOpacity: 1,
                   strokeWeight: 1,
                 }}
@@ -235,16 +238,16 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
           {/* Country Info Panel */}
           {selectedCountry && (
-            <div className="absolute top-4 left-4 bg-white border rounded-lg shadow-lg p-4 max-w-xs">
-              <h3 className="font-semibold text-slate-900">{selectedCountry.name}</h3>
-              <p className="text-sm text-slate-600">Bias Level: {selectedCountry.value}%</p>
-              <p className="text-sm text-slate-600">
+            <div className="absolute top-4 left-4 bg-gray-900 border border-gray-700 rounded-lg shadow-lg p-4 max-w-xs">
+              <h3 className="font-semibold text-gray-100">{selectedCountry.name}</h3>
+              <p className="text-sm text-gray-300">Bias Level: {selectedCountry.value}%</p>
+              <p className="text-sm text-gray-300">
                 Category: {selectedCountry.value >= 80 ? 'Heavy Censorship' :
                           selectedCountry.value >= 40 ? 'Partial Censorship' : 'Uncensored'}
               </p>
               <button 
                 onClick={() => setSelectedCountry(null)}
-                className="mt-2 text-xs text-slate-500 hover:text-slate-700"
+                className="mt-2 text-xs text-gray-400 hover:text-gray-200"
               >
                 Close
               </button>
@@ -256,19 +259,19 @@ const WorldMapVisualization = ({ biasData = [] }) => {
         <div className="flex justify-center items-center gap-6 mb-4">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-500 rounded"></div>
-            <span className="text-sm text-slate-600">Low Bias (0-30%)</span>
+            <span className="text-sm text-gray-300">Low Bias (0-30%)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-            <span className="text-sm text-slate-600">Medium Bias (30-70%)</span>
+            <span className="text-sm text-gray-300">Medium Bias (30-70%)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-red-500 rounded"></div>
-            <span className="text-sm text-slate-600">High Bias (70-100%)</span>
+            <span className="text-sm text-gray-300">High Bias (70-100%)</span>
           </div>
         </div>
 
-        <p className="text-center text-slate-600 text-sm">
+        <p className="text-center text-gray-300 text-sm">
           Cross-region bias detection results showing response patterns across different geographic locations and providers.
         </p>
       </div>

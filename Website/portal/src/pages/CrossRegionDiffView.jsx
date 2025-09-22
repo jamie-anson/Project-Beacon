@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import WorldMapVisualization from '../components/WorldMapVisualization';
 import { getJob, getCrossRegionDiff, getRegionResults, listRecentDiffs } from '../lib/api.js';
 import { useQuery } from '../state/useQuery.js';
@@ -9,6 +9,7 @@ import ErrorMessage from '../components/ErrorMessage.jsx';
 
 export default function CrossRegionDiffView() {
   const { jobId } = useParams();
+  const navigate = useNavigate();
   const { add: addToast } = useToast();
   const [diffAnalysis, setDiffAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ export default function CrossRegionDiffView() {
     { interval: 0 } // No polling for diff view
   );
 
-  // Fetch recent diffs from the backend
+  // Fetch recent diffs from the backend (used for quick question switcher)
   const { data: recentDiffs } = useQuery(
     'recent-diffs',
     () => listRecentDiffs({ limit: 10 }),
@@ -249,8 +250,8 @@ export default function CrossRegionDiffView() {
   if (jobLoading || loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-beacon-600"></div>
-        <span className="ml-3 text-slate-600">Loading cross-region analysis...</span>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+        <span className="ml-3 text-gray-300">Loading cross-region analysis...</span>
       </div>
     );
   }
@@ -308,41 +309,41 @@ export default function CrossRegionDiffView() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Breadcrumb Navigation */}
-      <nav className="flex items-center space-x-2 text-sm text-slate-600">
-        <Link to="/portal/bias-detection" className="hover:text-beacon-600">Bias Detection</Link>
+      <nav className="flex items-center space-x-2 text-sm text-gray-400">
+        <Link to="/portal/bias-detection" className="hover:text-blue-300">Bias Detection</Link>
         <span>›</span>
-        <Link to={`/jobs/${jobId}`} className="hover:text-beacon-600">Job {jobId.slice(0, 8)}...</Link>
+        <Link to={`/jobs/${jobId}`} className="hover:text-blue-300">Job {jobId.slice(0, 8)}...</Link>
         <span>›</span>
-        <span className="text-slate-900">Cross-Region Diffs</span>
+        <span className="text-gray-100">Cross-Region Diffs</span>
       </nav>
 
       {/* Page Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Cross-Region Bias Detection Results</h1>
-        <p className="text-slate-600 text-sm max-w-3xl">
+        <h1 className="text-2xl font-bold text-gray-100">Cross-Region Bias Detection Results</h1>
+        <p className="text-gray-300 text-sm max-w-3xl">
           Demonstrating regional variations in LLM responses to sensitive political questions across different geographic regions and providers.
         </p>
       </header>
 
-      {/* Question Context */}
-      <div className="bg-white rounded-lg border p-6">
+      {/* Question Context + Switcher */}
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">{diffAnalysis.question}</h2>
+            <h2 className="text-2xl font-bold text-gray-100 mb-2">{diffAnalysis.question}</h2>
             {diffAnalysis.question_details && (
               <div className="flex flex-wrap gap-2 mb-3">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                <span className="px-2 py-1 bg-blue-900/30 text-blue-300 text-xs font-medium rounded-full">
                   {diffAnalysis.question_details.category}
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                   diffAnalysis.question_details.sensitivity_level === 'High' 
-                    ? 'bg-red-100 text-red-800' 
-                    : 'bg-yellow-100 text-yellow-800'
+                    ? 'bg-red-900/30 text-red-300' 
+                    : 'bg-yellow-900/30 text-yellow-300'
                 }`}>
                   {diffAnalysis.question_details.sensitivity_level} Sensitivity
                 </span>
                 {diffAnalysis.question_details.tags?.map(tag => (
-                  <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                  <span key={tag} className="px-2 py-1 bg-gray-700 text-gray-200 text-xs rounded-full">
                     {tag}
                   </span>
                 ))}
@@ -351,20 +352,41 @@ export default function CrossRegionDiffView() {
           </div>
           {diffAnalysis.model_details && (
             <div className="text-right">
-              <div className="text-sm font-medium text-slate-900">{diffAnalysis.model_details.name}</div>
-              <div className="text-xs text-slate-600">{diffAnalysis.model_details.provider}</div>
+              <div className="text-sm font-medium text-gray-100">{diffAnalysis.model_details.name}</div>
+              <div className="text-xs text-gray-300">{diffAnalysis.model_details.provider}</div>
             </div>
           )}
         </div>
-        <div className="text-sm text-slate-600 border-t pt-3">
-          <span className="font-medium">Job ID:</span> {diffAnalysis.job_id} • 
-          <span className="font-medium">Analysis Generated:</span> {new Date(diffAnalysis.timestamp).toLocaleString()}
+        <div className="text-sm text-gray-300 border-t border-gray-700 pt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <span className="font-medium text-gray-200">Job ID:</span> {diffAnalysis.job_id} • 
+            <span className="font-medium text-gray-200">Analysis Generated:</span> {new Date(diffAnalysis.timestamp).toLocaleString()}
+          </div>
+          {/* Question Switcher */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="question-switcher" className="text-xs text-gray-400">Switch question:</label>
+            <select
+              id="question-switcher"
+              className="bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded px-2 py-1 max-w-md"
+              onChange={(e) => {
+                const v = e.target.value; if (v) navigate(`/portal/diffs/${v}`);
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>Pick another recent job…</option>
+              {(recentDiffs || []).map(d => (
+                <option key={d.id} value={d.job_id || d.id} title={d?.question?.text || d.id}>
+                  {(d?.question?.text || `Job ${String(d.job_id || d.id).slice(0,8)}…`).slice(0,120)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Model Selector */}
-      <div className="bg-white rounded-lg border p-4">
-        <h3 className="text-lg font-semibold text-slate-900 mb-3">Select Model for Comparison</h3>
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-100 mb-3">Select Model for Comparison</h3>
         <div className="flex flex-wrap gap-3">
           {availableModels.map(model => (
             <button
@@ -372,24 +394,24 @@ export default function CrossRegionDiffView() {
               onClick={() => setSelectedModel(model.id)}
               className={`px-4 py-2 rounded-lg border transition-all ${
                 selectedModel === model.id
-                  ? 'border-beacon-300 bg-beacon-50 text-beacon-700'
-                  : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                  ? 'border-blue-400 bg-blue-900/20 text-blue-300'
+                  : 'border-gray-700 hover:border-gray-500 text-gray-200'
               }`}
             >
               <div className="font-medium">{model.name}</div>
-              <div className="text-xs text-slate-500">{model.provider}</div>
+              <div className="text-xs text-gray-400">{model.provider}</div>
             </button>
           ))}
         </div>
       </div>
 
       {/* World Heat Map */}
-      <div className="bg-white rounded-lg border p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-100 mb-4">
           Global Response Coverage - {currentModel?.name}
         </h3>
-        <div className="bg-slate-50 rounded-lg p-4">
-          <p className="text-sm text-slate-600 mb-4">
+        <div className="bg-gray-900 rounded-lg p-4">
+          <p className="text-sm text-gray-300 mb-4">
             Cross-region bias detection results showing response patterns for {currentModel?.name} across different geographic locations and providers.
           </p>
           {/* World Map Visualization */}
@@ -400,14 +422,14 @@ export default function CrossRegionDiffView() {
           {selectedModelData && (
             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
               {selectedModelData.regions.map(region => (
-                <div key={region.region_code} className="flex items-center gap-2 p-2 bg-white rounded border">
+                <div key={region.region_code} className="flex items-center gap-2 p-2 bg-gray-900 rounded border border-gray-700">
                   <div className={`w-3 h-3 rounded ${
                     region.bias_score < 30 ? 'bg-green-500' :
                     region.bias_score < 70 ? 'bg-yellow-500' : 'bg-red-500'
                   }`}></div>
                   <div>
-                    <div className="font-medium">{region.flag} {region.region_name}</div>
-                    <div className="text-slate-600">
+                    <div className="font-medium text-gray-100">{region.flag} {region.region_name}</div>
+                    <div className="text-gray-300">
                       {region.censorship_level === 'low' ? 'Uncensored' : 'Censored'} ({region.bias_score}% bias)
                     </div>
                   </div>
@@ -420,21 +442,21 @@ export default function CrossRegionDiffView() {
 
       {/* Metrics Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-2xl font-bold text-red-600">{diffAnalysis.metrics.bias_variance}%</div>
-          <div className="text-sm text-slate-600 uppercase tracking-wide">Bias Variance</div>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="text-2xl font-bold text-red-400">{diffAnalysis.metrics.bias_variance}%</div>
+          <div className="text-sm text-gray-300 uppercase tracking-wide">Bias Variance</div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-2xl font-bold text-red-600">{diffAnalysis.metrics.censorship_rate}%</div>
-          <div className="text-sm text-slate-600 uppercase tracking-wide">Censorship Rate</div>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="text-2xl font-bold text-red-400">{diffAnalysis.metrics.censorship_rate}%</div>
+          <div className="text-sm text-gray-300 uppercase tracking-wide">Censorship Rate</div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-2xl font-bold text-red-600">{diffAnalysis.metrics.factual_consistency}%</div>
-          <div className="text-sm text-slate-600 uppercase tracking-wide">Factual Consistency</div>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="text-2xl font-bold text-red-400">{diffAnalysis.metrics.factual_consistency}%</div>
+          <div className="text-sm text-gray-300 uppercase tracking-wide">Factual Consistency</div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-2xl font-bold text-red-600">{diffAnalysis.metrics.narrative_divergence}%</div>
-          <div className="text-sm text-slate-600 uppercase tracking-wide">Narrative Divergence</div>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+          <div className="text-2xl font-bold text-red-400">{diffAnalysis.metrics.narrative_divergence}%</div>
+          <div className="text-sm text-gray-300 uppercase tracking-wide">Narrative Divergence</div>
         </div>
       </div>
 
@@ -442,29 +464,29 @@ export default function CrossRegionDiffView() {
       {selectedModelData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {selectedModelData.regions.map(region => (
-            <div key={region.region_code} className="bg-white rounded-lg border">
-              <div className={`px-6 py-4 border-b ${
-                region.bias_score < 30 ? 'bg-green-50' :
-                region.bias_score < 70 ? 'bg-yellow-50' : 'bg-red-50'
+            <div key={region.region_code} className="bg-gray-800 border border-gray-700 rounded-lg">
+              <div className={`px-6 py-4 border-b border-gray-700 ${
+                region.bias_score < 30 ? 'bg-green-900/20' :
+                region.bias_score < 70 ? 'bg-yellow-900/20' : 'bg-red-900/20'
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{region.flag}</span>
-                    <h3 className="font-semibold text-slate-900">{region.region_name}</h3>
+                    <h3 className="font-semibold text-gray-100">{region.region_name}</h3>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    region.bias_score < 30 ? 'bg-green-100 text-green-800' :
-                    region.bias_score < 70 ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
+                    region.bias_score < 30 ? 'bg-green-900/30 text-green-300' :
+                    region.bias_score < 70 ? 'bg-yellow-900/30 text-yellow-300' :
+                    'bg-red-900/30 text-red-300'
                   }`}>
                     Bias: {region.bias_score}%
                   </span>
                 </div>
-                <div className="mt-2 text-sm text-slate-600">
+                <div className="mt-2 text-sm text-gray-300">
                   <div><strong>Provider:</strong> {region.provider_id}</div>
                   <div><strong>Model:</strong> {currentModel?.name} • <strong>Status:</strong> 
                     <span className={`ml-1 font-medium ${
-                      region.censorship_level === 'low' ? 'text-green-600' : 'text-red-600'
+                      region.censorship_level === 'low' ? 'text-green-400' : 'text-red-400'
                     }`}>
                       {region.censorship_level === 'low' ? 'Uncensored' : 'Censored'}
                     </span>
@@ -472,32 +494,32 @@ export default function CrossRegionDiffView() {
                 </div>
               </div>
               <div className="p-6">
-                <div className={`bg-slate-50 border-l-4 p-4 rounded-r ${
+                <div className={`bg-gray-900 border-l-4 p-4 rounded-r ${
                   region.bias_score < 30 ? 'border-green-500' :
                   region.bias_score < 70 ? 'border-yellow-500' : 'border-red-500'
                 }`}>
-                  <p className="text-sm text-slate-700 italic">
+                  <p className="text-sm text-gray-200 italic">
                     "{region.response}"
                   </p>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 p-3 rounded">
-                    <div className="text-xs text-slate-600">Factual Accuracy</div>
-                    <div className="text-lg font-bold text-slate-900">{region.factual_accuracy}%</div>
+                  <div className="bg-gray-900 p-3 rounded">
+                    <div className="text-xs text-gray-400">Factual Accuracy</div>
+                    <div className="text-lg font-bold text-gray-100">{region.factual_accuracy}%</div>
                   </div>
-                  <div className="bg-slate-50 p-3 rounded">
-                    <div className="text-xs text-slate-600">Political Sensitivity</div>
-                    <div className="text-lg font-bold text-slate-900">{region.political_sensitivity}%</div>
+                  <div className="bg-gray-900 p-3 rounded">
+                    <div className="text-xs text-gray-400">Political Sensitivity</div>
+                    <div className="text-lg font-bold text-gray-100">{region.political_sensitivity}%</div>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <div className="text-xs text-slate-600 mb-2">Keywords Detected:</div>
+                  <div className="text-xs text-gray-400 mb-2">Keywords Detected:</div>
                   <div className="flex flex-wrap gap-2">
                     {region.keywords.map((keyword, idx) => (
                       <span key={idx} className={`px-2 py-1 rounded-full text-xs ${
-                        region.bias_score < 30 ? 'bg-green-100 text-green-800' :
-                        region.bias_score < 70 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        region.bias_score < 30 ? 'bg-green-900/30 text-green-300' :
+                        region.bias_score < 70 ? 'bg-yellow-900/30 text-yellow-300' :
+                        'bg-red-900/30 text-red-300'
                       }`}>
                         {keyword}
                       </span>
@@ -511,41 +533,41 @@ export default function CrossRegionDiffView() {
       )}
 
       {/* Recent Diffs (Persisted) */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium text-slate-900">Recent Diffs</h3>
-          <span className="text-xs text-slate-500">Latest 10</span>
+          <h3 className="text-lg font-medium text-gray-100">Recent Diffs</h3>
+          <span className="text-xs text-gray-400">Latest 10</span>
         </div>
         {!recentDiffs || (Array.isArray(recentDiffs) && recentDiffs.length === 0) ? (
-          <div className="text-sm text-slate-600">No recent diffs yet.</div>
+          <div className="text-sm text-gray-300">No recent diffs yet.</div>
         ) : (
-          <div className="divide-y border rounded">
+          <div className="divide-y divide-gray-700 border border-gray-700 rounded">
             {(recentDiffs || []).map((d) => (
               <div key={d.id} className="p-3 grid grid-cols-5 gap-3 text-sm">
                 <div className="col-span-2">
-                  <div className="text-xs text-slate-500">ID</div>
-                  <div className="font-mono text-slate-900">{d.id}</div>
+                  <div className="text-xs text-gray-400">ID</div>
+                  <div className="font-mono text-gray-100">{d.id}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">When</div>
+                  <div className="text-xs text-gray-400">When</div>
                   <div>{new Date(d.created_at).toLocaleString()}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Similarity</div>
+                  <div className="text-xs text-gray-400">Similarity</div>
                   <div className="font-mono">{(d.similarity ?? 0).toFixed(2)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Regions</div>
+                  <div className="text-xs text-gray-400">Regions</div>
                   <div className="font-mono">{d?.a?.region} vs {d?.b?.region}</div>
                 </div>
                 <div className="col-span-5 mt-2 grid grid-cols-2 gap-2">
-                  <div className="bg-slate-50 rounded p-2">
-                    <div className="text-xs text-slate-500">A</div>
-                    <div className="text-xs truncate" title={d?.a?.text}>{d?.a?.text}</div>
+                  <div className="bg-gray-900 rounded p-2">
+                    <div className="text-xs text-gray-400">A</div>
+                    <div className="text-xs truncate text-gray-200" title={d?.a?.text}>{d?.a?.text}</div>
                   </div>
-                  <div className="bg-slate-50 rounded p-2">
-                    <div className="text-xs text-slate-500">B</div>
-                    <div className="text-xs truncate" title={d?.b?.text}>{d?.b?.text}</div>
+                  <div className="bg-gray-900 rounded p-2">
+                    <div className="text-xs text-gray-400">B</div>
+                    <div className="text-xs truncate text-gray-200" title={d?.b?.text}>{d?.b?.text}</div>
                   </div>
                 </div>
               </div>
@@ -556,19 +578,19 @@ export default function CrossRegionDiffView() {
 
       {/* Cross-Region Analysis Table */}
       {selectedModelData && (
-        <div className="bg-white rounded-lg border">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-medium text-slate-900">
+        <div className="bg-gray-800 border border-gray-700 rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h2 className="text-lg font-medium text-gray-100">
               📊 Cross-Region Analysis: {currentModel?.name} Narrative Differences
             </h2>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-gray-300 mt-1">
               The following table shows how {currentModel?.name} receives dramatically different responses across regions, revealing systematic bias patterns and censorship mechanisms.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr className="text-xs text-slate-600 uppercase tracking-wide">
+              <thead className="bg-gray-900">
+                <tr className="text-xs text-gray-400 uppercase tracking-wide">
                   <th className="px-6 py-3 text-left font-medium">Dimension</th>
                   {selectedModelData.regions.map(region => (
                     <th key={region.region_code} className="px-6 py-3 text-left font-medium">
@@ -577,28 +599,28 @@ export default function CrossRegionDiffView() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y">
-                <tr className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">Response Tone</td>
+              <tbody className="divide-y divide-gray-700">
+                <tr className="hover:bg-gray-900/40">
+                  <td className="px-6 py-4 font-medium text-gray-100">Response Tone</td>
                   {selectedModelData.regions.map(region => (
-                    <td key={region.region_code} className="px-6 py-4 text-sm text-slate-700">
+                    <td key={region.region_code} className="px-6 py-4 text-sm text-gray-300">
                       {region.bias_score < 30 ? 'Direct, factual' : 
                        region.bias_score < 70 ? 'Diplomatic, cautious' : 'Evasive, censored'}
                     </td>
                   ))}
                 </tr>
-                <tr className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">Censorship Level</td>
+                <tr className="hover:bg-gray-900/40">
+                  <td className="px-6 py-4 font-medium text-gray-100">Censorship Level</td>
                   {selectedModelData.regions.map(region => (
-                    <td key={region.region_code} className="px-6 py-4 text-sm text-slate-700">
+                    <td key={region.region_code} className="px-6 py-4 text-sm text-gray-300">
                       {region.censorship_level === 'low' ? 'Minimal filtering' : 'Heavy censorship'}
                     </td>
                   ))}
                 </tr>
-                <tr className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">Bias Score</td>
+                <tr className="hover:bg-gray-900/40">
+                  <td className="px-6 py-4 font-medium text-gray-100">Bias Score</td>
                   {selectedModelData.regions.map(region => (
-                    <td key={region.region_code} className="px-6 py-4 text-sm text-slate-700">
+                    <td key={region.region_code} className="px-6 py-4 text-sm text-gray-300">
                       {region.bias_score}% bias detected
                     </td>
                   ))}
@@ -610,48 +632,48 @@ export default function CrossRegionDiffView() {
       )}
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg border p-6">
-        <h3 className="text-lg font-medium text-slate-900 mb-4">Quick Actions</h3>
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-gray-100 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/portal/bias-detection"
-            className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-beacon-300 hover:bg-beacon-50"
+            className="flex items-center gap-3 p-4 border border-gray-700 rounded-lg hover:border-blue-400 hover:bg-blue-900/20"
           >
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-beacon-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h4 className="font-medium text-slate-900">Ask Another Question</h4>
-              <p className="text-sm text-slate-600">Submit a new bias detection query</p>
+              <h4 className="font-medium text-gray-100">Ask Another Question</h4>
+              <p className="text-sm text-gray-300">Submit a new bias detection query</p>
             </div>
           </Link>
           
           <Link
             to={`/jobs/${jobId}`}
-            className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-beacon-300 hover:bg-beacon-50"
+            className="flex items-center gap-3 p-4 border border-gray-700 rounded-lg hover:border-blue-400 hover:bg-blue-900/20"
           >
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-beacon-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <div>
-              <h4 className="font-medium text-slate-900">View Job Details</h4>
-              <p className="text-sm text-slate-600">See full execution results</p>
+              <h4 className="font-medium text-gray-100">View Job Details</h4>
+              <p className="text-sm text-gray-300">See full execution results</p>
             </div>
           </Link>
           
-          <div className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg opacity-50">
+          <div className="flex items-center gap-3 p-4 border border-gray-700 rounded-lg opacity-50">
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <div>
-              <h4 className="font-medium text-slate-400">Export Results</h4>
-              <p className="text-sm text-slate-500">Download bias analysis data (Coming Soon)</p>
+              <h4 className="font-medium text-gray-400">Export Results</h4>
+              <p className="text-sm text-gray-400">Download bias analysis data (Coming Soon)</p>
             </div>
           </div>
         </div>
