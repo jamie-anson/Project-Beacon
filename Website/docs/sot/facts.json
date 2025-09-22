@@ -1012,5 +1012,141 @@
     },
     "effective_at": "2025-09-20T18:16:31+01:00",
     "notes": "Platform-specific Docker deployment patterns"
+  },
+  {
+    "id": "ops-0001",
+    "action": "add",
+    "type": "readiness_endpoint",
+    "subject": "router",
+    "env": "prod",
+    "data": {
+      "path": "/ready",
+      "served_by": "hybrid_router.api.health.ready",
+      "reason": "Lightweight readiness probe for platform health checks",
+      "expected_status": 200
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Introduced to decouple readiness from deeper provider health"
+  },
+  {
+    "id": "ops-0002",
+    "action": "add",
+    "type": "railway_config",
+    "subject": "project_beacon",
+    "env": "prod",
+    "data": {
+      "railway_json": {
+        "build": {
+          "builder": "DOCKERFILE",
+          "dockerfilePath": "Website/Dockerfile"
+        },
+        "deploy": {
+          "startCommand": "python3 hybrid_router_new.py",
+          "healthcheckPath": "/ready",
+          "healthcheckTimeout": 300,
+          "restartPolicyType": "ON_FAILURE"
+        }
+      }
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Config-as-code for monorepo; avoids root autodetection issues"
+  },
+  {
+    "id": "ops-0003",
+    "action": "add",
+    "type": "docker_healthcheck",
+    "subject": "router",
+    "env": "prod",
+    "data": {
+      "file": "Website/Dockerfile",
+      "healthcheck": "curl -f http://localhost:${PORT:-8000}/ready",
+      "interval": "30s",
+      "timeout": "10s",
+      "retries": 3
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Docker healthcheck aligned with platform readiness probe"
+  },
+  {
+    "id": "ci-0002",
+    "action": "add",
+    "type": "ci_pipeline",
+    "subject": "router",
+    "env": "all",
+    "data": {
+      "workflow_file": ".github/workflows/router-ci.yml",
+      "unit_tests": ["Website/tests/test_app_boot.py", "Website/tests/test_health_schema.py"],
+      "smoke_test": "Website/Makefile target 'smoke'"
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Prevents regressions and validates container boot"
+  },
+  {
+    "id": "bug-0004",
+    "action": "add",
+    "type": "incident",
+    "subject": "uvicorn_port_env",
+    "env": "prod",
+    "data": {
+      "symptom": "Invalid value for '--port': '${PORT:-8000}'",
+      "cause": "Shell-style default not expanded; uvicorn expects integer",
+      "fix": "Use python entrypoint 'hybrid_router_new.py' and parse env var in code"
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Start command changed to avoid CLI parsing pitfalls"
+  },
+  {
+    "id": "bug-0005",
+    "action": "add",
+    "type": "incident",
+    "subject": "maps_import",
+    "env": "prod",
+    "data": {
+      "symptom": "ModuleNotFoundError: hybrid_router.api.config",
+      "cause": "Incorrect import path in maps router",
+      "fix": "Import from '..config' and make maps router optional to avoid startup failure"
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "App now starts even if maps module experiences errors"
+  },
+  {
+    "id": "api-0002-update",
+    "action": "add",
+    "type": "api_update",
+    "subject": "router",
+    "env": "prod",
+    "data": {
+      "added_endpoints": ["GET /ready"],
+      "existing_endpoints_unchanged": ["GET /health", "GET /providers", "POST /inference", "GET /ws"]
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Documenting readiness endpoint"
+  },
+  {
+    "id": "svc-0005",
+    "action": "add",
+    "type": "service_state",
+    "subject": "fabulous_renewal",
+    "env": "prod",
+    "data": {
+      "status": "failing",
+      "reason": "Dockerfile 'Dockerfile.railway' does not exist",
+      "recommended_action": "Reconfigure to Root Directory 'Website/' with Dockerfile 'Website/Dockerfile', or disable service"
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Not required for router; consider disable/delete"
+  },
+  {
+    "id": "svc-0006",
+    "action": "add",
+    "type": "service_state",
+    "subject": "backend_diffs",
+    "env": "prod",
+    "data": {
+      "status": "deprecated",
+      "recommended_action": "Disable auto-deploy or delete service"
+    },
+    "effective_at": "2025-09-22T21:07:15+01:00",
+    "notes": "Reduce noise and cost"
   }
 ]
