@@ -6,6 +6,12 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
+@router.get("/ready")
+async def ready():
+    """Lightweight readiness probe to signal the app is up."""
+    return {"status": "ok", "timestamp": time.time()}
+
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint"""

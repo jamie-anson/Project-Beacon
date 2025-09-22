@@ -2,11 +2,11 @@
 
 # Python unit tests
 test:
-	PYTHONPATH=Website python3 -m pytest -q Website/tests
+	PYTHONPATH=. python3 -m pytest -q tests
 
 # Build image and run container, then poll /health
 smoke:
-	docker build -t beacon-router:local Website \
+	docker build -t beacon-router:local . \
 	&& docker rm -f beacon-router-test >/dev/null 2>&1 || true \
 	&& docker run --rm -d --name beacon-router-test -e PORT=8000 -p 8000:8000 beacon-router:local \
 	    python3 -m uvicorn hybrid_router.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips "*" \

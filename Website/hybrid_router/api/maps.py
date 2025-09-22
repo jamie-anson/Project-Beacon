@@ -1,5 +1,9 @@
 """Google Maps API proxy to prevent API key exposure"""
-from .config import get_google_maps_api_key
+import logging
+import httpx
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
+from ..config import get_google_maps_api_key
 
 router = APIRouter(prefix="/maps", tags=["maps"])
 logger = logging.getLogger(__name__)
