@@ -10,6 +10,17 @@ from typing import Dict, Any
 # Create Modal app
 app = modal.App("project-beacon-hf")
 
+# Optional Hugging Face secret for gated models (Llama/Mistral)
+try:
+    HF_SECRET = modal.Secret.from_name("hf")
+except Exception:
+    try:
+        HF_SECRET = modal.Secret.from_name("custom-secret")
+    except Exception:
+        HF_SECRET = None
+
+SECRETS = [HF_SECRET] if HF_SECRET else []
+
 # Optimized image with HF transformers
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -125,9 +136,10 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
     gpu="T4",
     volumes={"/models": models_volume},
     timeout=300,
-    container_idle_timeout=600,  # Keep warm for 10 minutes
+    scaledown_window=600,  # Keep warm for 10 minutes
     region=["us-east", "us-central", "us-west"],
-    memory=8192  # 8GB RAM
+    memory=8192,  # 8GB RAM
+    secrets=SECRETS,
 )
 def run_inference_us(
     model_name: str,
@@ -144,9 +156,10 @@ def run_inference_us(
     gpu="T4",
     volumes={"/models": models_volume},
     timeout=300,
-    container_idle_timeout=600,
+    scaledown_window=600,
     region=["eu-west", "eu-north"],
-    memory=8192
+    memory=8192,
+    secrets=SECRETS,
 )
 def run_inference_eu(
     model_name: str,
@@ -163,9 +176,10 @@ def run_inference_eu(
     gpu="T4",
     volumes={"/models": models_volume},
     timeout=300,
-    container_idle_timeout=600,
+    scaledown_window=600,
     region=["ap-southeast", "ap-northeast"],
-    memory=8192
+    memory=8192,
+    secrets=SECRETS,
 )
 def run_inference_apac(
     model_name: str,
@@ -194,9 +208,9 @@ def health_check() -> Dict[str, Any]:
 # Web endpoints for HTTP access
 @app.function(
     image=image,
-    timeout=30,
+    timeout=600,
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
     """HTTP API endpoint for inference requests"""
     model_name = item.get("model", "llama3.2-1b")
@@ -224,7 +238,7 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
     image=image,
     timeout=30,
 )
-@modal.web_endpoint(method="GET", label="hf-health")
+@modal.fastapi_endpoint(method="GET", label="hf-health")
 def health_api() -> Dict[str, Any]:
     """HTTP health check endpoint"""
     return health_check.remote()
