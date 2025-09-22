@@ -261,8 +261,29 @@ class HybridRouter:
         headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
         response = await self.client.post(provider.endpoint, json=payload, headers=headers)
         
-        if response.status_code == 200:
-            return response.json()
+        # Normalize Modal response to router's expected schema
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+
+        if response.status_code == 200 and isinstance(data, dict):
+            # Modal returns { status: "success" | "error", response?: str, error?: str, ... }
+            status = data.get("status")
+            success = data.get("success")
+            if success is None and status is not None:
+                success = str(status).lower() == "success"
+
+            # Extract response text from common fields
+            resp_text = data.get("response") or data.get("output") or data.get("text")
+            error_msg = data.get("error")
+
+            return {
+                "success": bool(success),
+                "response": resp_text,
+                "error": error_msg,
+                "modal_raw": data,
+            }
         else:
             return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
     
