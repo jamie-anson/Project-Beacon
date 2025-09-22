@@ -20,3 +20,7 @@ backend-diffs/  # Ignore backend-diffs to prevent Railway from choosing it
 !flyio-deployment/
 !Dockerfile
 !railway.json
+!Dockerfile.railway
+!requirements.txt
+!hybrid_router_new.py
+!hybrid_router/**
