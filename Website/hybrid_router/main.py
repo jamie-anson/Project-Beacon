@@ -57,7 +57,10 @@ app.include_router(health_router)
 app.include_router(inference_router)
 app.include_router(providers_router)
 app.include_router(websocket_router)
-app.include_router(maps_router)
+if maps_router is not None:
+    app.include_router(maps_router)
+else:
+    logger.warning("Maps router not included because it failed to import.")
 
 
 if __name__ == "__main__":
