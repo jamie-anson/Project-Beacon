@@ -6,7 +6,7 @@
     "buildCommand": ""
   },
   "deploy": {
-    "startCommand": "python3 -m uvicorn hybrid_router.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips * --log-level info",
+    "startCommand": "python3 hybrid_router_new.py",
     "healthcheckPath": "/ready",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE"
