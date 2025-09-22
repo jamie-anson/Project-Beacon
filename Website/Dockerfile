@@ -1,28 +1,23 @@
-# Dockerfile for Project Beacon hybrid routing service
-FROM python:3.11-slim
+FROM python:3.9-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies for health check
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies (support repo-root build context)
-COPY Website/flyio-deployment/requirements.txt .
+# Copy the hybrid router files (Railway sees entire repo context)
+COPY hybrid_router_new.py requirements.txt ./
+COPY hybrid_router/ ./hybrid_router/
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY Website/flyio-deployment/ .
-
-# Expose port (align with PORT=8080 default and Railway conventions)
-EXPOSE 8080
+# Expose port
+EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD sh -c 'curl -f http://localhost:${PORT:-8000}/health || exit 1'
 
-# Run the application with uvicorn (respect Railway $PORT)
-CMD ["sh", "-c", "uvicorn hybrid_router:app --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers"]
+# Start the application
+CMD ["python3", "hybrid_router_new.py"]
