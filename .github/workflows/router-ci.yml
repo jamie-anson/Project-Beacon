@@ -1,0 +1,60 @@
+name: Router CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Website/**'
+      - '.github/workflows/router-ci.yml'
+  pull_request:
+    paths:
+      - 'Website/**'
+
+jobs:
+  test-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install unit test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r Website/requirements.txt pytest
+
+      - name: Run unit tests (FastAPI app)
+        env:
+          PYTHONPATH: Website
+        run: |
+          pytest -q Website/tests
+
+      - name: Build Docker image (Website/Dockerfile)
+        run: |
+          docker build -t beacon-router-ci -f Website/Dockerfile Website
+
+      - name: Run container
+        run: |
+          docker run --rm -d --name router-ci -e PORT=8000 -p 8000:8000 beacon-router-ci \
+            python3 -m uvicorn hybrid_router.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips "*"
+
+      - name: Wait for /health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health > /dev/null; then
+              echo "Health OK"; exit 0; fi; sleep 1; done
+          echo "Health never came up"; docker logs router-ci || true; exit 1
+
+      - name: Smoke /providers
+        run: |
+          curl -fsS http://127.0.0.1:8000/providers | head -c 500 || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f router-ci >/dev/null 2>&1 || true
