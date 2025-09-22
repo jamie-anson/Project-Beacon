@@ -11,13 +11,12 @@ from typing import Dict, Any
 app = modal.App("project-beacon-hf")
 
 # Optional Hugging Face secret for gated models (Llama/Mistral)
+# Default to 'custom-secret' as per user's setup; allow override via HF_SECRET_NAME
+HF_SECRET_NAME = os.getenv("HF_SECRET_NAME", "custom-secret")
 try:
-    HF_SECRET = modal.Secret.from_name("hf")
+    HF_SECRET = modal.Secret.from_name(HF_SECRET_NAME)
 except Exception:
-    try:
-        HF_SECRET = modal.Secret.from_name("custom-secret")
-    except Exception:
-        HF_SECRET = None
+    HF_SECRET = None
 
 SECRETS = [HF_SECRET] if HF_SECRET else []
 
@@ -50,6 +49,15 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     import torch
     from transformers import AutoTokenizer, AutoModelForCausalLM
     
+    # Explicitly forward HF token to handle gated models
+    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")
+    token_kwargs = {"use_auth_token": hf_token} if hf_token else {}
+    try:
+        # Avoid leaking the token; just log presence
+        print(f"[HF] Token present: {bool(hf_token)}")
+    except Exception:
+        pass
+
     if os.path.exists(model_path):
         print(f"Loading cached model from {model_path}")
         tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -62,12 +70,13 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     else:
         print(f"Downloading model {model_name}")
         hf_model_name = MODELS[model_name]
-        tokenizer = AutoTokenizer.from_pretrained(hf_model_name)
+        tokenizer = AutoTokenizer.from_pretrained(hf_model_name, **token_kwargs)
         model = AutoModelForCausalLM.from_pretrained(
             hf_model_name,
             torch_dtype=torch.float16,
             device_map="auto",
-            load_in_8bit=True
+            load_in_8bit=True,
+            **token_kwargs,
         )
         # Cache for future use
         tokenizer.save_pretrained(model_path)
@@ -135,7 +144,7 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
     image=image,
     gpu="T4",
     volumes={"/models": models_volume},
-    timeout=300,
+    timeout=900,
     scaledown_window=600,  # Keep warm for 10 minutes
     region=["us-east", "us-central", "us-west"],
     memory=8192,  # 8GB RAM
@@ -155,7 +164,7 @@ def run_inference_us(
     image=image,
     gpu="T4",
     volumes={"/models": models_volume},
-    timeout=300,
+    timeout=900,
     scaledown_window=600,
     region=["eu-west", "eu-north"],
     memory=8192,
@@ -175,7 +184,7 @@ def run_inference_eu(
     image=image,
     gpu="T4",
     volumes={"/models": models_volume},
-    timeout=300,
+    timeout=900,
     scaledown_window=600,
     region=["ap-southeast", "ap-northeast"],
     memory=8192,
@@ -194,6 +203,7 @@ def run_inference_apac(
 @app.function(
     image=image,
     timeout=30,
+    secrets=SECRETS,
 )
 def health_check() -> Dict[str, Any]:
     """Simple health check that always returns healthy"""
@@ -202,13 +212,18 @@ def health_check() -> Dict[str, Any]:
         "timestamp": time.time(),
         "models_available": list(MODELS.keys()),
         "regions": ["us-east", "eu-west", "asia-pacific"],
-        "architecture": "hf-transformers"
+        "architecture": "hf-transformers",
+        # Diagnostics (no token value exposed)
+        "hf_token_present": bool(os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")),
+        "secret_name": HF_SECRET_NAME,
+        "secret_attached": bool(SECRETS),
     }
 
 # Web endpoints for HTTP access
 @app.function(
     image=image,
     timeout=600,
+    secrets=SECRETS,
 )
 @modal.fastapi_endpoint(method="POST")
 def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -237,6 +252,7 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
 @app.function(
     image=image,
     timeout=30,
+    secrets=SECRETS,
 )
 @modal.fastapi_endpoint(method="GET", label="hf-health")
 def health_api() -> Dict[str, Any]:
