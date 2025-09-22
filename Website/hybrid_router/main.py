@@ -19,19 +19,18 @@ router_instance = HybridRouter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle application lifespan events"""
-    # Startup
     logger.info("Starting Project Beacon Hybrid Router...")
-    await router_instance.health_check_providers()
+    port = get_port()
+    logger.info("Binding to %s:%s", HOST, port)
+
     try:
-        configured = [f"{p.name}({p.type.value},{p.region})@{p.endpoint}" for p in router_instance.providers]
-        logger.info(f"Initialized with {len(router_instance.providers)} providers: {configured}")
+        # Run provider checks in the background so startup does NOT block
+        asyncio.create_task(router_instance.health_check_providers())
     except Exception as e:
-        logger.error(f"Error during startup: {e}")
-    
+        logger.exception("Provider initialization during startup failed: %s", e)
+
     yield
-    
-    # Shutdown (if needed)
+
     logger.info("Shutting down Project Beacon Hybrid Router...")
 
 
