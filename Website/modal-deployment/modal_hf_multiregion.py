@@ -51,7 +51,14 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     
     # Explicitly forward HF token to handle gated models
     hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN") or os.getenv("HF_TOKEN")
-    token_kwargs = {"use_auth_token": hf_token} if hf_token else {}
+    # Ensure token is available via environment for huggingface_hub auto-discovery
+    if hf_token:
+        try:
+            os.environ.setdefault("HF_TOKEN", hf_token)
+            os.environ.setdefault("HUGGINGFACE_HUB_TOKEN", hf_token)
+        except Exception:
+            pass
+    token_kwargs = {"token": hf_token} if hf_token else {}
     try:
         # Avoid leaking the token; just log presence
         print(f"[HF] Token present: {bool(hf_token)}")
@@ -70,14 +77,31 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     else:
         print(f"Downloading model {model_name}")
         hf_model_name = MODELS[model_name]
-        tokenizer = AutoTokenizer.from_pretrained(hf_model_name, **token_kwargs)
-        model = AutoModelForCausalLM.from_pretrained(
-            hf_model_name,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            load_in_8bit=True,
-            **token_kwargs,
-        )
+        # Try 'token' parameter first, then fallback to 'use_auth_token'
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(hf_model_name, **token_kwargs)
+        except TypeError:
+            # transformers older versions expect 'use_auth_token'
+            fallback_kwargs = {"use_auth_token": hf_token} if hf_token else {}
+            tokenizer = AutoTokenizer.from_pretrained(hf_model_name, **fallback_kwargs)
+
+        try:
+            model = AutoModelForCausalLM.from_pretrained(
+                hf_model_name,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                load_in_8bit=True,
+                **token_kwargs,
+            )
+        except TypeError:
+            fallback_kwargs = {"use_auth_token": hf_token} if hf_token else {}
+            model = AutoModelForCausalLM.from_pretrained(
+                hf_model_name,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                load_in_8bit=True,
+                **fallback_kwargs,
+            )
         # Cache for future use
         tokenizer.save_pretrained(model_path)
         model.save_pretrained(model_path)
