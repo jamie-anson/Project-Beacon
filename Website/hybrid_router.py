@@ -114,18 +114,42 @@ class HybridRouter:
         #         max_concurrent=5
         #     ))
         
-        # Modal serverless (burst capacity)
-        modal_endpoint = os.getenv("MODAL_API_BASE")
-        if modal_endpoint:
-            for region in ["us-east", "eu-west", "asia-pacific"]:
-                self.providers.append(Provider(
-                    name=f"modal-{region}",
-                    type=ProviderType.MODAL,
-                    endpoint=modal_endpoint,
-                    region=region,
-                    cost_per_second=0.0003,  # T4 pricing
-                    max_concurrent=10
-                ))
+        # Modal serverless (burst capacity) - Updated for 3-model support
+        # US Region - has HTTP endpoints
+        modal_us_endpoint = os.getenv("MODAL_US_ENDPOINT", "https://jamie-anson--project-beacon-hf-us-inference.modal.run")
+        if modal_us_endpoint:
+            self.providers.append(Provider(
+                name="modal-us-east",
+                type=ProviderType.MODAL,
+                endpoint=modal_us_endpoint,
+                region="us-east",
+                cost_per_second=0.0003,  # A10G pricing
+                max_concurrent=10
+            ))
+        
+        # EU Region - function calls only (Modal plan limit workaround)
+        modal_eu_app = os.getenv("MODAL_EU_APP", "project-beacon-hf-eu")
+        if modal_eu_app:
+            self.providers.append(Provider(
+                name="modal-eu-west",
+                type=ProviderType.MODAL,
+                endpoint=f"modal://{modal_eu_app}",  # Special notation for function calls
+                region="eu-west",
+                cost_per_second=0.0003,
+                max_concurrent=10
+            ))
+        
+        # APAC Region - function calls only (Modal plan limit workaround)
+        modal_apac_app = os.getenv("MODAL_APAC_APP", "project-beacon-hf-apac")
+        if modal_apac_app:
+            self.providers.append(Provider(
+                name="modal-asia-pacific",
+                type=ProviderType.MODAL,
+                endpoint=f"modal://{modal_apac_app}",  # Special notation for function calls
+                region="asia-pacific",
+                cost_per_second=0.0003,
+                max_concurrent=10
+            ))
         
         # RunPod serverless - REMOVED (not using RunPod)
         # runpod_endpoint = os.getenv("RUNPOD_API_BASE")
@@ -167,12 +191,20 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check - use dedicated health endpoint
-                health_endpoint = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
-                response = await self.client.get(health_endpoint, timeout=5.0)
-                if response.status_code == 200:
-                    health_data = response.json()
-                    provider.healthy = health_data.get("status") == "healthy"
+                # Modal health check - different approaches for HTTP vs function endpoints
+                if provider.endpoint.startswith("https://"):
+                    # US region with HTTP endpoints
+                    health_endpoint = provider.endpoint.replace("-inference", "-health")
+                    response = await self.client.get(health_endpoint, timeout=5.0)
+                    if response.status_code == 200:
+                        health_data = response.json()
+                        provider.healthy = health_data.get("status") == "healthy"
+                    else:
+                        provider.healthy = False
+                elif provider.endpoint.startswith("modal://"):
+                    # EU/APAC regions with function calls - assume healthy if app exists
+                    # TODO: Implement function-based health check via Modal CLI
+                    provider.healthy = True  # Optimistic health for function-based providers
                 else:
                     provider.healthy = False
             
@@ -289,24 +321,70 @@ class HybridRouter:
             return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
     
     async def _run_modal_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
-        """Run inference on Modal provider"""
+        """Run inference on Modal provider - supports both HTTP and function endpoints"""
         payload = {
             "model": request.model,
             "prompt": request.prompt,
             "temperature": request.temperature,
             "max_tokens": request.max_tokens
         }
-        # IMPORTANT: Forward the selected provider's region to Modal's unified inference API
-        # Ensures correct regional routing (e.g., "asia-pacific" -> run_inference_apac)
-        payload["region"] = provider.region
         
-        headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
-        response = await self.client.post(provider.endpoint, json=payload, headers=headers)
+        if provider.endpoint.startswith("https://"):
+            # US region with HTTP endpoints
+            headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
+            response = await self.client.post(provider.endpoint, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
         
-        if response.status_code == 200:
-            return response.json()
+        elif provider.endpoint.startswith("modal://"):
+            # EU/APAC regions with function calls - use subprocess to call Modal CLI
+            import subprocess
+            import json as json_module
+            
+            try:
+                app_name = provider.endpoint.replace("modal://", "")
+                # Use Modal CLI to invoke function directly
+                cmd = [
+                    "modal", "run", f"modal-deployment/modal_hf_{provider.region.split('-')[0]}.py::run_inference",
+                    f"--model-name={request.model}",
+                    f"--prompt={request.prompt}",
+                    f"--temperature={request.temperature}",
+                    f"--max-tokens={request.max_tokens}"
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                
+                if result.returncode == 0:
+                    # Parse the output - Modal CLI returns the function result
+                    try:
+                        # Extract JSON from the output (Modal CLI adds extra logging)
+                        output_lines = result.stdout.strip().split('\n')
+                        for line in reversed(output_lines):
+                            if line.strip().startswith('{') and line.strip().endswith('}'):
+                                modal_result = json_module.loads(line.strip())
+                                return {
+                                    "success": modal_result.get("status") == "success",
+                                    "response": modal_result.get("response", ""),
+                                    "error": modal_result.get("error"),
+                                    "inference_time": modal_result.get("inference_time", 0),
+                                    "metadata": modal_result
+                                }
+                        return {"success": False, "error": "Could not parse Modal CLI output"}
+                    except json_module.JSONDecodeError:
+                        return {"success": False, "error": f"Invalid JSON in Modal response: {result.stdout}"}
+                else:
+                    return {"success": False, "error": f"Modal CLI error: {result.stderr}"}
+            
+            except subprocess.TimeoutExpired:
+                return {"success": False, "error": "Modal inference timeout"}
+            except Exception as e:
+                return {"success": False, "error": f"Modal function call failed: {str(e)}"}
+        
         else:
-            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+            return {"success": False, "error": f"Unknown Modal endpoint format: {provider.endpoint}"}
     
     # async def _run_runpod_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
     #     """Run inference on RunPod provider - REMOVED"""
@@ -388,6 +466,21 @@ async def health_check():
         "regions": list(set(p.region for p in healthy_providers))
     }
 
+@app.get("/ready")
+async def readiness_check():
+    """Readiness check endpoint for Railway"""
+    healthy_providers = [p for p in router.providers if p.healthy]
+    is_ready = len(healthy_providers) > 0  # Ready if at least one provider is healthy
+    
+    return {
+        "status": "ready" if is_ready else "not_ready",
+        "timestamp": time.time(),
+        "providers_healthy": len(healthy_providers),
+        "providers_total": len(router.providers),
+        "models_supported": ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"],
+        "regions_available": list(set(p.region for p in healthy_providers))
+    }
+
 @app.post("/inference", response_model=InferenceResponse)
 async def inference_endpoint(request: InferenceRequest, background_tasks: BackgroundTasks):
     """Main inference endpoint"""
@@ -413,10 +506,49 @@ async def list_providers(region: Optional[str] = None):
                 "cost_per_second": p.cost_per_second,
                 "avg_latency": p.avg_latency,
                 "success_rate": p.success_rate,
-                "last_health_check": p.last_health_check
+                "last_health_check": p.last_health_check,
+                "endpoint_type": "http" if p.endpoint.startswith("https://") else "function" if p.endpoint.startswith("modal://") else "unknown",
+                "models_supported": ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"] if p.type == ProviderType.MODAL else ["llama3.2-1b"]
             }
             for p in providers
         ]
+    }
+
+@app.get("/models")
+async def list_models():
+    """List all supported models across all providers"""
+    models = {
+        "llama3.2-1b": {
+            "name": "Llama 3.2-1B",
+            "description": "Fast 1B parameter model for quick inference",
+            "context_length": 128000,
+            "regions": ["us-east", "eu-west", "asia-pacific"],
+            "providers": [p.name for p in router.providers if p.type == ProviderType.MODAL and p.healthy]
+        },
+        "mistral-7b": {
+            "name": "Mistral 7B Instruct",
+            "description": "Strong 7B parameter general-purpose model",
+            "context_length": 32768,
+            "regions": ["us-east", "eu-west", "asia-pacific"],
+            "providers": [p.name for p in router.providers if p.type == ProviderType.MODAL and p.healthy]
+        },
+        "qwen2.5-1.5b": {
+            "name": "Qwen 2.5-1.5B Instruct",
+            "description": "Efficient 1.5B parameter model",
+            "context_length": 32768,
+            "regions": ["us-east", "eu-west", "asia-pacific"],
+            "providers": [p.name for p in router.providers if p.type == ProviderType.MODAL and p.healthy]
+        }
+    }
+    
+    return {
+        "models": models,
+        "total_models": len(models),
+        "regions_available": list(set(p.region for p in router.providers if p.healthy)),
+        "providers_by_region": {
+            region: [p.name for p in router.providers if p.region == region and p.healthy]
+            for region in ["us-east", "eu-west", "asia-pacific"]
+        }
     }
 
 @app.get("/metrics")
@@ -432,7 +564,8 @@ async def get_metrics():
         "cost_range": {
             "min": min(p.cost_per_second for p in healthy_providers) if healthy_providers else 0,
             "max": max(p.cost_per_second for p in healthy_providers) if healthy_providers else 0
-        }
+        },
+        "models_supported": ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"]
     }
 
 @app.get("/modal-health")

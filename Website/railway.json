@@ -6,7 +6,7 @@
     "buildCommand": ""
   },
   "deploy": {
-    "startCommand": "python3 hybrid_router_new.py",
+    "startCommand": "python3 hybrid_router.py",
     "healthcheckPath": "/ready",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE"
