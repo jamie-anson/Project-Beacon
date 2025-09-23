@@ -255,6 +255,23 @@ class HybridRouter:
     async def run_inference(self, request: InferenceRequest) -> InferenceResponse:
         """Execute inference request on selected provider"""
         
+        # Graceful failure test: Disable EU Mistral 7B for 8/9 endpoint testing
+        if request.region_preference == "eu-west" and request.model == "mistral-7b":
+            return InferenceResponse(
+                success=False,
+                response=None,
+                error="EU Mistral 7B temporarily disabled for graceful failure testing",
+                inference_time=0.0,
+                cost_estimate=0.0,
+                provider_used="modal-eu-west",
+                metadata={
+                    "provider_type": "modal",
+                    "region": "eu-west", 
+                    "model": request.model,
+                    "test_mode": "graceful_failure"
+                }
+            )
+        
         provider = self.select_provider(request)
         if not provider:
             raise HTTPException(status_code=503, detail="No healthy providers available")
