@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Website/Dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "python hybrid_router.py"
