@@ -371,19 +371,50 @@ class HybridRouter:
                     try:
                         # Extract JSON from the output (Modal CLI adds extra logging)
                         output_lines = result.stdout.strip().split('\n')
+                        
+                        # Try multiple parsing strategies
+                        modal_result = None
+                        
+                        # Strategy 1: Look for JSON lines (original approach)
                         for line in reversed(output_lines):
-                            if line.strip().startswith('{') and line.strip().endswith('}'):
-                                modal_result = json_module.loads(line.strip())
-                                return {
-                                    "success": modal_result.get("status") == "success",
-                                    "response": modal_result.get("response", ""),
-                                    "error": modal_result.get("error"),
-                                    "inference_time": modal_result.get("inference_time", 0),
-                                    "metadata": modal_result
-                                }
-                        return {"success": False, "error": "Could not parse Modal CLI output"}
-                    except json_module.JSONDecodeError:
-                        return {"success": False, "error": f"Invalid JSON in Modal response: {result.stdout}"}
+                            line = line.strip()
+                            if line.startswith('{') and line.strip().endswith('}'):
+                                try:
+                                    modal_result = json_module.loads(line)
+                                    break
+                                except json_module.JSONDecodeError:
+                                    continue
+                        
+                        # Strategy 2: Try parsing the entire output as JSON
+                        if not modal_result:
+                            try:
+                                modal_result = json_module.loads(result.stdout.strip())
+                            except json_module.JSONDecodeError:
+                                pass
+                        
+                        # Strategy 3: Look for any line containing status/response keywords
+                        if not modal_result:
+                            for line in output_lines:
+                                if 'status' in line and ('success' in line or 'error' in line):
+                                    try:
+                                        modal_result = json_module.loads(line.strip())
+                                        break
+                                    except json_module.JSONDecodeError:
+                                        continue
+                        
+                        if modal_result:
+                            return {
+                                "success": modal_result.get("status") == "success",
+                                "response": modal_result.get("response", ""),
+                                "error": modal_result.get("error"),
+                                "inference_time": modal_result.get("inference_time", 0),
+                                "metadata": modal_result
+                            }
+                        
+                        # If all parsing fails, return debug info
+                        return {"success": False, "error": f"Could not parse Modal CLI output. Raw output: {result.stdout[:500]}"}
+                    except Exception as e:
+                        return {"success": False, "error": f"Modal parsing error: {str(e)}. Raw output: {result.stdout[:500]}"}
                 else:
                     return {"success": False, "error": f"Modal CLI error: {result.stderr}"}
             
