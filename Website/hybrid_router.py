@@ -60,7 +60,8 @@ class InferenceResponse(BaseModel):
 class HybridRouter:
     def __init__(self):
         self.providers: List[Provider] = []
-        self.client = httpx.AsyncClient(timeout=30.0)
+        # Increased timeout for Mistral 7B (6.08s) + buffer
+        self.client = httpx.AsyncClient(timeout=60.0)
         self.setup_providers()
         
     def setup_providers(self):
@@ -187,7 +188,7 @@ class HybridRouter:
         try:
             if provider.type == ProviderType.GOLEM:
                 # Simple ping for Golem providers
-                response = await self.client.get(f"{provider.endpoint}/health", timeout=5.0)
+                response = await self.client.get(f"{provider.endpoint}/health", timeout=15.0)
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
@@ -195,7 +196,7 @@ class HybridRouter:
                 if provider.endpoint.startswith("https://"):
                     # US region with HTTP endpoints
                     health_endpoint = provider.endpoint.replace("-inference", "-health")
-                    response = await self.client.get(health_endpoint, timeout=5.0)
+                    response = await self.client.get(health_endpoint, timeout=15.0)
                     if response.status_code == 200:
                         health_data = response.json()
                         provider.healthy = health_data.get("status") == "healthy"
@@ -355,7 +356,7 @@ class HybridRouter:
                     f"--max-tokens={request.max_tokens}"
                 ]
                 
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
                 
                 if result.returncode == 0:
                     # Parse the output - Modal CLI returns the function result
