@@ -31,7 +31,9 @@ const AVAILABLE_MODELS = [
 ];
 
 export default function ModelSelector({ selectedModels = [], onModelChange, className = '' }) {
-  const selectedModelInfos = AVAILABLE_MODELS.filter(m => selectedModels.includes(m.id));
+  // Safety checks
+  const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
+  const selectedModelInfos = AVAILABLE_MODELS.filter(m => safeSelectedModels.includes(m.id));
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -49,15 +51,17 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
           <div
             key={model.id}
             className={`relative rounded-lg border p-4 cursor-pointer transition-all ${
-              selectedModels.includes(model.id)
+              safeSelectedModels.includes(model.id)
                 ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500'
                 : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-700'
             }`}
             onClick={() => {
-              const newSelection = selectedModels.includes(model.id)
-                ? selectedModels.filter(id => id !== model.id)
-                : [...selectedModels, model.id];
-              onModelChange(newSelection);
+              if (typeof onModelChange === 'function') {
+                const newSelection = safeSelectedModels.includes(model.id)
+                  ? safeSelectedModels.filter(id => id !== model.id)
+                  : [...safeSelectedModels, model.id];
+                onModelChange(newSelection);
+              }
             }}
           >
             <div className="flex items-start justify-between">
@@ -66,12 +70,14 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
                   <input
                     type="checkbox"
                     value={model.id}
-                    checked={selectedModels.includes(model.id)}
+                    checked={safeSelectedModels.includes(model.id)}
                     onChange={(e) => {
-                      const newSelection = e.target.checked
-                        ? [...selectedModels, model.id]
-                        : selectedModels.filter(id => id !== model.id);
-                      onModelChange(newSelection);
+                      if (typeof onModelChange === 'function') {
+                        const newSelection = e.target.checked
+                          ? [...safeSelectedModels, model.id]
+                          : safeSelectedModels.filter(id => id !== model.id);
+                        onModelChange(newSelection);
+                      }
                     }}
                     className="text-orange-500 focus:ring-orange-500 border-gray-600 bg-gray-700 rounded"
                   />
@@ -105,7 +111,12 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
           <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
             <span>Available in all regions (US, EU, APAC)</span>
             <span>
-              Estimated cost: ${Math.min(...selectedModelInfos.map(m => m.cost))}-${Math.max(...selectedModelInfos.map(m => m.cost))}/sec per region
+              {selectedModelInfos.length === 1 
+                ? `Estimated cost: $${selectedModelInfos[0].cost}/sec per region`
+                : selectedModelInfos.length > 1
+                  ? `Estimated cost: $${Math.min(...selectedModelInfos.map(m => m.cost))}-$${Math.max(...selectedModelInfos.map(m => m.cost))}/sec per region`
+                  : 'No models selected'
+              }
             </span>
           </div>
         </div>
