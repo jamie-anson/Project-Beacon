@@ -261,9 +261,9 @@ class HybridRouter:
                 success=False,
                 response=None,
                 error="EU Mistral 7B temporarily disabled for graceful failure testing",
+                provider_used="modal-eu-west",
                 inference_time=0.0,
                 cost_estimate=0.0,
-                provider_used="modal-eu-west",
                 metadata={
                     "provider_type": "modal",
                     "region": "eu-west", 

@@ -1,0 +1,92 @@
+[
+  {
+    "model": "llama3.2-1b",
+    "region": "asia-pacific",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "1.01s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "mistral-7b",
+    "region": "asia-pacific",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "0.73s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "qwen2.5-1.5b",
+    "region": "asia-pacific",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "0.98s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "llama3.2-1b",
+    "region": "eu-west",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "1.62s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "mistral-7b",
+    "region": "eu-west",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "0.24s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "qwen2.5-1.5b",
+    "region": "eu-west",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "0.71s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "llama3.2-1b",
+    "region": "us-east",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "6.18s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "mistral-7b",
+    "region": "us-east",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "4.45s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  },
+  {
+    "model": "qwen2.5-1.5b",
+    "region": "us-east",
+    "status": "\u274c HTTP_ERROR",
+    "success": false,
+    "duration": "4.56s",
+    "error": "HTTP 500: Internal Server Error",
+    "test_mode": "",
+    "response_data": null
+  }
+]
