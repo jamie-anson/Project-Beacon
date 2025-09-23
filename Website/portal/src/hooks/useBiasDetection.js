@@ -21,8 +21,33 @@ export function useBiasDetection() {
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
   const [isMultiRegion, setIsMultiRegion] = useState(false);
   
-  // Model selection state
+  // Model selection state - support both single and multi-select
   const [selectedModel, setSelectedModel] = useState('qwen2.5-1.5b');
+  const [selectedModels, setSelectedModels] = useState(['qwen2.5-1.5b']);
+  
+  // Helper function to safely handle model selection changes
+  const handleModelChange = (newSelection) => {
+    try {
+      if (Array.isArray(newSelection)) {
+        // Multi-select mode
+        const safeSelection = newSelection.filter(id => 
+          typeof id === 'string' && id.length > 0
+        );
+        setSelectedModels(safeSelection.length > 0 ? safeSelection : ['qwen2.5-1.5b']);
+        // Also update single selection for backward compatibility
+        setSelectedModel(safeSelection[0] || 'qwen2.5-1.5b');
+      } else if (typeof newSelection === 'string' && newSelection.length > 0) {
+        // Single select mode
+        setSelectedModel(newSelection);
+        setSelectedModels([newSelection]);
+      }
+    } catch (error) {
+      console.warn('Error handling model selection:', error);
+      // Fallback to safe defaults
+      setSelectedModel('qwen2.5-1.5b');
+      setSelectedModels(['qwen2.5-1.5b']);
+    }
+  };
 
   const availableRegions = [
     { code: 'US', name: 'United States', cost: 0.0003 },
@@ -186,6 +211,7 @@ export function useBiasDetection() {
     selectedRegions,
     isMultiRegion,
     selectedModel,
+    selectedModels,
     availableRegions,
     availableModels,
 
@@ -194,6 +220,8 @@ export function useBiasDetection() {
     setSelectedRegions,
     setIsMultiRegion,
     setSelectedModel,
+    setSelectedModels,
+    handleModelChange,
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob,
