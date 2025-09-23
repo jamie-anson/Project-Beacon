@@ -378,7 +378,7 @@ class HybridRouter:
                         # Strategy 1: Look for JSON lines (original approach)
                         for line in reversed(output_lines):
                             line = line.strip()
-                            if line.startswith('{') and line.strip().endswith('}'):
+                            if line.startswith('{') and line.endswith('}'):
                                 try:
                                     modal_result = json_module.loads(line)
                                     break
@@ -411,8 +411,10 @@ class HybridRouter:
                                 "metadata": modal_result
                             }
                         
-                        # If all parsing fails, return debug info
-                        return {"success": False, "error": f"Could not parse Modal CLI output. Raw output: {result.stdout[:500]}"}
+                        # If all parsing fails, return debug info with more context
+                        # Show last 1000 chars which should contain the JSON result
+                        debug_output = result.stdout[-1000:] if len(result.stdout) > 1000 else result.stdout
+                        return {"success": False, "error": f"Could not parse Modal CLI output. Last 1000 chars: {debug_output}"}
                     except Exception as e:
                         return {"success": False, "error": f"Modal parsing error: {str(e)}. Raw output: {result.stdout[:500]}"}
                 else:
