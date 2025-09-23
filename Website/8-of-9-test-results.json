@@ -4,7 +4,7 @@
     "region": "asia-pacific",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "1.01s",
+    "duration": "1.84s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -14,7 +14,7 @@
     "region": "asia-pacific",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "0.73s",
+    "duration": "1.12s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -24,7 +24,7 @@
     "region": "asia-pacific",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "0.98s",
+    "duration": "0.91s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -34,7 +34,7 @@
     "region": "eu-west",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "1.62s",
+    "duration": "1.08s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -44,7 +44,7 @@
     "region": "eu-west",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "0.24s",
+    "duration": "0.09s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -54,7 +54,7 @@
     "region": "eu-west",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "0.71s",
+    "duration": "0.96s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -64,7 +64,7 @@
     "region": "us-east",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "6.18s",
+    "duration": "5.48s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -74,7 +74,7 @@
     "region": "us-east",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "4.45s",
+    "duration": "6.28s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
@@ -84,7 +84,7 @@
     "region": "us-east",
     "status": "\u274c HTTP_ERROR",
     "success": false,
-    "duration": "4.56s",
+    "duration": "4.75s",
     "error": "HTTP 500: Internal Server Error",
     "test_mode": "",
     "response_data": null
