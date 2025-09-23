@@ -5,11 +5,14 @@ WORKDIR /app
 # Install system dependencies for health check and Modal CLI
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy the hybrid router files from Website directory
-COPY Website/hybrid_router.py Website/requirements.txt ./
+# Copy requirements.txt first for better Docker layer caching
+COPY requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the hybrid router file
+COPY Website/hybrid_router.py ./
 
 # Expose port
 EXPOSE 8080
