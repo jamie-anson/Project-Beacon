@@ -42,13 +42,21 @@ function contentType(fp) {
   }
 }
 
+function securityHeaders() {
+  return {
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer-when-downgrade',
+  };
+}
+
 function serveFile(res, fp) {
   try {
     const data = fs.readFileSync(fp);
-    res.writeHead(200, { 'Content-Type': contentType(fp) });
+    res.writeHead(200, { 'Content-Type': contentType(fp), ...securityHeaders() });
     res.end(data);
   } catch (e) {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.writeHead(404, { 'Content-Type': 'text/plain', ...securityHeaders() });
     res.end('Not found');
   }
 }
@@ -67,6 +75,7 @@ function proxyRequest(req, res, targetBase) {
       headers: req.headers,
     };
     const proxReq = client.request(targetUrl, (proxRes) => {
+      // pass-through proxy headers for API; do not inject security headers here to avoid masking real behavior
       res.writeHead(proxRes.statusCode || 502, proxRes.headers);
       proxRes.pipe(res);
     });

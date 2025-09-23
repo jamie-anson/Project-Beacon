@@ -1,0 +1,84 @@
+{
+  "timestamp": 1758641225.383685,
+  "router_health": {
+    "status": "error",
+    "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+  },
+  "models_info": {
+    "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+  },
+  "providers_info": {
+    "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+  },
+  "inference_results": {
+    "llama3.2-1b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.07645487785339355,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.08017802238464355,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.0679922103881836,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      }
+    },
+    "mistral-7b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.07265830039978027,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.18490123748779297,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.13330316543579102,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      }
+    },
+    "qwen2.5-1.5b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.07328581809997559,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.07434701919555664,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.06823873519897461,
+        "error": "Cannot connect to host project-beacon-production.up.railway.app:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')]"
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 0,
+    "failed_tests": 9,
+    "success_rate": 0.0,
+    "avg_response_time": 0,
+    "success_by_model": {
+      "llama3.2-1b": "0/3",
+      "mistral-7b": "0/3",
+      "qwen2.5-1.5b": "0/3"
+    },
+    "success_by_region": {
+      "us-east": "0/3",
+      "eu-west": "0/3",
+      "asia-pacific": "0/3"
+    },
+    "status": "FAIL"
+  }
+}

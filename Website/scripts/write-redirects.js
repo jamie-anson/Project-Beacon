@@ -23,22 +23,25 @@ const lines = [
   `/health ${REDIRECT_RUNNER_BASE}/health 200!`,
   `/hybrid/* ${REDIRECT_HYBRID_BASE}/:splat 200!`,
   
-  // 3. WebSocket proxy (force)
+  // 3. Google Maps API proxy (force) - hybrid router injects API key
+  `/maps/* ${REDIRECT_HYBRID_BASE}/maps/:splat 200!`,
+  
+  // 4. WebSocket proxy (force)
   `/ws ${REDIRECT_HYBRID_BASE}/ws 200!`,
   `/ws/* ${REDIRECT_HYBRID_BASE}/ws/:splat 200!`,
   
-  // 4. Docs SPA fallback
+  // 5. Docs SPA fallback
   '/docs/* /docs/index.html 200',
   '/docs /docs/index.html 200',
   
-  // 5. Portal asset passthrough (before SPA catch-all)
+  // 6. Portal asset passthrough (before SPA catch-all)
   '/portal/assets/* /portal/assets/:splat 200',
   
-  // 6. Portal SPA fallback
+  // 7. Portal SPA fallback
   '/portal/* /portal/index.html 200',
   '/portal /portal/index.html 200',
   
-  // 7. Demo results passthrough
+  // 8. Demo results passthrough
   '/demo-results/* /demo-results/:splat 200',
 ];
 

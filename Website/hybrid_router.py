@@ -336,7 +336,15 @@ class HybridRouter:
             response = await self.client.post(provider.endpoint, json=payload, headers=headers)
             
             if response.status_code == 200:
-                return response.json()
+                modal_result = response.json()
+                # Convert Modal API response format to router format
+                return {
+                    "success": modal_result.get("status") == "success",
+                    "response": modal_result.get("response", ""),
+                    "error": modal_result.get("error"),
+                    "inference_time": modal_result.get("inference_time", 0),
+                    "metadata": modal_result
+                }
             else:
                 return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
         
@@ -414,6 +422,23 @@ class HybridRouter:
 # FastAPI app
 from fastapi.middleware.cors import CORSMiddleware
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application lifespan events"""
+    # Startup
+    logger.info("Starting Project Beacon Hybrid Router...")
+    await router.health_check_providers()
+    try:
+        configured = [f"{p.name}({p.type.value},{p.region})@{p.endpoint}" for p in router.providers]
+        logger.info(f"Initialized with {len(router.providers)} providers: {configured}")
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+    
+    yield
+    
+    # Shutdown (if needed)
+    logger.info("Shutting down Project Beacon Hybrid Router...")
+
 app = FastAPI(
     title="Project Beacon Hybrid Router", 
     version="1.0.0",
@@ -437,23 +462,6 @@ app.add_middleware(
 )
 
 router = HybridRouter()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Handle application lifespan events"""
-    # Startup
-    logger.info("Starting Project Beacon Hybrid Router...")
-    await router.health_check_providers()
-    try:
-        configured = [f"{p.name}({p.type.value},{p.region})@{p.endpoint}" for p in router.providers]
-        logger.info(f"Initialized with {len(router.providers)} providers: {configured}")
-    except Exception as e:
-        logger.error(f"Error during startup: {e}")
-    
-    yield
-    
-    # Shutdown (if needed)
-    logger.info("Shutting down Project Beacon Hybrid Router...")
 
 @app.get("/health")
 async def health_check():

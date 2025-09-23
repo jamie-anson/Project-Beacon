@@ -1,0 +1,158 @@
+{
+  "timestamp": 1758643804.698841,
+  "router_health": {
+    "status": "healthy",
+    "timestamp": 1758643803.104715,
+    "providers_total": 3,
+    "providers_healthy": 3,
+    "regions": [
+      "asia-pacific",
+      "us-east",
+      "eu-west"
+    ]
+  },
+  "models_info": {
+    "error": "HTTP 404"
+  },
+  "providers_info": {
+    "providers": [
+      {
+        "name": "modal-us-east",
+        "type": "modal",
+        "region": "us-east",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 2.4456757465132206,
+        "success_rate": 0.4496522301000001,
+        "last_health_check": 1758643682.2772245
+      },
+      {
+        "name": "modal-eu-west",
+        "type": "modal",
+        "region": "eu-west",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 3.7955193942961207,
+        "success_rate": 0.6168069,
+        "last_health_check": 1758643682.277546
+      },
+      {
+        "name": "modal-asia-pacific",
+        "type": "modal",
+        "region": "asia-pacific",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 1.3199041352891925,
+        "success_rate": 0.6633900000000001,
+        "last_health_check": 1758643682.2695918
+      }
+    ]
+  },
+  "inference_results": {
+    "llama3.2-1b": {
+      "us-east": {
+        "status": "failed",
+        "response_time": 0.3660252094268799,
+        "provider_used": "modal-us-east",
+        "inference_time": 0.32813048362731934,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 0.15608596801757812,
+        "provider_used": "modal-eu-west",
+        "inference_time": 0.11897420883178711,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.1408400535583496,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.10706949234008789,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      }
+    },
+    "mistral-7b": {
+      "us-east": {
+        "status": "failed",
+        "response_time": 0.16602396965026855,
+        "provider_used": "modal-us-east",
+        "inference_time": 0.11529397964477539,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 0.14369773864746094,
+        "provider_used": "modal-eu-west",
+        "inference_time": 0.10599613189697266,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.1399250030517578,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.10550665855407715,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      }
+    },
+    "qwen2.5-1.5b": {
+      "us-east": {
+        "status": "failed",
+        "response_time": 0.1409289836883545,
+        "provider_used": "modal-us-east",
+        "inference_time": 0.10785555839538574,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 0.13964295387268066,
+        "provider_used": "modal-eu-west",
+        "inference_time": 0.10654044151306152,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.1466052532196045,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.10970568656921387,
+        "response_length": 0,
+        "error": "HTTP 404: modal-http: app for invoked web endpoint is stopped\n",
+        "response_preview": ""
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 0,
+    "failed_tests": 9,
+    "success_rate": 0.0,
+    "avg_response_time": 0,
+    "success_by_model": {
+      "llama3.2-1b": "0/3",
+      "mistral-7b": "0/3",
+      "qwen2.5-1.5b": "0/3"
+    },
+    "success_by_region": {
+      "us-east": "0/3",
+      "eu-west": "0/3",
+      "asia-pacific": "0/3"
+    },
+    "status": "FAIL"
+  }
+}

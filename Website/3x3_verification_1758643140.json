@@ -1,0 +1,203 @@
+{
+  "timestamp": 1758643140.8648682,
+  "router_health": {
+    "status": "healthy",
+    "timestamp": 1758642568.966013,
+    "providers_total": 3,
+    "providers_healthy": 3,
+    "regions": [
+      "asia-pacific",
+      "eu-west",
+      "us-east"
+    ]
+  },
+  "models_info": {
+    "models": {
+      "llama3.2-1b": {
+        "name": "Llama 3.2-1B",
+        "description": "Fast 1B parameter model for quick inference",
+        "context_length": 128000,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      },
+      "mistral-7b": {
+        "name": "Mistral 7B Instruct",
+        "description": "Strong 7B parameter general-purpose model",
+        "context_length": 32768,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      },
+      "qwen2.5-1.5b": {
+        "name": "Qwen 2.5-1.5B Instruct",
+        "description": "Efficient 1.5B parameter model",
+        "context_length": 32768,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      }
+    },
+    "total_models": 3,
+    "regions_available": [
+      "asia-pacific",
+      "eu-west",
+      "us-east"
+    ],
+    "providers_by_region": {
+      "us-east": [
+        "modal-us-east"
+      ],
+      "eu-west": [
+        "modal-eu-west"
+      ],
+      "asia-pacific": [
+        "modal-asia-pacific"
+      ]
+    }
+  },
+  "providers_info": {
+    "providers": [
+      {
+        "name": "modal-us-east",
+        "type": "modal",
+        "region": "us-east",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0,
+        "success_rate": 1.0,
+        "last_health_check": 1758642551.759163,
+        "endpoint_type": "http",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      },
+      {
+        "name": "modal-eu-west",
+        "type": "modal",
+        "region": "eu-west",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0,
+        "success_rate": 1.0,
+        "last_health_check": 1758642551.3251572,
+        "endpoint_type": "function",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      },
+      {
+        "name": "modal-asia-pacific",
+        "type": "modal",
+        "region": "asia-pacific",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0,
+        "success_rate": 1.0,
+        "last_health_check": 1758642551.3251588,
+        "endpoint_type": "function",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      }
+    ]
+  },
+  "inference_results": {
+    "llama3.2-1b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 55.5102641582489,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 300.0093891620636,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.5048708915710449,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    },
+    "mistral-7b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.5046699047088623,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 167.9406521320343,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.3919360637664795,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    },
+    "qwen2.5-1.5b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.37613582611083984,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 46.24536609649658,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.4130220413208008,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 0,
+    "failed_tests": 9,
+    "success_rate": 0.0,
+    "avg_response_time": 0,
+    "success_by_model": {
+      "llama3.2-1b": "0/3",
+      "mistral-7b": "0/3",
+      "qwen2.5-1.5b": "0/3"
+    },
+    "success_by_region": {
+      "us-east": "0/3",
+      "eu-west": "0/3",
+      "asia-pacific": "0/3"
+    },
+    "status": "FAIL"
+  }
+}

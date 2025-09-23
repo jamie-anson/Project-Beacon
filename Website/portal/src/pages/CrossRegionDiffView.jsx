@@ -350,10 +350,10 @@ export default function CrossRegionDiffView() {
               </div>
             )}
           </div>
-          {diffAnalysis.model_details && (
+          {currentModel && (
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-100">{diffAnalysis.model_details.name}</div>
-              <div className="text-xs text-gray-300">{diffAnalysis.model_details.provider}</div>
+              <div className="text-sm font-medium text-gray-100">{currentModel.name}</div>
+              <div className="text-xs text-gray-300">{currentModel.provider}</div>
             </div>
           )}
         </div>

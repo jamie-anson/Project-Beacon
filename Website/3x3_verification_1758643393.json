@@ -1,0 +1,239 @@
+{
+  "timestamp": 1758643393.328869,
+  "router_health": {
+    "status": "healthy",
+    "timestamp": 1758643253.539101,
+    "providers_total": 3,
+    "providers_healthy": 3,
+    "regions": [
+      "eu-west",
+      "us-east",
+      "asia-pacific"
+    ]
+  },
+  "models_info": {
+    "models": {
+      "llama3.2-1b": {
+        "name": "Llama 3.2-1B",
+        "description": "Fast 1B parameter model for quick inference",
+        "context_length": 128000,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      },
+      "mistral-7b": {
+        "name": "Mistral 7B Instruct",
+        "description": "Strong 7B parameter general-purpose model",
+        "context_length": 32768,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      },
+      "qwen2.5-1.5b": {
+        "name": "Qwen 2.5-1.5B Instruct",
+        "description": "Efficient 1.5B parameter model",
+        "context_length": 32768,
+        "regions": [
+          "us-east",
+          "eu-west",
+          "asia-pacific"
+        ],
+        "providers": [
+          "modal-us-east",
+          "modal-eu-west",
+          "modal-asia-pacific"
+        ]
+      }
+    },
+    "total_models": 3,
+    "regions_available": [
+      "eu-west",
+      "us-east",
+      "asia-pacific"
+    ],
+    "providers_by_region": {
+      "us-east": [
+        "modal-us-east"
+      ],
+      "eu-west": [
+        "modal-eu-west"
+      ],
+      "asia-pacific": [
+        "modal-asia-pacific"
+      ]
+    }
+  },
+  "providers_info": {
+    "providers": [
+      {
+        "name": "modal-us-east",
+        "type": "modal",
+        "region": "us-east",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0.3133088111877442,
+        "success_rate": 1.0,
+        "last_health_check": 1758643249.098621,
+        "endpoint_type": "http",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      },
+      {
+        "name": "modal-eu-west",
+        "type": "modal",
+        "region": "eu-west",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0,
+        "success_rate": 1.0,
+        "last_health_check": 1758643248.232314,
+        "endpoint_type": "function",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      },
+      {
+        "name": "modal-asia-pacific",
+        "type": "modal",
+        "region": "asia-pacific",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 0,
+        "success_rate": 1.0,
+        "last_health_check": 1758643248.2323148,
+        "endpoint_type": "function",
+        "models_supported": [
+          "llama3.2-1b",
+          "mistral-7b",
+          "qwen2.5-1.5b"
+        ]
+      }
+    ]
+  },
+  "inference_results": {
+    "llama3.2-1b": {
+      "us-east": {
+        "status": "success",
+        "response_time": 3.6327250003814697,
+        "provider_used": "modal-us-east",
+        "inference_time": 3.6316897869110107,
+        "response_length": 287,
+        "error": null,
+        "response_preview": "Artificial intelligence (AI) refers to the development of computer systems that can perform tasks th..."
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 42.489856004714966,
+        "provider_used": "modal-eu-west",
+        "inference_time": 42.4882698059082,
+        "response_length": 0,
+        "error": "Could not parse Modal CLI output",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.5854778289794922,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.5835740566253662,
+        "response_length": 0,
+        "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/modal/c \u2502\n\u2502 li/import_refs.py:98 in import_file_or_module                                           \u2502\n\u2502                                                                                         \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                                    \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                                       \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                                  \u2502\n\u2502 <frozen importlib._bootstrap_external>:990 in exec_module                               \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1127 in get_code                                 \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1185 in get_data                                 \u2502\n\u2502                                                                                         \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/Jammie/Desktop/Project \nBeacon/Website/modal-deployment/modal_hf_asia.py'\n",
+        "response_preview": ""
+      }
+    },
+    "mistral-7b": {
+      "us-east": {
+        "status": "failed",
+        "response_time": 0.565291166305542,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.5631330013275146,
+        "response_length": 0,
+        "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/modal/c \u2502\n\u2502 li/import_refs.py:98 in import_file_or_module                                           \u2502\n\u2502                                                                                         \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                                    \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                                       \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                                  \u2502\n\u2502 <frozen importlib._bootstrap_external>:990 in exec_module                               \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1127 in get_code                                 \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1185 in get_data                                 \u2502\n\u2502                                                                                         \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/Jammie/Desktop/Project \nBeacon/Website/modal-deployment/modal_hf_asia.py'\n",
+        "response_preview": ""
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 45.51367783546448,
+        "provider_used": "modal-eu-west",
+        "inference_time": 45.51154088973999,
+        "response_length": 0,
+        "error": "Could not parse Modal CLI output",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.5229268074035645,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.5167338848114014,
+        "response_length": 0,
+        "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/modal/c \u2502\n\u2502 li/import_refs.py:98 in import_file_or_module                                           \u2502\n\u2502                                                                                         \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                                    \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                                       \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                                  \u2502\n\u2502 <frozen importlib._bootstrap_external>:990 in exec_module                               \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1127 in get_code                                 \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1185 in get_data                                 \u2502\n\u2502                                                                                         \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/Jammie/Desktop/Project \nBeacon/Website/modal-deployment/modal_hf_asia.py'\n",
+        "response_preview": ""
+      }
+    },
+    "qwen2.5-1.5b": {
+      "us-east": {
+        "status": "failed",
+        "response_time": 0.4396228790283203,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.4338409900665283,
+        "response_length": 0,
+        "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/modal/c \u2502\n\u2502 li/import_refs.py:98 in import_file_or_module                                           \u2502\n\u2502                                                                                         \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                                    \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                                       \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                                  \u2502\n\u2502 <frozen importlib._bootstrap_external>:990 in exec_module                               \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1127 in get_code                                 \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1185 in get_data                                 \u2502\n\u2502                                                                                         \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/Jammie/Desktop/Project \nBeacon/Website/modal-deployment/modal_hf_asia.py'\n",
+        "response_preview": ""
+      },
+      "eu-west": {
+        "status": "failed",
+        "response_time": 45.48695993423462,
+        "provider_used": "modal-eu-west",
+        "inference_time": 45.48499608039856,
+        "response_length": 0,
+        "error": "Could not parse Modal CLI output",
+        "response_preview": ""
+      },
+      "asia-pacific": {
+        "status": "failed",
+        "response_time": 0.5505311489105225,
+        "provider_used": "modal-asia-pacific",
+        "inference_time": 0.5480761528015137,
+        "response_length": 0,
+        "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/modal/c \u2502\n\u2502 li/import_refs.py:98 in import_file_or_module                                           \u2502\n\u2502                                                                                         \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                                    \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                                       \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                                  \u2502\n\u2502 <frozen importlib._bootstrap_external>:990 in exec_module                               \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1127 in get_code                                 \u2502\n\u2502                                                                                         \u2502\n\u2502 <frozen importlib._bootstrap_external>:1185 in get_data                                 \u2502\n\u2502                                                                                         \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: '/Users/Jammie/Desktop/Project \nBeacon/Website/modal-deployment/modal_hf_asia.py'\n",
+        "response_preview": ""
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 1,
+    "failed_tests": 8,
+    "success_rate": 11.11111111111111,
+    "avg_response_time": 3.6327250003814697,
+    "success_by_model": {
+      "llama3.2-1b": "1/3",
+      "mistral-7b": "0/3",
+      "qwen2.5-1.5b": "0/3"
+    },
+    "success_by_region": {
+      "us-east": "1/3",
+      "eu-west": "0/3",
+      "asia-pacific": "0/3"
+    },
+    "status": "PARTIAL"
+  }
+}

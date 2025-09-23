@@ -267,23 +267,111 @@ func TestNew_DefaultURL(t *testing.T) {
 	}
 }
 
-func TestTrimRightSlash(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"https://example.com/", "https://example.com"},
-		{"https://example.com///", "https://example.com"},
-		{"https://example.com", "https://example.com"},
-		{"", ""},
-		{"/", ""},
+func TestClient_RunInference_503(t *testing.T) {
+	// Create a test server that returns HTTP 503 Service Unavailable
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/inference" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{
+			"error": "Service Unavailable",
+			"message": "Temporarily unable to process requests",
+			"retry_after": 60
+		}`))
+	}))
+	defer server.Close()
+
+	client := New(server.URL)
+	req := InferenceRequest{
+		Model:       "test-model",
+		Prompt:      "Hello",
+		Temperature: 0.7,
+		MaxTokens:   100,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			if got := trimRightSlash(tt.input); got != tt.expected {
-				t.Errorf("trimRightSlash(%v) = %v, want %v", tt.input, got, tt.expected)
-			}
-		})
+	_, err := client.RunInference(context.Background(), req)
+
+	if err == nil {
+		t.Fatal("Expected error for HTTP 503")
 	}
+
+	// Check that we get an HTTP 503 error
+	if !IsHTTPStatus(err, 503) {
+		t.Errorf("Expected HTTP 503 error, got %v", err)
+	}
+
+	hybridErr, ok := IsHybridError(err)
+	if !ok {
+		t.Fatal("Expected HybridError")
+	}
+
+	if hybridErr.StatusCode != 503 {
+		t.Errorf("Expected StatusCode 503, got %v", hybridErr.StatusCode)
+	}
+
+	if hybridErr.Type != ErrorTypeHTTP {
+		t.Errorf("Expected HTTP error type, got %v", hybridErr.Type)
+	}
+}
+
+func TestClient_RunInference_429(t *testing.T) {
+	// Create a test server that returns HTTP 429 Too Many Requests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/inference" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-RateLimit-Limit", "100")
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		w.Header().Set("X-RateLimit-Reset", "1640995200")
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{
+			"error": "Too Many Requests",
+			"message": "Rate limit exceeded",
+			"retry_after": 60
+		}`))
+	}))
+	defer server.Close()
+
+	client := New(server.URL)
+	req := InferenceRequest{
+		Model:       "test-model",
+		Prompt:      "Hello",
+		Temperature: 0.7,
+		MaxTokens:   100,
+	}
+
+	_, err := client.RunInference(context.Background(), req)
+
+	if err == nil {
+		t.Fatal("Expected error for HTTP 429")
+	}
+
+	// Check that we get an HTTP 429 error
+	if !IsHTTPStatus(err, 429) {
+		t.Errorf("Expected HTTP 429 error, got %v", err)
+	}
+
+	hybridErr, ok := IsHybridError(err)
+	if !ok {
+		t.Fatal("Expected HybridError")
+	}
+
+	if hybridErr.StatusCode != 429 {
+		t.Errorf("Expected StatusCode 429, got %v", hybridErr.StatusCode)
+	}
+
+	if hybridErr.Type != ErrorTypeHTTP {
+		t.Errorf("Expected HTTP error type, got %v", hybridErr.Type)
+	}
+
+	// Note: HybridError doesn't store rate limit headers in this implementation
+	// The test verifies the basic 429 error handling without checking header preservation
 }

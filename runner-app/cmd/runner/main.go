@@ -179,15 +179,24 @@ func main() {
 
 		// Start JobRunner (Redis -> execute -> Postgres -> IPFS bundling)
 		jr := worker.NewJobRunnerWithQueue(database.DB, q, gsvc, bundler, cfg.JobsQueueName)
-		// Initialize Hybrid Router client if HYBRID_BASE is set (preferred execution path)
-		// Skip if HYBRID_ROUTER_DISABLE is set to true
+		// Initialize Hybrid Router client if enabled
+		// Preferred env: HYBRID_BASE; Fallback: HYBRID_ROUTER_URL; or ENABLE_HYBRID_DEFAULT=1
 		if os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {
-			if base := os.Getenv("HYBRID_BASE"); base != "" {
-				jr.Hybrid = hybrid.New(base)
-			} else if os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
-				// Optional: enable default Railway base without env
-				jr.Hybrid = hybrid.New("")
+			base := os.Getenv("HYBRID_BASE")
+			if base == "" {
+				base = os.Getenv("HYBRID_ROUTER_URL")
 			}
+			if base != "" {
+				jr.Hybrid = hybrid.New(base)
+				logger.Info().Str("hybrid_base", base).Msg("Hybrid Router enabled")
+			} else if os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
+				jr.Hybrid = hybrid.New("")
+				logger.Info().Str("hybrid_base", "<default>").Msg("Hybrid Router enabled (default)")
+			} else {
+				logger.Info().Msg("Hybrid Router disabled (no HYBRID_BASE/HYBRID_ROUTER_URL and default not enabled)")
+			}
+		} else {
+			logger.Info().Msg("Hybrid Router explicitly disabled via HYBRID_ROUTER_DISABLE=true")
 		}
 		go jr.Start(workerCtx)
 

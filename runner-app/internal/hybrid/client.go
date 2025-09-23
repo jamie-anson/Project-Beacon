@@ -7,6 +7,8 @@ import (
     "fmt"
     "io"
     "net/http"
+    "os"
+    "strconv"
     "time"
 )
 
@@ -22,9 +24,20 @@ func New(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "https://project-beacon-production.up.railway.app"
 	}
+	// Determine HTTP timeout: default 120s, overridable via env
+	timeoutSec := 120
+	if v := os.Getenv("HYBRID_ROUTER_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			timeoutSec = n
+		}
+	} else if v := os.Getenv("HYBRID_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			timeoutSec = n
+		}
+	}
 	return &Client{
 		baseURL:    trimRightSlash(baseURL),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: time.Duration(timeoutSec) * time.Second},
 	}
 }
 

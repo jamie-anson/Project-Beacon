@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Polygon } from '@react-google-maps/api';
 
 const mapContainerStyle = {
@@ -14,15 +14,25 @@ const center = {
 const WorldMapVisualization = ({ biasData = [] }) => {
   const [map, setMap] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
+  const [loadTimeout, setLoadTimeout] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     // IMPORTANT: Do NOT pass an apiKey from the client. We rely on the server-side
     // proxy which injects the key. This prevents any key leakage in the browser.
-    url: import.meta.env.VITE_API_BASE?.includes('localhost')
-      ? 'http://localhost:8080/maps/api.js'
-      : 'https://project-beacon-production.up.railway.app/maps/api.js'
+    // Use site-relative proxy so Netlify routes to Railway hybrid router with API key
+    url: '/maps/api.js'
   });
+
+  // Set timeout if map doesn't load within 5 seconds
+  useEffect(() => {
+    if (!isLoaded) {
+      const timer = setTimeout(() => setLoadTimeout(true), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setLoadTimeout(false);
+    }
+  }, [isLoaded]);
 
   // Realistic country boundary coordinates (simplified GeoJSON-based)
   const defaultBiasData = [
@@ -180,7 +190,14 @@ const WorldMapVisualization = ({ biasData = [] }) => {
             Global Response Coverage
           </h2>
           <div className="flex justify-center items-center h-96">
-            <div className="text-gray-300">Loading interactive world map...</div>
+            <div className="text-center">
+              <div className="text-gray-300 mb-2">Loading interactive world map...</div>
+              {loadTimeout && (
+                <div className="text-yellow-400 text-sm">
+                  Taking longer than expected. Check that the maps proxy is configured correctly.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -17,7 +17,7 @@ func extractPrompt(spec *models.JobSpec) string {
 // extractModel chooses a model name (can be extended later)
 func extractModel(_ *models.JobSpec) string {
 	// In future, derive from spec.Metadata or Benchmark.Name
-	return "llama-3.2-1b"
+	return "llama3.2-1b"
 }
 
 // mapRegionToRouter maps runner regions (US, EU, APAC) to router regions

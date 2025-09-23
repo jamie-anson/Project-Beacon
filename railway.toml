@@ -1,13 +1,13 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.railway"
+dockerfilePath = "Website/Dockerfile"
 
 [deploy]
-startCommand = "python main.py"
-healthcheckPath = "/health"
+startCommand = "python hybrid_router.py"
+healthcheckPath = "/ready"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
 [environments.production]
-PORT = "8000"
+PORT = "8080"

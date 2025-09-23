@@ -20,12 +20,21 @@ export function useBiasDetection() {
   // Multi-region state
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
   const [isMultiRegion, setIsMultiRegion] = useState(false);
+  
+  // Model selection state
+  const [selectedModel, setSelectedModel] = useState('llama3.2-1b');
 
   const availableRegions = [
-    { code: 'US', name: 'United States', model: 'Llama 3.2-1B', cost: 0.0003 },
-    { code: 'EU', name: 'Europe', model: 'Mistral 7B', cost: 0.0004 },
-    { code: 'ASIA', name: 'Asia Pacific', model: 'Qwen 2.5-1.5B', cost: 0.0005 }
+    { code: 'US', name: 'United States', cost: 0.0003 },
+    { code: 'EU', name: 'Europe', cost: 0.0004 },
+    { code: 'ASIA', name: 'Asia Pacific', cost: 0.0005 }
   ];
+  
+  const availableModels = {
+    'llama3.2-1b': { name: 'Llama 3.2-1B', cost: 0.0003 },
+    'mistral-7b': { name: 'Mistral 7B Instruct', cost: 0.0004 },
+    'qwen2.5-1.5b': { name: 'Qwen 2.5-1.5B Instruct', cost: 0.00035 }
+  };
 
   // Read selected questions from localStorage
   const readSelectedQuestions = () => {
@@ -42,11 +51,10 @@ export function useBiasDetection() {
   const calculateEstimatedCost = () => {
     const questions = readSelectedQuestions();
     const questionCount = questions.length || 1;
-    const regionCost = selectedRegions.reduce((total, regionCode) => {
-      const region = availableRegions.find(r => r.code === regionCode);
-      return total + (region?.cost || 0.0004);
-    }, 0);
-    return (regionCost * questionCount).toFixed(4);
+    const modelCost = availableModels[selectedModel]?.cost || 0.0003;
+    const regionCount = selectedRegions.length;
+    const totalCost = modelCost * regionCount * questionCount;
+    return totalCost.toFixed(4);
   };
 
   // Handle region selection changes
@@ -127,7 +135,9 @@ export function useBiasDetection() {
           created_by: 'portal',
           wallet_address: walletStatus.address,
           execution_type: isMultiRegion ? 'cross-region' : 'single-region',
-          estimated_cost: calculateEstimatedCost()
+          estimated_cost: calculateEstimatedCost(),
+          model: selectedModel,
+          model_name: availableModels[selectedModel]?.name || selectedModel
         },
         runs: 1,
         questions,
@@ -166,12 +176,15 @@ export function useBiasDetection() {
     activeJobId,
     selectedRegions,
     isMultiRegion,
+    selectedModel,
     availableRegions,
+    availableModels,
 
     // Actions
     setActiveJobId,
     setSelectedRegions,
     setIsMultiRegion,
+    setSelectedModel,
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob,

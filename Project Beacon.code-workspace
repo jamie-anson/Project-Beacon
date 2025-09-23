@@ -4,6 +4,7 @@
     { "path": "runner-app" }
   ],
   "settings": {
+    "makefile.configureOnOpen": false
     // Add shared workspace settings here if needed
   },
   "extensions": {

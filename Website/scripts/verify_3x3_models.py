@@ -12,7 +12,8 @@ import ssl
 from typing import Dict, List, Any
 
 # Configuration
-HYBRID_ROUTER_BASE = "https://project-beacon-production.up.railway.app"
+# HYBRID_ROUTER_BASE = "http://localhost:8080"  # Test locally first
+HYBRID_ROUTER_BASE = "https://project-beacon-production.up.railway.app"  # Production
 MODELS = ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"]
 REGIONS = ["us-east", "eu-west", "asia-pacific"]
 TEST_PROMPT = "What is artificial intelligence?"
@@ -51,9 +52,9 @@ class ModelVerifier:
                         "response_time": response_time,
                         "provider_used": data.get("provider_used"),
                         "inference_time": data.get("inference_time", 0),
-                        "response_length": len(data.get("response", "")),
+                        "response_length": len(data.get("response") or ""),
                         "error": data.get("error"),
-                        "response_preview": data.get("response", "")[:100] + "..." if len(data.get("response", "")) > 100 else data.get("response", "")
+                        "response_preview": (data.get("response") or "")[:100] + "..." if len(data.get("response") or "") > 100 else (data.get("response") or "")
                     }
                 else:
                     error_text = await response.text()

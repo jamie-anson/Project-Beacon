@@ -21,6 +21,14 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    /**
+     * Default env for local runs so tests don't require manual exports.
+     * Can be overridden by actual env when set.
+     */
+    env: {
+      VITE_TEST_WALLET: process.env.VITE_TEST_WALLET ?? '1',
+      HYBRID_BASE: process.env.HYBRID_BASE ?? 'https://project-beacon-production.up.railway.app',
+    },
   },
 
   /* Configure projects for major browsers */

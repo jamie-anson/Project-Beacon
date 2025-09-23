@@ -1,0 +1,122 @@
+{
+  "timestamp": 1758641777.714816,
+  "router_health": {
+    "status": "healthy",
+    "timestamp": 1758641776.2866788,
+    "providers_total": 3,
+    "providers_healthy": 3,
+    "regions": [
+      "asia-pacific",
+      "us-east",
+      "eu-west"
+    ]
+  },
+  "models_info": {
+    "error": "HTTP 404"
+  },
+  "providers_info": {
+    "providers": [
+      {
+        "name": "modal-us-east",
+        "type": "modal",
+        "region": "us-east",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 3.9848904256844526,
+        "success_rate": 0.7614900000000001,
+        "last_health_check": 1758641274.4315777
+      },
+      {
+        "name": "modal-eu-west",
+        "type": "modal",
+        "region": "eu-west",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 5.170959362628461,
+        "success_rate": 0.8461000000000001,
+        "last_health_check": 1758641274.4220078
+      },
+      {
+        "name": "modal-asia-pacific",
+        "type": "modal",
+        "region": "asia-pacific",
+        "healthy": true,
+        "cost_per_second": 0.0003,
+        "avg_latency": 1.7760505533218385,
+        "success_rate": 0.91,
+        "last_health_check": 1758641274.4324343
+      }
+    ]
+  },
+  "inference_results": {
+    "llama3.2-1b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.321657657623291,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.13047385215759277,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.12359809875488281,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    },
+    "mistral-7b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.14830303192138672,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.13622498512268066,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.12955307960510254,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    },
+    "qwen2.5-1.5b": {
+      "us-east": {
+        "status": "error",
+        "response_time": 0.1347358226776123,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "eu-west": {
+        "status": "error",
+        "response_time": 0.1296079158782959,
+        "error": "object of type 'NoneType' has no len()"
+      },
+      "asia-pacific": {
+        "status": "error",
+        "response_time": 0.136458158493042,
+        "error": "object of type 'NoneType' has no len()"
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "successful_tests": 0,
+    "failed_tests": 9,
+    "success_rate": 0.0,
+    "avg_response_time": 0,
+    "success_by_model": {
+      "llama3.2-1b": "0/3",
+      "mistral-7b": "0/3",
+      "qwen2.5-1.5b": "0/3"
+    },
+    "success_by_region": {
+      "us-east": "0/3",
+      "eu-west": "0/3",
+      "asia-pacific": "0/3"
+    },
+    "status": "FAIL"
+  }
+}

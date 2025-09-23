@@ -8,6 +8,7 @@ import ErrorMessage from '../components/ErrorMessage.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 import { useBiasDetection } from '../hooks/useBiasDetection.js';
 import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
+import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
 import LiveProgressTable from '../components/bias-detection/LiveProgressTable.jsx';
 import JobSummaryCards from '../components/bias-detection/JobSummaryCards.jsx';
 import QuickActions from '../components/bias-detection/QuickActions.jsx';
@@ -29,8 +30,10 @@ export default function BiasDetection() {
     activeJobId,
     selectedRegions,
     isMultiRegion,
+    selectedModel,
     setActiveJobId,
     setIsMultiRegion,
+    setSelectedModel,
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob: handleSubmitJob,
@@ -223,6 +226,13 @@ export default function BiasDetection() {
               </label>
             </div>
           </div>
+
+          {/* Model Selector Component */}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            className="mb-6"
+          />
 
           {/* Region Selector Component */}
           <RegionSelector
