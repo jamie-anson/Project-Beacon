@@ -17,8 +17,9 @@ RUN pip install --no-cache-dir modal
 # Create Modal config directory
 RUN mkdir -p /root/.modal
 
-# Copy the hybrid router file
+# Copy the hybrid router file and modal deployment scripts
 COPY hybrid_router.py ./
+COPY modal-deployment/ ./modal-deployment/
 
 # Expose port
 EXPOSE 8080
