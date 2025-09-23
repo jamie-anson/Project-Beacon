@@ -591,22 +591,22 @@ async def inference_endpoint(request: InferenceRequest, background_tasks: Backgr
     # Run inference
     result = await router.run_inference(request)
     
-    # Store execution result
-    EXECUTIONS_STORE[execution_id] = {
-        "id": execution_id,
-        "timestamp": time.time(),
-        "request": {
-            "model": request.model,
-            "prompt": request.prompt[:100] + "..." if len(request.prompt) > 100 else request.prompt,
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
-            "region_preference": request.region_preference
-        },
-        "result": result,
-        "provider_used": result.get("metadata", {}).get("provider_type", "unknown"),
-        "status": "completed" if result.get("success") else "failed",
-        "inference_time": result.get("inference_time", 0)
-    }
+    # Store execution result (temporarily disabled for debugging)
+    # EXECUTIONS_STORE[execution_id] = {
+    #     "id": execution_id,
+    #     "timestamp": time.time(),
+    #     "request": {
+    #         "model": request.model,
+    #         "prompt": request.prompt[:100] + "..." if len(request.prompt) > 100 else request.prompt,
+    #         "temperature": request.temperature,
+    #         "max_tokens": request.max_tokens,
+    #         "region_preference": request.region_preference
+    #     },
+    #     "result": result,
+    #     "provider_used": result.get("metadata", {}).get("provider_type", "unknown"),
+    #     "status": "completed" if result.get("success") else "failed",
+    #     "inference_time": result.get("inference_time", 0)
+    # }
     
     return result
 
