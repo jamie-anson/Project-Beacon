@@ -392,7 +392,18 @@ class HybridRouter:
                             except json_module.JSONDecodeError:
                                 pass
                         
-                        # Strategy 3: Look for any line containing status/response keywords
+                        # Strategy 3: Look for MODAL_RESULT: prefix
+                        if not modal_result:
+                            for line in output_lines:
+                                if line.startswith('MODAL_RESULT: '):
+                                    try:
+                                        json_str = line.replace('MODAL_RESULT: ', '', 1)
+                                        modal_result = json_module.loads(json_str)
+                                        break
+                                    except json_module.JSONDecodeError:
+                                        continue
+                        
+                        # Strategy 4: Look for any line containing status/response keywords
                         if not modal_result:
                             for line in output_lines:
                                 if 'status' in line and ('success' in line or 'error' in line):

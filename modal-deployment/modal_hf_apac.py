@@ -5,6 +5,7 @@ All 3 models: Llama 3.2-1B, Mistral 7B, Qwen 2.5-1.5B
 import modal
 import os
 import time
+import json
 from typing import Dict, Any
 
 # Create Modal app
@@ -237,7 +238,10 @@ def run_inference(
     """HF Transformers inference - APAC region"""
     if not MODEL_CACHE:
         preload_all_models()
-    return run_inference_logic(model_name, prompt, "asia-pacific", temperature, max_tokens)
+    result = run_inference_logic(model_name, prompt, "asia-pacific", temperature, max_tokens)
+    # Print result for CLI capture
+    print(f"MODAL_RESULT: {json.dumps(result)}")
+    return result
 
 @app.function(
     image=image,
