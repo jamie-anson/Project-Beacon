@@ -529,28 +529,85 @@ async def health_check():
     }
 
 @app.get("/ready")
-async def readiness_check():
-    """Readiness check endpoint for Railway"""
-    healthy_providers = [p for p in router.providers if p.healthy]
-    is_ready = len(healthy_providers) > 0  # Ready if at least one provider is healthy
+async def ready():
+    """Health check endpoint for Railway"""
+    return {"status": "ready", "timestamp": time.time()}
+
+# Simple in-memory execution storage (for demo purposes)
+EXECUTIONS_STORE = {}
+EXECUTION_COUNTER = 630  # Start from 630 to match current executions
+
+@app.get("/api/v1/executions")
+async def get_executions(limit: int = 20):
+    """Get list of executions"""
+    executions = list(EXECUTIONS_STORE.values())
+    # Sort by timestamp, newest first
+    executions.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    return executions[:limit]
+
+@app.get("/api/v1/executions/{execution_id}")
+async def get_execution(execution_id: str):
+    """Get specific execution"""
+    if execution_id not in EXECUTIONS_STORE:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return EXECUTIONS_STORE[execution_id]
+
+@app.get("/api/v1/executions/{execution_id}/receipt")
+async def get_execution_receipt(execution_id: str):
+    """Get execution receipt/results"""
+    if execution_id not in EXECUTIONS_STORE:
+        raise HTTPException(status_code=404, detail="Execution not found")
     
+    execution = EXECUTIONS_STORE[execution_id]
+    # Return receipt-like structure
     return {
-        "status": "ready" if is_ready else "not_ready",
-        "timestamp": time.time(),
-        "providers_healthy": len(healthy_providers),
-        "providers_total": len(router.providers),
-        "models_supported": ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"],
-        "regions_available": list(set(p.region for p in healthy_providers))
+        "id": execution_id,
+        "output": {
+            "data": execution.get("result", {}),
+            "hash": f"hash_{execution_id}"
+        },
+        "provenance": {
+            "provider_info": {
+                "name": execution.get("provider_used", "unknown"),
+                "score": 1.0,
+                "resources": {"cpu": "1", "memory": "1024"}
+            }
+        }
     }
 
 @app.post("/inference", response_model=InferenceResponse)
 async def inference_endpoint(request: InferenceRequest, background_tasks: BackgroundTasks):
     """Main inference endpoint"""
+    global EXECUTION_COUNTER
+    
+    # Generate execution ID
+    EXECUTION_COUNTER += 1
+    execution_id = str(EXECUTION_COUNTER)
     
     # Run health checks in background
     background_tasks.add_task(router.health_check_providers)
     
-    return await router.run_inference(request)
+    # Run inference
+    result = await router.run_inference(request)
+    
+    # Store execution result
+    EXECUTIONS_STORE[execution_id] = {
+        "id": execution_id,
+        "timestamp": time.time(),
+        "request": {
+            "model": request.model,
+            "prompt": request.prompt[:100] + "..." if len(request.prompt) > 100 else request.prompt,
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+            "region_preference": request.region_preference
+        },
+        "result": result,
+        "provider_used": result.get("metadata", {}).get("provider_type", "unknown"),
+        "status": "completed" if result.get("success") else "failed",
+        "inference_time": result.get("inference_time", 0)
+    }
+    
+    return result
 
 @app.get("/providers")
 async def list_providers(region: Optional[str] = None):

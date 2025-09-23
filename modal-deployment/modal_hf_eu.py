@@ -236,13 +236,17 @@ def run_inference(
     max_tokens: int = 128
 ) -> Dict[str, Any]:
     """HF Transformers inference - EU region"""
+    print(f"[DEBUG] Starting inference for {model_name}")
     if not MODEL_CACHE:
         preload_all_models()
+    print(f"[DEBUG] About to run inference logic")
     result = run_inference_logic(model_name, prompt, "eu-west", temperature, max_tokens)
+    print(f"[DEBUG] Inference completed, result type: {type(result)}")
     # Print result for CLI capture - use simple format first
     print("=== MODAL RESULT START ===")
     print(json.dumps(result))
     print("=== MODAL RESULT END ===")
+    print(f"[DEBUG] Finished printing result")
     return result
 
 @app.function(
