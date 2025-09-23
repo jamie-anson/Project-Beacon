@@ -19,7 +19,6 @@ export function useBiasDetection() {
 
   // Multi-region state
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
-  const [isMultiRegion, setIsMultiRegion] = useState(false);
   
   // Model selection state - support both single and multi-select
   const [selectedModel, setSelectedModel] = useState('qwen2.5-1.5b');
@@ -94,14 +93,6 @@ export function useBiasDetection() {
     });
   };
 
-  // Auto-enable multi-region analysis when more than one region is selected
-  useEffect(() => {
-    if (selectedRegions.length > 1) {
-      setIsMultiRegion(true);
-    } else {
-      setIsMultiRegion(false);
-    }
-  }, [selectedRegions]);
 
   // Fetch bias detection jobs
   const fetchBiasJobs = async () => {
@@ -209,7 +200,6 @@ export function useBiasDetection() {
     isSubmitting,
     activeJobId,
     selectedRegions,
-    isMultiRegion,
     selectedModel,
     selectedModels,
     availableRegions,
@@ -218,7 +208,6 @@ export function useBiasDetection() {
     // Actions
     setActiveJobId,
     setSelectedRegions,
-    setIsMultiRegion,
     setSelectedModel,
     setSelectedModels,
     handleModelChange,

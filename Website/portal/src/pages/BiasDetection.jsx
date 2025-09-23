@@ -29,11 +29,9 @@ export default function BiasDetection() {
     isSubmitting,
     activeJobId,
     selectedRegions,
-    isMultiRegion,
     selectedModel,
     selectedModels,
     setActiveJobId,
-    setIsMultiRegion,
     setSelectedModel,
     handleModelChange,
     handleRegionToggle,
@@ -216,21 +214,6 @@ export default function BiasDetection() {
                 Configure your bias detection job across multiple regions and models.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <label className={`flex items-center gap-2 text-sm ${selectedRegions.length > 1 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
-                <input
-                  type="checkbox"
-                  checked={isMultiRegion}
-                  onChange={(e) => setIsMultiRegion(e.target.checked)}
-                  disabled={selectedRegions.length <= 1}
-                  className="rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500 disabled:opacity-50"
-                />
-                <span className="text-gray-300">Multi-Region Analysis</span>
-                {selectedRegions.length <= 1 && (
-                  <span className="text-xs text-gray-500 ml-1">(Select multiple regions to enable)</span>
-                )}
-              </label>
-            </div>
           </div>
 
           {/* Model Selector Component */}
@@ -248,7 +231,6 @@ export default function BiasDetection() {
             onRegionToggle={handleRegionToggle}
             calculateEstimatedCost={calculateEstimatedCost}
             readSelectedQuestions={readSelectedQuestions}
-            isMultiRegion={isMultiRegion}
           />
 
           {/* Submit Button */}
