@@ -14,8 +14,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Modal CLI for EU/APAC function calls
 RUN pip install --no-cache-dir modal
 
-# Create Modal config directory
+# Create Modal config directory and set up authentication
 RUN mkdir -p /root/.modal
+
+# Configure Modal authentication via environment variables
+ENV MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+ENV MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
 
 # Copy the hybrid router file and modal deployment scripts
 COPY hybrid_router.py ./
