@@ -12,7 +12,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the hybrid router file
-COPY Website/hybrid_router.py ./
+COPY hybrid_router.py ./
 
 # Expose port
 EXPOSE 8080
