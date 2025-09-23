@@ -392,16 +392,25 @@ class HybridRouter:
                             except json_module.JSONDecodeError:
                                 pass
                         
-                        # Strategy 3: Look for MODAL_RESULT: prefix
+                        # Strategy 3: Look for MODAL RESULT START/END markers
                         if not modal_result:
-                            for line in output_lines:
-                                if line.startswith('MODAL_RESULT: '):
-                                    try:
-                                        json_str = line.replace('MODAL_RESULT: ', '', 1)
-                                        modal_result = json_module.loads(json_str)
-                                        break
-                                    except json_module.JSONDecodeError:
-                                        continue
+                            start_idx = -1
+                            end_idx = -1
+                            for i, line in enumerate(output_lines):
+                                if line.strip() == '=== MODAL RESULT START ===':
+                                    start_idx = i
+                                elif line.strip() == '=== MODAL RESULT END ===':
+                                    end_idx = i
+                                    break
+                            
+                            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                                # Extract JSON between markers
+                                json_lines = output_lines[start_idx + 1:end_idx]
+                                json_str = '\n'.join(json_lines).strip()
+                                try:
+                                    modal_result = json_module.loads(json_str)
+                                except json_module.JSONDecodeError:
+                                    pass
                         
                         # Strategy 4: Look for any line containing status/response keywords
                         if not modal_result:

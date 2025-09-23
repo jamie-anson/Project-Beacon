@@ -239,8 +239,10 @@ def run_inference(
     if not MODEL_CACHE:
         preload_all_models()
     result = run_inference_logic(model_name, prompt, "eu-west", temperature, max_tokens)
-    # Print result for CLI capture
-    print(f"MODAL_RESULT: {json.dumps(result)}")
+    # Print result for CLI capture - use simple format first
+    print("=== MODAL RESULT START ===")
+    print(json.dumps(result))
+    print("=== MODAL RESULT END ===")
     return result
 
 @app.function(
