@@ -11,6 +11,12 @@ COPY requirements.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install Modal CLI for EU/APAC function calls
+RUN pip install --no-cache-dir modal
+
+# Create Modal config directory
+RUN mkdir -p /root/.modal
+
 # Copy the hybrid router file
 COPY hybrid_router.py ./
 
