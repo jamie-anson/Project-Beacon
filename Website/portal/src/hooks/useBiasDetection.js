@@ -21,8 +21,8 @@ export function useBiasDetection() {
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
   const [isMultiRegion, setIsMultiRegion] = useState(false);
   
-  // Model selection state (now supports multiple models)
-  const [selectedModels, setSelectedModels] = useState(['qwen2.5-1.5b']);
+  // Model selection state
+  const [selectedModel, setSelectedModel] = useState('qwen2.5-1.5b');
 
   const availableRegions = [
     { code: 'US', name: 'United States', cost: 0.0003 },
@@ -185,7 +185,7 @@ export function useBiasDetection() {
     activeJobId,
     selectedRegions,
     isMultiRegion,
-    selectedModels,
+    selectedModel,
     availableRegions,
     availableModels,
 
@@ -193,7 +193,7 @@ export function useBiasDetection() {
     setActiveJobId,
     setSelectedRegions,
     setIsMultiRegion,
-    setSelectedModels,
+    setSelectedModel,
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob,

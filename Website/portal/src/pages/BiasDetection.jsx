@@ -30,10 +30,10 @@ export default function BiasDetection() {
     activeJobId,
     selectedRegions,
     isMultiRegion,
-    selectedModels,
+    selectedModel,
     setActiveJobId,
     setIsMultiRegion,
-    setSelectedModels,
+    setSelectedModel,
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob: handleSubmitJob,
@@ -233,8 +233,8 @@ export default function BiasDetection() {
 
           {/* Model Selector Component */}
           <ModelSelector
-            selectedModels={selectedModels}
-            onModelChange={setSelectedModels}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
             className="mb-6"
           />
 

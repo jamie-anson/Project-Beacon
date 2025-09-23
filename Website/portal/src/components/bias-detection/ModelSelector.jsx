@@ -30,10 +30,8 @@ const AVAILABLE_MODELS = [
   }
 ];
 
-export default function ModelSelector({ selectedModels = [], onModelChange, className = '' }) {
-  // Safety checks
-  const safeSelectedModels = Array.isArray(selectedModels) ? selectedModels : [];
-  const selectedModelInfos = AVAILABLE_MODELS.filter(m => safeSelectedModels.includes(m.id));
+export default function ModelSelector({ selectedModel, onModelChange, className = '' }) {
+  const selectedModelInfo = AVAILABLE_MODELS.find(m => m.id === selectedModel);
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -42,7 +40,7 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
           Model Selection
         </label>
         <p className="text-xs text-gray-400 mb-3">
-          Choose one or more language models for bias detection across all regions
+          Choose the language model for bias detection across all regions
         </p>
       </div>
 
@@ -51,35 +49,22 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
           <div
             key={model.id}
             className={`relative rounded-lg border p-4 cursor-pointer transition-all ${
-              safeSelectedModels.includes(model.id)
+              selectedModel === model.id
                 ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500'
                 : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-700'
             }`}
-            onClick={() => {
-              if (typeof onModelChange === 'function') {
-                const newSelection = safeSelectedModels.includes(model.id)
-                  ? safeSelectedModels.filter(id => id !== model.id)
-                  : [...safeSelectedModels, model.id];
-                onModelChange(newSelection);
-              }
-            }}
+            onClick={() => onModelChange(model.id)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name="model"
                     value={model.id}
-                    checked={safeSelectedModels.includes(model.id)}
-                    onChange={(e) => {
-                      if (typeof onModelChange === 'function') {
-                        const newSelection = e.target.checked
-                          ? [...safeSelectedModels, model.id]
-                          : safeSelectedModels.filter(id => id !== model.id);
-                        onModelChange(newSelection);
-                      }
-                    }}
-                    className="text-orange-500 focus:ring-orange-500 border-gray-600 bg-gray-700 rounded"
+                    checked={selectedModel === model.id}
+                    onChange={() => onModelChange(model.id)}
+                    className="text-orange-500 focus:ring-orange-500 border-gray-600 bg-gray-700"
                   />
                   <h3 className="text-sm font-medium text-gray-100">
                     {model.name}
@@ -100,24 +85,15 @@ export default function ModelSelector({ selectedModels = [], onModelChange, clas
         ))}
       </div>
 
-      {selectedModelInfos.length > 0 && (
+      {selectedModelInfo && (
         <div className="bg-gray-700/50 rounded-lg p-3 border border-gray-600">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-300">Selected Models:</span>
-            <span className="text-orange-400 font-medium">
-              {selectedModelInfos.map(m => m.name).join(', ')}
-            </span>
+            <span className="text-gray-300">Selected Model:</span>
+            <span className="text-orange-400 font-medium">{selectedModelInfo.name}</span>
           </div>
           <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
             <span>Available in all regions (US, EU, APAC)</span>
-            <span>
-              {selectedModelInfos.length === 1 
-                ? `Estimated cost: $${selectedModelInfos[0].cost}/sec per region`
-                : selectedModelInfos.length > 1
-                  ? `Estimated cost: $${Math.min(...selectedModelInfos.map(m => m.cost))}-$${Math.max(...selectedModelInfos.map(m => m.cost))}/sec per region`
-                  : 'No models selected'
-              }
-            </span>
+            <span>Estimated cost: ${selectedModelInfo.cost}/sec per region</span>
           </div>
         </div>
       )}
