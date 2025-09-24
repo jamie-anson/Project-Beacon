@@ -2,91 +2,199 @@
   {
     "model": "llama3.2-1b",
     "region": "asia-pacific",
-    "status": "\u274c HTTP_ERROR",
+    "status": "\u274c FAILED",
     "success": false,
-    "duration": "1.84s",
-    "error": "HTTP 500: Internal Server Error",
+    "duration": "2.17s",
+    "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 1.0317025184631348,
+      "cost_estimate": 0.0003095107555389404,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "asia-pacific",
+        "model": "llama3.2-1b"
+      }
+    }
   },
   {
     "model": "mistral-7b",
     "region": "asia-pacific",
-    "status": "\u274c HTTP_ERROR",
+    "status": "\u274c FAILED",
     "success": false,
     "duration": "1.12s",
-    "error": "HTTP 500: Internal Server Error",
+    "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 0.9615545272827148,
+      "cost_estimate": 0.0002884663581848144,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "asia-pacific",
+        "model": "mistral-7b"
+      }
+    }
   },
   {
     "model": "qwen2.5-1.5b",
     "region": "asia-pacific",
-    "status": "\u274c HTTP_ERROR",
+    "status": "\u274c FAILED",
     "success": false,
-    "duration": "0.91s",
-    "error": "HTTP 500: Internal Server Error",
+    "duration": "1.03s",
+    "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 Traceback (most recent call last) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 /usr/local/lib/python3.9/site-packages/modal/cli/import_refs.py:98 in        \u2502\n\u2502 import_file_or_module                                                        \u2502\n\u2502                                                                              \u2502\n\u2502    97 \u2502   \u2502   \u2502   assert spec.loader                                         \u2502\n\u2502 \u2771  98 \u2502   \u2502   \u2502   spec.loader.exec_module(module)                            \u2502\n\u2502    99 \u2502   \u2502   except Exception as exc:                                       \u2502\n\u2502 <frozen importlib._bootstrap_external>:846 in exec_module                    \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:982 in get_code                       \u2502\n\u2502                                                                              \u2502\n\u2502 <frozen importlib._bootstrap_external>:1039 in get_data                      \u2502\n\u2502                                                                              \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\nFileNotFoundError: [Errno 2] No such file or directory: \n'modal-deployment/modal_hf_asia.py'\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 0.8631503582000732,
+      "cost_estimate": 0.00025894510746002195,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "asia-pacific",
+        "model": "qwen2.5-1.5b"
+      }
+    }
   },
   {
     "model": "llama3.2-1b",
     "region": "eu-west",
-    "status": "\u274c HTTP_ERROR",
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "1.13s",
+    "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
+    "test_mode": "",
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.878314733505249,
+      "cost_estimate": 0.0002634944200515747,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "eu-west",
+        "model": "llama3.2-1b"
+      }
+    }
+  },
+  {
+    "model": "mistral-7b",
+    "region": "eu-west",
+    "status": "\u274c FAILED",
     "success": false,
     "duration": "1.08s",
-    "error": "HTTP 500: Internal Server Error",
+    "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
     "test_mode": "",
-    "response_data": null
-  },
-  {
-    "model": "mistral-7b",
-    "region": "eu-west",
-    "status": "\u274c HTTP_ERROR",
-    "success": false,
-    "duration": "0.09s",
-    "error": "HTTP 500: Internal Server Error",
-    "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.9081382751464844,
+      "cost_estimate": 0.0002724414825439453,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "eu-west",
+        "model": "mistral-7b"
+      }
+    }
   },
   {
     "model": "qwen2.5-1.5b",
     "region": "eu-west",
-    "status": "\u274c HTTP_ERROR",
+    "status": "\u274c FAILED",
     "success": false,
-    "duration": "0.96s",
-    "error": "HTTP 500: Internal Server Error",
+    "duration": "0.95s",
+    "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": false,
+      "response": null,
+      "error": "Modal CLI error: \u256d\u2500 Error \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e\n\u2502 Token missing. Could not authenticate client. If you have token credentials, \u2502\n\u2502 see modal.com/docs/reference/modal.config for setup help. If you are a new   \u2502\n\u2502 user, register an account at modal.com, then run `modal token new`.          \u2502\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\n",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.7876198291778564,
+      "cost_estimate": 0.00023628594875335692,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "eu-west",
+        "model": "qwen2.5-1.5b"
+      }
+    }
   },
   {
     "model": "llama3.2-1b",
     "region": "us-east",
-    "status": "\u274c HTTP_ERROR",
-    "success": false,
-    "duration": "5.48s",
-    "error": "HTTP 500: Internal Server Error",
+    "status": "\u2705 SUCCESS",
+    "success": true,
+    "duration": "5.68s",
+    "error": null,
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": true,
+      "response": "-1 region\nTest llama3.2-",
+      "error": null,
+      "provider_used": "modal-us-east",
+      "inference_time": 4.55124044418335,
+      "cost_estimate": 0.0013653721332550048,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "us-east",
+        "model": "llama3.2-1b"
+      }
+    }
   },
   {
     "model": "mistral-7b",
     "region": "us-east",
-    "status": "\u274c HTTP_ERROR",
-    "success": false,
-    "duration": "6.28s",
-    "error": "HTTP 500: Internal Server Error",
+    "status": "\u2705 SUCCESS",
+    "success": true,
+    "duration": "3.60s",
+    "error": null,
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": true,
+      "response": "-1\n\n# Test mistral-7",
+      "error": null,
+      "provider_used": "modal-us-east",
+      "inference_time": 2.558614492416382,
+      "cost_estimate": 0.0007675843477249145,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "us-east",
+        "model": "mistral-7b"
+      }
+    }
   },
   {
     "model": "qwen2.5-1.5b",
     "region": "us-east",
-    "status": "\u274c HTTP_ERROR",
-    "success": false,
-    "duration": "4.75s",
-    "error": "HTTP 500: Internal Server Error",
+    "status": "\u2705 SUCCESS",
+    "success": true,
+    "duration": "2.35s",
+    "error": null,
     "test_mode": "",
-    "response_data": null
+    "response_data": {
+      "success": true,
+      "response": "-1\n==============================\n\nThis is a test",
+      "error": null,
+      "provider_used": "modal-us-east",
+      "inference_time": 2.164459466934204,
+      "cost_estimate": 0.0006493378400802612,
+      "metadata": {
+        "provider_type": "modal",
+        "region": "us-east",
+        "model": "qwen2.5-1.5b"
+      }
+    }
   }
 ]

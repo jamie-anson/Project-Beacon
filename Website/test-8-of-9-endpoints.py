@@ -135,7 +135,8 @@ def main():
         duration = result["duration"]
         error = result["error"]
         
-        print(f"{status} {model:15} @ {region:15} ({duration:>8}) {error[:40]}")
+        error_text = error[:40] if error else ""
+        print(f"{status} {model:15} @ {region:15} ({duration:>8}) {error_text}")
         
         if result["success"]:
             success_count += 1

@@ -128,25 +128,25 @@ class HybridRouter:
                 max_concurrent=10
             ))
         
-        # EU Region - function calls only (Modal plan limit workaround)
-        modal_eu_app = os.getenv("MODAL_EU_APP", "project-beacon-hf-eu")
-        if modal_eu_app:
+        # EU Region - HTTP endpoint (converted from CLI to fix timeouts)
+        modal_eu_endpoint = os.getenv("MODAL_EU_ENDPOINT", "https://jamie-anson--project-beacon-hf-eu-inference.modal.run")
+        if modal_eu_endpoint:
             self.providers.append(Provider(
                 name="modal-eu-west",
                 type=ProviderType.MODAL,
-                endpoint=f"modal://{modal_eu_app}",  # Special notation for function calls
+                endpoint=modal_eu_endpoint,
                 region="eu-west",
                 cost_per_second=0.0003,
                 max_concurrent=10
             ))
         
-        # APAC Region - function calls only (Modal plan limit workaround)
-        modal_apac_app = os.getenv("MODAL_APAC_APP", "project-beacon-hf-apac")
-        if modal_apac_app:
+        # APAC Region - HTTP endpoint (converted from CLI to fix timeouts)
+        modal_apac_endpoint = os.getenv("MODAL_APAC_ENDPOINT", "https://jamie-anson--project-beacon-hf-apac-inference.modal.run")
+        if modal_apac_endpoint:
             self.providers.append(Provider(
                 name="modal-asia-pacific",
                 type=ProviderType.MODAL,
-                endpoint=f"modal://{modal_apac_app}",  # Special notation for function calls
+                endpoint=modal_apac_endpoint,
                 region="asia-pacific",
                 cost_per_second=0.0003,
                 max_concurrent=10
@@ -202,10 +202,7 @@ class HybridRouter:
                         provider.healthy = health_data.get("status") == "healthy"
                     else:
                         provider.healthy = False
-                elif provider.endpoint.startswith("modal://"):
-                    # EU/APAC regions with function calls - assume healthy if app exists
-                    # TODO: Implement function-based health check via Modal CLI
-                    provider.healthy = True  # Optimistic health for function-based providers
+                # All Modal providers now use HTTP endpoints
                 else:
                     provider.healthy = False
             
@@ -627,7 +624,7 @@ async def list_providers(region: Optional[str] = None):
                 "avg_latency": p.avg_latency,
                 "success_rate": p.success_rate,
                 "last_health_check": p.last_health_check,
-                "endpoint_type": "http" if p.endpoint.startswith("https://") else "function" if p.endpoint.startswith("modal://") else "unknown",
+                "endpoint_type": "http",
                 "models_supported": ["llama3.2-1b", "mistral-7b", "qwen2.5-1.5b"] if p.type == ProviderType.MODAL else ["llama3.2-1b"]
             }
             for p in providers
