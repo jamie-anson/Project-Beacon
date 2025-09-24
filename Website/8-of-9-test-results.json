@@ -4,7 +4,7 @@
     "region": "asia-pacific",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "44.95s",
+    "duration": "2.31s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -12,8 +12,8 @@
       "response": "region\nTest llama3.2-1b",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 44.64519023895264,
-      "cost_estimate": 0.01339355707168579,
+      "inference_time": 1.9288811683654785,
+      "cost_estimate": 0.0005786643505096436,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -26,7 +26,7 @@
     "region": "asia-pacific",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "1.99s",
+    "duration": "3.01s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -34,8 +34,8 @@
       "response": "# Test mistral-7b in",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.7858779430389404,
-      "cost_estimate": 0.000535763382911682,
+      "inference_time": 2.791604995727539,
+      "cost_estimate": 0.0008374814987182616,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -48,7 +48,7 @@
     "region": "asia-pacific",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "1.98s",
+    "duration": "2.27s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -56,8 +56,8 @@
       "response": "# qwen2.5-1.",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.3028450012207031,
-      "cost_estimate": 0.0003908535003662109,
+      "inference_time": 1.8085713386535645,
+      "cost_estimate": 0.0005425714015960693,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -70,7 +70,7 @@
     "region": "eu-west",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "38.68s",
+    "duration": "3.06s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -78,8 +78,8 @@
       "response": "-1 region\nTest llama3.2-",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 38.24936890602112,
-      "cost_estimate": 0.011474810671806335,
+      "inference_time": 2.6820428371429443,
+      "cost_estimate": 0.0008046128511428832,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -90,22 +90,24 @@
   {
     "model": "mistral-7b",
     "region": "eu-west",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "2.15s",
-    "error": null,
-    "test_mode": "",
+    "status": "\ud83e\uddea GRACEFUL_FAILURE",
+    "success": false,
+    "duration": "0.31s",
+    "error": "EU Mistral 7B temporarily disabled for 8/9 graceful failure testing",
+    "test_mode": "graceful_failure",
     "response_data": {
-      "success": true,
-      "response": "-1\n\n# Test mistral-7",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 1.7603979110717773,
-      "cost_estimate": 0.0005281193733215332,
+      "success": false,
+      "response": null,
+      "error": "EU Mistral 7B temporarily disabled for 8/9 graceful failure testing",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.0,
+      "cost_estimate": 0.0,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
-        "model": "mistral-7b"
+        "region": "eu-west",
+        "model": "mistral-7b",
+        "test_mode": "graceful_failure",
+        "reason": "8_of_9_testing"
       }
     }
   },
@@ -114,7 +116,7 @@
     "region": "eu-west",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "1.98s",
+    "duration": "1.53s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -122,8 +124,8 @@
       "response": "-3\n===============================\n\nThis is a test",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.6674416065216064,
-      "cost_estimate": 0.0005002324819564819,
+      "inference_time": 1.3705480098724365,
+      "cost_estimate": 0.00041116440296173093,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -136,7 +138,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "48.51s",
+    "duration": "1.46s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -144,8 +146,8 @@
       "response": "-1 region\nTest llama3.2-",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 48.0562059879303,
-      "cost_estimate": 0.014416861796379087,
+      "inference_time": 1.0976226329803467,
+      "cost_estimate": 0.000329286789894104,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -158,7 +160,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "2.07s",
+    "duration": "3.27s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -166,8 +168,8 @@
       "response": "-1\n\n# Test mistral-7",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.7627482414245605,
-      "cost_estimate": 0.0005288244724273682,
+      "inference_time": 3.112687587738037,
+      "cost_estimate": 0.0009338062763214111,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -180,7 +182,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "1.52s",
+    "duration": "3.01s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -188,8 +190,8 @@
       "response": "-1\n==============================\n\nThis is a test",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.365081548690796,
-      "cost_estimate": 0.0004095244646072387,
+      "inference_time": 2.821446180343628,
+      "cost_estimate": 0.0008464338541030883,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
