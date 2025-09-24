@@ -279,5 +279,37 @@ def health_check() -> Dict[str, Any]:
         "cache_initialized": bool(MODEL_CACHE)
     }
 
-# Note: Web endpoints removed to avoid Modal plan limits
-# Use function calls directly: modal run modal_hf_apac.py::run_inference --model="llama3.2-1b" --prompt="test"
+# Web endpoints for HTTP access
+@app.function(
+    image=image,
+    gpu="A10G",
+    volumes={"/models": models_volume},
+    timeout=900,
+    scaledown_window=600,
+    region=["asia-pacific", "asia-southeast"],
+    memory=16384,
+    secrets=SECRETS,
+    startup_timeout=1800,
+)
+@modal.web_endpoint(method="POST")
+def inference(item: dict):
+    """HTTP inference endpoint"""
+    if not MODEL_CACHE:
+        preload_all_models()
+    
+    model_name = item.get("model", "llama3.2-1b")
+    prompt = item.get("prompt", "")
+    temperature = item.get("temperature", 0.1)
+    max_tokens = item.get("max_tokens", 128)
+    
+    return run_inference_logic(model_name, prompt, "asia-pacific", temperature, max_tokens)
+
+@app.function(
+    image=image,
+    timeout=30,
+    secrets=SECRETS,
+)
+@modal.web_endpoint(method="GET")
+def health():
+    """HTTP health check endpoint"""
+    return health_check()

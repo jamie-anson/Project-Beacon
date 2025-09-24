@@ -128,29 +128,29 @@ class HybridRouter:
                 max_concurrent=10
             ))
         
-        # EU Region - TEMPORARILY DISABLED (endpoints don't exist)
-        # modal_eu_endpoint = os.getenv("MODAL_EU_ENDPOINT", "https://jamie-anson--project-beacon-hf-eu-inference.modal.run")
-        # if modal_eu_endpoint:
-        #     self.providers.append(Provider(
-        #         name="modal-eu-west",
-        #         type=ProviderType.MODAL,
-        #         endpoint=modal_eu_endpoint,
-        #         region="eu-west",
-        #         cost_per_second=0.0003,
-        #         max_concurrent=10
-        #     ))
+        # EU Region - HTTP endpoint (newly deployed with web endpoints)
+        modal_eu_endpoint = os.getenv("MODAL_EU_ENDPOINT", "https://jamie-anson--project-beacon-hf-eu-inference.modal.run")
+        if modal_eu_endpoint:
+            self.providers.append(Provider(
+                name="modal-eu-west",
+                type=ProviderType.MODAL,
+                endpoint=modal_eu_endpoint,
+                region="eu-west",
+                cost_per_second=0.0003,
+                max_concurrent=10
+            ))
         
-        # APAC Region - TEMPORARILY DISABLED (endpoints don't exist)
-        # modal_apac_endpoint = os.getenv("MODAL_APAC_ENDPOINT", "https://jamie-anson--project-beacon-hf-apac-inference.modal.run")
-        # if modal_apac_endpoint:
-        #     self.providers.append(Provider(
-        #         name="modal-asia-pacific",
-        #         type=ProviderType.MODAL,
-        #         endpoint=modal_apac_endpoint,
-        #         region="asia-pacific",
-        #         cost_per_second=0.0003,
-        #         max_concurrent=10
-        #     ))
+        # APAC Region - HTTP endpoint (newly deployed with web endpoints)
+        modal_apac_endpoint = os.getenv("MODAL_APAC_ENDPOINT", "https://jamie-anson--project-beacon-hf-apac-inference.modal.run")
+        if modal_apac_endpoint:
+            self.providers.append(Provider(
+                name="modal-asia-pacific",
+                type=ProviderType.MODAL,
+                endpoint=modal_apac_endpoint,
+                region="asia-pacific",
+                cost_per_second=0.0003,
+                max_concurrent=10
+            ))
         
         # RunPod serverless - REMOVED (not using RunPod)
         # runpod_endpoint = os.getenv("RUNPOD_API_BASE")
