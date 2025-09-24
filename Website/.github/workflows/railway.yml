@@ -5,14 +5,22 @@ on:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Website/Dockerfile'
+      - 'Dockerfile'
+      - 'hybrid_router.py'
+      - 'hybrid_router/**'
+      - 'requirements.txt'
+      - 'modal-deployment/**'
       - 'railway.json'
       - '.github/workflows/railway.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Website/Dockerfile'
+      - 'Dockerfile'
+      - 'hybrid_router.py'
+      - 'hybrid_router/**'
+      - 'requirements.txt'
+      - 'modal-deployment/**'
       - 'railway.json'
   workflow_dispatch:
 
@@ -30,7 +38,7 @@ jobs:
       - name: Build hybrid-router image (no push)
         run: |
           docker build \
-            -f Website/Dockerfile \
+            -f Dockerfile \
             -t beacon-hybrid-router:ci \
             .
 
@@ -42,23 +50,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Install curl and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
       - name: Wait for Railway to roll out
         run: |
           set -e
           URL="https://project-beacon-production.up.railway.app/health"
           echo "Polling $URL for healthy status..."
           for i in $(seq 1 20); do
-            STATUS=$(curl -s -m 5 "$URL" | jq -r .status || true)
+            STATUS=$(curl -s -m 5 "$URL" | jq -r .status 2>/dev/null || true)
             if [ "$STATUS" = "healthy" ]; then
-              echo "Service healthy"; exit 0
+              echo "Service healthy via /health"; exit 0
             fi
-            echo "Attempt $i/20: status=$STATUS"; sleep 10
+            # Fallback to /ready if /health not yet healthy
+            READY=$(curl -s -m 5 "https://project-beacon-production.up.railway.app/ready" | jq -r .status 2>/dev/null || true)
+            if [ "$READY" = "ready" ] || [ "$READY" = "ok" ]; then
+              echo "Service ready via /ready"; exit 0
+            fi
+            echo "Attempt $i/20: health=$STATUS, ready=$READY"; sleep 10
           done
           echo "Service did not become healthy in time"; exit 1
 
       - name: Check providers endpoint
         run: |
-          curl -sSfL https://project-beacon-production.up.railway.app/providers | jq . | head -50
+          curl -sSfL https://project-beacon-production.up.railway.app/providers | jq . | head -50 || true
 
       - name: Check WebSocket GET hint (non-upgrade)
         run: |
