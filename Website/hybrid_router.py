@@ -566,7 +566,22 @@ async def get_cross_region_diff(job_id: str):
             response = await client.get(f"{main_backend_url}/api/v1/jobs/{job_id}/executions/all")
             if response.status_code == 200:
                 executions_data = response.json()
-                executions = executions_data.get("executions", [])
+                basic_executions = executions_data.get("executions", [])
+                
+                # Fetch detailed execution data for each execution
+                executions = []
+                for exec_basic in basic_executions:
+                    exec_id = exec_basic.get("id")
+                    if exec_id:
+                        detail_response = await client.get(f"{main_backend_url}/api/v1/executions/{exec_id}/details")
+                        if detail_response.status_code == 200:
+                            detailed_exec = detail_response.json()
+                            executions.append(detailed_exec)
+                        else:
+                            # Fallback to basic data if details not available
+                            executions.append(exec_basic)
+                    else:
+                        executions.append(exec_basic)
                 
                 # Group by region
                 regions = {}
