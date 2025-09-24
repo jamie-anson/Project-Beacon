@@ -467,14 +467,21 @@ export const getCrossRegionDiff = async (jobId) => {
       if (res) return res;
     } catch (err) { lastErr = err; }
   }
+  // Try hybrid router first (has temporary cross-region diff endpoint)
+  try {
+    const hybridUrl = 'https://project-beacon-production.up.railway.app';
+    const response = await fetch(`${hybridUrl}/api/v1/executions/${id}/cross-region-diff`);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) { lastErr = err; }
+  
   // Fallback to runner legacy endpoints if diffs backend does not have it
   const runnerCandidates = [
-    { path: `/executions/${id}/cross-region`, method: 'GET' },
-    { path: `/executions/${id}/cross-region`, method: 'POST' },
-    { path: `/executions/${id}/diff-analysis`, method: 'GET' },
-    { path: `/executions/${id}/diff-analysis`, method: 'POST' },
     { path: `/executions/${id}/cross-region-diff`, method: 'GET' },
-    { path: `/executions/${id}/cross-region-diff`, method: 'POST' },
+    { path: `/executions/${id}/regions`, method: 'GET' },
+    { path: `/executions/${id}/cross-region`, method: 'GET' },
+    { path: `/executions/${id}/diff-analysis`, method: 'GET' },
   ];
   for (const c of runnerCandidates) {
     try {
