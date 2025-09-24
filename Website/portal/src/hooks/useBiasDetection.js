@@ -159,7 +159,7 @@ export function useBiasDetection() {
         metadata: {
           created_by: 'portal',
           wallet_address: walletStatus.address,
-          execution_type: isMultiRegion ? 'cross-region' : 'single-region',
+          execution_type: selectedRegions.length > 1 ? 'cross-region' : 'single-region',
           estimated_cost: calculateEstimatedCost(),
           model: selectedModel,
           model_name: availableModels[selectedModel]?.name || selectedModel

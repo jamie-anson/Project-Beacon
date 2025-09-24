@@ -4,8 +4,7 @@ export default function RegionSelector({
   selectedRegions, 
   onRegionToggle, 
   calculateEstimatedCost,
-  readSelectedQuestions,
-  isMultiRegion 
+  readSelectedQuestions
 }) {
   const availableRegions = [
     { code: 'US', name: 'United States', model: 'Llama 3.2-1B', cost: 0.0003 },
@@ -65,7 +64,7 @@ export default function RegionSelector({
           </div>
           <div>
             <span className="text-gray-300">Type:</span>
-            <span className="ml-1 font-medium">{isMultiRegion ? 'Multi-Region' : 'Single-Region'}</span>
+            <span className="ml-1 font-medium">{selectedRegions.length > 1 ? 'Multi-Region' : 'Single-Region'}</span>
           </div>
           <div>
             <span className="text-gray-300">Est. Cost:</span>
