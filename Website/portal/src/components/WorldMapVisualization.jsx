@@ -18,16 +18,19 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   // Use secure proxy approach - load Google Maps through backend proxy
   // This keeps the API key secure on the server side
+  // Static libraries array to prevent reloading warnings
+  const libraries = ['geometry'];
+  
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    // Use backend-diffs proxy endpoint that injects the API key server-side
-    url: 'https://backend-diffs-production.up.railway.app/api/maps/js',
-    libraries: ['geometry'],
-    // Add error handling for proxy issues
-    onLoad: () => console.log('🗺️ Google Maps loaded via secure proxy'),
+    // Temporarily disable proxy until backend endpoint is implemented
+    // Use development mode for now (shows watermark but works)
+    googleMapsApiKey: '', // Empty key for development
+    libraries: libraries,
+    // Add error handling
+    onLoad: () => console.log('🗺️ Google Maps loaded (development mode)'),
     onError: (error) => {
-      console.warn('⚠️ Google Maps proxy failed, trying fallback:', error);
-      // Fallback to development mode without API key
+      console.warn('⚠️ Google Maps loading error:', error);
       setLoadTimeout(true);
     }
   });
