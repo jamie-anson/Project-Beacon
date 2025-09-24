@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Block committing very large files and generated report directories
+MAX_BYTES=$((10*1024*1024)) # 10 MB
+BLOCKED_DIRS=("playwright-report/" "test-results/")
+
+fail=0
+
+# List staged files (added/modified)
+mapfile -t STAGED_FILES < <(git diff --cached --name-only --diff-filter=AM)
+
+# Block specific directories
+for path in "${STAGED_FILES[@]}"; do
+  for dir in "${BLOCKED_DIRS[@]}"; do
+    if [[ "$path" == "$dir"* ]]; then
+      echo "pre-commit: blocking commit of generated report: $path (matches $dir)"
+      fail=1
+      break
+    fi
+  done
+done
+
+# Block files over MAX_BYTES
+for path in "${STAGED_FILES[@]}"; do
+  if [[ -f "$path" ]]; then
+    size=$(wc -c < "$path" | tr -d ' ')
+    if [[ "$size" =~ ^[0-9]+$ ]] && (( size > MAX_BYTES )); then
+      echo "pre-commit: $path is larger than $((MAX_BYTES/1024/1024))MB (${size} bytes)"
+      echo "Consider adding to .gitignore or using Git LFS for large binaries."
+      fail=1
+    fi
+  fi
+done
+
+if (( fail != 0 )); then
+  echo "pre-commit: Commit blocked by size/report policy."
+  exit 1
+fi
+
+exit 0

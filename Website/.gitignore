@@ -53,3 +53,7 @@ docs-cid.txt
 # Planning files
 *plan.md
 docs/sot/facts.json
+
+# Test artifacts
+playwright-report/
+test-results/
