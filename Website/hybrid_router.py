@@ -129,7 +129,7 @@ class HybridRouter:
             ))
         
         # EU Region - HTTP endpoint (newly deployed with web endpoints)
-        modal_eu_endpoint = os.getenv("MODAL_EU_ENDPOINT", "https://jamie-anson--project-beacon-hf-eu-inference.modal.run")
+        modal_eu_endpoint = os.getenv("MODAL_EU_ENDPOINT", "https://jamie-anson--project-beacon-hf-eu-inference-dev.modal.run")
         if modal_eu_endpoint:
             self.providers.append(Provider(
                 name="modal-eu-west",
@@ -141,7 +141,7 @@ class HybridRouter:
             ))
         
         # APAC Region - HTTP endpoint (newly deployed with web endpoints)
-        modal_apac_endpoint = os.getenv("MODAL_APAC_ENDPOINT", "https://jamie-anson--project-beacon-hf-apac-inference.modal.run")
+        modal_apac_endpoint = os.getenv("MODAL_APAC_ENDPOINT", "https://jamie-anson--project-beacon-hf-apac-inference-dev.modal.run")
         if modal_apac_endpoint:
             self.providers.append(Provider(
                 name="modal-asia-pacific",

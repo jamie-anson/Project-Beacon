@@ -237,7 +237,7 @@ def run_inference(
     """HF Transformers inference - APAC region"""
     if not MODEL_CACHE:
         preload_all_models()
-    return run_inference_logic(model_name, prompt, "asia-pacific", temperature, max_tokens)
+    return run_inference_logic(model_name, prompt, "asia-southeast", temperature, max_tokens)
 
 @app.function(
     image=image,
@@ -274,7 +274,7 @@ def health_check() -> Dict[str, Any]:
         "models_available": list(MODEL_REGISTRY.keys()),
         "models_ready": ready_models,
         "models_ready_count": len(ready_models),
-        "region": "asia-pacific",
+        "region": "asia-southeast",
         "architecture": "hf-transformers",
         "cache_initialized": bool(MODEL_CACHE)
     }
@@ -286,7 +286,7 @@ def health_check() -> Dict[str, Any]:
     volumes={"/models": models_volume},
     timeout=900,
     scaledown_window=600,
-    region=["asia-pacific", "asia-southeast"],
+    region=["us-west"],
     memory=16384,
     secrets=SECRETS,
     startup_timeout=1800,
@@ -302,7 +302,7 @@ def inference(item: dict):
     temperature = item.get("temperature", 0.1)
     max_tokens = item.get("max_tokens", 128)
     
-    return run_inference_logic(model_name, prompt, "asia-pacific", temperature, max_tokens)
+    return run_inference_logic(model_name, prompt, "asia-southeast", temperature, max_tokens)
 
 @app.function(
     image=image,

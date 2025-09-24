@@ -2,21 +2,21 @@
   {
     "model": "llama3.2-1b",
     "region": "asia-pacific",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "2.31s",
-    "error": null,
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "0.74s",
+    "error": "HTTP 404: modal-http: invalid function call\n",
     "test_mode": "",
     "response_data": {
-      "success": true,
-      "response": "region\nTest llama3.2-1b",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 1.9288811683654785,
-      "cost_estimate": 0.0005786643505096436,
+      "success": false,
+      "response": null,
+      "error": "HTTP 404: modal-http: invalid function call\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 0.289151668548584,
+      "cost_estimate": 8.674550056457519e-05,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
+        "region": "asia-pacific",
         "model": "llama3.2-1b"
       }
     }
@@ -24,21 +24,21 @@
   {
     "model": "mistral-7b",
     "region": "asia-pacific",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "3.01s",
-    "error": null,
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "0.39s",
+    "error": "HTTP 404: modal-http: invalid function call\n",
     "test_mode": "",
     "response_data": {
-      "success": true,
-      "response": "# Test mistral-7b in",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 2.791604995727539,
-      "cost_estimate": 0.0008374814987182616,
+      "success": false,
+      "response": null,
+      "error": "HTTP 404: modal-http: invalid function call\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 0.0920553207397461,
+      "cost_estimate": 2.7616596221923826e-05,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
+        "region": "asia-pacific",
         "model": "mistral-7b"
       }
     }
@@ -46,21 +46,21 @@
   {
     "model": "qwen2.5-1.5b",
     "region": "asia-pacific",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "2.27s",
-    "error": null,
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "0.26s",
+    "error": "HTTP 404: modal-http: invalid function call\n",
     "test_mode": "",
     "response_data": {
-      "success": true,
-      "response": "# qwen2.5-1.",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 1.8085713386535645,
-      "cost_estimate": 0.0005425714015960693,
+      "success": false,
+      "response": null,
+      "error": "HTTP 404: modal-http: invalid function call\n",
+      "provider_used": "modal-asia-pacific",
+      "inference_time": 0.10385322570800781,
+      "cost_estimate": 3.115596771240234e-05,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
+        "region": "asia-pacific",
         "model": "qwen2.5-1.5b"
       }
     }
@@ -68,21 +68,21 @@
   {
     "model": "llama3.2-1b",
     "region": "eu-west",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "3.06s",
-    "error": null,
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "0.77s",
+    "error": "HTTP 404: modal-http: invalid function call\n",
     "test_mode": "",
     "response_data": {
-      "success": true,
-      "response": "-1 region\nTest llama3.2-",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 2.6820428371429443,
-      "cost_estimate": 0.0008046128511428832,
+      "success": false,
+      "response": null,
+      "error": "HTTP 404: modal-http: invalid function call\n",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.3262317180633545,
+      "cost_estimate": 9.786951541900634e-05,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
+        "region": "eu-west",
         "model": "llama3.2-1b"
       }
     }
@@ -92,7 +92,7 @@
     "region": "eu-west",
     "status": "\ud83e\uddea GRACEFUL_FAILURE",
     "success": false,
-    "duration": "0.31s",
+    "duration": "0.30s",
     "error": "EU Mistral 7B temporarily disabled for 8/9 graceful failure testing",
     "test_mode": "graceful_failure",
     "response_data": {
@@ -114,21 +114,21 @@
   {
     "model": "qwen2.5-1.5b",
     "region": "eu-west",
-    "status": "\u2705 SUCCESS",
-    "success": true,
-    "duration": "1.53s",
-    "error": null,
+    "status": "\u274c FAILED",
+    "success": false,
+    "duration": "0.51s",
+    "error": "HTTP 404: modal-http: invalid function call\n",
     "test_mode": "",
     "response_data": {
-      "success": true,
-      "response": "-3\n===============================\n\nThis is a test",
-      "error": null,
-      "provider_used": "modal-us-east",
-      "inference_time": 1.3705480098724365,
-      "cost_estimate": 0.00041116440296173093,
+      "success": false,
+      "response": null,
+      "error": "HTTP 404: modal-http: invalid function call\n",
+      "provider_used": "modal-eu-west",
+      "inference_time": 0.3000767230987549,
+      "cost_estimate": 9.002301692962646e-05,
       "metadata": {
         "provider_type": "modal",
-        "region": "us-east",
+        "region": "eu-west",
         "model": "qwen2.5-1.5b"
       }
     }
@@ -138,7 +138,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "1.46s",
+    "duration": "47.52s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -146,8 +146,8 @@
       "response": "-1 region\nTest llama3.2-",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 1.0976226329803467,
-      "cost_estimate": 0.000329286789894104,
+      "inference_time": 47.077460289001465,
+      "cost_estimate": 0.014123238086700438,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -160,7 +160,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "3.27s",
+    "duration": "39.63s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -168,8 +168,8 @@
       "response": "-1\n\n# Test mistral-7",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 3.112687587738037,
-      "cost_estimate": 0.0009338062763214111,
+      "inference_time": 39.44192600250244,
+      "cost_estimate": 0.011832577800750732,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
@@ -182,7 +182,7 @@
     "region": "us-east",
     "status": "\u2705 SUCCESS",
     "success": true,
-    "duration": "3.01s",
+    "duration": "59.73s",
     "error": null,
     "test_mode": "",
     "response_data": {
@@ -190,8 +190,8 @@
       "response": "-1\n==============================\n\nThis is a test",
       "error": null,
       "provider_used": "modal-us-east",
-      "inference_time": 2.821446180343628,
-      "cost_estimate": 0.0008464338541030883,
+      "inference_time": 59.54865121841431,
+      "cost_estimate": 0.017864595365524292,
       "metadata": {
         "provider_type": "modal",
         "region": "us-east",
