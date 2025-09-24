@@ -528,8 +528,8 @@ async def health_check():
 
 @app.get("/ready")
 async def ready():
-    """Health check endpoint for Railway"""
-    return {"status": "ready", "timestamp": time.time()}
+    """Health check endpoint for Railway - Updated for HTTP-only endpoints"""
+    return {"status": "ready", "timestamp": time.time(), "version": "http-only-v1"}
 
 # Simple in-memory execution storage (for demo purposes)
 EXECUTIONS_STORE = {}
