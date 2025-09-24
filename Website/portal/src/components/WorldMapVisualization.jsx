@@ -16,13 +16,20 @@ const WorldMapVisualization = ({ biasData = [] }) => {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [loadTimeout, setLoadTimeout] = useState(false);
 
+  // Use secure proxy approach - load Google Maps through backend proxy
+  // This keeps the API key secure on the server side
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    // For now, use a fallback approach - load Google Maps without API key for basic functionality
-    // This will show a "For development purposes only" watermark but will work
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    // Fallback to direct Google Maps API if no key available
-    libraries: ['geometry']
+    // Use backend-diffs proxy endpoint that injects the API key server-side
+    url: 'https://backend-diffs-production.up.railway.app/api/maps/js',
+    libraries: ['geometry'],
+    // Add error handling for proxy issues
+    onLoad: () => console.log('🗺️ Google Maps loaded via secure proxy'),
+    onError: (error) => {
+      console.warn('⚠️ Google Maps proxy failed, trying fallback:', error);
+      // Fallback to development mode without API key
+      setLoadTimeout(true);
+    }
   });
 
   // Set timeout if map doesn't load within 5 seconds
