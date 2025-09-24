@@ -192,17 +192,23 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check - different approaches for HTTP vs function endpoints
+                # Modal health check - try health endpoint, fallback to assuming healthy
                 if provider.endpoint.startswith("https://"):
-                    # US region with HTTP endpoints
-                    health_endpoint = provider.endpoint.replace("-inference", "-health")
-                    response = await self.client.get(health_endpoint, timeout=15.0)
-                    if response.status_code == 200:
-                        health_data = response.json()
-                        provider.healthy = health_data.get("status") == "healthy"
-                    else:
+                    try:
+                        # Try health endpoint first (US region has this)
+                        health_endpoint = provider.endpoint.replace("-inference", "-health")
+                        response = await self.client.get(health_endpoint, timeout=10.0)
+                        if response.status_code == 200:
+                            health_data = response.json()
+                            provider.healthy = health_data.get("status") == "healthy"
+                        else:
+                            # Health endpoint failed, try basic connectivity test
+                            response = await self.client.get(provider.endpoint, timeout=10.0)
+                            # If endpoint responds at all (even with error), consider it reachable
+                            provider.healthy = response.status_code in [200, 400, 404, 422]
+                    except Exception:
+                        # If all checks fail, assume unhealthy
                         provider.healthy = False
-                # All Modal providers now use HTTP endpoints
                 else:
                     provider.healthy = False
             
