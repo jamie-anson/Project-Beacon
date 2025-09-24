@@ -169,11 +169,12 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 - [x] **API endpoint testing**: ✅ Implemented `test-diffs-endpoints.py`
 - [x] **Portal UI testing**: ✅ Implemented `test-portal-diffs.js` (browser console)
 - [x] **Fallback implementation**: ✅ Created `fix-diffs-fallback.js`
-- [ ] **Deploy fallback fix**: Apply fallback logic to Portal UI
-- [ ] Load diffs page with real job ID, verify no mock data banner
-- [ ] Select different model, verify header/content updates
-- [ ] Use question picker, verify navigation and content reload
-- [ ] Check map loads without Google warnings
+- [x] **Deploy fallback fix**: ✅ Applied fallback logic to Portal UI
+- [ ] **Load diffs page**: Verify real data displays (no mock data banner)
+- [ ] **Model selection**: Test header/content updates when changing models
+- [ ] **Question picker**: Test navigation and content reload functionality
+- [ ] **Google Maps fix**: Configure API key to resolve map loading errors
+- [ ] **Map visualization**: Verify map loads without warnings
 
 **Test Results (14:57 - Sep 24)**:
 - ✅ **Working endpoints**: 2/11 (18% success rate)

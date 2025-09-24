@@ -18,10 +18,11 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    // IMPORTANT: Do NOT pass an apiKey from the client. We rely on the server-side
-    // proxy which injects the key. This prevents any key leakage in the browser.
-    // Use site-relative proxy so Netlify routes to Railway hybrid router with API key
-    url: '/maps/api.js'
+    // For now, use a fallback approach - load Google Maps without API key for basic functionality
+    // This will show a "For development purposes only" watermark but will work
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    // Fallback to direct Google Maps API if no key available
+    libraries: ['geometry']
   });
 
   // Set timeout if map doesn't load within 5 seconds

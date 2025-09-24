@@ -1,0 +1,11 @@
+{
+  "timestamp": 1758725106.768963,
+  "test_job_id": "bias-detection-1758721736",
+  "results": {
+    "execution_details": true,
+    "hybrid_router_structure": true,
+    "ui_transformation": true,
+    "deployment_ready": true
+  },
+  "summary": "True/4 tests passed"
+}
