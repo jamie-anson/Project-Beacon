@@ -128,9 +128,9 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				executions.GET("", executionsHandler.ListExecutions)
 				executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
 				executions.GET("/:id/details", executionsHandler.GetExecutionDetails)
-				// TODO: Implement for Track C (Cross-Region Diffs)
-				// executions.GET("/:id/cross-region-diff", executionsHandler.GetCrossRegionDiff)
-				// executions.GET("/:id/regions", executionsHandler.GetRegionResults)
+				// Cross-Region Diffs endpoints (enabled for Portal UI)
+				executions.GET("/:id/cross-region-diff", executionsHandler.GetCrossRegionDiff)
+				executions.GET("/:id/regions", executionsHandler.GetRegionResults)
 			}
 			// Job-scoped executions (includes rows without receipts)
 			v1.GET("/jobs/:id/executions/all", executionsHandler.ListAllExecutionsForJob)

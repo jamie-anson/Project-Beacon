@@ -446,7 +446,7 @@ export const getInfrastructureHealth = async () => {
 };
 
 // Individual execution and receipt APIs
-export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}`);
+export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}/details`);
 export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURIComponent(id)}/receipt`);
 
 // Cross-region diff APIs

@@ -126,23 +126,49 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 
 ## 🚀 **Updated Implementation Plan**
 
-### **Phase 1: Fix API Endpoint Disconnect** (CRITICAL - 15 min)
-1. **Update Portal API endpoints** to point to hybrid router
-2. **Test execution result fetching** from correct endpoint
-3. **Validate diffs view data loading**
+### **Phase 1: Move Execution Logic to Main Backend** (CRITICAL - 30 min)
+**Option 3 Selected**: Move multi-region execution logic from hybrid router to main backend
+
+#### **Step 1: Analyze Current Execution Flow** (5 min)
+- **Hybrid Router**: Currently handles multi-region execution in `hybrid_router.py`
+- **Main Backend**: Has job system in Go with Postgres storage
+- **Portal UI**: Expects execution results from main backend API
+
+#### **Step 2: Extract Execution Logic** (10 min)
+- **Source**: `hybrid_router.py` lines 252-350 (run_inference method)
+- **Target**: Main backend job runner system
+- **Components to move**:
+  - Multi-region provider selection
+  - Parallel execution coordination  
+  - Result aggregation and storage
+  - Graceful failure handling (EU Mistral 7B)
+
+#### **Step 3: Integrate with Main Backend** (10 min)
+- **Update job runner**: Add multi-region execution capability
+- **Database schema**: Ensure executions table supports multi-region results
+- **API endpoints**: Verify `/api/v1/executions/` returns proper data format
+- **Graceful failure**: Maintain EU Mistral 7B graceful failure logic
+
+#### **Step 4: Update Hybrid Router Role** (5 min)
+- **New role**: Pure inference proxy (no execution storage)
+- **Remove**: Execution storage logic (`EXECUTIONS_STORE`)
+- **Keep**: Provider health checks and inference routing
+- **Maintain**: 8/9 endpoint functionality
 
 ### **Phase 2: Original Diffs Issues** (30 min)
 - Continue with Issues 1-4 as originally planned
-- Now that we have real execution data flowing
+- Now with proper backend integration and persistent storage
 
 ---
 
 ## Testing Plan
 
-**Manual tests** (UPDATED):
+**Manual tests** (UPDATED for Option 3):
 - [x] **Multi-select job creation**: ✅ Working (3 executions created)
 - [x] **8/9 endpoint execution**: ✅ Working (88.9% success rate)
-- [ ] **Fix API endpoints**: Point Portal to hybrid router for execution results
+- [ ] **Move execution logic**: Integrate multi-region execution into main backend
+- [ ] **Test backend integration**: Verify executions stored in Postgres
+- [ ] **Validate API consistency**: Ensure Portal can fetch results from main backend
 - [ ] Load diffs page with real job ID, verify no mock data banner
 - [ ] Select different model, verify header/content updates
 - [ ] Use question picker, verify navigation and content reload
@@ -166,7 +192,9 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 
 ✅ **Multi-region execution**: Working perfectly (8/9 endpoints)  
 ✅ **Portal UI stability**: No crashes, graceful failure handling  
-🔧 **API endpoint fix**: Portal fetches results from hybrid router  
+🔧 **Backend integration**: Multi-region execution logic moved to main backend  
+🔧 **Persistent storage**: Execution results stored in Postgres database  
+🔧 **API consistency**: Portal fetches results from main backend (`/api/v1/executions/`)  
 ✅ **Real data**: No mock fallback when backend is available  
 ✅ **Question picker**: Selecting job navigates and loads new content  
 ✅ **Google Maps**: Loads cleanly with dark theme and polygons  
@@ -179,3 +207,32 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 - **Graceful Failure**: EU Mistral 7B (0.17s response)
 - **Portal Stability**: Chrome crash fixed
 - **Multi-select**: All 3 models × 3 regions working
+
+## 🚀 **Option 3 Implementation Strategy**
+
+### **Key Files to Modify:**
+1. **Main Backend** (Go):
+   - `internal/worker/job_runner.go` - Add multi-region execution logic
+   - `internal/service/jobs.go` - Update job creation for multi-region
+   - `internal/store/executions_repo.go` - Ensure proper execution storage
+
+2. **Hybrid Router** (Python):
+   - `hybrid_router.py` - Remove execution storage, keep inference routing
+   - Maintain provider health checks and 8/9 endpoint functionality
+
+3. **Portal UI** (React):
+   - `portal/src/lib/api.js` - Ensure endpoints point to main backend
+   - No changes needed if already pointing to main backend
+
+### **Migration Strategy:**
+1. **Preserve working 8/9 system** during migration
+2. **Test each component** before removing hybrid router logic
+3. **Maintain graceful failure** for EU Mistral 7B
+4. **Ensure persistent storage** in Postgres
+5. **Validate Portal UI** can fetch results properly
+
+### **Risk Mitigation:**
+- **Backup current working system** before changes
+- **Incremental migration** (test each step)
+- **Rollback plan** if integration fails
+- **Preserve all working functionality** (8/9 endpoints, graceful failure)
