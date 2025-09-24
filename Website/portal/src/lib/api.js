@@ -449,11 +449,11 @@ export const getInfrastructureHealth = async () => {
 export const getExecution = (id) => httpV1(`/executions/${encodeURIComponent(id)}/details`);
 export const getExecutionReceipt = (id) => httpV1(`/executions/${encodeURIComponent(id)}/receipt`);
 
-// Cross-region diff APIs
-// Cross-region diff APIs (robust):
-// Some backends expose GET (fetch existing) and/or POST (generate) for the same route.
+// Cross-region diff APIs with fallback construction
 export const getCrossRegionDiff = async (jobId) => {
   const id = encodeURIComponent(jobId);
+  console.log(`🔍 Getting cross-region diff for job: ${jobId}`);
+  
   // Try the diffs backend first (preferred in production)
   const diffsCandidates = [
     { path: `/api/v1/diffs/by-job/${id}`, method: 'GET' },
@@ -464,19 +464,25 @@ export const getCrossRegionDiff = async (jobId) => {
   for (const c of diffsCandidates) {
     try {
       const res = await httpDiffs(c.path, c.method === 'POST' ? { method: 'POST' } : {});
-      if (res) return res;
+      if (res) {
+        console.log('✅ Diffs backend succeeded');
+        return res;
+      }
     } catch (err) { lastErr = err; }
   }
-  // Try hybrid router first (has temporary cross-region diff endpoint)
+  
+  // Try hybrid router (has temporary cross-region diff endpoint)
   try {
     const hybridUrl = 'https://project-beacon-production.up.railway.app';
     const response = await fetch(`${hybridUrl}/api/v1/executions/${id}/cross-region-diff`);
     if (response.ok) {
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Hybrid router succeeded');
+      return result;
     }
   } catch (err) { lastErr = err; }
   
-  // Fallback to runner legacy endpoints if diffs backend does not have it
+  // Try main backend endpoints
   const runnerCandidates = [
     { path: `/executions/${id}/cross-region-diff`, method: 'GET' },
     { path: `/executions/${id}/regions`, method: 'GET' },
@@ -486,16 +492,126 @@ export const getCrossRegionDiff = async (jobId) => {
   for (const c of runnerCandidates) {
     try {
       const res = await httpV1(c.path, c.method === 'POST' ? { method: 'POST' } : {});
-      if (res) return res;
+      if (res) {
+        console.log('✅ Main backend succeeded');
+        return res;
+      }
     } catch (err) { lastErr = err; }
   }
-  // As a last-resort, try to infer from recent diffs on the diffs backend
+  
+  // FALLBACK: Construct from available execution data
+  console.log('⚠️  All endpoints failed, constructing from execution data...');
   try {
-    const recents = await listRecentDiffs({ limit: 10 });
-    const match = (recents || []).find((d) => String(d?.job_id || d?.job)?.includes(jobId));
-    if (match) return match;
-  } catch (e) { lastErr = e; }
-  throw lastErr || new Error('cross-region diff endpoints unavailable');
+    const executionsUrl = `/jobs/${id}/executions/all`;
+    const response = await httpV1(executionsUrl);
+    
+    if (!response || !response.executions) {
+      throw new Error('No execution data available');
+    }
+    
+    const executions = response.executions;
+    console.log(`📊 Found ${executions.length} executions for job ${jobId}`);
+    
+    if (executions.length === 0) {
+      throw new Error('No executions found for this job');
+    }
+    
+    // Group executions by region
+    const regionGroups = {};
+    executions.forEach(exec => {
+      const region = exec.region || 'unknown';
+      if (!regionGroups[region]) {
+        regionGroups[region] = [];
+      }
+      regionGroups[region].push(exec);
+    });
+    
+    const regions = Object.keys(regionGroups);
+    const totalExecutions = executions.length;
+    const successfulExecutions = executions.filter(e => e.status === 'completed').length;
+    const successRate = (successfulExecutions / totalExecutions * 100).toFixed(1);
+    
+    // Calculate regional performance
+    const regionalPerformance = regions.map(region => {
+      const regionExecs = regionGroups[region];
+      const successful = regionExecs.filter(e => e.status === 'completed').length;
+      const regionSuccessRate = (successful / regionExecs.length * 100).toFixed(1);
+      
+      return {
+        region,
+        execution_count: regionExecs.length,
+        success_rate: regionSuccessRate + '%',
+        status: regionSuccessRate >= 80 ? 'healthy' : regionSuccessRate >= 50 ? 'degraded' : 'unhealthy'
+      };
+    });
+    
+    // Construct cross-region diff response
+    const crossRegionDiff = {
+      job_id: jobId,
+      total_regions: regions.length,
+      total_executions: totalExecutions,
+      success_rate: successRate + '%',
+      executions: executions,
+      regions: regionGroups,
+      analysis: {
+        summary: `Cross-region analysis for ${regions.length} regions with ${totalExecutions} total executions (${successRate}% success rate)`,
+        overall_success_rate: successRate + '%',
+        regional_performance: regionalPerformance,
+        differences: [
+          {
+            metric: 'regional_availability',
+            description: 'Execution success rate by region',
+            data: regionalPerformance.reduce((acc, r) => {
+              acc[r.region] = r.success_rate;
+              return acc;
+            }, {})
+          },
+          {
+            metric: 'execution_distribution',
+            description: 'Number of executions by region',
+            data: regionalPerformance.reduce((acc, r) => {
+              acc[r.region] = r.execution_count;
+              return acc;
+            }, {})
+          }
+        ]
+      },
+      metadata: {
+        generated_at: new Date().toISOString(),
+        source: 'fallback_construction',
+        note: 'Constructed from execution data due to missing cross-region diff endpoints'
+      }
+    };
+    
+    console.log('✅ Successfully constructed cross-region diff from execution data');
+    console.log('📊 Analysis:', crossRegionDiff.analysis.summary);
+    
+    return crossRegionDiff;
+    
+  } catch (fallbackError) {
+    console.error('❌ Fallback construction failed:', fallbackError);
+    
+    // Last resort: Return helpful error with guidance
+    const errorResponse = {
+      job_id: jobId,
+      error: true,
+      message: 'Cross-region diff data unavailable',
+      details: fallbackError.message,
+      guidance: {
+        issue: 'Backend cross-region diff endpoints not deployed',
+        available_data: 'Individual execution data may be available',
+        next_steps: [
+          'Check individual executions in the executions list',
+          'Backend team needs to deploy cross-region diff endpoints',
+          'Temporary endpoints can be added to hybrid router'
+        ]
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    // Don't throw - return the error object so UI can display helpful message
+    return errorResponse;
+  }
 };
 
 export const createCrossRegionDiff = (jobId) => httpV1(`/executions/${encodeURIComponent(jobId)}/cross-region-diff`, { method: 'POST' });

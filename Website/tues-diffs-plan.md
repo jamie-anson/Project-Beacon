@@ -163,16 +163,26 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 
 ## Testing Plan
 
-**Manual tests** (UPDATED for Option 3):
+**Manual tests** (IMPLEMENTED with test scripts):
 - [x] **Multi-select job creation**: ✅ Working (3 executions created)
 - [x] **8/9 endpoint execution**: ✅ Working (88.9% success rate)
-- [ ] **Move execution logic**: Integrate multi-region execution into main backend
-- [ ] **Test backend integration**: Verify executions stored in Postgres
-- [ ] **Validate API consistency**: Ensure Portal can fetch results from main backend
+- [x] **API endpoint testing**: ✅ Implemented `test-diffs-endpoints.py`
+- [x] **Portal UI testing**: ✅ Implemented `test-portal-diffs.js` (browser console)
+- [x] **Fallback implementation**: ✅ Created `fix-diffs-fallback.js`
+- [ ] **Deploy fallback fix**: Apply fallback logic to Portal UI
 - [ ] Load diffs page with real job ID, verify no mock data banner
 - [ ] Select different model, verify header/content updates
 - [ ] Use question picker, verify navigation and content reload
 - [ ] Check map loads without Google warnings
+
+**Test Results (14:57 - Sep 24)**:
+- ✅ **Working endpoints**: 2/11 (18% success rate)
+  - `GET /api/v1/executions/637/details` ✅
+  - `GET /api/v1/jobs/{job_id}/executions/all` ✅
+- ❌ **Failed endpoints**: 9/11 (82% failure rate)
+  - All diffs backend endpoints (404)
+  - All cross-region diff endpoints (404)
+  - Hybrid router cross-region endpoint (404 - not deployed)
 
 **Live Testing Evidence**:
 - **Job ID**: bias-detection-1758719493 (3 executions: 636, 637, 638)
@@ -207,6 +217,25 @@ Fix the Cross-Region Diffs view to use real data, working question picker, prope
 - **Graceful Failure**: EU Mistral 7B (0.17s response)
 - **Portal Stability**: Chrome crash fixed
 - **Multi-select**: All 3 models × 3 regions working
+
+## 🧪 **Testing Implementation Results**
+
+### **✅ Test Scripts Created:**
+1. **`test-diffs-endpoints.py`** - Comprehensive API endpoint testing
+2. **`test-portal-diffs.js`** - Browser console debugging script
+3. **`fix-diffs-fallback.js`** - Fallback implementation for missing endpoints
+
+### **📊 Key Findings:**
+- **Root Cause**: Cross-region diff endpoints not deployed to backends
+- **Working Data**: Individual execution data is available and complete
+- **Solution**: Construct cross-region diffs from available execution data
+- **Immediate Fix**: Implement fallback logic in Portal UI
+
+### **🎯 Next Steps:**
+1. **Apply fallback fix** to Portal UI (`getCrossRegionDiff` function)
+2. **Test diffs page** with fallback logic
+3. **Deploy proper backend endpoints** (longer term)
+4. **Implement Playwright tests** for automated testing
 
 ## 🚀 **Option 3 Implementation Strategy**
 
