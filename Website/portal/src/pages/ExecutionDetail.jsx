@@ -290,12 +290,12 @@ export default function ExecutionDetail() {
                       )}
                     </div>
                   ) : (
-                    /* Fallback for simplified single output format */
+                    /* Fallback for simplified single output format (support new hybrid schema) */
                     <div className="space-y-3">
                       <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                         <div className="text-sm text-green-300 font-medium mb-2">Generated Response:</div>
                         <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
-                          "{executionData.output_data?.text_output || executionData.output_data?.stdout || executionData.output_data?.output || JSON.stringify(executionData.output_data, null, 2) || 'No output available'}"
+                          "{executionData.output_data?.response || executionData.output_data?.text_output || executionData.output_data?.stdout || executionData.output_data?.output || JSON.stringify(executionData.output_data, null, 2) || 'No output available'}"
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -385,22 +385,22 @@ export default function ExecutionDetail() {
                       )}
                     </div>
                   ) : (
-                    /* Fallback for simplified single output format */
+                    /* Fallback for simplified single output format (support new hybrid schema) */
                     <div className="space-y-3">
                       <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
                         <div className="text-sm text-blue-300 font-medium mb-2">Generated Response:</div>
                         <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
-                          "{receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
+                          "{receipt.output?.response || receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-400">Tokens Generated:</span>
-                          <span className="font-mono text-gray-200">{receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
+                          <span className="font-mono text-gray-200">{receipt.output?.tokens_generated || receipt.output?.data?.metadata?.tokens_generated || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Execution Time:</span>
-                          <span className="font-mono text-gray-200">{receipt.output?.data?.metadata?.execution_time || 'N/A'}</span>
+                          <span className="font-mono text-gray-200">{(receipt.execution_details && (receipt.execution_details.duration != null)) ? `${Number(receipt.execution_details.duration).toFixed(2)}s` : (receipt.output?.data?.metadata?.execution_time || 'N/A')}</span>
                         </div>
                       </div>
                     </div>

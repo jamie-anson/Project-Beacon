@@ -20,35 +20,47 @@ export default function LiveProgressTable({
       const sec = Math.floor(diff / 1000);
       if (sec < 60) return `${sec}s ago`;
       const min = Math.floor(sec / 60);
-      if (min < 60) return `${min}m ago`;
       const hr = Math.floor(min / 60);
       if (hr < 24) return `${hr}h ago`;
       const day = Math.floor(hr / 24);
       return `${day}d ago`;
     } catch { return String(ts); }
+  };
 
-function prefillFromExecutions(activeJob, setters) {
-  const { setARegion, setBRegion, setAText, setBText, setError } = setters || {};
-  try {
-    const execs = Array.isArray(activeJob?.executions) ? activeJob.executions : [];
-    if (execs.length === 0) throw new Error('No executions available to prefill');
-    const completed = execs.filter(e => String(e?.status || e?.state || '').toLowerCase() === 'completed');
-    const pick = (regionCode) => completed.find(e => (e?.region || e?.region_claimed || '').toUpperCase() === regionCode);
-    // Prefer US/EU, fallback to any two
-    let eA = pick('US') || completed[0] || execs[0];
-    let eB = pick('EU') || completed.find(e => e !== eA) || execs.find(e => e !== eA);
-    const rA = normalizeRegion(eA?.region || eA?.region_claimed);
-    const rB = normalizeRegion(eB?.region || eB?.region_claimed);
-    const tA = extractExecText(eA);
-    const tB = extractExecText(eB);
-    if (setARegion) setARegion(rA);
-    if (setBRegion) setBRegion(rB);
-    if (setAText) setAText(tA || '');
-    if (setBText) setBText(tB || '');
-  } catch (err) {
-    if (setError) setError(err?.message || String(err));
+  // Normalize exec region into one of US/EU/ASIA to match table rows
+  function regionCodeFromExec(exec) {
+    try {
+      const raw = String(exec?.region || exec?.region_claimed || '').toLowerCase();
+      if (!raw) return '';
+      if (raw.includes('us') || raw.includes('united states')) return 'US';
+      if (raw.includes('eu') || raw.includes('europe')) return 'EU';
+      if (raw.includes('asia') || raw.includes('apac') || raw.includes('pacific')) return 'ASIA';
+      return raw.toUpperCase();
+    } catch { return ''; }
   }
-}
+
+  function prefillFromExecutions(activeJob, setters) {
+    const { setARegion, setBRegion, setAText, setBText, setError } = setters || {};
+    try {
+      const execs = Array.isArray(activeJob?.executions) ? activeJob.executions : [];
+      if (execs.length === 0) throw new Error('No executions available to prefill');
+      const completed = execs.filter(e => String(e?.status || e?.state || '').toLowerCase() === 'completed');
+      const pick = (regionCode) => completed.find(e => regionCodeFromExec(e) === regionCode);
+      // Prefer US/EU, fallback to any two
+      let eA = pick('US') || completed[0] || execs[0];
+      let eB = pick('EU') || completed.find(e => e !== eA) || execs.find(e => e !== eA);
+      const rA = normalizeRegion(eA?.region || eA?.region_claimed);
+      const rB = normalizeRegion(eB?.region || eB?.region_claimed);
+      const tA = extractExecText(eA);
+      const tB = extractExecText(eB);
+      if (setARegion) setARegion(rA);
+      if (setBRegion) setBRegion(rB);
+      if (setAText) setAText(tA || '');
+      if (setBText) setBText(tB || '');
+    } catch (err) {
+      if (setError) setError(err?.message || String(err));
+    }
+  }
 
 function normalizeRegion(r) {
   const v = String(r || '').toUpperCase();
@@ -58,19 +70,20 @@ function normalizeRegion(r) {
   return 'us-east';
 }
 
-function extractExecText(exec) {
-  const out = exec?.output || exec?.result || {};
-  try {
-    if (out.responses && Array.isArray(out.responses) && out.responses.length > 0) {
-      const r = out.responses[0];
-      return r.response || r.answer || r.output || '';
-    }
-    if (out.text_output) return out.text_output;
-    if (out.output) return out.output;
-  } catch {}
-  return '';
-}
-  };
+  function extractExecText(exec) {
+    const out = exec?.output || exec?.result || {};
+    try {
+      if (typeof out?.response === 'string' && out.response) return out.response;
+      if (out.responses && Array.isArray(out.responses) && out.responses.length > 0) {
+        const r = out.responses[0];
+        return r.response || r.answer || r.output || '';
+      }
+      if (out.text_output) return out.text_output;
+      if (out.output) return out.output;
+    } catch {}
+    return '';
+  }
+  
 
   const truncateMiddle = (str, head = 6, tail = 4) => {
     if (!str || typeof str !== 'string') return '—';
@@ -110,13 +123,14 @@ function extractExecText(exec) {
   // Overall progress calculation
   const execs = activeJob?.executions || [];
   const total = selectedRegions.length;
-  const jobCompleted = isCompleted || String(activeJob?.status || '').toLowerCase() === 'completed';
+  const statusStr = String(activeJob?.status || activeJob?.state || '').toLowerCase();
+  const jobCompleted = isCompleted || ['completed','success','succeeded','done','finished'].includes(statusStr);
   const jobId = activeJob?.id || activeJob?.job?.id;
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
   // Only override execution counts for successful jobs, not failed ones
-  if (jobCompleted && String(activeJob?.status || '').toLowerCase() === 'completed') {
+  if (jobCompleted) {
     // If the job is successfully complete but we might not have full per-region execution info,
     // present a simple, clear UX: mark progress as fully completed.
     completed = total;
@@ -187,7 +201,7 @@ function extractExecText(exec) {
           <div className="px-3 py-2">Verification</div>
         </div>
         {['US','EU','ASIA'].map((r) => {
-          const e = (activeJob?.executions || []).find((x) => (x?.region || x?.region_claimed || '').toUpperCase?.() === r);
+          const e = (activeJob?.executions || []).find((x) => regionCodeFromExec(x) === r);
           const status = jobCompleted ? 'completed' : (e?.status || e?.state || 'pending');
           const started = e?.started_at || e?.created_at;
           const provider = e?.provider_id || e?.provider;
