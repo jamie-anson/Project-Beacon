@@ -2,21 +2,23 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies for health check and Modal CLI
+# Install system dependencies for health checks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy the hybrid router files from Website directory
-COPY Website/hybrid_router.py Website/requirements.txt ./
-
-# Install Python dependencies
+# Copy requirements and install deps
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port
-EXPOSE 8080
+# Copy application code needed for the router service
+COPY hybrid_router/ /app/hybrid_router/
+COPY hybrid_router.py /app/hybrid_router.py
 
-# Health check
+# Expose port (modular app defaults to 8000; PORT env var will override)
+EXPOSE 8000
+
+# Robust health check: try /health then fall back to /ready
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD sh -c 'curl -f http://localhost:${PORT:-8080}/ready || exit 1'
+  CMD sh -c 'curl -fsS http://localhost:${PORT:-8000}/health || curl -fsS http://localhost:${PORT:-8000}/ready || exit 1'
 
-# Start the application
-CMD ["python3", "hybrid_router.py"]
+# Start the modular FastAPI app
+CMD ["python3", "-m", "hybrid_router.main"]
