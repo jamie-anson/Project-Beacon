@@ -643,6 +643,9 @@ try {
 // If no explicit base, use same-origin proxy configured in netlify.toml
 if (!DIFFS_BASE) DIFFS_BASE = '/backend-diffs';
 
+// One-time debug log in development to help diagnose diffs routing
+try { if (import.meta?.env?.DEV) console.info('[Beacon] DIFFS_BASE =', DIFFS_BASE); } catch {}
+
 async function httpDiffs(path, opts = {}) {
   const url = `${DIFFS_BASE}${path.startsWith('/') ? path : '/' + path}`;
   const fetchOptions = {
