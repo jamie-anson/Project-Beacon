@@ -50,9 +50,8 @@ runner-app/
 docs-cid.txt
 *.tar.gz
 
-# Planning files
+# Planning files (keep plan docs local only)
 *plan.md
-docs/sot/facts.json
 
 # Test artifacts
 playwright-report/
