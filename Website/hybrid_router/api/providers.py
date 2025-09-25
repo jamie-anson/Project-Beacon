@@ -48,7 +48,13 @@ async def get_metrics():
         "cost_range": {
             "min": min(p.cost_per_second for p in healthy_providers) if healthy_providers else 0,
             "max": max(p.cost_per_second for p in healthy_providers) if healthy_providers else 0
-        }
+        },
+        # Keep aligned with legacy expectations
+        "models_supported": [
+            "llama3.2-1b",
+            "mistral-7b",
+            "qwen2.5-1.5b",
+        ],
     }
 
 

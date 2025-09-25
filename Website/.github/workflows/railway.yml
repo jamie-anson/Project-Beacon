@@ -60,7 +60,6 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - name: Install curl and jq
         run: |
@@ -68,6 +67,7 @@ jobs:
           sudo apt-get install -y curl jq
 
       - name: Wait for Railway to roll out
+        continue-on-error: true
         run: |
           set -e
           URL="https://project-beacon-production.up.railway.app/health"
