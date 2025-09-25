@@ -140,7 +140,10 @@ class HybridRouter:
                     "asia-pacific": os.getenv("MODAL_APAC_HEALTH_URL")
                 }
                 fallback_health = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
-                health_endpoint = health_defaults.get(provider.region, fallback_health)
+                # Use per-region health endpoint when set; otherwise fall back
+                # Note: dict.get(key, default) would return None if the key exists with a None value,
+                # which would skip the desired fallback. Hence the explicit "or" usage.
+                health_endpoint = health_defaults.get(provider.region) or fallback_health
 
                 response = await self.client.get(health_endpoint, timeout=5.0)
                 if response.status_code == 200:
