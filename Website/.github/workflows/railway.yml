@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Dockerfile'
+      - 'Dockerfile.router'
       - 'hybrid_router.py'
       - 'hybrid_router/**'
       - 'requirements.txt'
@@ -16,7 +16,7 @@ on:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Dockerfile'
+      - 'Dockerfile.router'
       - 'hybrid_router.py'
       - 'hybrid_router/**'
       - 'requirements.txt'
@@ -49,7 +49,7 @@ jobs:
       - name: Build hybrid-router image (no push)
         run: |
           DOCKER_BUILDKIT=1 docker build --progress=plain \
-            -f Dockerfile \
+            -f Dockerfile.router \
             -t beacon-hybrid-router:ci \
             .
 
