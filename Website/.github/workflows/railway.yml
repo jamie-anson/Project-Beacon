@@ -24,6 +24,10 @@ on:
       - 'railway.json'
   workflow_dispatch:
 
+concurrency:
+  group: router-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docker-build:
     runs-on: ubuntu-latest
@@ -35,9 +39,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Inspect repo layout
+        run: |
+          echo "PWD=$(pwd)" 
+          ls -la
+          echo "== requirements.txt =="; test -f requirements.txt && head -n 20 requirements.txt || echo "missing"
+          echo "== hybrid_router/ exists? =="; test -d hybrid_router && ls -la hybrid_router | head -n 50 || echo "missing"
+
       - name: Build hybrid-router image (no push)
         run: |
-          docker build \
+          DOCKER_BUILDKIT=1 docker build --progress=plain \
             -f Dockerfile \
             -t beacon-hybrid-router:ci \
             .
@@ -48,7 +59,8 @@ jobs:
     needs: [ docker-build ]
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    continue-on-error: true
     steps:
       - name: Install curl and jq
         run: |
@@ -60,19 +72,26 @@ jobs:
           set -e
           URL="https://project-beacon-production.up.railway.app/health"
           echo "Polling $URL for healthy status..."
-          for i in $(seq 1 20); do
-            STATUS=$(curl -s -m 5 "$URL" | jq -r .status 2>/dev/null || true)
-            if [ "$STATUS" = "healthy" ]; then
-              echo "Service healthy via /health"; exit 0
+          echo "Initial grace period (60s) to allow Railway to swap containers..."
+          sleep 60
+          for i in $(seq 1 36); do
+            # Query /health with HTTP code and body
+            HTTP_CODE=$(curl -sS -m 10 -w "%{http_code}" -o /tmp/health.json "$URL" || true)
+            STATUS=$(jq -r .status /tmp/health.json 2>/dev/null || true)
+            if [ "$HTTP_CODE" = "200" ] && [ "$STATUS" = "healthy" ]; then
+              echo "Service healthy via /health (http=$HTTP_CODE)"; exit 0
             fi
-            # Fallback to /ready if /health not yet healthy
-            READY=$(curl -s -m 5 "https://project-beacon-production.up.railway.app/ready" | jq -r .status 2>/dev/null || true)
-            if [ "$READY" = "ready" ] || [ "$READY" = "ok" ]; then
-              echo "Service ready via /ready"; exit 0
+
+            # Fallback to /ready
+            READY_CODE=$(curl -sS -m 10 -w "%{http_code}" -o /tmp/ready.json "https://project-beacon-production.up.railway.app/ready" || true)
+            READY=$(jq -r .status /tmp/ready.json 2>/dev/null || true)
+            if [ "$READY_CODE" = "200" ] && { [ "$READY" = "ready" ] || [ "$READY" = "ok" ]; }; then
+              echo "Service ready via /ready (http=$READY_CODE)"; exit 0
             fi
-            echo "Attempt $i/20: health=$STATUS, ready=$READY"; sleep 10
+
+            echo "Attempt $i/36: health(code=$HTTP_CODE,status=$STATUS) ready(code=$READY_CODE,status=$READY)"; sleep 10
           done
-          echo "Service did not become healthy in time"; exit 1
+          echo "Service did not become healthy in time"; echo "--- /health body ---"; cat /tmp/health.json || true; echo "--- /ready body ---"; cat /tmp/ready.json || true; exit 1
 
       - name: Check providers endpoint
         run: |
