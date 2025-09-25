@@ -14,7 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code needed for the router service
 COPY hybrid_router/ /app/hybrid_router/
-COPY hybrid_router.py /app/hybrid_router.py
 
 # Expose port (modular app defaults to 8000; PORT env var will override)
 EXPOSE 8000

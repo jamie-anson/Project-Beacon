@@ -2,6 +2,13 @@
 go.work
 go.work.sum
 runner-app/
+node_modules/
+.git/
+.githooks/
+.temp-backup/
+debug/
+demo-results/
+images/
 
 # Ignore other project directories
 portal/

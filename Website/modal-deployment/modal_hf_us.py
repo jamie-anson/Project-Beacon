@@ -198,19 +198,49 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         
         inference_time = time.time() - start_time
         
+        execution_details = {
+            "provider_id": f"modal-{region}",
+            "region": region,
+            "model": model_name,
+            "started_at": start_time,
+            "completed_at": time.time(),
+            "duration": inference_time
+        }
+
+        receipt = {
+            "schema_version": "v0.1.0",
+            "execution_details": execution_details,
+            "output": {
+                "response": response,
+                "prompt": prompt,
+                "tokens_generated": len(tokenizer.encode(response)),
+                "metadata": {
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "full_response": full_response
+                }
+            },
+            "provenance": {
+                "provider": "modal",
+                "architecture": "hf-transformers",
+                "model_registry": model_name
+            }
+        }
+
         return {
-            "status": "success",
+            "success": True,
             "response": response,
             "model": model_name,
             "inference_time": inference_time,
             "region": region,
             "tokens_generated": len(tokenizer.encode(response)),
-            "gpu_memory_used": torch.cuda.memory_allocated() if torch.cuda.is_available() else 0
+            "gpu_memory_used": torch.cuda.memory_allocated() if torch.cuda.is_available() else 0,
+            "receipt": receipt
         }
         
     except Exception as e:
         return {
-            "status": "error",
+            "success": False,
             "error": str(e),
             "region": region,
             "inference_time": time.time() - start_time

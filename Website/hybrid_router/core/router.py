@@ -72,17 +72,26 @@ class HybridRouter:
         #     ))
         
         # Modal serverless (burst capacity)
+        modal_defaults = {
+            "us-east": os.getenv("MODAL_US_INFERENCE_URL"),
+            "eu-west": os.getenv("MODAL_EU_INFERENCE_URL"),
+            "asia-pacific": os.getenv("MODAL_APAC_INFERENCE_URL")
+        }
         modal_endpoint = os.getenv("MODAL_API_BASE")
-        if modal_endpoint:
-            for region in ["us-east", "eu-west", "asia-pacific"]:
-                self.providers.append(Provider(
-                    name=f"modal-{region}",
-                    type=ProviderType.MODAL,
-                    endpoint=modal_endpoint,
-                    region=region,
-                    cost_per_second=0.0003,  # T4 pricing
-                    max_concurrent=10
-                ))
+
+        for region, endpoint in modal_defaults.items():
+            target_endpoint = endpoint or modal_endpoint
+            if not target_endpoint:
+                continue
+
+            self.providers.append(Provider(
+                name=f"modal-{region}",
+                type=ProviderType.MODAL,
+                endpoint=target_endpoint,
+                region=region,
+                cost_per_second=0.0003,  # T4 pricing
+                max_concurrent=10
+            ))
         
         # RunPod serverless - REMOVED (not using RunPod)
         # runpod_endpoint = os.getenv("RUNPOD_API_BASE")
@@ -124,8 +133,15 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check - use dedicated health endpoint
-                health_endpoint = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
+                # Modal health check - use per-region override or fallback
+                health_defaults = {
+                    "us-east": os.getenv("MODAL_US_HEALTH_URL"),
+                    "eu-west": os.getenv("MODAL_EU_HEALTH_URL"),
+                    "asia-pacific": os.getenv("MODAL_APAC_HEALTH_URL")
+                }
+                fallback_health = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
+                health_endpoint = health_defaults.get(provider.region, fallback_health)
+
                 response = await self.client.get(health_endpoint, timeout=5.0)
                 if response.status_code == 200:
                     health_data = response.json()
@@ -212,7 +228,8 @@ class HybridRouter:
                 metadata={
                     "provider_type": provider.type.value,
                     "region": provider.region,
-                    "model": request.model
+                    "model": request.model,
+                    "receipt": result.get("receipt"),
                 }
             )
             
@@ -258,12 +275,25 @@ class HybridRouter:
         # e.g., region == "asia-pacific" will invoke run_inference_apac
         payload["region"] = provider.region
 
-        headers = {"Authorization": f"Bearer {os.getenv('MODAL_API_TOKEN')}"}
-        response = await self.client.post(provider.endpoint, json=payload, headers=headers)
-        
+        token = os.getenv("MODAL_API_TOKEN")
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+        response = None
+        for attempt in range(3):
+            response = await self.client.post(provider.endpoint, json=payload, headers=headers)
+
+            if response.status_code == 404 and "app for invoked web endpoint is stopped" in response.text:
+                logger.warning(
+                    "Modal endpoint reported stopped app; retrying",
+                    extra={"provider": provider.name, "attempt": attempt + 1}
+                )
+                await asyncio.sleep(2 * (attempt + 1))
+                continue
+            break
+
         # Normalize Modal response to router's expected schema
         try:
-            data = response.json()
+            data = response.json() if response is not None else None
         except Exception:
             data = None
 
@@ -282,6 +312,7 @@ class HybridRouter:
                 "success": bool(success),
                 "response": resp_text,
                 "error": error_msg,
+                "receipt": data.get("receipt"),
                 "modal_raw": data,
             }
         else:
