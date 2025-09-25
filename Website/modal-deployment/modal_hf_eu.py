@@ -260,13 +260,7 @@ def get_models() -> Dict[str, Any]:
         "ready_models": [name for name, cache in MODEL_CACHE.items() if cache.get("status") == "ready"] if MODEL_CACHE else []
     }
 
-@app.function(
-    image=image,
-    timeout=30,
-    secrets=SECRETS,
-)
-def health_check() -> Dict[str, Any]:
-    """Health check"""
+def _health_payload() -> Dict[str, Any]:
     ready_models = [name for name, cache in MODEL_CACHE.items() if cache.get("status") == "ready"] if MODEL_CACHE else []
     return {
         "status": "healthy",
@@ -278,6 +272,16 @@ def health_check() -> Dict[str, Any]:
         "architecture": "hf-transformers",
         "cache_initialized": bool(MODEL_CACHE)
     }
+
+
+@app.function(
+    image=image,
+    timeout=30,
+    secrets=SECRETS,
+)
+def health_check() -> Dict[str, Any]:
+    """Background health check callable by other Modal functions"""
+    return _health_payload()
 
 # Web endpoints for HTTP access
 @app.function(
@@ -312,4 +316,4 @@ def inference(item: dict):
 @modal.web_endpoint(method="GET")
 def health():
     """HTTP health check endpoint"""
-    return health_check()
+    return _health_payload()

@@ -1,6 +1,6 @@
 """
 Project Beacon - HF Transformers APAC Region
-All 3 models: Llama 3.2-1B, Mistral 7B, Qwen 2.5-1.5B
+Models served: Llama 3.2-1B, Qwen 2.5-1.5B
 """
 import modal
 import os
@@ -47,13 +47,6 @@ MODEL_REGISTRY = {
         "memory_gb": 8,
         "context_length": 128000,
         "description": "Fast 1B parameter model for quick inference"
-    },
-    "mistral-7b": {
-        "hf_model": "mistralai/Mistral-7B-Instruct-v0.3", 
-        "gpu": "A10G",
-        "memory_gb": 16,
-        "context_length": 32768,
-        "description": "Strong 7B parameter general-purpose model"
     },
     "qwen2.5-1.5b": {
         "hf_model": "Qwen/Qwen2.5-1.5B-Instruct",
@@ -260,13 +253,7 @@ def get_models() -> Dict[str, Any]:
         "ready_models": [name for name, cache in MODEL_CACHE.items() if cache.get("status") == "ready"] if MODEL_CACHE else []
     }
 
-@app.function(
-    image=image,
-    timeout=30,
-    secrets=SECRETS,
-)
-def health_check() -> Dict[str, Any]:
-    """Health check"""
+def _health_payload() -> Dict[str, Any]:
     ready_models = [name for name, cache in MODEL_CACHE.items() if cache.get("status") == "ready"] if MODEL_CACHE else []
     return {
         "status": "healthy",
@@ -278,6 +265,16 @@ def health_check() -> Dict[str, Any]:
         "architecture": "hf-transformers",
         "cache_initialized": bool(MODEL_CACHE)
     }
+
+
+@app.function(
+    image=image,
+    timeout=30,
+    secrets=SECRETS,
+)
+def health_check() -> Dict[str, Any]:
+    """Background health check callable by other Modal functions"""
+    return _health_payload()
 
 # Web endpoints for HTTP access
 @app.function(
@@ -312,4 +309,4 @@ def inference(item: dict):
 @modal.web_endpoint(method="GET")
 def health():
     """HTTP health check endpoint"""
-    return health_check()
+    return _health_payload()
