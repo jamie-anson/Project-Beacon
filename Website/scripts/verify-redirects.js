@@ -13,6 +13,12 @@ if (!fs.existsSync(redirectsPath)) {
 const txt = fs.readFileSync(redirectsPath, 'utf8');
 const lines = txt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
+// Helper: parse a redirect rule "from to status"
+function parseRule(line) {
+  const parts = line.split(/\s+/).filter(Boolean);
+  return { from: parts[0] || '', to: parts[1] || '', status: parts[2] || '' };
+}
+
 // Required rules in expected order
 const requiredRules = [
   // Backend diffs proxies
@@ -63,6 +69,29 @@ if (portalAssetsIndex === -1) {
   errors.push('Portal SPA rule not found');
 } else if (portalAssetsIndex > portalSpaIndex) {
   errors.push('Portal assets rule must come before portal SPA rule (order violation)');
+}
+
+// Enforce backend-diffs upstream target (env override supported)
+const expectedDiffsBase = process.env.REDIRECT_DIFFS_BASE || 'https://backend-diffs-production.up.railway.app';
+const healthLine = lines.find(line => line.startsWith('/backend-diffs/health '));
+const splatLine = lines.find(line => line.startsWith('/backend-diffs/* '));
+
+if (healthLine) {
+  const r = parseRule(healthLine);
+  if (r.to !== `${expectedDiffsBase}/health` || r.status !== '200!') {
+    errors.push(`backend-diffs health proxy must target ${expectedDiffsBase}/health 200! but got: ${healthLine}`);
+  }
+} else {
+  errors.push('backend-diffs health proxy rule not found');
+}
+
+if (splatLine) {
+  const r = parseRule(splatLine);
+  if (r.to !== `${expectedDiffsBase}/:splat` || r.status !== '200!') {
+    errors.push(`backend-diffs splat proxy must target ${expectedDiffsBase}/:splat 200! but got: ${splatLine}`);
+  }
+} else {
+  errors.push('backend-diffs splat proxy rule not found');
 }
 
 if (errors.length > 0) {
