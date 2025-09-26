@@ -61,11 +61,18 @@ async function main() {
       log(`✅ Package file exists: ${file}`);
     }
     
-    // Step 1: Install root dependencies
-    runCommand('npm ci', 'Installing root dependencies');
+    // Step 1: Install root dependencies (Netlify already ran npm ci before build)
+    const npmFlags = (process.env.NPM_FLAGS || '').trim();
+    const rootInstalled = fs.existsSync('node_modules') && fs.existsSync('package-lock.json');
+    if (rootInstalled && process.env.NETLIFY) {
+      log('Skipping root npm ci (detected NETLIFY and node_modules present)');
+    } else {
+      runCommand(`npm ci${npmFlags ? ' ' + npmFlags : ''}`.trim(), 'Installing root dependencies');
+    }
     
     // Step 2: Install portal dependencies  
-    runCommand('cd portal && npm ci', 'Installing portal dependencies');
+    const portalCmd = `npm ci${npmFlags ? ' ' + npmFlags : ''}`.trim();
+    runCommand(`bash -lc "cd portal && ${portalCmd}"`, 'Installing portal dependencies');
     
     // Step 3: Build static site
     runCommand('npm run build:static', 'Building static site');

@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 
 import httpx
 from fastapi import HTTPException
+from datetime import datetime
 
 from ..models import Provider, ProviderType, InferenceRequest, InferenceResponse
 
@@ -19,6 +20,43 @@ class HybridRouter:
         self.providers: List[Provider] = []
         self.client = httpx.AsyncClient(timeout=120.0)
         self.setup_providers()
+
+    def _build_failure(
+        self,
+        *,
+        code: str,
+        stage: str,
+        message: str,
+        provider: Optional[str] = None,
+        provider_type: Optional[str] = None,
+        region: Optional[str] = None,
+        model: Optional[str] = None,
+        transient: bool = False,
+        http_status: Optional[int] = None,
+        url: Optional[str] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        failure: Dict[str, Any] = {
+            "code": code,
+            "stage": stage,
+            "component": "hybrid_router",
+            "subcomponent": "inference",
+            "message": message,
+            "provider": provider,
+            "provider_type": provider_type,
+            "region": region,
+            "model": model,
+            "transient": transient,
+            "timestamp": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        }
+        if http_status is not None:
+            failure["http_status"] = http_status
+        if url:
+            failure["url"] = url
+        if extra:
+            failure.update(extra)
+        # Drop keys with None values for cleaner payloads
+        return {k: v for k, v in failure.items() if v is not None}
         
     def setup_providers(self):
         """Initialize provider configurations"""
@@ -200,7 +238,24 @@ class HybridRouter:
         
         provider = self.select_provider(request)
         if not provider:
-            raise HTTPException(status_code=503, detail="No healthy providers available")
+            failure = self._build_failure(
+                code="PROVIDER_UNAVAILABLE",
+                stage="provider_selection",
+                message="No healthy providers available",
+                region=request.region_preference,
+                model=request.model,
+                transient=True,
+            )
+            return InferenceResponse(
+                success=False,
+                error=failure["message"],
+                error_code=failure["code"],
+                failure=failure,
+                provider_used="",
+                inference_time=0.0,
+                cost_estimate=0.0,
+                metadata={"requested_region": request.region_preference or "unknown"},
+            )
         
         start_time = time.time()
         
@@ -225,6 +280,8 @@ class HybridRouter:
                 success=result["success"],
                 response=result.get("response"),
                 error=result.get("error"),
+                error_code=result.get("error_code"),
+                failure=result.get("failure"),
                 provider_used=provider.name,
                 inference_time=inference_time,
                 cost_estimate=cost_estimate,
@@ -233,6 +290,7 @@ class HybridRouter:
                     "region": provider.region,
                     "model": request.model,
                     "receipt": result.get("receipt"),
+                    "failure": result.get("failure"),
                 }
             )
             
@@ -240,13 +298,25 @@ class HybridRouter:
             inference_time = time.time() - start_time
             logger.error(f"Inference failed on {provider.name}: {e}")
             
+            failure = self._build_failure(
+                code="ROUTER_INTERNAL_ERROR",
+                stage="router_inference",
+                message=str(e),
+                provider=provider.name,
+                provider_type=provider.type.value,
+                region=provider.region,
+                model=request.model,
+                transient=True,
+            )
             return InferenceResponse(
                 success=False,
                 error=str(e),
+                error_code=failure["code"],
+                failure=failure,
                 provider_used=provider.name,
                 inference_time=inference_time,
                 cost_estimate=0.0,
-                metadata={"provider_type": provider.type.value, "region": provider.region}
+                metadata={"provider_type": provider.type.value, "region": provider.region, "failure": failure}
             )
     
     async def _run_golem_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
@@ -262,8 +332,25 @@ class HybridRouter:
         
         if response.status_code == 200:
             return response.json()
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+
+        failure = self._build_failure(
+            code=f"PROVIDER_HTTP_{response.status_code}",
+            stage="provider_execution",
+            message=f"Golem HTTP {response.status_code}",
+            provider=provider.name,
+            provider_type=provider.type.value,
+            region=provider.region,
+            model=request.model,
+            http_status=response.status_code,
+            url=f"{provider.endpoint}/inference",
+            transient=response.status_code >= 500,
+        )
+        return {
+            "success": False,
+            "error": f"HTTP {response.status_code}: {response.text}",
+            "error_code": failure["code"],
+            "failure": failure,
+        }
     
     async def _run_modal_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
         """Run inference on Modal provider"""
@@ -300,7 +387,7 @@ class HybridRouter:
         except Exception:
             data = None
 
-        if response.status_code == 200 and isinstance(data, dict):
+        if response is not None and response.status_code == 200 and isinstance(data, dict):
             # Modal returns { status: "success" | "error", response?: str, error?: str, ... }
             status = data.get("status")
             success = data.get("success")
@@ -311,6 +398,27 @@ class HybridRouter:
             resp_text = data.get("response") or data.get("output") or data.get("text")
             error_msg = data.get("error")
 
+            if not success:
+                failure_payload = data.get("failure") or {}
+                failure = self._build_failure(
+                    code=failure_payload.get("code", "PROVIDER_EXECUTION_FAILED"),
+                    stage=failure_payload.get("stage", "provider_execution"),
+                    message=error_msg or failure_payload.get("message", "Modal execution failed"),
+                    provider=provider.name,
+                    provider_type=provider.type.value,
+                    region=provider.region,
+                    model=request.model,
+                    transient=True,
+                    extra={k: v for k, v in failure_payload.items() if k not in {"code", "stage", "message"}},
+                )
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_code": failure.get("code"),
+                    "failure": failure,
+                    "modal_raw": data,
+                }
+
             return {
                 "success": bool(success),
                 "response": resp_text,
@@ -318,8 +426,50 @@ class HybridRouter:
                 "receipt": data.get("receipt"),
                 "modal_raw": data,
             }
-        else:
-            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+
+        # Non-200 or invalid responses fall back to HTTP failure mapping
+        status_code = response.status_code if response is not None else 500
+        body_text = response.text if response is not None else ""
+
+        if isinstance(data, dict) and status_code == 200:
+            # Handle unexpected JSON without explicit HTTP status
+            failure = self._build_failure(
+                code="PROVIDER_EXECUTION_FAILED",
+                stage="provider_execution",
+                message=data.get("error", "Modal execution failed"),
+                provider=provider.name,
+                provider_type=provider.type.value,
+                region=provider.region,
+                model=request.model,
+                transient=True,
+                extra={k: v for k, v in data.items() if k not in {"code", "stage", "message"}},
+            )
+            return {
+                "success": False,
+                "error": failure.get("message"),
+                "error_code": failure["code"],
+                "failure": failure,
+                "modal_raw": data,
+            }
+
+        failure = self._build_failure(
+            code=f"PROVIDER_HTTP_{status_code}",
+            stage="provider_execution",
+            message=f"Modal HTTP {status_code}",
+            provider=provider.name,
+            provider_type=provider.type.value,
+            region=provider.region,
+            model=request.model,
+            http_status=status_code,
+            url=provider.endpoint,
+            transient=status_code >= 500,
+        )
+        return {
+            "success": False,
+            "error": f"HTTP {status_code}: {body_text}",
+            "error_code": failure["code"],
+            "failure": failure,
+        }
     
     # async def _run_runpod_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
     #     """Run inference on RunPod provider - REMOVED"""

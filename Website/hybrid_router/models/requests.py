@@ -17,6 +17,8 @@ class InferenceResponse(BaseModel):
     success: bool
     response: Optional[str] = None
     error: Optional[str] = None
+    error_code: Optional[str] = None
+    failure: Optional[Dict[str, Any]] = None
     provider_used: str
     inference_time: float
     cost_estimate: float
