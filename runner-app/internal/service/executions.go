@@ -51,11 +51,51 @@ func (s *ExecutionService) RecordEarlyFailure(ctx context.Context, jobID string,
 	}
 
 	// Build output JSON with error and any extras
-	out := map[string]any{"error": reason.Error()}
+	payload := map[string]any{"error": reason.Error()}
 	for k, v := range extras {
-		out[k] = v
+		payload[k] = v
 	}
-	outJSON, _ := json.Marshal(out)
+
+	failure, hasFailure := payload["failure"].(map[string]any)
+	if !hasFailure {
+		failure = map[string]any{}
+	}
+
+	if _, ok := failure["stage"]; !ok {
+		failure["stage"] = "job_initialization"
+	}
+	if _, ok := failure["component"]; !ok {
+		failure["component"] = "runner"
+	}
+	if _, ok := failure["subcomponent"]; !ok {
+		failure["subcomponent"] = "execution_service"
+	}
+	if _, ok := failure["code"]; !ok {
+		failure["code"] = "RUNNER_EARLY_FAILURE"
+	}
+	if _, ok := failure["type"]; !ok {
+		failure["type"] = "internal"
+	}
+	if _, ok := failure["region"]; !ok {
+		failure["region"] = region
+	}
+	if _, ok := failure["message"]; !ok {
+		failure["message"] = reason.Error()
+	}
+	if _, ok := failure["transient"]; !ok {
+		failure["transient"] = false
+	}
+	failure["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+
+	payload["failure"] = failure
+
+	if _, ok := payload["error_code"]; !ok {
+		if code, okCode := failure["code"].(string); okCode {
+			payload["error_code"] = code
+		}
+	}
+
+	outJSON, _ := json.Marshal(payload)
 
 	startedAt := time.Now().UTC()
 	completedAt := startedAt

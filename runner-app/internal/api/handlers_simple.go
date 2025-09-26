@@ -71,17 +71,16 @@ func (h *JobsHandler) CreateJob(c *gin.Context) {
 	
 	// Run security pipeline (trust evaluation, rate limiting, replay protection, signature verification)
 	clientIP := c.ClientIP()
-	l.Info().Str("client_ip", clientIP).Str("job_id", spec.ID).Msg("DIAGNOSTIC: Starting security validation")
 	
 	if err := h.securityPipeline.ValidateJobSpec(c.Request.Context(), spec, raw, clientIP); err != nil {
 		l.Error().Err(err).Str("job_id", spec.ID).Msg("DIAGNOSTIC: Security validation failed")
 		// Check if it's a structured error with specific response
 		if validationErr, ok := err.(*security.ValidationError); ok {
-			// Handle specific HTTP status codes for certain error types
 			status := http.StatusBadRequest
-			if validationErr.ErrorCode == "rate_limit_exceeded" {
+			switch validationErr.ErrorCode {
+			case "rate_limit_exceeded":
 				status = http.StatusTooManyRequests
-			} else if validationErr.ErrorCode == "protection_unavailable:replay" {
+			case "protection_unavailable:replay":
 				status = http.StatusServiceUnavailable
 			}
 			l.Error().

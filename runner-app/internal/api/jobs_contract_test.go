@@ -18,9 +18,21 @@ import (
 // Trust enforcement: when enabled and signing key is not in allowlist, CreateJob returns 400 with error_code
 func TestContract_CreateJob_TrustEnforce_Untrusted_400(t *testing.T) {
     t.Parallel()
-    // Router with TrustEnforce=true
-    cfg := &config.Config{HTTPPort: "8090", TrustEnforce: true}
-    r := SetupRoutes(nil, cfg, nil)
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("sqlmock.New: %v", err)
+    }
+    defer db.Close()
+
+    cfg := &config.Config{
+        HTTPPort:                "8090",
+        TrustEnforce:            true,
+        SigBypass:               false,
+        ReplayProtectionEnabled: false,
+        TimestampMaxSkew:        5 * time.Minute,
+        TimestampMaxAge:         10 * time.Minute,
+    }
+    r := newTestRouterWithDBConfig(db, cfg)
 
     // Build a valid signed spec with a random key (not in allowlist)
     js := buildSignedJobSpec(t, "job-trust-bad")
@@ -34,6 +46,9 @@ func TestContract_CreateJob_TrustEnforce_Untrusted_400(t *testing.T) {
     if w.Header().Get("X-Request-ID") == "" { t.Fatalf("missing X-Request-ID header") }
 
     jsonEqual(t, w.Body.Bytes(), mustReadGolden(t, "create_job_trust_violation_400.json"))
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Fatalf("unexpected DB usage: %v", err)
+    }
 }
 
 // Rate limiting: hammer an endpoint until 429, assert headers and body via golden

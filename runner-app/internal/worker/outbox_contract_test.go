@@ -52,8 +52,12 @@ func TestEnvelope_Contract_Parity(t *testing.T) {
 	if unmarshaledEnvelope["enqueued_at"] != validEnvelope["enqueued_at"] {
 		t.Errorf("enqueued_at mismatch after marshal/unmarshal: got %s, want %s", unmarshaledEnvelope["enqueued_at"], validEnvelope["enqueued_at"])
 	}
-	if unmarshaledEnvelope["attempt"] != validEnvelope["attempt"] {
-		t.Errorf("attempt mismatch after marshal/unmarshal: got %d, want %d", unmarshaledEnvelope["attempt"], validEnvelope["attempt"])
+	if got, ok := unmarshaledEnvelope["attempt"].(float64); ok {
+		if int(got) != validEnvelope["attempt"].(int) {
+			t.Errorf("attempt mismatch after marshal/unmarshal: got %v, want %v", got, validEnvelope["attempt"])
+		}
+	} else if unmarshaledEnvelope["attempt"] != validEnvelope["attempt"] {
+		t.Errorf("attempt mismatch after marshal/unmarshal: got %v, want %v", unmarshaledEnvelope["attempt"], validEnvelope["attempt"])
 	}
 	if unmarshaledEnvelope["request_id"] != validEnvelope["request_id"] {
 		t.Errorf("request_id mismatch after marshal/unmarshal: got %s, want %s", unmarshaledEnvelope["request_id"], validEnvelope["request_id"])

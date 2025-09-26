@@ -179,6 +179,7 @@ func main() {
 
 		// Start JobRunner (Redis -> execute -> Postgres -> IPFS bundling)
 		jr := worker.NewJobRunnerWithQueue(database.DB, q, gsvc, bundler, cfg.JobsQueueName)
+		jr.WSHub = hub // Wire WebSocket hub for failure events
 		// Initialize Hybrid Router client if enabled
 		// Preferred env: HYBRID_BASE; Fallback: HYBRID_ROUTER_URL; or ENABLE_HYBRID_DEFAULT=1
 		if os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {

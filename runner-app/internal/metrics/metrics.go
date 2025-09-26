@@ -71,6 +71,14 @@ var (
 		[]string{"region", "status"},
 	)
 
+	RunnerFailuresTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "runner_failures_total",
+			Help: "Total runner execution failures by region and error type.",
+		},
+		[]string{"region", "error_type", "component"},
+	)
+
 	QueueLatencySeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "runner_queue_latency_seconds",
@@ -169,6 +177,7 @@ func RegisterAll() {
 		WebSocketMessagesBroadcastTotal,
 		WebSocketMessagesDroppedTotal,
 		ExecutionDurationSeconds,
+		RunnerFailuresTotal,
 		QueueLatencySeconds,
 		OffersSeenTotal,
 		OffersP0P2Total,
