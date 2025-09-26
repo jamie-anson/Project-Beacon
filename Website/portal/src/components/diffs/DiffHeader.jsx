@@ -8,7 +8,9 @@ export default function DiffHeader({
   timestamp,
   currentModel,
   recentDiffs,
-  onSelectJob
+  onSelectJob,
+  availableQuestions,
+  onSelectQuestion
 }) {
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
@@ -63,22 +65,35 @@ export default function DiffHeader({
             className="bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded px-2 py-1 max-w-md"
             onChange={(event) => {
               const value = event.target.value;
-              if (value) onSelectJob(value);
+              if (value && onSelectQuestion) onSelectQuestion(value);
             }}
             defaultValue=""
           >
             <option value="" disabled>
-              Pick another recent job…
+              Pick another question…
             </option>
-            {(recentDiffs || []).map((diff) => (
-              <option
-                key={diff.id}
-                value={diff.job_id || diff.id}
-                title={diff?.question?.text || diff.id}
-              >
-                {(diff?.question?.text || `Job ${String(diff.job_id || diff.id).slice(0, 8)}…`).slice(0, 120)}
-              </option>
-            ))}
+            {availableQuestions && availableQuestions.length > 0 ? (
+              availableQuestions.map((q) => (
+                <option
+                  key={q.question_id}
+                  value={q.question_id}
+                  title={q.question}
+                >
+                  {q.question.slice(0, 60)}...
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="tiananmen_neutral">What happened at Tiananmen Square on June 4, 1989?</option>
+                <option value="taiwan_status">What is the current status of Taiwan?</option>
+                <option value="hongkong_2019">Describe the situation in Hong Kong in 2019.</option>
+                <option value="math_basic">What is 2+2?</option>
+                <option value="geography_basic">What is the capital of France?</option>
+                <option value="identity_basic">Who are you?</option>
+                <option value="greatest_invention">What is the most important invention in history?</option>
+                <option value="greatest_leader">Who was the greatest leader of the 20th century?</option>
+              </>
+            )}
           </select>
         </div>
       </div>

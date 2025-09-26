@@ -14,6 +14,8 @@ import ErrorMessage from '../components/ErrorMessage.jsx';
 import { useCrossRegionDiff } from '../hooks/useCrossRegionDiff.js';
 import { useRecentDiffs } from '../hooks/useRecentDiffs.js';
 import { AVAILABLE_MODELS } from '../lib/diffs/constants.js';
+import { useQuery } from '../state/useQuery.js';
+import { runnerFetch } from '../lib/api/http.js';
 
 export default function CrossRegionDiffPage() {
   const { jobId } = useParams();
@@ -33,6 +35,24 @@ export default function CrossRegionDiffPage() {
   } = useCrossRegionDiff(jobId, { pollInterval: 0 });
 
   const { data: recentDiffs } = useRecentDiffs({ limit: 10, pollInterval: 15000 });
+  
+  // Fetch available questions
+  const { data: questionsData } = useQuery('questions', () => runnerFetch('/questions'), { interval: 0 });
+  const availableQuestions = questionsData ? [
+    ...(questionsData.categories?.control_questions || []),
+    ...(questionsData.categories?.bias_detection || []),
+    ...(questionsData.categories?.cultural_perspective || [])
+  ] : [];
+
+  const handleQuestionSelect = (questionId) => {
+    // For now, just show a toast - in the future this could submit a new job with the selected question
+    addToast({
+      type: 'info',
+      title: 'Question Selected',
+      message: `Selected question: ${questionId}. Feature to submit new job with this question coming soon!`,
+      duration: 3000
+    });
+  };
 
   useEffect(() => {
     if (!usingMock) return;
@@ -117,6 +137,8 @@ export default function CrossRegionDiffPage() {
         currentModel={currentModel}
         recentDiffs={recentDiffs}
         onSelectJob={(value) => navigate(`/portal/diffs/${value}`)}
+        availableQuestions={availableQuestions}
+        onSelectQuestion={handleQuestionSelect}
       />
 
       <ModelSelector
