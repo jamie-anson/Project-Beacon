@@ -18,7 +18,7 @@ const RUNNER_CANDIDATES = (
 ];
 
 export async function getDiffs({ limit = 20 } = {}) {
-  const response = await diffsFetch(`/api/v1/diffs/recent?limit=${encodeURIComponent(String(limit))}`);
+  const response = await runnerFetch(`/diffs?limit=${encodeURIComponent(String(limit))}`);
 
   if (Array.isArray(response)) return response;
   if (response && Array.isArray(response.diffs)) return response.diffs;
