@@ -76,7 +76,7 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
         flag: '🌍'
       };
 
-      const response = resolveResponse(exec?.output);
+      const response = resolveResponse(exec?.output_data || exec?.output);
 
       return {
         region_code: regionCode,
@@ -113,6 +113,22 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
 function resolveResponse(output) {
   if (!output) return 'No response available';
 
+  // NEW: Handle our actual backend data structure
+  if (typeof output?.response === 'string' && output.response.trim()) {
+    return output.response;
+  }
+
+  // Handle nested output_data structure
+  if (output?.output_data?.response && typeof output.output_data.response === 'string') {
+    return output.output_data.response;
+  }
+
+  // Handle receipt structure
+  if (output?.metadata?.receipt?.output?.response) {
+    return output.metadata.receipt.output.response;
+  }
+
+  // LEGACY: Keep existing fallbacks for compatibility
   if (Array.isArray(output?.responses) && output.responses.length > 0) {
     return output.responses[0]?.response || output.responses[0]?.answer || 'No response available';
   }
