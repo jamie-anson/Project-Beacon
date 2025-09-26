@@ -1312,5 +1312,36 @@
     },
     "effective_at": "2025-09-26T16:01:00+01:00",
     "notes": "Storybook design system successfully integrated with all major portal components documented. Build output: 17s, 889kB main bundle."
+  },
+  {
+    "id": "portal-0001-routes",
+    "action": "add",
+    "type": "routing",
+    "subject": "portal_ui_routes",
+    "env": "production",
+    "data": {
+      "base_url": "https://projectbeacon.netlify.app",
+      "routes": {
+        "bias_detection_results": "/portal/results/{job-id}/diffs",
+        "cross_region_diff": "/portal/results/{job-id}/diffs",
+        "recent_diffs_list": "/portal/diffs/",
+        "bias_detection_form": "/portal/bias-detection",
+        "executions_list": "/portal/executions",
+        "world_map": "/portal/world"
+      },
+      "api_endpoints_used": {
+        "cross_region_diff": "/api/v1/executions/{job-id}/cross-region-diff",
+        "recent_diffs": "/api/v1/diffs",
+        "executions": "/api/v1/executions",
+        "jobs": "/api/v1/jobs"
+      },
+      "backend_integration": {
+        "runner_api": "https://beacon-runner-change-me.fly.dev",
+        "hybrid_router": "https://project-beacon-production.up.railway.app",
+        "primary_data_source": "runner_api"
+      }
+    },
+    "effective_at": "2025-09-27T00:18:00+01:00",
+    "notes": "Portal UI routes for bias detection system. /portal/results/{job-id}/diffs is the main cross-region analysis page that shows real AI responses and bias metrics. Fixed to use runnerFetch first for reliable data retrieval."
   }
 ]
