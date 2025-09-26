@@ -1,5 +1,5 @@
 import React from 'react';
-import { getTransparencyProof } from '../lib/api.js';
+import { getTransparencyProof } from '../lib/api/runner/transparency.js';
 
 export default function ProofViewer({ cid, executionId }) {
   const [loading, setLoading] = React.useState(false);

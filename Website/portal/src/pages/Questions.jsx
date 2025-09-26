@@ -1,5 +1,5 @@
 import React from 'react';
-import { getQuestions } from '../lib/api.js';
+import { getQuestions } from '../lib/api/runner/questions.js';
 import { useQuery } from '../state/useQuery.js';
 
 export default function Questions() {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createJob, getJob, listJobs } from '../lib/api.js';
+import { createJob, getJob, listJobs } from '../lib/api/runner/jobs.js';
 import { signJobSpecForAPI } from '../lib/crypto.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast, createSuccessToast, createWarningToast } from '../lib/errorUtils.js';

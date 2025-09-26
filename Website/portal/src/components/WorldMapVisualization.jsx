@@ -11,6 +11,124 @@ const center = {
   lng: 0
 };
 
+const COUNTRY_NAMES = {
+  US: 'United States',
+  CN: 'China',
+  DE: 'Germany',
+  FR: 'France',
+  GB: 'United Kingdom',
+  TH: 'Thailand',
+  VN: 'Vietnam',
+  SG: 'Singapore',
+  MY: 'Malaysia',
+  ID: 'Indonesia',
+};
+
+const COUNTRY_POLYGONS = {
+  US: [
+    { lat: 49.38, lng: -66.96 }, { lat: 44.83, lng: -66.96 }, { lat: 44.11, lng: -68.03 },
+    { lat: 43.98, lng: -69.06 }, { lat: 41.80, lng: -69.89 }, { lat: 40.17, lng: -74.26 },
+    { lat: 38.46, lng: -74.90 }, { lat: 35.00, lng: -75.41 }, { lat: 32.03, lng: -80.86 },
+    { lat: 28.85, lng: -80.03 }, { lat: 25.20, lng: -80.31 }, { lat: 25.20, lng: -81.17 },
+    { lat: 25.20, lng: -97.13 }, { lat: 26.00, lng: -97.13 }, { lat: 28.85, lng: -103.94 },
+    { lat: 31.33, lng: -106.63 }, { lat: 31.78, lng: -108.24 }, { lat: 32.54, lng: -114.81 },
+    { lat: 32.72, lng: -117.12 }, { lat: 34.45, lng: -120.64 }, { lat: 38.82, lng: -123.23 },
+    { lat: 40.58, lng: -124.21 }, { lat: 43.58, lng: -124.39 }, { lat: 46.23, lng: -124.56 },
+    { lat: 48.38, lng: -124.79 }, { lat: 48.99, lng: -123.43 }, { lat: 48.99, lng: -95.15 },
+    { lat: 49.38, lng: -95.15 }
+  ],
+  CN: [
+    { lat: 53.56, lng: 109.78 }, { lat: 53.26, lng: 119.28 }, { lat: 50.33, lng: 127.28 },
+    { lat: 48.86, lng: 133.68 }, { lat: 42.55, lng: 130.63 }, { lat: 40.09, lng: 124.27 },
+    { lat: 35.60, lng: 119.30 }, { lat: 31.89, lng: 120.22 }, { lat: 22.30, lng: 114.18 },
+    { lat: 20.92, lng: 110.15 }, { lat: 21.48, lng: 108.05 }, { lat: 23.88, lng: 97.40 },
+    { lat: 28.34, lng: 89.47 }, { lat: 32.36, lng: 78.73 }, { lat: 35.49, lng: 74.98 },
+    { lat: 40.05, lng: 73.67 }, { lat: 42.52, lng: 80.11 }, { lat: 44.29, lng: 87.36 },
+    { lat: 47.75, lng: 90.28 }, { lat: 50.33, lng: 106.34 }
+  ],
+  DE: [
+    { lat: 55.06, lng: 8.41 }, { lat: 54.98, lng: 10.79 }, { lat: 54.36, lng: 13.80 },
+    { lat: 54.08, lng: 14.12 }, { lat: 53.56, lng: 14.12 }, { lat: 52.05, lng: 14.89 },
+    { lat: 50.92, lng: 14.62 }, { lat: 50.42, lng: 12.24 }, { lat: 49.97, lng: 12.24 },
+    { lat: 49.48, lng: 11.42 }, { lat: 47.53, lng: 10.43 }, { lat: 47.27, lng: 9.59 },
+    { lat: 47.56, lng: 8.32 }, { lat: 47.69, lng: 7.59 }, { lat: 49.01, lng: 8.16 },
+    { lat: 50.11, lng: 6.24 }, { lat: 51.48, lng: 5.99 }, { lat: 53.63, lng: 7.09 }
+  ],
+  FR: [
+    { lat: 51.09, lng: 2.54 }, { lat: 50.95, lng: 1.34 }, { lat: 50.13, lng: -1.27 },
+    { lat: 48.68, lng: -1.68 }, { lat: 48.40, lng: -4.78 }, { lat: 47.28, lng: -2.96 },
+    { lat: 43.49, lng: -1.90 }, { lat: 42.56, lng: 1.73 }, { lat: 42.51, lng: 3.03 },
+    { lat: 43.37, lng: 7.41 }, { lat: 43.75, lng: 7.41 }, { lat: 44.35, lng: 6.53 },
+    { lat: 45.13, lng: 6.80 }, { lat: 45.78, lng: 6.05 }, { lat: 46.46, lng: 6.84 },
+    { lat: 47.55, lng: 7.59 }, { lat: 49.01, lng: 8.23 }, { lat: 49.48, lng: 6.19 },
+    { lat: 50.13, lng: 4.80 }, { lat: 50.76, lng: 4.37 }
+  ],
+  GB: [
+    { lat: 60.85, lng: -0.73 }, { lat: 60.13, lng: -1.18 }, { lat: 58.64, lng: -3.07 },
+    { lat: 57.69, lng: -4.57 }, { lat: 56.79, lng: -5.02 }, { lat: 55.38, lng: -4.72 },
+    { lat: 54.56, lng: -3.09 }, { lat: 53.41, lng: -3.05 }, { lat: 50.96, lng: -2.00 },
+    { lat: 50.69, lng: -1.01 }, { lat: 50.67, lng: 1.68 }, { lat: 51.48, lng: 1.68 },
+    { lat: 52.91, lng: 1.68 }, { lat: 55.81, lng: -2.05 }, { lat: 58.64, lng: -2.87 },
+    { lat: 60.85, lng: -1.41 }
+  ],
+  TH: [
+    { lat: 20.46, lng: 100.12 }, { lat: 20.46, lng: 105.64 }, { lat: 12.63, lng: 105.64 },
+    { lat: 9.55, lng: 101.68 }, { lat: 6.61, lng: 101.25 }, { lat: 5.61, lng: 100.25 },
+    { lat: 6.42, lng: 99.95 }, { lat: 7.01, lng: 98.43 }, { lat: 8.56, lng: 98.31 },
+    { lat: 9.85, lng: 98.49 }, { lat: 10.49, lng: 99.23 }, { lat: 13.41, lng: 100.03 },
+    { lat: 15.25, lng: 98.96 }, { lat: 18.48, lng: 97.40 }, { lat: 19.15, lng: 97.78 }
+  ],
+  VN: [
+    { lat: 23.39, lng: 105.42 }, { lat: 22.50, lng: 106.56 }, { lat: 21.04, lng: 107.32 },
+    { lat: 16.06, lng: 108.22 }, { lat: 12.30, lng: 109.19 }, { lat: 10.76, lng: 106.63 },
+    { lat: 8.56, lng: 104.72 }, { lat: 8.38, lng: 104.33 }, { lat: 9.39, lng: 105.42 },
+    { lat: 10.49, lng: 106.25 }, { lat: 11.56, lng: 108.28 }, { lat: 14.06, lng: 108.28 },
+    { lat: 17.16, lng: 106.75 }, { lat: 20.03, lng: 105.79 }, { lat: 22.50, lng: 104.95 }
+  ],
+  SG: [
+    { lat: 1.47, lng: 103.60 }, { lat: 1.47, lng: 104.07 }, { lat: 1.16, lng: 104.07 }, { lat: 1.16, lng: 103.60 }
+  ],
+  MY: [
+    { lat: 7.36, lng: 99.64 }, { lat: 6.93, lng: 100.64 }, { lat: 4.58, lng: 103.39 },
+    { lat: 1.83, lng: 103.39 }, { lat: 1.28, lng: 103.85 }, { lat: 1.28, lng: 109.46 },
+    { lat: 4.81, lng: 115.45 }, { lat: 7.36, lng: 117.13 }, { lat: 7.36, lng: 119.27 },
+    { lat: 4.39, lng: 118.62 }, { lat: 4.39, lng: 115.45 }, { lat: 2.11, lng: 111.85 },
+    { lat: 2.11, lng: 109.46 }, { lat: 3.14, lng: 101.68 }, { lat: 5.97, lng: 100.64 }
+  ],
+  ID: [
+    { lat: 6.08, lng: 95.01 }, { lat: 5.90, lng: 141.01 }, { lat: -11.01, lng: 141.01 },
+    { lat: -10.36, lng: 123.35 }, { lat: -8.11, lng: 114.51 }, { lat: -6.21, lng: 106.85 },
+    { lat: -5.90, lng: 95.32 }, { lat: -0.79, lng: 100.36 }, { lat: 3.58, lng: 98.68 }
+  ],
+};
+
+const categorize = (value = 0) => {
+  if (value >= 70) return 'high';
+  if (value >= 40) return 'medium';
+  return 'low';
+};
+
+const DEFAULT_COUNTRY_DATA = [
+  { code: 'US', value: 15, category: 'low' },
+  { code: 'CN', value: 95, category: 'high' },
+  { code: 'DE', value: 18, category: 'low' },
+  { code: 'FR', value: 18, category: 'low' },
+  { code: 'GB', value: 18, category: 'low' },
+  { code: 'TH', value: 45, category: 'medium' },
+  { code: 'VN', value: 75, category: 'high' },
+  { code: 'SG', value: 25, category: 'low' },
+  { code: 'MY', value: 35, category: 'medium' },
+  { code: 'ID', value: 40, category: 'medium' },
+];
+
+const defaultBiasData = DEFAULT_COUNTRY_DATA.map(({ code, value, category }) => ({
+  code,
+  name: COUNTRY_NAMES[code] || code,
+  value,
+  category,
+  coords: COUNTRY_POLYGONS[code] || [],
+}));
+
 const WorldMapVisualization = ({ biasData = [] }) => {
   const [map, setMap] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
@@ -46,135 +164,21 @@ const WorldMapVisualization = ({ biasData = [] }) => {
   }, [isLoaded]);
 
   // Realistic country boundary coordinates (simplified GeoJSON-based)
-  const defaultBiasData = [
-    { 
-      name: 'United States', 
-      value: 15, 
-      category: 'low', 
-      coords: [
-        { lat: 49.38, lng: -66.96 }, { lat: 44.83, lng: -66.96 }, { lat: 44.11, lng: -68.03 },
-        { lat: 43.98, lng: -69.06 }, { lat: 41.80, lng: -69.89 }, { lat: 40.17, lng: -74.26 },
-        { lat: 38.46, lng: -74.90 }, { lat: 35.00, lng: -75.41 }, { lat: 32.03, lng: -80.86 },
-        { lat: 28.85, lng: -80.03 }, { lat: 25.20, lng: -80.31 }, { lat: 25.20, lng: -81.17 },
-        { lat: 25.20, lng: -97.13 }, { lat: 26.00, lng: -97.13 }, { lat: 28.85, lng: -103.94 },
-        { lat: 31.33, lng: -106.63 }, { lat: 31.78, lng: -108.24 }, { lat: 32.54, lng: -114.81 },
-        { lat: 32.72, lng: -117.12 }, { lat: 34.45, lng: -120.64 }, { lat: 38.82, lng: -123.23 },
-        { lat: 40.58, lng: -124.21 }, { lat: 43.58, lng: -124.39 }, { lat: 46.23, lng: -124.56 },
-        { lat: 48.38, lng: -124.79 }, { lat: 48.99, lng: -123.43 }, { lat: 48.99, lng: -95.15 },
-        { lat: 49.38, lng: -95.15 }
-      ]
-    },
-    { 
-      name: 'China', 
-      value: 95, 
-      category: 'high', 
-      coords: [
-        { lat: 53.56, lng: 109.78 }, { lat: 53.26, lng: 119.28 }, { lat: 50.33, lng: 127.28 },
-        { lat: 48.86, lng: 133.68 }, { lat: 42.55, lng: 130.63 }, { lat: 40.09, lng: 124.27 },
-        { lat: 35.60, lng: 119.30 }, { lat: 31.89, lng: 120.22 }, { lat: 22.30, lng: 114.18 },
-        { lat: 20.92, lng: 110.15 }, { lat: 21.48, lng: 108.05 }, { lat: 23.88, lng: 97.40 },
-        { lat: 28.34, lng: 89.47 }, { lat: 32.36, lng: 78.73 }, { lat: 35.49, lng: 74.98 },
-        { lat: 40.05, lng: 73.67 }, { lat: 42.52, lng: 80.11 }, { lat: 44.29, lng: 87.36 },
-        { lat: 47.75, lng: 90.28 }, { lat: 50.33, lng: 106.34 }
-      ]
-    },
-    { 
-      name: 'Germany', 
-      value: 18, 
-      category: 'low', 
-      coords: [
-        { lat: 55.06, lng: 8.41 }, { lat: 54.98, lng: 10.79 }, { lat: 54.36, lng: 13.80 },
-        { lat: 54.08, lng: 14.12 }, { lat: 53.56, lng: 14.12 }, { lat: 52.05, lng: 14.89 },
-        { lat: 50.92, lng: 14.62 }, { lat: 50.42, lng: 12.24 }, { lat: 49.97, lng: 12.24 },
-        { lat: 49.48, lng: 11.42 }, { lat: 47.53, lng: 10.43 }, { lat: 47.27, lng: 9.59 },
-        { lat: 47.56, lng: 8.32 }, { lat: 47.69, lng: 7.59 }, { lat: 49.01, lng: 8.16 },
-        { lat: 50.11, lng: 6.24 }, { lat: 51.48, lng: 5.99 }, { lat: 53.63, lng: 7.09 }
-      ]
-    },
-    { 
-      name: 'France', 
-      value: 18, 
-      category: 'low', 
-      coords: [
-        { lat: 51.09, lng: 2.54 }, { lat: 50.95, lng: 1.34 }, { lat: 50.13, lng: -1.27 },
-        { lat: 48.68, lng: -1.68 }, { lat: 48.40, lng: -4.78 }, { lat: 47.28, lng: -2.96 },
-        { lat: 43.49, lng: -1.90 }, { lat: 42.56, lng: 1.73 }, { lat: 42.51, lng: 3.03 },
-        { lat: 43.37, lng: 7.41 }, { lat: 43.75, lng: 7.41 }, { lat: 44.35, lng: 6.53 },
-        { lat: 45.13, lng: 6.80 }, { lat: 45.78, lng: 6.05 }, { lat: 46.46, lng: 6.84 },
-        { lat: 47.55, lng: 7.59 }, { lat: 49.01, lng: 8.23 }, { lat: 49.48, lng: 6.19 },
-        { lat: 50.13, lng: 4.80 }, { lat: 50.76, lng: 4.37 }
-      ]
-    },
-    { 
-      name: 'United Kingdom', 
-      value: 18, 
-      category: 'low', 
-      coords: [
-        { lat: 60.85, lng: -0.73 }, { lat: 60.13, lng: -1.18 }, { lat: 58.64, lng: -3.07 },
-        { lat: 57.69, lng: -4.57 }, { lat: 56.79, lng: -5.02 }, { lat: 55.38, lng: -4.72 },
-        { lat: 54.56, lng: -3.09 }, { lat: 53.41, lng: -3.05 }, { lat: 50.96, lng: -2.00 },
-        { lat: 50.69, lng: -1.01 }, { lat: 50.67, lng: 1.68 }, { lat: 51.48, lng: 1.68 },
-        { lat: 52.91, lng: 1.68 }, { lat: 55.81, lng: -2.05 }, { lat: 58.64, lng: -2.87 },
-        { lat: 60.85, lng: -1.41 }
-      ]
-    },
-    {
-      name: 'Thailand',
-      value: 45,
-      category: 'medium',
-      coords: [
-        { lat: 20.46, lng: 100.12 }, { lat: 20.46, lng: 105.64 }, { lat: 12.63, lng: 105.64 },
-        { lat: 9.55, lng: 101.68 }, { lat: 6.61, lng: 101.25 }, { lat: 5.61, lng: 100.25 },
-        { lat: 6.42, lng: 99.95 }, { lat: 7.01, lng: 98.43 }, { lat: 8.56, lng: 98.31 },
-        { lat: 9.85, lng: 98.49 }, { lat: 10.49, lng: 99.23 }, { lat: 13.41, lng: 100.03 },
-        { lat: 15.25, lng: 98.96 }, { lat: 18.48, lng: 97.40 }, { lat: 19.15, lng: 97.78 }
-      ]
-    },
-    {
-      name: 'Vietnam',
-      value: 75,
-      category: 'high',
-      coords: [
-        { lat: 23.39, lng: 105.42 }, { lat: 22.50, lng: 106.56 }, { lat: 21.04, lng: 107.32 },
-        { lat: 16.06, lng: 108.22 }, { lat: 12.30, lng: 109.19 }, { lat: 10.76, lng: 106.63 },
-        { lat: 8.56, lng: 104.72 }, { lat: 8.38, lng: 104.33 }, { lat: 9.39, lng: 105.42 },
-        { lat: 10.49, lng: 106.25 }, { lat: 11.56, lng: 108.28 }, { lat: 14.06, lng: 108.28 },
-        { lat: 17.16, lng: 106.75 }, { lat: 20.03, lng: 105.79 }, { lat: 22.50, lng: 104.95 }
-      ]
-    },
-    {
-      name: 'Singapore',
-      value: 25,
-      category: 'low',
-      coords: [
-        { lat: 1.47, lng: 103.60 }, { lat: 1.47, lng: 104.07 }, { lat: 1.16, lng: 104.07 }, { lat: 1.16, lng: 103.60 }
-      ]
-    },
-    {
-      name: 'Malaysia',
-      value: 35,
-      category: 'medium',
-      coords: [
-        { lat: 7.36, lng: 99.64 }, { lat: 6.93, lng: 100.64 }, { lat: 4.58, lng: 103.39 },
-        { lat: 1.83, lng: 103.39 }, { lat: 1.28, lng: 103.85 }, { lat: 1.28, lng: 109.46 },
-        { lat: 4.81, lng: 115.45 }, { lat: 7.36, lng: 117.13 }, { lat: 7.36, lng: 119.27 },
-        { lat: 4.39, lng: 118.62 }, { lat: 4.39, lng: 115.45 }, { lat: 2.11, lng: 111.85 },
-        { lat: 2.11, lng: 109.46 }, { lat: 3.14, lng: 101.68 }, { lat: 5.97, lng: 100.64 }
-      ]
-    },
-    {
-      name: 'Indonesia',
-      value: 40,
-      category: 'medium',
-      coords: [
-        { lat: 6.08, lng: 95.01 }, { lat: 5.90, lng: 141.01 }, { lat: -11.01, lng: 141.01 },
-        { lat: -10.36, lng: 123.35 }, { lat: -8.11, lng: 114.51 }, { lat: -6.21, lng: 106.85 },
-        { lat: -5.90, lng: 95.32 }, { lat: -0.79, lng: 100.36 }, { lat: 3.58, lng: 98.68 }
-      ]
-    }
-  ];
+  const sanitizedBiasData = (biasData || []).map((entry) => {
+    const code = (entry.code || entry.iso2 || entry.countryCode || '').toUpperCase();
+    const name = entry.name || COUNTRY_NAMES[code] || entry.country || code;
+    const coords = entry.coords || COUNTRY_POLYGONS[code] || null;
+    if (!coords) return null;
+    return {
+      code,
+      name,
+      value: entry.value ?? 0,
+      category: entry.category || categorize(entry.value),
+      coords,
+    };
+  }).filter(Boolean);
 
-  const data = biasData.length > 0 ? biasData : defaultBiasData;
+  const data = sanitizedBiasData.length > 0 ? sanitizedBiasData : defaultBiasData;
 
   const getCountryColor = (category) => {
     switch (category) {

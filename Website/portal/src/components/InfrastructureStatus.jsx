@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getInfrastructureHealth } from '../lib/api';
+import { getInfrastructureHealth } from '../lib/api/hybrid/index.js';
 
 const StatusIndicator = ({ status, name, error, responseTime }) => {
   const getStatusColor = (status) => {
@@ -54,31 +54,57 @@ const StatusIndicator = ({ status, name, error, responseTime }) => {
   );
 };
 
-const InfrastructureStatus = ({ compact = false }) => {
-  const [infraHealth, setInfraHealth] = useState(null);
-  const [loading, setLoading] = useState(true);
+const InfrastructureStatus = ({
+  compact = false,
+  fetchHealth = getInfrastructureHealth,
+  initialHealth = null,
+  refreshIntervalMs = 30000
+}) => {
+  const [infraHealth, setInfraHealth] = useState(initialHealth);
+  const [loading, setLoading] = useState(!initialHealth);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!fetchHealth) {
+      setLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
     const fetchInfraHealth = async () => {
       try {
-        setLoading(true);
-        const health = await getInfrastructureHealth();
+        if (!initialHealth) {
+          setLoading(true);
+        }
+        const health = await fetchHealth();
+        if (cancelled) return;
         setInfraHealth(health);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch infrastructure health:', err);
-        setError(err.message);
+        if (cancelled) return;
+        setError(err.message || String(err));
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     };
 
     fetchInfraHealth();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchInfraHealth, 30000);
-    return () => clearInterval(interval);
-  }, []);
+
+    if (refreshIntervalMs > 0) {
+      const interval = setInterval(fetchInfraHealth, refreshIntervalMs);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchHealth, initialHealth, refreshIntervalMs]);
 
   if (loading) {
     return (

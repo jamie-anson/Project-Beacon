@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '../state/useQuery.js';
 import useWs from '../state/useWs.js';
-import { getJob, getCrossRegionDiff } from '../lib/api.js';
+import { getJob } from '../lib/api/runner/jobs.js';
+import { getCrossRegionDiff } from '../lib/api/diffs/index.js';
 import WalletConnection from '../components/WalletConnection.jsx';
 import { isMetaMaskInstalled } from '../lib/wallet.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';

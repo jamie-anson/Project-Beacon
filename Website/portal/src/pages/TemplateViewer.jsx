@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { createJob, executeJob } from '../lib/api.js';
+import { createJob, executeJob } from '../lib/api/runner/jobs.js';
 
 export default function TemplateViewer() {
   const [job, setJob] = useState(null);

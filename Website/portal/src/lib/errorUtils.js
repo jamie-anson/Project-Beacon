@@ -2,14 +2,79 @@
  * Utility functions for parsing and formatting API errors into user-friendly messages
  */
 
+import { ApiError } from './api/http.js';
+
+function isApiError(error) {
+  return error instanceof ApiError || error?.name === 'ApiError';
+}
+
+function getErrorStatus(error) {
+  if (typeof error?.status === 'number') return error.status;
+  if (typeof error?.response?.status === 'number') return error.response.status;
+  return null;
+}
+
+function getErrorCode(error) {
+  return (
+    error?.code ??
+    error?.errorCode ??
+    error?.data?.error_code ??
+    error?.data?.code ??
+    error?.data?.failure?.code ??
+    null
+  );
+}
+
+function getErrorMessage(error) {
+  return error?.data?.error || error?.data?.message || error?.message || error?.raw || null;
+}
+
+function formatStage(stage) {
+  if (!stage || typeof stage !== 'string') return null;
+  return stage
+    .split(/[_\s]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 /**
  * Parse an error object and return a user-friendly error message
  * @param {Error|Object} error - The error to parse
  * @returns {Object} - { title, message, details }
  */
 export function parseApiError(error) {
+  const status = getErrorStatus(error);
+  const code = getErrorCode(error);
+  const message = getErrorMessage(error);
+  const isStructured = isApiError(error);
+  const rawDetails = error?.raw || error?.data?.details;
+  const failure = error?.data?.failure || error?.failure || error?.data?.error?.failure;
+
+  if (failure && typeof failure === 'object') {
+    const failureCode = failure.code || code || 'EXECUTION_FAILURE';
+    const stageLabel = formatStage(failure.stage) || 'Execution Stage';
+    const providerLabel = failure.provider || failure.provider_type;
+    const regionLabel = failure.region;
+
+    const detailParts = [];
+    if (stageLabel) detailParts.push(`${stageLabel}`);
+    if (regionLabel) detailParts.push(`Region: ${regionLabel}`);
+    if (providerLabel) detailParts.push(`Provider: ${providerLabel}`);
+    if (typeof failure.transient === 'boolean') {
+      detailParts.push(failure.transient ? 'Transient: yes' : 'Transient: no');
+    }
+    if (failure.http_status) detailParts.push(`HTTP ${failure.http_status}`);
+    if (failure.retry_after) detailParts.push(`Retry after ${failure.retry_after}s`);
+
+    return {
+      title: failureCode,
+      message: failure.message || message || 'The execution failed. See details below.',
+      details: detailParts.join(' · ') || rawDetails || '',
+    };
+  }
+
   // Handle network/CORS errors
-  if (error?.message?.includes('Failed to fetch') || error?.message?.includes('CORS')) {
+  if (code === 'NETWORK_ERROR' || (!status && (message?.includes('Failed to fetch') || message?.includes('CORS')))) {
     return {
       title: 'Connection Error',
       message: 'Unable to connect to the API server. Please check your internet connection and try again.',
@@ -17,8 +82,26 @@ export function parseApiError(error) {
     };
   }
 
+  if (code === 'ABORT_ERROR') {
+    return {
+      title: 'Request Cancelled',
+      message: 'The request was cancelled before completion.',
+      details: 'You may have navigated away or triggered a new request that aborted the previous one.'
+    };
+  }
+
+  if (code === 'INVALID_JSON') {
+    return {
+      title: 'Invalid Response',
+      message: 'Received malformed data from the API. Please try again shortly.',
+      details: rawDetails
+        ? `The server response could not be parsed as JSON. Raw response: ${rawDetails}`
+        : 'The server response could not be parsed as JSON.'
+    };
+  }
+
   // Handle timeout errors
-  if (error?.message?.includes('timeout') || error?.code === 'TIMEOUT') {
+  if (message?.includes('timeout') || code === 'TIMEOUT') {
     return {
       title: 'Request Timeout',
       message: 'The request took too long to complete. Please try again.',
@@ -27,7 +110,7 @@ export function parseApiError(error) {
   }
 
   // Handle cryptographic signing errors
-  if (error?.message?.includes('untrusted signing key') || error?.message?.includes('trust violation')) {
+  if (message?.includes('untrusted signing key') || message?.includes('trust violation')) {
     return {
       title: 'Authentication Error',
       message: 'Your signing key is not authorized for job submission.',
@@ -35,7 +118,7 @@ export function parseApiError(error) {
     };
   }
 
-  if (error?.message?.includes('signature') || error?.message?.includes('signing')) {
+  if (message?.includes('signature') || message?.includes('signing')) {
     return {
       title: 'Signature Error',
       message: 'Failed to sign the job request. Please try refreshing the page.',
@@ -44,16 +127,16 @@ export function parseApiError(error) {
   }
 
   // Handle validation errors
-  if (error?.message?.includes('validation') || error?.status === 400) {
+  if (status === 400 || message?.includes('validation')) {
     return {
       title: 'Invalid Request',
       message: 'The job request contains invalid data. Please check your inputs and try again.',
-      details: error?.message || 'One or more fields in the job specification are invalid.'
+      details: message || 'One or more fields in the job specification are invalid.'
     };
   }
 
   // Handle authorization errors
-  if (error?.status === 401 || error?.message?.includes('unauthorized')) {
+  if (status === 401 || message?.includes('unauthorized')) {
     return {
       title: 'Unauthorized',
       message: 'You are not authorized to perform this action.',
@@ -61,7 +144,7 @@ export function parseApiError(error) {
     };
   }
 
-  if (error?.status === 403 || error?.message?.includes('forbidden')) {
+  if (status === 403 || message?.includes('forbidden')) {
     return {
       title: 'Access Denied',
       message: 'You do not have permission to access this resource.',
@@ -70,7 +153,7 @@ export function parseApiError(error) {
   }
 
   // Handle not found errors
-  if (error?.status === 404 || error?.message?.includes('not found')) {
+  if (status === 404 || message?.includes('not found')) {
     return {
       title: 'Resource Not Found',
       message: 'The requested resource could not be found.',
@@ -79,7 +162,7 @@ export function parseApiError(error) {
   }
 
   // Handle server errors
-  if (error?.status >= 500 || error?.message?.includes('server error')) {
+  if ((typeof status === 'number' && status >= 500) || message?.includes('server error')) {
     return {
       title: 'Server Error',
       message: 'The server encountered an error while processing your request.',
@@ -88,7 +171,7 @@ export function parseApiError(error) {
   }
 
   // Handle rate limiting
-  if (error?.status === 429 || error?.message?.includes('rate limit')) {
+  if (status === 429 || message?.includes('rate limit')) {
     return {
       title: 'Rate Limited',
       message: 'Too many requests. Please wait a moment before trying again.',
@@ -97,7 +180,7 @@ export function parseApiError(error) {
   }
 
   // Handle quota/resource errors
-  if (error?.message?.includes('quota') || error?.message?.includes('insufficient')) {
+  if (message?.includes('quota') || message?.includes('insufficient')) {
     return {
       title: 'Resource Unavailable',
       message: 'Insufficient resources to process your request.',
@@ -106,18 +189,18 @@ export function parseApiError(error) {
   }
 
   // Handle job-specific errors
-  if (error?.message?.includes('job') && error?.message?.includes('failed')) {
+  if (message?.includes('job') && message?.includes('failed')) {
     return {
       title: 'Job Execution Failed',
       message: 'The job could not be completed successfully.',
-      details: error?.message || 'Check the job logs for more details about the failure.'
+      details: message || 'Check the job logs for more details about the failure.'
     };
   }
 
   // Generic fallback
   return {
     title: 'Unexpected Error',
-    message: error?.message || 'An unexpected error occurred. Please try again.',
+    message: message || 'An unexpected error occurred. Please try again.',
     details: 'If this problem continues, please contact support with the error details.'
   };
 }

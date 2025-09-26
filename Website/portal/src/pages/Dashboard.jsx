@@ -1,6 +1,11 @@
 import React from 'react';
 import { useQuery } from '../state/useQuery.js';
-import { getHealth, getExecutions, getDiffs, getTransparencyRoot, listJobs, getHybridHealth, getHybridProviders } from '../lib/api.js';
+import { getHealth } from '../lib/api/runner/health.js';
+import { getExecutions } from '../lib/api/runner/executions.js';
+import { getDiffs } from '../lib/api/diffs/index.js';
+import { getTransparencyRoot } from '../lib/api/runner/transparency.js';
+import { listJobs } from '../lib/api/runner/jobs.js';
+import { getHybridHealth, getHybridProviders } from '../lib/api/hybrid/index.js';
 import { Link } from 'react-router-dom';
 import useWs from '../state/useWs.js';
 import { useToast } from '../state/toast.jsx';

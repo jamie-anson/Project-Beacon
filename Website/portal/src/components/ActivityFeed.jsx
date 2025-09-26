@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal.jsx';
 import ProofViewer from './ProofViewer.jsx';
-import { bundleUrl } from '../lib/api.js';
+import { bundleUrl } from '../lib/api/ipfs.js';
 import CopyButton from './CopyButton.jsx';
 
 export default function ActivityFeed({ events = [] }) {

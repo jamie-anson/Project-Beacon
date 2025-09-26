@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { getExecutions } from '../lib/api.js';
+import { getExecutions } from '../lib/api/runner/executions.js';
 import CopyButton from '../components/CopyButton.jsx';
 
 function StatusPill({ value }) {

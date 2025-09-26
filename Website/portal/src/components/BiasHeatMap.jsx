@@ -225,7 +225,7 @@ export default function BiasHeatMap({ regionData = {}, className = '' }) {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          <span className="text-xs text-slate-600">Low Risk (<40%)</span>
+          <span className="text-xs text-slate-600">Low Risk (&lt;40%)</span>
         </div>
       </div>
       <div className="mt-2 pt-2 border-t text-xs text-slate-500">

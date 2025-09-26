@@ -11,7 +11,7 @@ import AIs from './pages/AIs.jsx';
 import Diffs from './pages/Diffs.jsx';
 import Settings from './pages/Settings.jsx';
 import BiasDetection from './pages/BiasDetection.jsx';
-import CrossRegionDiffView from './pages/CrossRegionDiffView.jsx';
+import CrossRegionDiffPage from './pages/CrossRegionDiffPage.jsx';
 import Executions from './pages/Executions.jsx';
 import ExecutionDetail from './pages/ExecutionDetail.jsx';
 import DemoResults from './pages/DemoResults.jsx';
@@ -167,7 +167,7 @@ export default function App() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/bias-detection" element={<BiasDetection />} />
-        <Route path="/results/:jobId/diffs" element={<CrossRegionDiffView />} />
+        <Route path="/results/:jobId/diffs" element={<CrossRegionDiffPage />} />
         <Route path="/world" element={<WorldView />} />
         <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '../state/useQuery.js';
-import { getDiffs } from '../lib/api.js';
+import { getDiffs } from '../lib/api/diffs/index.js';
 
 export default function Diffs() {
   const { data } = useQuery('diffs', () => getDiffs({ limit: 50 }), { interval: 10000 });

@@ -1,197 +1,111 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { getGeo, getExecutions } from '../lib/api.js';
+import React, { useMemo } from 'react';
+import WorldMapVisualization from '../components/WorldMapVisualization.jsx';
 import { useQuery } from '../state/useQuery.js';
+import { getGeo } from '../lib/api/runner/geo.js';
+import { getExecutions } from '../lib/api/runner/executions.js';
 
-// Minimal ISO2 -> ECharts world map name mapping for countries we synthesize
-const ISO2_TO_NAME = {
-  US: 'United States',
-  CN: 'China',
-  FR: 'France',
-  GB: 'United Kingdom',
-  DE: 'Germany',
-  IN: 'India',
-  JP: 'Japan',
-  TW: 'Taiwan',
-  HK: 'Hong Kong',
-  RU: 'Russia',
-  BR: 'Brazil',
-  CA: 'Canada',
-  AU: 'Australia',
-  ZA: 'South Africa',
-  NG: 'Nigeria',
-  MX: 'Mexico',
-  ES: 'Spain',
-  IT: 'Italy',
-  KR: 'South Korea',
-  SG: 'Singapore',
+const REGION_FALLBACK_CODES = {
+  US: 'US',
+  USA: 'US',
+  'US-EAST': 'US',
+  EU: 'DE',
+  EUROPE: 'DE',
+  'EU-WEST': 'DE',
+  ASIA: 'SG',
+  APAC: 'SG',
+  'ASIA-PACIFIC': 'SG',
 };
 
+function categorizeBiasValue(value = 0) {
+  if (value >= 70) return 'high';
+  if (value >= 40) return 'medium';
+  return 'low';
+}
+
+function resolveCountryCode(entry = {}) {
+  const explicit = (entry.country_code || entry.iso2 || entry.code || '').toUpperCase();
+  if (explicit && /^[A-Z]{2}$/.test(explicit)) return explicit;
+
+  const region = (entry.region || entry.region_claimed || entry.region_observed || '').toUpperCase();
+  if (REGION_FALLBACK_CODES[region]) return REGION_FALLBACK_CODES[region];
+
+  return null;
+}
+
+function normalizeGeoCountries(rawCountries = {}) {
+  const result = {};
+
+  for (const [code, value] of Object.entries(rawCountries)) {
+    const countryCode = code.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(countryCode)) continue;
+
+    const numericValue = Number(value ?? 0);
+    result[countryCode] = Number.isFinite(numericValue) ? numericValue : 0;
+  }
+
+  return result;
+}
+
+function aggregateExecutionCountries(executions = []) {
+  const counts = {};
+
+  for (const execution of executions) {
+    const code = resolveCountryCode(execution);
+    if (!code) continue;
+
+    counts[code] = (counts[code] || 0) + 1;
+  }
+
+  return counts;
+}
+
+function toBiasMapData(countryCounts = {}) {
+  return Object.entries(countryCounts).map(([code, total]) => ({
+    code,
+    value: Number(total ?? 0),
+    category: categorizeBiasValue(total),
+  }));
+}
+
 export default function WorldView() {
-  const chartRef = useRef(null);
-  const [echarts, setEcharts] = useState(null);
-  const [worldGeo, setWorldGeo] = useState(null);
+  const geoQuery = useQuery('geo:countries', getGeo, { interval: 30000 });
+  const execQuery = useQuery('executions:world', () => getExecutions({ limit: 200 }), { interval: 30000 });
 
-  const { data: geoData, loading: loadingGeo, error: geoError, refetch: refetchGeo } = useQuery('geo:countries', getGeo, { interval: 30000 });
-  const { data: execData, loading: loadingExec, error: execError, refetch: refetchExec } = useQuery('executions:world', () => getExecutions({ limit: 200 }), { interval: 30000 });
-
-  // Aggregate executions -> countries when geo is empty
-  const aggregatedCountries = useMemo(() => {
-    const list = Array.isArray(execData) ? execData : [];
-    const acc = {};
-    for (const e of list) {
-      // Prefer explicit country codes if present, else map region to a representative ISO2
-      const cc = (e?.country_code || e?.geo?.country_code || e?.region_observed_country || '').toUpperCase?.();
-      let iso2 = cc && /^[A-Z]{2}$/.test(cc) ? cc : null;
-      if (!iso2) {
-        const region = (e?.region_observed || e?.region || e?.region_claimed || '').toUpperCase?.();
-        if (region === 'US') iso2 = 'US';
-        else if (region === 'EU') iso2 = 'DE';
-        else if (region === 'ASIA') iso2 = 'CN';
-      }
-      if (!iso2) continue;
-      acc[iso2] = (acc[iso2] || 0) + 1;
+  const biasState = useMemo(() => {
+    const geoCountries = normalizeGeoCountries(geoQuery.data?.countries || {});
+    if (Object.keys(geoCountries).length > 0) {
+      return {
+        biasData: toBiasMapData(geoCountries),
+        source: 'backend',
+      };
     }
-    return acc;
-  }, [execData]);
 
-  const { countries, source } = useMemo(() => {
-    const c = geoData?.countries || {};
-    const nonEmpty = c && Object.keys(c).length > 0;
-    if (nonEmpty) return { countries: c, source: 'backend' };
-    return { countries: aggregatedCountries, source: 'executions' };
-  }, [geoData, aggregatedCountries]);
-
-  const seriesData = useMemo(() => {
-    return Object.entries(countries || {}).map(([code, value]) => ({
-      name: ISO2_TO_NAME[code] || code,
-      value,
-    }));
-  }, [countries]);
-
-  useEffect(() => {
-    let mounted = true;
-    // Lazy-load echarts (modular) and world geojson
-    (async () => {
-      try {
-        const [core, charts, comps, renderer] = await Promise.all([
-          import('echarts/core'),
-          import('echarts/charts'), // MapChart
-          import('echarts/components'), // TooltipComponent, VisualMapComponent
-          import('echarts/renderers'), // CanvasRenderer
-        ]);
-        if (!mounted) return;
-        const ech = core;
-        const { MapChart } = charts;
-        const { TooltipComponent, VisualMapComponent } = comps;
-        const { CanvasRenderer } = renderer;
-        // Register required pieces
-        (ech.default || ech).use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer]);
-        setEcharts(ech.default || ech);
-
-        // Zero-network local topojson import (preferred)
-        let geo = null;
-        try {
-          const [{ feature }, world] = await Promise.all([
-            import('topojson-client'),
-            import('world-atlas/countries-110m.json'),
-          ]);
-          const topo = (world && (world.default || world));
-          if (topo && topo.objects && topo.objects.countries) {
-            geo = feature(topo, topo.objects.countries);
-          }
-        } catch {}
-        // External fallbacks if local import fails
-        if (!geo) {
-          const sources = [
-            'https://raw.githubusercontent.com/apache/echarts/5.5.0/map/json/world.json',
-            'https://raw.githubusercontent.com/apache/echarts/5.4.3/map/json/world.json',
-            'https://fastly.jsdelivr.net/npm/echarts@5.5.0/map/json/world.json',
-            'https://cdn.jsdelivr.net/npm/echarts@5.5.0/map/json/world.json',
-          ];
-          for (const url of sources) {
-            try {
-              const res = await fetch(url, { cache: 'force-cache' });
-              if (res.ok) { geo = await res.json(); break; }
-            } catch {}
-          }
-        }
-        if (!geo) throw new Error('Failed to load world geojson from all sources');
-        if (!mounted) return;
-        setWorldGeo(geo);
-      } catch (e) {
-        console.warn('[WorldView] Failed modular load, trying full build:', e);
-        try {
-          const ech = await import('echarts');
-          if (!mounted) return;
-          setEcharts(ech.default || ech);
-          const res = await fetch('https://unpkg.com/echarts@5/map/json/world.json');
-          const geo = await res.json();
-          if (!mounted) return;
-          setWorldGeo(geo);
-        } catch (e2) {
-          console.error('[WorldView] Full build fallback failed:', e2);
-        }
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!echarts || !worldGeo || !chartRef.current) return;
-    const chart = echarts.init(chartRef.current);
-    try { chart.showLoading('default', { text: 'Loading world map…' }); } catch {}
-    echarts.registerMap('world', worldGeo);
-
-    const maxVal = seriesData.reduce((m, x) => Math.max(m, x.value || 0), 0) || 1;
-
-    chart.setOption({
-      tooltip: {
-        trigger: 'item',
-        formatter: (p) => `${p.name}: ${p.value ?? 0}`,
-      },
-      visualMap: {
-        min: 0,
-        max: maxVal,
-        left: 'left',
-        bottom: 10,
-        inRange: { color: ['#e2f3ff', '#66a3ff', '#004cce'] },
-        text: ['High', 'Low'],
-        calculable: true,
-      },
-      series: [
-        {
-          name: 'Responses',
-          type: 'map',
-          map: 'world',
-          roam: true,
-          emphasis: { label: { show: false } },
-          data: seriesData,
-        },
-      ],
-    });
-    try { chart.hideLoading(); } catch {}
-
-    const handle = () => chart.resize();
-    window.addEventListener('resize', handle);
-    // Ensure first paint size
-    setTimeout(() => { try { chart.resize(); } catch {} }, 0);
-    return () => {
-      window.removeEventListener('resize', handle);
-      chart.dispose();
+    const aggregated = aggregateExecutionCountries(Array.isArray(execQuery.data) ? execQuery.data : []);
+    return {
+      biasData: toBiasMapData(aggregated),
+      source: 'executions',
     };
-  }, [echarts, worldGeo, seriesData]);
+  }, [geoQuery.data, execQuery.data]);
+
+  const loading = geoQuery.loading || execQuery.loading;
+  const error = geoQuery.error || execQuery.error;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">World View</h2>
         <div className="flex items-center gap-3 text-sm text-slate-600">
-          <span className="text-xs px-2 py-0.5 rounded bg-slate-100">source: {source}</span>
-          <button onClick={() => { refetchGeo(); refetchExec(); }} className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700">Refresh</button>
+          <span className="text-xs px-2 py-0.5 rounded bg-slate-100">source: {biasState.source}</span>
+          <button
+            onClick={() => {
+              geoQuery.refetch();
+              execQuery.refetch();
+            }}
+            className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700"
+          >Refresh</button>
         </div>
       </div>
 
-      {/* Intro: why provider country of origin matters */}
       <div className="bg-white border rounded p-4 text-sm text-slate-700">
         <p className="mb-2">
           The country of origin of an AI provider often correlates with the data sources, labeling norms, and
@@ -205,21 +119,17 @@ export default function WorldView() {
         </ul>
         <p className="mt-2">
           This map summarizes where responses are attributed across countries so you can spot geographic patterns
-          in performance or behavior. {source === 'backend' ? 'Counts provided by the backend geo endpoint.' : 'Counts derived from recent executions.'}
+          in performance or behavior. {biasState.source === 'backend' ? 'Counts provided by the backend geo endpoint.' : 'Counts derived from recent executions.'}
         </p>
       </div>
 
-      {(loadingGeo || loadingExec) && <div className="text-sm text-slate-500">Loading geo data…</div>}
-      {(geoError || execError) && <div className="text-sm text-red-600">Failed to load geo data.</div>}
+      {loading && <div className="text-sm text-slate-500">Loading geo data…</div>}
+      {error && <div className="text-sm text-red-600">Failed to load geo data.</div>}
 
-      <div className="bg-white border rounded h-[560px]">
-        <div ref={chartRef} className="w-full h-full" />
-      </div>
+      <WorldMapVisualization biasData={biasState.biasData} />
 
-      {source === 'backend' || Object.keys(countries || {}).length > 0 ? null : (
-        <p className="text-xs text-slate-500">
-          No geo data available yet.
-        </p>
+      {biasState.source !== 'backend' && biasState.biasData.length === 0 && (
+        <p className="text-xs text-slate-500">No geo data available yet.</p>
       )}
     </div>
   );

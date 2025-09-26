@@ -1,7 +1,7 @@
 import React from 'react';
 import Ajv from 'ajv';
 import { useNavigate } from 'react-router-dom';
-import { createJob } from '../lib/api.js';
+import { createJob } from '../lib/api/runner/jobs.js';
 
 export default function CreateJob() {
   const [text, setText] = React.useState('');

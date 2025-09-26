@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { getExecutions, getExecution, getExecutionReceipt } from '../lib/api.js';
+import { getExecutions, getExecution, getExecutionReceipt } from '../lib/api/runner/executions.js';
 import CopyButton from '../components/CopyButton.jsx';
 
 function StatusPill({ value }) {
@@ -36,6 +36,47 @@ function truncateMiddle(str, maxLength = 40) {
   const start = Math.floor(maxLength / 2) - 2;
   const end = Math.floor(maxLength / 2) - 2;
   return `${str.slice(0, start)}...${str.slice(-end)}`;
+}
+
+function normalizeFailure(execution, executionData, receipt) {
+  const failureSources = [
+    executionData?.output_data?.failure,
+    executionData?.failure,
+    execution?.failure,
+    execution?.output?.failure,
+    receipt?.failure,
+    execution?.failure_reason,
+    executionData?.output_data?.failure_reason,
+  ];
+
+  for (const source of failureSources) {
+    if (!source) continue;
+    if (typeof source === 'object') {
+      return source;
+    }
+    if (typeof source === 'string') {
+      return { message: source, code: executionData?.output_data?.error_code || execution?.error_code };
+    }
+  }
+
+  if (executionData?.output_data?.error || execution?.error) {
+    return {
+      message: executionData?.output_data?.error || execution?.error,
+      code: executionData?.output_data?.error_code || execution?.error_code,
+    };
+  }
+
+  return null;
+}
+
+function formatFailureDetail(label, value) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-400">{label}:</span>
+      <span className="font-mono text-gray-200">{value}</span>
+    </div>
+  );
 }
 
 export default function ExecutionDetail() {
@@ -74,6 +115,8 @@ export default function ExecutionDetail() {
     () => getExecution(id), 
     { interval: 30000 }
   );
+
+  const failure = React.useMemo(() => normalizeFailure(execution, executionData, receipt), [execution, executionData, receipt]);
 
   if (executionLoading) {
     return (
@@ -143,6 +186,11 @@ export default function ExecutionDetail() {
             </div>
             <div className="flex items-center gap-3">
               <StatusPill value={execution.status} />
+              {failure?.code && (
+                <span className="text-xs uppercase tracking-wide bg-red-900/40 text-red-300 border border-red-700 px-2 py-0.5 rounded-full">
+                  {failure.code}
+                </span>
+              )}
               <CopyButton text={String(execution.id)} label="Copy ID" />
             </div>
           </div>
@@ -187,6 +235,47 @@ export default function ExecutionDetail() {
           </div>
         </div>
       </div>
+
+      {failure && (
+        <div className="bg-red-900/20 border border-red-700 rounded-lg overflow-hidden">
+          <div className="border-b border-red-700 bg-red-950/60 px-6 py-4">
+            <h2 className="font-semibold text-red-200 flex items-center gap-2">
+              <span>Execution Failure</span>
+              {failure.stage && (
+                <span className="text-xs uppercase tracking-wide bg-red-900 text-red-200 px-2 py-0.5 rounded-full">
+                  {failure.stage}
+                </span>
+              )}
+            </h2>
+          </div>
+          <div className="p-6 space-y-3 text-sm">
+            <div className="text-red-100 leading-relaxed">
+              {failure.message || 'This execution ended in failure.'}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {formatFailureDetail('Provider', failure.provider || execution.provider_id)}
+              {formatFailureDetail('Provider Type', failure.provider_type)}
+              {formatFailureDetail('Region', failure.region || execution.region)}
+              {formatFailureDetail('HTTP Status', failure.http_status)}
+              {formatFailureDetail('Transient', typeof failure.transient === 'boolean' ? (failure.transient ? 'yes' : 'no') : null)}
+              {formatFailureDetail('Retry After', failure.retry_after ? `${failure.retry_after}s` : null)}
+              {formatFailureDetail('URL', failure.url)}
+            </div>
+            {(failure.request_id || failure.execution_id || failure.job_id) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {formatFailureDetail('Request ID', failure.request_id)}
+                {formatFailureDetail('Execution ID', failure.execution_id || execution.id)}
+                {formatFailureDetail('Job ID', failure.job_id || execution.job_id)}
+              </div>
+            )}
+            {failure.metadata && typeof failure.metadata === 'object' && (
+              <pre className="bg-red-950/60 border border-red-800 rounded p-3 text-xs text-red-200 overflow-auto">
+{JSON.stringify(failure.metadata, null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Receipt Section */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">

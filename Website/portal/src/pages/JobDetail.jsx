@@ -1,7 +1,9 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { getJob, getTransparencyProof, getTransparencyRoot, bundleUrl } from '../lib/api.js';
+import { getJob } from '../lib/api/runner/jobs.js';
+import { getTransparencyProof, getTransparencyRoot } from '../lib/api/runner/transparency.js';
+import { bundleUrl } from '../lib/api/ipfs.js';
 
 export default function JobDetail() {
   const { id } = useParams();

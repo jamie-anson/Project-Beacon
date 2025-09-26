@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
-import { listJobs } from '../lib/api.js';
+import { listJobs } from '../lib/api/runner/jobs.js';
 
 export default function Jobs() {
   const [limit, setLimit] = React.useState(50);

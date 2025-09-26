@@ -138,6 +138,69 @@ git gc --prune=now --aggressive
 - **Worst case**: Fresh clone (Phase 3.1) always works
 
 **Lesson**: System-level memory mapping issues often require restart to clear.
+
+## Successful Resolution (2025-09-26 16:00-16:25)
+
+**Final Solution**: Systematic batch deployment approach after restart
+
+### What Worked
+1. **System restart** resolved the underlying mmap timeout issues
+2. **Batch deployment strategy** prevented HTTP 408 timeouts on large commits
+3. **Root cause identification** - Storybook static files caused 70k+ line commits
+
+### Execution Results
+**Successful 4-batch deployment:**
+- **Batch 1**: Single test file cleanup (1 file, 73 insertions) ✅
+- **Batch 2**: Worker components (3 files, 250 insertions) ✅  
+- **Batch 3**: Complete runner-app core (13 files, 967 insertions) ✅
+- **Batch 4**: Infrastructure docs (2 files, 85 insertions) ✅
+
+**Total**: 19 files, 1,375 insertions successfully deployed
+
+### Key Insights
+1. **Commit Size Matters**: 
+   - Original: 105 files, 13,716 insertions → HTTP 408 timeout
+   - Batched: Largest batch 13 files, 967 insertions → Success
+   
+2. **Build Artifacts Are Toxic**:
+   - `storybook-static/` directory contained massive generated files
+   - Added to `.gitignore` to prevent future issues
+   
+3. **Progressive Validation**:
+   - Start with smallest possible commit (1 file)
+   - Gradually increase batch size until you find the limit
+   - Each successful push builds confidence
+
+4. **Post-Restart Window**:
+   - System restart clears memory mapping issues
+   - Push immediately after restart for best results
+   - Don't let the system accumulate memory pressure again
+
+### Recommended Workflow
+```bash
+# 1. Check commit size before pushing
+git show --stat HEAD
+
+# 2. If >500 insertions or >10 files, consider batching
+git reset --mixed HEAD~1
+
+# 3. Batch by logical components
+git add component1/
+git commit -m "batch 1/N: component1 changes"
+git push origin main
+
+git add component2/
+git commit -m "batch 2/N: component2 changes" 
+git push origin main
+
+# 4. Monitor each push for success before continuing
+```
+
+### Prevention Strategy
+- **Gitignore discipline**: Always exclude build artifacts
+- **Regular pushes**: Don't accumulate massive changesets
+- **Build artifact detection**: Check for `dist/`, `build/`, `*-static/` directories
+- **Size awareness**: Use `git show --stat` before committing large changes
 - See `docs/sot/facts.json` for CI/CD routes and deployment targets.
 - Netlify deploys can appear "prepared" if the token is invalid; refresh `NETLIFY_AUTH_TOKEN` GitHub secret if needed.
 - **Post-restart**: Always try git push immediately after system restart for mmap issues.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { getIpfsGateway } from '../lib/api.js';
+import { getIpfsGateway } from '../lib/api/ipfs.js';
 import { useToast } from '../state/toast.jsx';
 
 export default function Settings() {

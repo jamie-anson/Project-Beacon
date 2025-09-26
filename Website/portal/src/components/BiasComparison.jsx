@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getJob } from '../lib/api.js';
+import { getJob } from '../lib/api/runner/jobs.js';
 
 export default function BiasComparison({ jobIds = [] }) {
   const [items, setItems] = useState([]); // [{ id, loading, error, data }]

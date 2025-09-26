@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { compareDiffs } from '../../lib/api';
+import { compareDiffs } from '../../lib/api/diffs/index.js';
 // Force rebuild to clear cache issues
 
 export default function LiveProgressTable({ 
@@ -208,12 +208,17 @@ function normalizeRegion(r) {
           const retries = e?.retries;
           const eta = e?.eta;
 
+          const failure = e?.output?.failure || e?.failure || e?.failure_reason || e?.output?.failure_reason;
+          const failureMessage = typeof failure === 'object' ? failure?.message : null;
+          const failureCode = typeof failure === 'object' ? failure?.code : null;
+          const failureStage = typeof failure === 'object' ? failure?.stage : null;
+
           const getEnhancedStatus = () => {
             if (loadingActive) return 'refreshing';
             if (!e) return jobCompleted ? 'completed' : 'pending';
             
             // Check for infrastructure errors
-            if (e?.error || e?.failure_reason) {
+            if (e?.error || e?.failure_reason || failureMessage) {
               return 'failed';
             }
             
@@ -265,10 +270,17 @@ function normalizeRegion(r) {
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(enhancedStatus)}`}>
                     {String(enhancedStatus)}
                   </span>
-                  {(e?.error || e?.failure_reason) && (
-                    <span className="text-xs text-red-600 truncate" title={e?.error || e?.failure_reason}>
-                      {(e?.error || e?.failure_reason).substring(0, 20)}...
-                    </span>
+                  {(failureMessage || e?.error || e?.failure_reason) && (
+                    <div className="flex flex-col gap-0.5 text-red-500 text-xs">
+                      <span className="truncate" title={failureMessage || e?.error || e?.failure_reason}>
+                        {(failureMessage || e?.error || e?.failure_reason || '').slice(0, 60)}{(failureMessage || e?.error || e?.failure_reason || '').length > 60 ? '…' : ''}
+                      </span>
+                      {(failureCode || failureStage) && (
+                        <span className="text-red-400/80 uppercase tracking-wide" title={`${failureCode || ''} ${failureStage || ''}`.trim()}>
+                          {failureCode || ''}{failureCode && failureStage ? ' · ' : ''}{failureStage || ''}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

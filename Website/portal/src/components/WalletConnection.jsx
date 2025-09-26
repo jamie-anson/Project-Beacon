@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  isMetaMaskInstalled, 
-  getWalletAuthStatus, 
-  getOrCreateWalletAuth, 
+import {
+  isMetaMaskInstalled,
+  getWalletAuthStatus,
+  getOrCreateWalletAuth,
   clearWalletAuth,
-  onAccountsChanged 
+  onAccountsChanged
 } from '../lib/wallet.js';
 import { getOrCreateKeyPair } from '../lib/crypto.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast, createSuccessToast, createWarningToast } from '../lib/errorUtils.js';
 
-export default function WalletConnection() {
+export default function WalletConnection({ overrides = {} }) {
+  const isMetaMaskInstalledImpl = overrides.isMetaMaskInstalled ?? isMetaMaskInstalled;
+  const getWalletAuthStatusImpl = overrides.getWalletAuthStatus ?? getWalletAuthStatus;
+  const getOrCreateWalletAuthImpl = overrides.getOrCreateWalletAuth ?? getOrCreateWalletAuth;
+  const clearWalletAuthImpl = overrides.clearWalletAuth ?? clearWalletAuth;
+  const onAccountsChangedImpl = overrides.onAccountsChanged ?? onAccountsChanged;
+  const getOrCreateKeyPairImpl = overrides.getOrCreateKeyPair ?? getOrCreateKeyPair;
   const [walletStatus, setWalletStatus] = useState({ isAuthorized: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -21,7 +27,7 @@ export default function WalletConnection() {
     updateWalletStatus();
 
     // Listen for account changes
-    const cleanup = onAccountsChanged((newAccount) => {
+    const cleanup = onAccountsChangedImpl((newAccount) => {
       updateWalletStatus();
       if (newAccount === null) {
         addToast(createWarningToast('Wallet disconnected. Please reconnect to submit jobs.'));
@@ -31,15 +37,15 @@ export default function WalletConnection() {
     });
 
     return cleanup;
-  }, [addToast]);
+  }, [addToast, onAccountsChangedImpl]);
 
   const updateWalletStatus = () => {
-    const status = getWalletAuthStatus();
+    const status = getWalletAuthStatusImpl();
     setWalletStatus(status);
   };
 
   const handleConnectWallet = async () => {
-    if (!isMetaMaskInstalled()) {
+    if (!isMetaMaskInstalledImpl()) {
       addToast(createErrorToast(new Error('MetaMask is not installed. Please install MetaMask from https://metamask.io')));
       return;
     }
@@ -47,10 +53,10 @@ export default function WalletConnection() {
     setIsConnecting(true);
     try {
       // Get the current Ed25519 keypair
-      const { publicKey } = await getOrCreateKeyPair();
+      const { publicKey } = await getOrCreateKeyPairImpl();
       
       // Create wallet authorization
-      const auth = await getOrCreateWalletAuth(publicKey);
+      const auth = await getOrCreateWalletAuthImpl(publicKey);
       
       updateWalletStatus();
       addToast(createSuccessToast(auth.address, 'wallet connected'));
@@ -63,7 +69,7 @@ export default function WalletConnection() {
   };
 
   const handleDisconnect = () => {
-    clearWalletAuth();
+    clearWalletAuthImpl();
     updateWalletStatus();
     addToast(createSuccessToast('Wallet disconnected'));
   };
@@ -79,7 +85,7 @@ export default function WalletConnection() {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  if (!isMetaMaskInstalled()) {
+  if (!isMetaMaskInstalledImpl()) {
     const isSafari = (() => {
       if (typeof navigator === 'undefined' || !navigator.userAgent) return false;
       const ua = navigator.userAgent;
