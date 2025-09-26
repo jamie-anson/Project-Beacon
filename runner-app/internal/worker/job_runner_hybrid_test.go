@@ -25,6 +25,14 @@ func (f *fakeExecRepo2) InsertExecution(ctx context.Context, jobID, providerID, 
     return 42, nil
 }
 
+func (f *fakeExecRepo2) InsertExecutionWithModel(ctx context.Context, jobID, providerID, region, status string, startedAt, completedAt time.Time, outputJSON, receiptJSON []byte, modelID string) (int64, error) {
+    f.lastJobID = jobID
+    f.lastProvider = providerID
+    f.lastRegion = region
+    f.lastStatus = status
+    return 42, nil
+}
+
 func (f *fakeExecRepo2) UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error {
     return nil
 }
