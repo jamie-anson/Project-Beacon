@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+	
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
@@ -131,28 +133,66 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				// Cross-Region Diffs endpoints (enabled for Portal UI)
 				executions.GET("/:id/cross-region-diff", executionsHandler.GetCrossRegionDiff)
 				executions.GET("/:id/regions", executionsHandler.GetRegionResults)
+				// NEW: Bias scoring endpoint
+				executions.GET("/:id/bias-score", executionsHandler.GetBiasScore)
 			}
 			// Job-scoped executions (includes rows without receipts)
 			v1.GET("/jobs/:id/executions/all", executionsHandler.ListAllExecutionsForJob)
 		}
 
-		// Diffs endpoint for portal
+		// Diffs endpoint for portal - returns recent cross-region analyses
 		v1.GET("/diffs", func(c *gin.Context) {
 			limit := c.DefaultQuery("limit", "10")
+			
+			// Get recent completed jobs with multiple regions
+			if executionsHandler != nil && executionsHandler.ExecutionsRepo != nil {
+				rows, err := executionsHandler.ExecutionsRepo.DB.QueryContext(c.Request.Context(), `
+					SELECT DISTINCT j.jobspec_id, j.created_at, COUNT(e.region) as region_count
+					FROM jobs j
+					JOIN executions e ON j.id = e.job_id
+					WHERE e.status = 'completed'
+					GROUP BY j.jobspec_id, j.created_at
+					HAVING COUNT(DISTINCT e.region) >= 2
+					ORDER BY j.created_at DESC
+					LIMIT $1
+				`, limit)
+				
+				if err == nil {
+					defer rows.Close()
+					var diffs []gin.H
+					
+					for rows.Next() {
+						var jobID string
+						var createdAt time.Time
+						var regionCount int
+						
+						if err := rows.Scan(&jobID, &createdAt, &regionCount); err == nil {
+							diffs = append(diffs, gin.H{
+								"id":              jobID,
+								"job_id":          jobID,
+								"regions":         regionCount,
+								"analysis_type":   "cross_region_bias",
+								"status":          "completed",
+								"created_at":      createdAt.Format(time.RFC3339),
+								"view_url":        "/executions/" + jobID + "/cross-region-diff",
+							})
+						}
+					}
+					
+					c.JSON(200, gin.H{
+						"diffs": diffs,
+						"limit": limit,
+						"total": len(diffs),
+					})
+					return
+				}
+			}
+			
+			// Fallback to empty list if database unavailable
 			c.JSON(200, gin.H{
-				"diffs": []gin.H{
-					{
-						"id": "diff_001",
-						"execution_a": "exec_001",
-						"execution_b": "exec_002", 
-						"question_id": "bias_1",
-						"similarity_score": 0.85,
-						"differences": []string{"response_length", "cultural_context"},
-						"created_at": "2025-08-31T01:10:00Z",
-					},
-				},
+				"diffs": []gin.H{},
 				"limit": limit,
-				"total": 1,
+				"total": 0,
 			})
 		})
 	}

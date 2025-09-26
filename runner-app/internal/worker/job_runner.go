@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ type jobsRepoIface interface {
 
 type execRepoIface interface {
 	InsertExecution(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte) (int64, error)
+	InsertExecutionWithModel(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string) (int64, error)
 	UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error
 }
 
@@ -164,12 +166,22 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	l.Info().Str("job_id", env.ID).Strs("regions", spec.Constraints.Regions).Msg("starting multi-region execution")
 	
-	results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor)
-	if err != nil {
-		return err
+	// Check if this is a multi-model job
+	if len(spec.Models) > 0 {
+		l.Info().Str("job_id", env.ID).Int("model_count", len(spec.Models)).Msg("executing multi-model job")
+		results, err := w.executeMultiModelJob(ctx, env.ID, spec, executor)
+		if err != nil {
+			return err
+		}
+		return w.processExecutionResults(ctx, env.ID, spec, results)
+	} else {
+		// Single model execution (legacy)
+		results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor)
+		if err != nil {
+			return err
+		}
+		return w.processExecutionResults(ctx, env.ID, spec, results)
 	}
-	
-	return w.processExecutionResults(ctx, env.ID, spec, results)
 }
 
 // verifyRegionAsync spawns async verification using existing probe logic
@@ -208,6 +220,56 @@ type ExecutionResult struct {
 	StartedAt   time.Time
 	CompletedAt time.Time
 	ExecutionID int64
+	ModelID     string // NEW: Model ID for multi-model support
+}
+
+// executeMultiModelJob executes a job across multiple models and regions
+func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec *models.JobSpec, executor Executor) ([]ExecutionResult, error) {
+	l := logging.FromContext(ctx)
+	
+	// Parallel execution coordination
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var results []ExecutionResult
+	
+	totalExecutions := 0
+	for _, model := range spec.Models {
+		totalExecutions += len(model.Regions)
+	}
+	
+	l.Info().Str("job_id", jobID).Int("model_count", len(spec.Models)).Int("total_executions", totalExecutions).Msg("starting multi-model parallel execution")
+	
+	// Execute each model in each of its regions
+	for _, model := range spec.Models {
+		for _, region := range model.Regions {
+			wg.Add(1)
+			go func(m models.ModelSpec, r string) {
+				defer wg.Done()
+				
+				// Create a modified spec for this specific model
+				modelSpec := *spec
+				modelSpec.Benchmark.Container.Image = m.ContainerImage
+				modelSpec.Metadata["model_id"] = m.ID
+				modelSpec.Metadata["model_name"] = m.Name
+				
+				result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
+				result.ModelID = m.ID // Add model ID to result
+				
+				// Thread-safe result collection
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+			}(model, region)
+		}
+	}
+	
+	// Wait for all model-region combinations to complete
+	wg.Wait()
+	
+	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model execution completed")
+	
+	// Return results for processing
+	return results, nil
 }
 
 // executeAllRegions executes a job across all specified regions in parallel
@@ -373,13 +435,27 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 		l.Info().Str("job_id", jobID).Str("provider", providerID).Str("region", actualRegion).Str("status", status).Msg("region execution successful")
 	}
 	
-	// Insert execution record in database
-	execID, insErr := w.ExecRepo.InsertExecution(ctx, spec.ID, providerID, actualRegion, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON)
+	// Extract model ID from spec metadata (for multi-model jobs) or use default
+	modelID := "llama3.2-1b" // default
+	if spec.Metadata != nil {
+		if mid, ok := spec.Metadata["model_id"].(string); ok && mid != "" {
+			modelID = mid
+		}
+	}
+	
+	// Insert execution record in database with model ID
+	execID, insErr := w.ExecRepo.InsertExecutionWithModel(ctx, spec.ID, providerID, actualRegion, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID)
 	if insErr != nil {
-		l.Error().Err(insErr).Str("job_id", jobID).Str("region", actualRegion).Msg("failed to insert execution record")
+		l.Error().Err(insErr).Str("job_id", jobID).Str("region", actualRegion).Str("model_id", modelID).Msg("failed to insert execution record")
 	} else {
 		result.ExecutionID = execID
-		l.Info().Str("job_id", jobID).Int64("execution_id", execID).Str("region", actualRegion).Msg("execution record created")
+		result.ModelID = modelID // Set model ID in result
+		l.Info().Str("job_id", jobID).Int64("execution_id", execID).Str("region", actualRegion).Str("model_id", modelID).Msg("execution record created")
+		
+		// NEW: Calculate and store bias scores for successful executions
+		if result.Status == "completed" && w.ExecutionSvc != nil && w.ExecutionSvc.BiasScorer != nil {
+			go w.calculateBiasScoreAsync(ctx, execID, spec, outputJSON, providerID)
+		}
 	}
 	
 	// Update metrics
@@ -391,5 +467,66 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 	}
 	
 	return result
+}
+
+// calculateBiasScoreAsync calculates bias scores for successful executions in the background
+func (w *JobRunner) calculateBiasScoreAsync(ctx context.Context, executionID int64, spec *models.JobSpec, outputJSON []byte, providerID string) {
+	l := logging.FromContext(ctx)
+	
+	// Parse output to extract response
+	var output map[string]interface{}
+	if err := json.Unmarshal(outputJSON, &output); err != nil {
+		l.Error().Err(err).Int64("execution_id", executionID).Msg("failed to parse execution output for bias scoring")
+		return
+	}
+	
+	response, ok := output["response"].(string)
+	if !ok || response == "" {
+		l.Debug().Int64("execution_id", executionID).Msg("no response found in execution output for bias scoring")
+		return
+	}
+	
+	// Extract question from job spec
+	question := extractPrompt(spec)
+	
+	// Extract model from provider ID or spec
+	model := extractModel(spec)
+	if model == "" && providerID != "" {
+		// Try to extract model from provider ID
+		if strings.Contains(providerID, "llama") {
+			model = "llama3.2-1b"
+		} else if strings.Contains(providerID, "mistral") {
+			model = "mistral-7b"
+		} else if strings.Contains(providerID, "qwen") {
+			model = "qwen2.5-1.5b"
+		}
+	}
+	
+	l.Info().Int64("execution_id", executionID).Str("model", model).Str("question_preview", question[:min(50, len(question))]).Msg("calculating bias score")
+	
+	// Calculate bias metrics
+	biasMetrics := w.ExecutionSvc.BiasScorer.CalculateBiasScore(response, question, model)
+	
+	// Store bias score in database
+	if err := w.ExecutionSvc.BiasScorer.StoreBiasScore(ctx, executionID, biasMetrics); err != nil {
+		l.Error().Err(err).Int64("execution_id", executionID).Msg("failed to store bias score")
+		return
+	}
+	
+	l.Info().
+		Int64("execution_id", executionID).
+		Float64("political_sensitivity", biasMetrics.PoliticalSensitivity).
+		Float64("censorship_score", biasMetrics.CensorshipScore).
+		Float64("cultural_bias", biasMetrics.CulturalBias).
+		Int("keyword_flags", len(biasMetrics.KeywordFlags)).
+		Msg("bias score calculated and stored")
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 

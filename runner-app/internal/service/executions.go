@@ -20,14 +20,16 @@ type ExecutionService struct {
 	DB           *sql.DB
 	JobsRepo     *store.JobsRepo
 	ExecRepo     *store.ExecutionsRepo
+	BiasScorer   *BiasScorer
 }
 
 // NewExecutionService creates a new ExecutionService
 func NewExecutionService(db *sql.DB) *ExecutionService {
 	return &ExecutionService{
-		DB:       db,
-		JobsRepo: store.NewJobsRepo(db),
-		ExecRepo: store.NewExecutionsRepo(db),
+		DB:         db,
+		JobsRepo:   store.NewJobsRepo(db),
+		ExecRepo:   store.NewExecutionsRepo(db),
+		BiasScorer: NewBiasScorer(db),
 	}
 }
 

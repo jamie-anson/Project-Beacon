@@ -24,6 +24,7 @@ type JobSpec struct {
 	Metadata    map[string]interface{} `json:"metadata"`
 	CreatedAt   time.Time              `json:"created_at"`
 	Questions   []string               `json:"questions,omitempty"`
+	Models      []ModelSpec            `json:"models,omitempty"`      // NEW: Multi-model support
 	Runs        int                    `json:"runs,omitempty"`
 	WalletAuth  *WalletAuth            `json:"wallet_auth,omitempty"`
 	Signature   string                 `json:"signature"`
@@ -88,6 +89,15 @@ type ProviderFilter struct {
 	MaxPrice   float64 `json:"max_price,omitempty"`
 	Whitelist  []string `json:"whitelist,omitempty"`
 	Blacklist  []string `json:"blacklist,omitempty"`
+}
+
+// ModelSpec defines a model to be executed in multi-model jobs
+type ModelSpec struct {
+	ID              string   `json:"id"`               // e.g., "llama3.2-1b"
+	Name            string   `json:"name"`             // e.g., "Llama 3.2-1B Instruct"
+	Provider        string   `json:"provider"`         // e.g., "modal"
+	ContainerImage  string   `json:"container_image"`  // e.g., "ghcr.io/jamie-anson/project-beacon/llama-3.2-1b:latest"
+	Regions         []string `json:"regions"`          // Regions where this model should run
 }
 
 // ExecutionSummary provides high-level execution statistics

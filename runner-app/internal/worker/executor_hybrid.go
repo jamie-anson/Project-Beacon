@@ -147,16 +147,33 @@ func (h *HybridExecutor) Execute(ctx context.Context, spec *models.JobSpec, regi
 		Model:            model,
 		Prompt:           prompt,
 		Temperature:      0.1,
-		MaxTokens:        128,
+		MaxTokens:        500,  // Increased from 128 for detailed bias detection responses
 		RegionPreference: regionPref,
-		CostPriority:     true,
+		CostPriority:     false, // Prefer quality over cost for bias detection
 	}
 
-	l.Debug().Str("job_id", spec.ID).Interface("request", req).Msg("hybrid router request details")
+	// TRACE: Log exact URLs and requests being made
+	l.Error().
+		Str("job_id", spec.ID).
+		Interface("inference_request", req).
+		Msg("TRACE: Calling hybrid router with request")
 
 	hre, herr := h.Client.RunInference(ctx, req)
 
-	l.Info().Str("job_id", spec.ID).Bool("success", hre != nil && hre.Success).Err(herr).Msg("hybrid router response received")
+	// TRACE: Log response details and provider info
+	l.Error().
+		Str("job_id", spec.ID).
+		Bool("success", hre != nil && hre.Success).
+		Str("provider_used", func() string {
+			if hre != nil { return hre.ProviderUsed }
+			return "unknown"
+		}()).
+		Interface("response_metadata", func() interface{} {
+			if hre != nil { return hre.Metadata }
+			return nil
+		}()).
+		Err(herr).
+		Msg("TRACE: Hybrid router response received")
 
 	if herr != nil || hre == nil || !hre.Success {
 		l.Error().Err(herr).Str("job_id", spec.ID).Str("region", regionPref).Msg("hybrid router inference error")

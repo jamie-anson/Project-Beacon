@@ -272,6 +272,22 @@ func (r *ExecutionsRepo) InsertExecution(
 	outputJSON []byte,
 	receiptJSON []byte,
 ) (int64, error) {
+	return r.InsertExecutionWithModel(ctx, jobspecID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, "llama3.2-1b")
+}
+
+// InsertExecutionWithModel inserts an execution row with model_id support
+func (r *ExecutionsRepo) InsertExecutionWithModel(
+	ctx context.Context,
+	jobspecID string,
+	providerID string,
+	region string,
+	status string,
+	startedAt time.Time,
+	completedAt time.Time,
+	outputJSON []byte,
+	receiptJSON []byte,
+	modelID string,
+) (int64, error) {
 	// First, verify the job exists
 	var jobID int64
 	err := r.DB.QueryRowContext(ctx, `SELECT id FROM jobs WHERE jobspec_id = $1`, jobspecID).Scan(&jobID)
@@ -282,12 +298,12 @@ func (r *ExecutionsRepo) InsertExecution(
 		return 0, fmt.Errorf("failed to lookup job: %w", err)
 	}
 
-	// Now insert the execution with the found job ID
+	// Now insert the execution with the found job ID and model_id
 	row := r.DB.QueryRowContext(ctx, `
-		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
-	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON)
+	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
 	var id int64
 	if err := row.Scan(&id); err != nil {
 		return 0, fmt.Errorf("failed to insert execution: %w", err)

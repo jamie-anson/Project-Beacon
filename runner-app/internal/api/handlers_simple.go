@@ -221,22 +221,81 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 				}
 			}
 
-			// Prefer paginated method if available
-			recs, lerr := h.jobsService.ExecutionsRepo.ListExecutionsByJobSpecIDPaginated(c.Request.Context(), jobID, execLimit, execOffset)
-			if lerr != nil {
-				// Fallback to non-paginated list
-				recs, lerr2 := h.jobsService.ExecutionsRepo.ListExecutionsByJobSpecID(c.Request.Context(), jobID)
-				if lerr2 != nil {
-					l.Error().Err(lerr2).Str("job_id", jobID).Msg("list executions error")
-					c.JSON(http.StatusInternalServerError, gin.H{"error": lerr2.Error()})
-					return
-				}
-				l.Info().Str("job_id", jobID).Int("count", len(recs)).Msg("returning executions (fallback)")
-				c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": recs})
+			// Get execution summaries (not full receipts) for the job
+			ctx := c.Request.Context()
+			rows, err := h.jobsService.ExecutionsRepo.DB.QueryContext(ctx, `
+				SELECT 
+					e.id,
+					e.status,
+					e.region,
+					e.provider_id,
+					e.started_at,
+					e.completed_at,
+					e.created_at
+				FROM executions e
+				JOIN jobs j ON e.job_id = j.id
+				WHERE j.jobspec_id = $1
+				ORDER BY e.created_at DESC
+				LIMIT $2 OFFSET $3
+			`, jobID, execLimit, execOffset)
+			
+			if err != nil {
+				l.Error().Err(err).Str("job_id", jobID).Msg("failed to query executions")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
 				return
 			}
-			l.Info().Str("job_id", jobID).Int("count", len(recs)).Msg("returning executions (paginated)")
-			c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": recs})
+			defer rows.Close()
+
+			type ExecutionSummary struct {
+				ID          int64  `json:"id"`
+				Status      string `json:"status"`
+				Region      string `json:"region"`
+				ProviderID  string `json:"provider_id"`
+				StartedAt   string `json:"started_at"`
+				CompletedAt string `json:"completed_at"`
+				CreatedAt   string `json:"created_at"`
+			}
+
+			var executions []ExecutionSummary
+			for rows.Next() {
+				var exec ExecutionSummary
+				var startedAt, completedAt, createdAt interface{}
+				
+				err := rows.Scan(
+					&exec.ID,
+					&exec.Status,
+					&exec.Region,
+					&exec.ProviderID,
+					&startedAt,
+					&completedAt,
+					&createdAt,
+				)
+				if err != nil {
+					continue // Skip malformed rows
+				}
+
+				// Format timestamps
+				if startedAt != nil {
+					if t, ok := startedAt.(time.Time); ok {
+						exec.StartedAt = t.Format(time.RFC3339)
+					}
+				}
+				if completedAt != nil {
+					if t, ok := completedAt.(time.Time); ok {
+						exec.CompletedAt = t.Format(time.RFC3339)
+					}
+				}
+				if createdAt != nil {
+					if t, ok := createdAt.(time.Time); ok {
+						exec.CreatedAt = t.Format(time.RFC3339)
+					}
+				}
+
+				executions = append(executions, exec)
+			}
+
+			l.Info().Str("job_id", jobID).Int("count", len(executions)).Msg("returning execution summaries")
+			c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": executions})
 			return
 		}
 	}
