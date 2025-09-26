@@ -42,7 +42,9 @@ UI behavior:
 
 - WebSocket/backoff logic: `portal/src/state/useWs.js`
 - API helpers and gateway resolution:
-  - `portal/src/lib/api.js` → `getIpfsGateway()`, `bundleUrl(cid)`
+  - `portal/src/lib/api/ipfs.js` → `getIpfsGateway()`, `bundleUrl(cid)`
+  - `portal/src/lib/api/http.js` → shared HTTP wrappers emitting structured `ApiError`
+  - `portal/src/lib/errorUtils.js` → `parseApiError()` for toast-friendly messaging
 - Settings: `portal/src/pages/Settings.jsx`
 - Dashboard & persistence: `portal/src/pages/Dashboard.jsx`
 - Activity Feed: `portal/src/components/ActivityFeed.jsx`

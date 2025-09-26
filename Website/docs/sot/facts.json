@@ -839,6 +839,23 @@
     "notes": "Release and deployment workflow"
   },
   {
+    "id": "dev-0004",
+    "action": "add",
+    "type": "dev_server",
+    "subject": "storybook",
+    "env": "local",
+    "data": {
+      "directory": "portal/",
+      "command_dev": "npm run storybook",
+      "command_build": "npm run build-storybook",
+      "port": 6006,
+      "output_dir": "portal/storybook-static/",
+      "node_requirement": "Node 20.x LTS"
+    },
+    "effective_at": "2025-09-26T14:34:51+01:00",
+    "notes": "Storybook design system workspace; share Tailwind theme with portal."
+  },
+  {
     "id": "docker-0001",
     "action": "add",
     "type": "docker_image",
@@ -1262,5 +1279,38 @@
     },
     "effective_at": "2025-09-22T23:31:44+01:00",
     "notes": "Superseded by backend_diffs_original (backend-diffs-production)"
+  },
+  {
+    "id": "dev-0005",
+    "action": "add",
+    "type": "dev_server",
+    "subject": "storybook_integration",
+    "env": "local",
+    "data": {
+      "directory": "portal/",
+      "command_dev": "npm run storybook",
+      "command_build": "npm run build-storybook",
+      "port": 6007,
+      "output_dir": "portal/storybook-static/",
+      "framework": "@storybook/react-vite",
+      "stories_count": 11,
+      "components_documented": [
+        "CopyButton",
+        "Toasts", 
+        "Modal",
+        "ErrorMessage",
+        "ErrorBoundary",
+        "InfrastructureStatus",
+        "ActivityFeed",
+        "WalletConnection",
+        "BiasHeatMap",
+        "WorldMapVisualization",
+        "LiveProgressTable",
+        "CrossRegionDiffView"
+      ],
+      "design_tokens": "Catppuccin Mocha theme with Tailwind extensions"
+    },
+    "effective_at": "2025-09-26T16:01:00+01:00",
+    "notes": "Storybook design system successfully integrated with all major portal components documented. Build output: 17s, 889kB main bundle."
   }
 ]

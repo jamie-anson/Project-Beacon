@@ -62,7 +62,6 @@ Code refs:
 - Copy actions available for CID and root.
 
 Code refs:
-- `portal/src/components/Modal.jsx`
 - `portal/src/components/ProofViewer.jsx`
 
 ## Settings
@@ -71,14 +70,15 @@ Code refs:
 - Set a runtime IPFS Gateway (saved in `localStorage`, takes effect immediately)
 
 Code refs:
-- `portal/src/pages/Settings.jsx`
-- `portal/src/lib/api.js` (`getIpfsGateway()`, `bundleUrl()`)
+  - `portal/src/pages/Settings.jsx`
+  - `portal/src/lib/api/ipfs.js` (`getIpfsGateway()`, `bundleUrl()`)
+  - `portal/src/lib/api/http.js` + `portal/src/lib/errorUtils.js` (shared HTTP + structured error parsing)
 
 ## Storage Keys
 
 - `localStorage`:
   - `beacon:ipfs_gateway` — runtime gateway override
-- `sessionStorage`:
+{{ ... }}
   - `beacon:activity` — persisted Activity Feed events
 
 ## Observability (Runner API)

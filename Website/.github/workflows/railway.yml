@@ -5,23 +5,23 @@ on:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Dockerfile.router'
+      - 'Website/Dockerfile.router'
       - 'hybrid_router.py'
-      - 'hybrid_router/**'
+      - 'Website/hybrid_router/**'
       - 'requirements.txt'
-      - 'modal-deployment/**'
-      - 'railway.json'
+      - 'Website/modal-deployment/**'
+      - 'Website/railway.json'
       - '.github/workflows/railway.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'flyio-deployment/**'
-      - 'Dockerfile.router'
+      - 'Website/Dockerfile.router'
       - 'hybrid_router.py'
-      - 'hybrid_router/**'
+      - 'Website/hybrid_router/**'
       - 'requirements.txt'
-      - 'modal-deployment/**'
-      - 'railway.json'
+      - 'Website/modal-deployment/**'
+      - 'Website/railway.json'
   workflow_dispatch:
 
 concurrency:
@@ -49,7 +49,7 @@ jobs:
       - name: Build hybrid-router image (no push)
         run: |
           DOCKER_BUILDKIT=1 docker build --progress=plain \
-            -f Dockerfile.router \
+            -f Website/Dockerfile.router \
             -t beacon-hybrid-router:ci \
             .
 
