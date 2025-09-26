@@ -18,6 +18,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
+	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
@@ -49,6 +50,7 @@ type JobRunner struct {
 	Bundler      *ipfs.Bundler
 	ProbeFactory ProbeFactory
 	Executor     Executor
+	WSHub        *websocket.Hub
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
@@ -327,10 +329,46 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 		CompletedAt: regionEnd.UTC(),
 	}
 	
-	// Handle execution result logging
+	// Handle execution result logging and metrics
 	if err != nil {
 		l.Error().Err(err).Str("job_id", jobID).Str("region", actualRegion).Msg("region execution failed")
 		result.Status = "failed"
+		
+		// Increment failure metrics
+		errorType := "unknown"
+		component := "executor"
+		if result.OutputJSON != nil {
+			var output map[string]interface{}
+			if json.Unmarshal(result.OutputJSON, &output) == nil {
+				if failure, ok := output["failure"].(map[string]interface{}); ok {
+					if t, ok := failure["type"].(string); ok {
+						errorType = t
+					}
+					if c, ok := failure["component"].(string); ok {
+						component = c
+					}
+				}
+			}
+		}
+		metrics.RunnerFailuresTotal.WithLabelValues(actualRegion, errorType, component).Inc()
+		
+		// Broadcast failure event via WebSocket
+		if w.WSHub != nil {
+			failureEvent := map[string]interface{}{
+				"job_id": jobID,
+				"region": actualRegion,
+				"error_type": errorType,
+				"component": component,
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+			}
+			if result.OutputJSON != nil {
+				var output map[string]interface{}
+				if json.Unmarshal(result.OutputJSON, &output) == nil {
+					failureEvent["failure"] = output["failure"]
+				}
+			}
+			w.WSHub.BroadcastMessage("runner.execution_failed", failureEvent)
+		}
 	} else {
 		l.Info().Str("job_id", jobID).Str("provider", providerID).Str("region", actualRegion).Str("status", status).Msg("region execution successful")
 	}
