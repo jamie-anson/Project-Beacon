@@ -73,7 +73,14 @@ function normalizeRegion(r) {
   function extractExecText(exec) {
     const out = exec?.output || exec?.result || {};
     try {
-      if (typeof out?.response === 'string' && out.response) return out.response;
+      if (typeof out?.response === 'string' && out.response) {
+        // For multi-question responses, show a preview
+        const response = out.response;
+        if (response.length > 200) {
+          return response.substring(0, 200) + '... (click to view full response)';
+        }
+        return response;
+      }
       if (out.responses && Array.isArray(out.responses) && out.responses.length > 0) {
         const r = out.responses[0];
         return r.response || r.answer || r.output || '';

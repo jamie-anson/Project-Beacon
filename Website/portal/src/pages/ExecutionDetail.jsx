@@ -410,8 +410,54 @@ export default function ExecutionDetail() {
                 </div>
               )}
               
+              {/* Execution Output (from executions API) */}
+              {execution?.output && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-100 flex items-center gap-2">
+                    <span className="text-blue-400">🤖</span>
+                    AI Output (Execution Data)
+                  </h4>
+                  
+                  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                    <div className="text-sm text-blue-300 font-medium mb-2">Generated Response:</div>
+                    <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 whitespace-pre-wrap">
+                      "{execution.output?.response || execution.output?.text_output || 'No response available'}"
+                    </div>
+                    
+                    {/* Debug: Show response format for troubleshooting */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-gray-400 cursor-pointer">Debug: Response Structure</summary>
+                        <pre className="text-xs text-gray-400 mt-1 bg-gray-800 p-2 rounded overflow-auto">
+                          {JSON.stringify(execution.output, null, 2)}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Provider:</span>
+                      <span className="font-mono text-gray-200">{execution.output?.provider || execution.provider_id || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Model:</span>
+                      <span className="font-mono text-gray-200">{execution.output?.metadata?.model || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Tokens Generated:</span>
+                      <span className="font-mono text-gray-200">{execution.output?.metadata?.receipt?.output?.tokens_generated || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Execution Time:</span>
+                      <span className="font-mono text-gray-200">{execution.output?.metadata?.receipt?.execution_details?.duration ? `${Number(execution.output.metadata.receipt.execution_details.duration).toFixed(2)}s` : 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Legacy Receipt Output (preserve existing logic) */}
-              {hasReceiptData && receipt.output && (
+              {!execution?.output && hasReceiptData && receipt.output && (
                 <div className="space-y-3">
                   <h4 className="font-medium text-gray-100 flex items-center gap-2">
                     <span className="text-blue-400">🤖</span>
