@@ -11,8 +11,8 @@ export default {
     '/node_modules/(?!@noble/ed25519)'
   ],
   testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.(js|jsx)',
-    '<rootDir>/src/**/*.(test|spec).(js|jsx)'
+    '<rootDir>/src/**/__tests__/**/*.{js,jsx}',
+    '<rootDir>/src/**/*.{test,spec}.{js,jsx}'
   ],
   collectCoverageFrom: [
     'src/**/*.(js|jsx)',
