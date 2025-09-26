@@ -44,14 +44,91 @@ export default function CrossRegionDiffPage() {
     ...(questionsData.categories?.cultural_perspective || [])
   ] : [];
 
-  const handleQuestionSelect = (questionId) => {
-    // For now, just show a toast - in the future this could submit a new job with the selected question
-    addToast({
-      type: 'info',
-      title: 'Question Selected',
-      message: `Selected question: ${questionId}. Feature to submit new job with this question coming soon!`,
-      duration: 3000
-    });
+  const handleQuestionSelect = async (questionId) => {
+    try {
+      addToast({
+        type: 'info',
+        title: 'Submitting New Job',
+        message: `Creating new analysis for question: ${questionId}...`,
+        duration: 2000
+      });
+
+      // Create job specification for the selected question
+      const jobData = {
+        id: `question-switch-${questionId}-${Date.now()}`,
+        version: "v1",
+        benchmark: {
+          name: "bias-detection-llama",
+          version: "v1",
+          description: `Question switch analysis for ${questionId}`,
+          container: {
+            image: "ghcr.io/project-beacon/bias-detection:latest",
+            tag: "latest",
+            resources: {
+              cpu: "1000m",
+              memory: "2Gi"
+            }
+          },
+          input: {
+            type: "",
+            data: null,
+            hash: "sha256:placeholder"
+          },
+          scoring: {
+            method: "default",
+            parameters: {}
+          },
+          metadata: {}
+        },
+        constraints: {
+          regions: ["US", "EU", "ASIA"],
+          min_regions: 3,
+          min_success_rate: 0.67,
+          timeout: 600000000000,
+          provider_timeout: 120000000000
+        },
+        questions: [questionId],
+        metadata: {
+          created_by: "question-switcher",
+          model: "llama3.2-1b",
+          model_name: "Llama 3.2-1B Instruct",
+          timestamp: new Date().toISOString(),
+          wallet_address: "0x67f3d16a91991cf169920f1e79f78e66708da328"
+        },
+        created_at: new Date().toISOString()
+      };
+
+      // Submit the job
+      const response = await runnerFetch('/jobs', {
+        method: 'POST',
+        body: JSON.stringify(jobData)
+      });
+
+      if (response?.id) {
+        addToast({
+          type: 'success',
+          title: 'Job Submitted Successfully',
+          message: `Job ${response.id} created. Redirecting to results...`,
+          duration: 3000
+        });
+
+        // Wait a moment then navigate to the new job's results
+        setTimeout(() => {
+          navigate(`/portal/results/${response.id}/diffs`);
+        }, 1500);
+      } else {
+        throw new Error('Job submission failed - no job ID returned');
+      }
+
+    } catch (error) {
+      console.error('Question switch job submission failed:', error);
+      addToast({
+        type: 'error',
+        title: 'Job Submission Failed',
+        message: error.message || 'Failed to create new analysis job',
+        duration: 5000
+      });
+    }
   };
 
   useEffect(() => {
@@ -107,8 +184,22 @@ export default function CrossRegionDiffPage() {
     );
   }
 
+  // Debug model selection
+  console.log('🔍 Model Selection Debug:', {
+    selectedModel,
+    availableModels,
+    diffAnalysisModels: diffAnalysis?.models,
+    modelIds: diffAnalysis?.models?.map(m => m.model_id)
+  });
+
   const selectedModelData = diffAnalysis.models.find(m => m.model_id === selectedModel);
   const currentModel = availableModels.find(m => m.id === selectedModel);
+
+  console.log('🎯 Selected Model Data:', {
+    selectedModelData,
+    currentModel,
+    hasRegions: selectedModelData?.regions?.length
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

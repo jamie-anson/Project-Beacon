@@ -48,6 +48,13 @@ export function extractKeywordsFromResponse(response) {
  * @returns {DiffAnalysis|null}
  */
 export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MODELS) {
+  console.log('🔍 Transform Debug - Input:', {
+    apiData: apiData ? 'present' : 'null',
+    jobData: jobData ? 'present' : 'null',
+    executionsCount: apiData?.executions?.length,
+    firstExecution: apiData?.executions?.[0]
+  });
+
   if (!apiData) return null;
 
   const questionFromApi = apiData?.question?.text;
@@ -77,6 +84,14 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
       };
 
       const response = resolveResponse(exec?.output_data || exec?.output);
+      
+      console.log(`🔍 Region ${regionCode} Response Debug:`, {
+        execId: exec?.id,
+        hasOutputData: !!exec?.output_data,
+        hasOutput: !!exec?.output,
+        responseLength: response?.length,
+        responsePreview: response?.slice(0, 100) + '...'
+      });
 
       return {
         region_code: regionCode,
