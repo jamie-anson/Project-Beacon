@@ -43,11 +43,12 @@ export async function getCrossRegionDiff(jobId) {
 
   let lastError;
 
-  for (const candidate of DIFFS_CANDIDATES(encodedId)) {
+  // TRY RUNNER FIRST - this is our working endpoint!
+  for (const candidate of RUNNER_CANDIDATES(encodedId)) {
     try {
-      const result = await diffsFetch(candidate);
+      const result = await runnerFetch(candidate);
       if (result) {
-        console.log('✅ Diffs backend succeeded');
+        console.log('✅ Main backend succeeded');
         return result;
       }
     } catch (err) {
@@ -65,11 +66,11 @@ export async function getCrossRegionDiff(jobId) {
     lastError = err;
   }
 
-  for (const candidate of RUNNER_CANDIDATES(encodedId)) {
+  for (const candidate of DIFFS_CANDIDATES(encodedId)) {
     try {
-      const result = await runnerFetch(candidate);
+      const result = await diffsFetch(candidate);
       if (result) {
-        console.log('✅ Main backend succeeded');
+        console.log('✅ Diffs backend succeeded');
         return result;
       }
     } catch (err) {
