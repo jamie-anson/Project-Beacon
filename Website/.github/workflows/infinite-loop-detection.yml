@@ -65,6 +65,12 @@ jobs:
           echo "⚠️ Found potential setState with state in dependencies"
         fi
         
+        echo "Checking for WebSocket function dependencies..."
+        if grep -rE "useEffect.*\[.*wsEnabled.*\]" . --include="*.jsx" --include="*.js"; then
+          echo "❌ Found WebSocket function in useEffect dependencies (should be memoized)"
+          exit 1
+        fi
+        
         echo "✅ Static analysis complete"
         
     - name: Check for missing memoization

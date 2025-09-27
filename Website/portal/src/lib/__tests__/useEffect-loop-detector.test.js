@@ -181,6 +181,63 @@ describe('useEffect Infinite Loop Detection', () => {
 
     unmount();
   });
+
+  test('detects WebSocket hook infinite loops', async () => {
+    const ComponentWithBadWebSocket = () => {
+      const [count, setCount] = useState(0);
+
+      // BAD: Function recreated every render causing useEffect loop
+      const wsEnabled = () => false;
+
+      useEffect(() => {
+        setCount(prev => prev + 1);
+      }, [wsEnabled]); // wsEnabled function recreated every render
+
+      return <div>Count: {count}</div>;
+    };
+
+    const { unmount } = render(<ComponentWithBadWebSocket />);
+    
+    await waitFor(() => {
+      const hasMaxUpdateWarning = consoleErrors.some(error => 
+        error.includes('Maximum update depth exceeded')
+      );
+      expect(hasMaxUpdateWarning).toBe(true);
+    }, { timeout: 3000 });
+
+    unmount();
+  });
+
+  test('validates proper WebSocket memoization prevents loops', async () => {
+    const WellBehavedWebSocketComponent = () => {
+      const [count, setCount] = useState(0);
+
+      // GOOD: Memoized function
+      const wsEnabled = useMemo(() => false, []);
+
+      useEffect(() => {
+        // Only runs once due to stable wsEnabled reference
+        if (count < 3) {
+          const timer = setTimeout(() => setCount(prev => prev + 1), 100);
+          return () => clearTimeout(timer);
+        }
+      }, [wsEnabled, count]); // wsEnabled is stable, count changes predictably
+
+      return <div>Count: {count}</div>;
+    };
+
+    const { unmount } = render(<WellBehavedWebSocketComponent />);
+    
+    // Wait a bit to ensure no warnings
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const hasMaxUpdateWarning = consoleErrors.some(error => 
+      error.includes('Maximum update depth exceeded')
+    );
+    expect(hasMaxUpdateWarning).toBe(false);
+
+    unmount();
+  });
 });
 
 /**
@@ -211,6 +268,12 @@ export const useEffectPatternCheckers = {
     const setStateInEffectPattern = /useEffect\([^}]*set\w+\([^}]+\},\s*\[[^}]*\w+[^\]]*\]/g;
     if (setStateInEffectPattern.test(fileContent)) {
       issues.push('setState in useEffect with state variable in dependencies');
+    }
+    
+    // Pattern 4: WebSocket function dependencies (like wsEnabled())
+    const wsFunctionPattern = /useEffect\([^}]+\},\s*\[[^}]*wsEnabled[^\]]*\]/g;
+    if (wsFunctionPattern.test(fileContent)) {
+      issues.push('WebSocket function in useEffect dependencies (should be memoized)');
     }
     
     return issues;

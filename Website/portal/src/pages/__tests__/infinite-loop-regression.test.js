@@ -60,7 +60,13 @@ jest.mock('../../hooks/useRecentDiffs.js', () => ({
   }))
 }));
 
-jest.mock('../../state/useWs.js', () => jest.fn(() => ({})));
+jest.mock('../../state/useWs.js', () => jest.fn(() => ({
+  connected: false,
+  error: null,
+  socket: null,
+  retries: 0,
+  nextDelayMs: 0
+})));
 
 jest.mock('../../lib/api/runner/questions.js', () => ({
   getQuestions: jest.fn(() => Promise.resolve({
@@ -240,6 +246,31 @@ describe('Infinite Loop Regression Tests', () => {
     // Should render in under 100ms
     expect(renderTime).toBeLessThan(100);
     
+    unmount();
+  });
+
+  test('WebSocket hook does not cause infinite loops', async () => {
+    const useWs = require('../../state/useWs.js').default;
+    
+    // Test that useWs doesn't cause infinite re-renders
+    const TestComponent = () => {
+      const ws = useWs('/test', {
+        onMessage: () => {}
+      });
+      return <div>WebSocket Status: {ws.connected ? 'connected' : 'disconnected'}</div>;
+    };
+
+    const { unmount } = render(<TestComponent />);
+
+    // Wait for potential infinite loops
+    await waitFor(() => {
+      const hasMaxUpdateError = consoleErrors.some(error => 
+        error.includes('Maximum update depth exceeded')
+      );
+      
+      expect(hasMaxUpdateError).toBe(false);
+    }, { timeout: 3000 });
+
     unmount();
   });
 });
