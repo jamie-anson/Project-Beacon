@@ -555,14 +555,13 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
     temperature = item.get("temperature", 0.1)
     max_tokens = item.get("max_tokens", 500)
     region = item.get("region", "us-east")
-    
+
     if not prompt:
         return {
             "status": "error",
             "error": "Prompt is required"
         }
-    
-    # Route to appropriate region function
+
     if region == "eu-west":
         return run_inference_eu.remote(model_name, prompt, temperature, max_tokens)
     elif region == "asia-pacific":
@@ -570,7 +569,6 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
     else:
         return run_inference_us.remote(model_name, prompt, temperature, max_tokens)
 
-# Health check web endpoint
 @app.function(
     image=image,
     timeout=30,

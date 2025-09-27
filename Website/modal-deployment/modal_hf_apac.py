@@ -404,30 +404,30 @@ def health_check() -> Dict[str, Any]:
     volumes={"/models": models_volume},
     timeout=900,
     scaledown_window=600,
-    region=["us-west"],
+    region=["ap-southeast", "ap-northeast"],
     memory=16384,
     secrets=SECRETS,
     startup_timeout=1800,
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def inference(item: dict):
     """HTTP inference endpoint"""
-    if not MODEL_CACHE:
-        preload_all_models()
-    
     model_name = item.get("model", "llama3.2-1b")
     prompt = item.get("prompt", "")
     temperature = item.get("temperature", 0.1)
     max_tokens = item.get("max_tokens", 500)
-    
-    return run_inference_logic(model_name, prompt, "asia-southeast", temperature, max_tokens)
+
+    if not prompt:
+        return {"status": "error", "error": "Prompt is required"}
+
+    return run_inference.remote(model_name, prompt, temperature, max_tokens)
 
 @app.function(
     image=image,
     timeout=30,
     secrets=SECRETS,
 )
-@modal.web_endpoint(method="GET")
+@modal.fastapi_endpoint(method="GET")
 def health():
     """HTTP health check endpoint"""
-    return _health_payload()
+    return health_check.remote()
