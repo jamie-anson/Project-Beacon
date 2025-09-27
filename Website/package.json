@@ -9,6 +9,7 @@
     "build": "npm run build:static && npm run build:docs && npm run postbuild:cid && npm run build:docs:with-cid && npm run build:portal && npm run build:finalize",
     "build:portal": "cp demo-results/world.json portal/public/ 2>/dev/null || echo 'Warning: world.json not found, continuing...' && VITE_DOCS_CID=\"$(cat dist/docs-cid.txt 2>/dev/null || echo 'bafy...placeholder')\" VITE_BUILD_COMMIT=\"$(git rev-parse --short HEAD 2>/dev/null || echo unknown)\" npm run --prefix portal build",
     "build:finalize": "mkdir -p dist/portal && cp -R portal/dist/* dist/portal/ && mkdir -p dist/demo-results && cp -R demo-results/* dist/demo-results/ && node scripts/write-redirects.js && node scripts/verify-redirects.js && node scripts/append-routes-ledger.js",
+    "postbuild:cid": "node scripts/postbuild-pin.js",
     "postbuild:redirects": "node scripts/write-redirects.js && node scripts/verify-redirects.js && node scripts/append-routes-ledger.js",
     "test:routes": "node scripts/test-routes.js",
     "test:sot": "node scripts/test-sot-validation.js",
