@@ -8,6 +8,7 @@ import ErrorMessage from '../components/ErrorMessage.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useBiasDetection } from '../hooks/useBiasDetection.js';
+import useWs from '../state/useWs.js';
 
 export default function BiasDetection() {
   usePageTitle('Bias Detection Analysis');
