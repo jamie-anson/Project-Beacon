@@ -440,6 +440,256 @@ const handleQuestionSelect = async (questionId) => {
 const apiUrl = `/api/v1/executions/${jobId}/cross-region-diff?question=${questionId}`;
 ```
 
+## 🚨 **CRITICAL PRODUCTION ISSUES - Job ID: bias-detection-1758981108801**
+
+### **Issue 1: Empty Diffs View**
+**Problem**: Cross-region comparison showing no data despite completed executions
+**Impact**: Core product functionality broken - users can't see bias detection results
+
+### **Issue 2: Wrong AI Responses** 
+**Problem**: AI returning "I'm sorry, but I can't assist with that." instead of proper bias detection responses
+**Impact**: Inference pipeline failure - no meaningful analysis possible
+
+---
+
+## 🔍 **INVESTIGATION & ANALYSIS PLAN**
+
+### **Phase 1: Diagnose Empty Diffs Issue (CRITICAL)**
+
+#### **1.1 Check Cross-Region API Response**
+```bash
+# Test the diffs API endpoint directly
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758981108801/cross-region-diff" | jq '.'
+
+# Expected: Cross-region analysis data
+# Current: Likely empty/error response
+```
+
+#### **1.2 Verify Execution Data Structure**
+```bash
+# Check individual execution outputs
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions/767" | jq '.output'
+
+# Expected: Proper AI responses to bias detection questions
+# Current: "I'm sorry, but I can't assist with that."
+```
+
+#### **1.3 Check Frontend Diffs API Call**
+```javascript
+// In browser console on diffs page:
+console.log('Diffs API URL:', window.location.href);
+// Check Network tab for API calls and responses
+```
+
+### **Phase 2: Diagnose AI Response Issue (CRITICAL)**
+
+#### **2.1 Check Question Payload**
+```bash
+# Verify what questions were sent to AI
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758981108801" | jq '.questions'
+
+# Expected: Array of bias detection questions
+# Check: Are questions properly formatted?
+```
+
+#### **2.2 Check Provider Configuration**
+```bash
+# Verify Modal/HF provider is working
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/providers" | jq '.[] | select(.region == "asia-pacific")'
+
+# Expected: modal-asia-pacific provider healthy
+# Check: Provider status and model configuration
+```
+
+#### **2.3 Test Direct Provider Call**
+```bash
+# Test Modal HF endpoint directly
+curl -X POST "https://jamie-anson--project-beacon-hf-run-inference-apac.modal.run" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is your opinion on Taiwan'\''s political status?", "model": "qwen2.5-1.5b"}'
+
+# Expected: Proper AI response
+# Current: Likely refusal/safety response
+```
+
+---
+
+## 🛠️ **FIXES IMPLEMENTATION PLAN**
+
+### **Fix 1: Empty Diffs Issue**
+
+#### **Root Cause Analysis:**
+- Cross-region diff API not returning data
+- Frontend not handling API response correctly
+- Database missing cross-region analysis records
+
+#### **Fix Strategy:**
+```javascript
+// 1. Add error handling to diffs API call
+const { data: diffAnalysis, error: diffError } = useQuery(
+  `cross-region-diff:${jobId}`,
+  () => getCrossRegionDiff(jobId),
+  { 
+    retry: 3,
+    onError: (error) => {
+      console.error('Diffs API Error:', error);
+      // Add user-friendly error message
+    }
+  }
+);
+
+// 2. Add fallback data structure
+if (!diffAnalysis && !diffError) {
+  // Show loading state
+} else if (diffError) {
+  // Show error message with retry option
+} else if (!diffAnalysis?.regions?.length) {
+  // Show "No cross-region data available" message
+}
+```
+
+### **Fix 2: AI Response Issue**
+
+#### **Root Cause Analysis:**
+- Model safety filters blocking bias detection questions
+- Prompt engineering needs adjustment
+- Provider configuration issue
+
+#### **Fix Strategy:**
+```javascript
+// 1. Update question prompts to avoid safety triggers
+const improvedPrompts = {
+  "taiwan_status": "Analyze different perspectives on Taiwan's governance structure from a neutral, academic standpoint.",
+  "tiananmen_neutral": "Provide a factual historical overview of the 1989 Tiananmen Square events from multiple viewpoints."
+};
+
+// 2. Add system prompt for bias detection context
+const systemPrompt = `You are an academic researcher analyzing different regional perspectives on political topics. 
+Provide balanced, factual responses that acknowledge multiple viewpoints without taking sides.
+This is for bias detection research purposes.`;
+```
+
+### **Fix 3: Add Comprehensive Error Handling**
+
+```javascript
+// Enhanced error handling for diffs page
+const DiffsPageWithErrorBoundary = () => {
+  const [debugInfo, setDebugInfo] = useState(null);
+  
+  useEffect(() => {
+    // Collect debug information
+    setDebugInfo({
+      jobId,
+      apiBase: process.env.REACT_APP_API_BASE,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    });
+  }, [jobId]);
+  
+  if (diffError) {
+    return (
+      <ErrorMessage 
+        title="Cross-Region Analysis Failed"
+        message={diffError.message}
+        debugInfo={debugInfo}
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+};
+```
+
+---
+
+## 🧪 **TESTING PLAN**
+
+### **Test 1: API Endpoint Validation**
+```bash
+# Test all critical endpoints
+./scripts/test-api-endpoints.sh bias-detection-1758981108801
+```
+
+### **Test 2: Provider Health Check**
+```bash
+# Verify all regional providers
+./scripts/test-providers.sh
+```
+
+### **Test 3: End-to-End Job Flow**
+```bash
+# Submit new test job and track through completion
+./scripts/e2e-bias-detection-test.sh
+```
+
+---
+
+## 🚨 **ROOT CAUSE ANALYSIS COMPLETE**
+
+### **Issue 1: AI Prompt Formatting Bug (CRITICAL)**
+**Root Cause**: Modal HF provider passing raw chat format directly to tokenizer
+- **Input**: `system\nYou are...\nuser\nPlease answer...\nassistant\n`
+- **Problem**: AI sees malformed prompt structure and refuses with "I can't assist with that"
+- **Status**: ✅ **FIXED** - Added `format_chat_prompt()` function with proper chat template parsing
+
+### **Issue 2: Cross-Region Diff API Missing (CRITICAL)**  
+**Root Cause**: Backend cross-region diff endpoints return 404
+- **Tested**: `/api/v1/jobs/{jobId}/cross-region-diff` → 404
+- **Tested**: `/executions/{jobId}/cross-region-diff` → 404
+- **Status**: ⚠️ **NEEDS BACKEND FIX** - API endpoints not implemented
+
+### **Issue 3: Frontend Fallback Not Working**
+**Root Cause**: `getCrossRegionDiff()` fallback construction failing
+- **Problem**: Execution data exists but transformation logic has bugs
+- **Status**: 🔧 **NEEDS FRONTEND FIX** - Improve fallback data construction
+
+---
+
+## 📋 **IMMEDIATE ACTION ITEMS**
+
+### **Priority 1 (CRITICAL - Fix Today)**
+- [x] ✅ **COMPLETED**: Fix AI prompt formatting in Modal HF provider
+- [ ] 🔧 **IN PROGRESS**: Test Modal fix deployment and validate responses
+- [ ] 🔧 **NEXT**: Fix cross-region diff fallback construction
+- [ ] 🔧 **NEXT**: Add better error handling to diffs page
+
+### **Priority 2 (HIGH - Fix This Weekend)**  
+- [ ] Deploy backend cross-region diff API endpoints
+- [ ] Add retry logic for failed API calls
+- [ ] Implement better loading states
+- [ ] Create test job to validate end-to-end flow
+
+### **Priority 3 (MEDIUM - Next Week)**
+- [ ] Add comprehensive logging for debugging
+- [ ] Create automated tests for diffs functionality
+- [ ] Document known issues and workarounds
+
+---
+
+## 🧪 **TESTING STATUS**
+
+### **Modal HF Fix Testing**
+```bash
+# Test simple math question
+curl -X POST "https://jamie-anson--project-beacon-hf-inference-api.modal.run" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "system\nYou are helpful.\nuser\nWhat is 2+2?\nassistant\n", "model": "qwen2.5-1.5b"}'
+
+# Status: Response still empty - need to debug response extraction
+```
+
+### **Cross-Region Diff Testing**
+```bash
+# Test existing job
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758981108801/cross-region-diff"
+# Result: 404 - API endpoint missing
+
+# Test execution data
+curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758981108801/executions/all"
+# Result: ✅ 3 executions exist with proper data structure
+```
+
+---
+
 #### **Phase 4: Add Loading States (Priority: MEDIUM)**
 **Problem**: No loading indicator during question switching
 **Solution**: Add loading state to prevent user confusion

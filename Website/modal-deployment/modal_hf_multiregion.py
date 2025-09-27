@@ -216,19 +216,23 @@ def format_chat_prompt(raw_prompt: str, tokenizer):
                     add_generation_prompt=True
                 )
                 print(f"[CHAT] Applied chat template: {len(messages)} messages")
+                print(f"[CHAT] Template result: {repr(formatted[:200])}...")
                 return formatted
             except Exception as e:
                 print(f"[CHAT] Chat template failed: {e}, falling back to manual format")
         
-        # Fallback: manual formatting for instruction models
+        # Fallback: simple chat format that works with Qwen
         if messages:
             system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
             user_msg = next((msg["content"] for msg in messages if msg["role"] == "user"), "")
             
-            if system_msg and user_msg:
-                # Format for instruction-tuned models
-                formatted = f"<|system|>\n{system_msg}\n<|user|>\n{user_msg}\n<|assistant|>\n"
-                print(f"[CHAT] Manual format applied")
+            if user_msg:
+                # Simple format that works well with Qwen 2.5
+                if system_msg:
+                    formatted = f"system\n{system_msg}\nuser\n{user_msg}\nassistant\n"
+                else:
+                    formatted = f"user\n{user_msg}\nassistant\n"
+                print(f"[CHAT] Simple format applied")
                 return formatted
         
         print(f"[CHAT] No formatting applied, using raw prompt")
@@ -279,11 +283,23 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         
         # Decode response
         full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Remove the formatted prompt from response
-        response = full_response[len(formatted_prompt):].strip()
+        print(f"[DEBUG] Full response: {repr(full_response)}")
+        print(f"[DEBUG] Formatted prompt: {repr(formatted_prompt)}")
+        
+        # Extract response more carefully
+        if formatted_prompt in full_response:
+            response = full_response[len(formatted_prompt):].strip()
+        else:
+            # Fallback: try to find assistant response
+            if "<|assistant|>" in full_response:
+                response = full_response.split("<|assistant|>")[-1].strip()
+            else:
+                # Last resort: use everything after the original prompt
+                response = full_response[len(prompt):].strip()
         
         # Clean up common chat template artifacts
-        response = response.replace("<|assistant|>", "").replace("<|end|>", "").strip()
+        response = response.replace("<|assistant|>", "").replace("<|end|>", "").replace("<|im_end|>", "").strip()
+        print(f"[DEBUG] Extracted response: {repr(response)}")
         
         inference_time = time.time() - start_time
         
