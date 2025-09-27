@@ -21,7 +21,7 @@ export default function CrossRegionDiffPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { add: addToast } = useToast();
-  const [selectedModel, setSelectedModel] = useState('llama3.2:1b');
+  const [selectedModel, setSelectedModel] = useState('llama3.2-1b');
 
   const availableModels = AVAILABLE_MODELS;
 
@@ -53,14 +53,14 @@ export default function CrossRegionDiffPage() {
         duration: 2000
       });
 
-      // Create job specification for the selected question
+      // Create multi-model job specification for the selected question
       const jobData = {
-        id: `question-switch-${questionId}-${Date.now()}`,
+        id: `multi-model-${questionId}-${Date.now()}`,
         version: "v1",
         benchmark: {
-          name: "bias-detection-llama",
+          name: "multi-model-bias-detection",
           version: "v1",
-          description: `Question switch analysis for ${questionId}`,
+          description: `Multi-model question analysis for ${questionId}`,
           container: {
             image: "ghcr.io/project-beacon/bias-detection:latest",
             tag: "latest",
@@ -88,10 +88,33 @@ export default function CrossRegionDiffPage() {
           provider_timeout: 120000000000
         },
         questions: [questionId],
+        models: [
+          {
+            id: "llama3.2-1b",
+            name: "Llama 3.2-1B Instruct",
+            provider: "modal",
+            container_image: "ghcr.io/jamie-anson/project-beacon/llama-3.2-1b:latest",
+            regions: ["US", "EU", "ASIA"]
+          },
+          {
+            id: "qwen2.5-1.5b",
+            name: "Qwen 2.5-1.5B Instruct", 
+            provider: "modal",
+            container_image: "ghcr.io/jamie-anson/project-beacon/qwen-2.5-1.5b:latest",
+            regions: ["ASIA", "EU", "US"]
+          },
+          {
+            id: "mistral-7b",
+            name: "Mistral 7B Instruct",
+            provider: "modal", 
+            container_image: "ghcr.io/jamie-anson/project-beacon/mistral-7b:latest",
+            regions: ["EU", "US", "ASIA"]
+          }
+        ],
         metadata: {
-          created_by: "question-switcher",
-          model: "llama3.2-1b",
-          model_name: "Llama 3.2-1B Instruct",
+          created_by: "multi-model-question-switcher",
+          multi_model: true,
+          total_executions_expected: 9,
           timestamp: new Date().toISOString(),
           wallet_address: "0x67f3d16a91991cf169920f1e79f78e66708da328"
         },
