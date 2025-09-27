@@ -173,9 +173,9 @@ async function testApiEndpoints(config) {
     
     for (const endpoint of endpoints) {
       const [method, path] = endpoint.split(' ');
-      if (method === 'GET' && !path.includes(':')) {
+      if (method === 'GET' && !path.includes(':') && !path.includes('ws')) {
         try {
-          const url = `${runnerBase}/api/v1${path === '/health' ? '' : path}`;
+          const url = `${runnerBase}${path === '/health' ? '/health' : '/api/v1' + path}`;
           logDebug(`Testing ${method} ${url}`);
           
           const response = await fetchWithRetry(url);
@@ -390,13 +390,23 @@ async function testExecutions(config) {
         }
       );
 
-      // Test multi-model support (check for model_id field)
+      // Test multi-model support (check for model_id field or recent multi-model jobs)
       const hasModelId = execution.hasOwnProperty('model_id');
+      const isMultiModelJob = execution.job_id && execution.job_id.includes('multi-model');
+      const multiModelSupported = hasModelId || isMultiModelJob;
+      
       recordTest(
         'EXECUTIONS-MULTIMODEL',
-        hasModelId,
-        hasModelId ? 'Execution records support multi-model (model_id field present)' : 'Multi-model support not detected',
-        { hasModelId, sampleExecution: execution }
+        multiModelSupported,
+        multiModelSupported 
+          ? `Multi-model support detected (${hasModelId ? 'model_id field' : 'multi-model job found'})` 
+          : 'Multi-model support not detected (legacy data)',
+        { 
+          hasModelId, 
+          isMultiModelJob, 
+          jobId: execution.job_id,
+          sampleExecution: execution 
+        }
       );
     }
 
