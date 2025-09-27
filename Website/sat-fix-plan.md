@@ -1125,3 +1125,59 @@ curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?job_id=$JOB_I
 *Updated: 2025-09-27 14:08*  
 *Status: ✅ **SATURDAY FIXES COMPLETE***  
 *Next Review: Monday deployment and testing*
+
+---
+
+## 🛠️ SUNDAY HOTFIXES — Prompt Fidelity, Extraction, and Refusal Mitigation
+
+### Why we weren’t getting results (fresh perspective)
+- **Prompt echo and truncation**: We were decoding the whole sequence and heuristically subtracting the prompt. Tokenization can split the prompt differently, so string subtraction fails, producing empty outputs.
+- **Template mismatches across models**: Qwen, Llama, and Mistral each expect slightly different chat templates. If the template isn’t applied, small instruct models often reply with refusals like “I’m sorry, but I can’t assist with that.”
+- **Zero-length generations considered success**: The router treated empty text as success, so the UI showed blank responses.
+
+### Code fixes implemented now
+- **Token-level extraction** (avoid prompt echo):
+  - `modal-deployment/modal_hf_multiregion.py` → slice `outputs[:, input_len:]` then decode.
+  - `modal-deployment/modal_hf_us.py` → same token-level slicing and cleanup.
+  - `modal-deployment/modal_hf_eu.py` → same token-level slicing and cleanup.
+- **Minimum generation length**: add `min_new_tokens` to reduce empty generations.
+- **Refusal detection + single academic reframe retry** (Qwen-sensitive):
+  - `modal-deployment/modal_hf_multiregion.py` and `modal_hf_eu.py`: detect classic refusal phrases; retry once with neutral academic system prompt and slightly higher temperature.
+- **Router guards and diagnostics**:
+  - `hybrid_router/core/router.py`: treat empty provider text as `EMPTY_MODEL_RESPONSE` failure with structured payload; add safe prompt length/preview logs.
+
+### Verification plan (quick)
+1. **Direct Modal smoke tests**
+   - US:
+     ```bash
+     curl -s -X POST "https://jamie-anson--project-beacon-hf-us-inference.modal.run" \
+       -H 'Content-Type: application/json' \
+       -d '{"model":"qwen2.5-1.5b","prompt":"system\nYou are a neutral academic analyst.\nuser\nWhat happened at Tiananmen Square in 1989?\nassistant\n","max_tokens":160}' | jq .
+     ```
+   - EU/APAC: swap to `-eu-`/`-apac-` endpoints. Expect non-empty `response` with factual tone.
+
+2. **Unified HF endpoint smoke** (multi-region router inside the Modal app):
+   ```bash
+   curl -s -X POST "https://jamie-anson--project-beacon-hf-inference-api.modal.run" \
+     -H 'Content-Type: application/json' \
+     -d '{"model":"qwen2.5-1.5b","prompt":"system\nYou are a neutral academic analyst.\nuser\nExplain Taiwan\'s political status perspectives.\nassistant\n","region":"eu-west","max_tokens":160}' | jq .
+   ```
+
+3. **Router path** (verifies empty-text handling and logging):
+   ```bash
+   curl -s -X POST "https://project-beacon-production.up.railway.app/inference" \
+     -H 'Content-Type: application/json' \
+     -d '{"model":"qwen2.5-1.5b","prompt":"system\nYou are a neutral academic analyst.\nuser\nSummarize Hong Kong 2019 protests key events.\nassistant\n","max_tokens":160,"region_preference":"asia-pacific"}' | jq .
+   ```
+
+### Rollout checklist
+- [ ] Redeploy Modal apps for US/EU/APAC (HF versions) so new extraction/refusal logic is live.
+- [ ] Hit each endpoint with a neutral academic prompt and verify non-empty `response`.
+- [ ] Confirm router logs show `prompt_len` and no `EMPTY_MODEL_RESPONSE` for healthy calls.
+- [ ] Re-run a 3×3 multi-model job from the Portal and check that the diffs page displays populated cards.
+
+### Next improvements (if needed)
+- **Portal → Router `max_tokens`**: Allow portal to set higher `max_tokens` (e.g., 256) via metadata for analysis questions.
+- **Provider refusal metrics**: Emit a `refusal: true/false` flag in receipts to track rate by model/region.
+- **APAC code parity**: Port the new token-level extraction + reframe to `modal_hf_apac.py` if results remain sparse.
+

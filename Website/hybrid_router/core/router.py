@@ -364,6 +364,20 @@ class HybridRouter:
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
         response = None
+        # Debug log with safe prompt preview
+        try:
+            logger.info(
+                "Routing to Modal provider",
+                extra={
+                    "provider": provider.name,
+                    "region": provider.region,
+                    "model": request.model,
+                    "prompt_len": len(request.prompt or ""),
+                    "prompt_preview": (request.prompt or "")[:120]
+                },
+            )
+        except Exception:
+            pass
         for attempt in range(3):
             response = await self.client.post(provider.endpoint, json=payload, headers=headers)
 
@@ -392,6 +406,26 @@ class HybridRouter:
             # Extract response text from common fields
             resp_text = data.get("response") or data.get("output") or data.get("text")
             error_msg = data.get("error")
+
+            # Treat empty text as failure for better upstream handling
+            if bool(success) and (resp_text is None or str(resp_text).strip() == ""):
+                failure = self._build_failure(
+                    code="EMPTY_MODEL_RESPONSE",
+                    stage="provider_execution",
+                    message="Provider returned empty response",
+                    provider=provider.name,
+                    provider_type=provider.type.value,
+                    region=provider.region,
+                    model=request.model,
+                    transient=True,
+                )
+                return {
+                    "success": False,
+                    "error": failure["message"],
+                    "error_code": failure["code"],
+                    "failure": failure,
+                    "modal_raw": data,
+                }
 
             if not success:
                 failure_payload = data.get("failure") or {}

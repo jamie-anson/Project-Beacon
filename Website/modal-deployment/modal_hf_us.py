@@ -203,7 +203,7 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         # Generate response with formatted prompt
         inputs = tokenizer(formatted_prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(model.device)
-        
+
         with torch.no_grad():
             outputs = model.generate(
                 input_ids,
@@ -213,34 +213,30 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
                 pad_token_id=tokenizer.eos_token_id,
                 eos_token_id=tokenizer.eos_token_id
             )
-        
+
+        # Prefer token-level slicing to avoid prompt echoes
+        try:
+            generated_ids = outputs[0][input_ids.shape[1]:]
+            response = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+        except Exception:
+            response = ""
+
         full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        # FIXED: Better response extraction for chat templates
-        # Try multiple extraction methods
-        response = ""
-        
-        # Method 1: Extract after "assistant" keyword (for chat templates)
-        if "assistant" in full_response.lower():
-            # Find the assistant section and extract everything after it
+
+        # Robust fallbacks
+        if not response and formatted_prompt and full_response.startswith(formatted_prompt):
+            response = full_response[len(formatted_prompt):].strip()
+        if not response and "assistant" in full_response.lower():
             assistant_parts = full_response.split("assistant")
             if len(assistant_parts) > 1:
-                # Get everything after the last "assistant" occurrence
-                response = assistant_parts[-1].strip()
-                # Remove common prefixes like newlines, colons, etc.
-                response = response.lstrip(": \n\t\r")
-        
-        # Method 2: Extract after formatted prompt (fallback)
-        if not response and len(formatted_prompt) < len(full_response):
-            response = full_response[len(formatted_prompt):].strip()
-        
-        # Method 3: Use full response if extraction failed
-        if not response or len(response.strip()) < 5:
-            response = full_response.strip()
-        
-        # Method 4: Final fallback - ensure we have something
+                response = assistant_parts[-1].lstrip(": \n\t\r").strip()
+        if not response and prompt and full_response.startswith(prompt):
+            response = full_response[len(prompt):].strip()
         if not response:
-            response = "Response extraction failed"
+            response = full_response.strip() or "Response extraction failed"
+
+        # Clean up artifacts
+        response = response.replace("<|assistant|>", "").replace("<|end|>", "").replace("<|im_end|>", "").strip()
         
         inference_time = time.time() - start_time
         
