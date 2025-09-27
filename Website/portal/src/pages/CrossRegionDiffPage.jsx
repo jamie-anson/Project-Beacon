@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import DiffHeader from '../components/diffs/DiffHeader.jsx';
 import ModelSelector from '../components/diffs/ModelSelector.jsx';
-import DiffMapSection from '../components/diffs/DiffMapSection.jsx';
 import MetricsGrid from '../components/diffs/MetricsGrid.jsx';
 import RegionalBreakdown from '../components/diffs/RegionalBreakdown.jsx';
 import RecentDiffsList from '../components/diffs/RecentDiffsList.jsx';
 import DiffNarrativeTable from '../components/diffs/DiffNarrativeTable.jsx';
 import QuickActions from '../components/diffs/QuickActions.jsx';
-import { useToast } from '../state/toast.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
+import { useToast } from '../state/toast.jsx';
 import { useCrossRegionDiff } from '../hooks/useCrossRegionDiff.js';
 import { useRecentDiffs } from '../hooks/useRecentDiffs.js';
 import { AVAILABLE_MODELS } from '../lib/diffs/constants.js';
@@ -21,7 +20,7 @@ export default function CrossRegionDiffPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { add: addToast } = useToast();
-  const [selectedModel, setSelectedModel] = useState('llama3.2-1b');
+  const [selectedModel, setSelectedModel] = useState(null); // Will be set based on available data
 
   const availableModels = AVAILABLE_MODELS;
 
@@ -32,7 +31,16 @@ export default function CrossRegionDiffPage() {
     job,
     usingMock,
     retry: retryDiff
-  } = useCrossRegionDiff(jobId, { pollInterval: 0 });
+  } = useCrossRegionDiff(jobId, availableModels);
+
+  // Auto-select first available model when data loads
+  React.useEffect(() => {
+    if (diffAnalysis?.models?.length > 0 && !selectedModel) {
+      const firstAvailableModel = diffAnalysis.models[0].model_id;
+      console.log('🎯 Auto-selecting first available model:', firstAvailableModel);
+      setSelectedModel(firstAvailableModel);
+    }
+  }, [diffAnalysis, selectedModel]);
 
   const { data: recentDiffs } = useRecentDiffs({ limit: 10, pollInterval: 15000 });
   
@@ -250,7 +258,7 @@ export default function CrossRegionDiffPage() {
         timestamp={diffAnalysis.timestamp}
         currentModel={currentModel}
         recentDiffs={recentDiffs}
-        onSelectJob={(value) => navigate(`/portal/diffs/${value}`)}
+        onSelectJob={(value) => navigate(`/portal/results/${value}/diffs`)}
         availableQuestions={availableQuestions}
         onSelectQuestion={handleQuestionSelect}
       />
