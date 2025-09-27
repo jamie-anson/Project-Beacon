@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '../state/useQuery.js';
 import { getExecutions } from '../lib/api/runner/executions.js';
 import CopyButton from '../components/CopyButton.jsx';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 
 function StatusPill({ value }) {
   const val = typeof value === 'string' ? value.toLowerCase() : value;
@@ -48,6 +49,8 @@ function timeAgo(ts) {
 }
 
 export default function Executions() {
+  usePageTitle('Executions');
+  
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const jobFilter = (params.get('job') || '').trim();

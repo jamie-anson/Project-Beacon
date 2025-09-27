@@ -10,6 +10,7 @@ import QuickActions from '../components/diffs/QuickActions.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { useToast } from '../state/toast.jsx';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useCrossRegionDiff } from '../hooks/useCrossRegionDiff.js';
 import { useRecentDiffs } from '../hooks/useRecentDiffs.js';
 import { AVAILABLE_MODELS } from '../lib/diffs/constants.js';
@@ -21,6 +22,8 @@ export default function CrossRegionDiffPage() {
   const navigate = useNavigate();
   const { add: addToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(null); // Will be set based on available data
+  
+  usePageTitle('Cross-Region Bias Detection Results');
 
   const availableModels = AVAILABLE_MODELS;
 

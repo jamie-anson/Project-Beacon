@@ -1,7 +1,10 @@
 import React from 'react';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 import { Link } from 'react-router-dom';
 
 export default function AIs() {
+  usePageTitle('AIs Used in Project Beacon');
+  
   return (
     <div className="space-y-6">
       <header className="flex items-start justify-between">

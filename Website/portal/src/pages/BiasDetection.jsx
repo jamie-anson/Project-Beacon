@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '../state/useQuery.js';
-import useWs from '../state/useWs.js';
 import { getJob } from '../lib/api/runner/jobs.js';
 import { getCrossRegionDiff } from '../lib/api/diffs/index.js';
 import WalletConnection from '../components/WalletConnection.jsx';
 import { isMetaMaskInstalled } from '../lib/wallet.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
-import { useBiasDetection } from '../hooks/useBiasDetection.js';
-import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
-import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
-import LiveProgressTable from '../components/bias-detection/LiveProgressTable.jsx';
-import JobSummaryCards from '../components/bias-detection/JobSummaryCards.jsx';
-import QuickActions from '../components/bias-detection/QuickActions.jsx';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 
 export default function BiasDetection() {
+  usePageTitle('Bias Detection Analysis');
   const [selectedComparison, setSelectedComparison] = useState('all');
   const [buttonClicked, setButtonClicked] = useState(false);
   const [completedJob, setCompletedJob] = useState(null);

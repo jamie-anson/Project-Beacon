@@ -12,6 +12,7 @@ import { useToast } from '../state/toast.jsx';
 import ActivityFeed from '../components/ActivityFeed.jsx';
 import CopyButton from '../components/CopyButton.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 
 // Small inline UI helpers to avoid new files for now
 function StatusPill({ value }) {
@@ -58,6 +59,8 @@ function timeAgo(ts) {
 }
 
 export default function Dashboard() {
+  usePageTitle('Dashboard');
+  
   const { data: health, loading: loadingHealth, error: healthError } = useQuery('health', getHealth, { interval: 30000 });
   const { data: executions, loading: loadingExecs, error: execsError } = useQuery('executions:latest', () => getExecutions({ limit: 5 }), { interval: 15000 });
   const { data: diffs, loading: loadingDiffs, error: diffsError } = useQuery('diffs:latest', () => getDiffs({ limit: 5 }), { interval: 20000 });

@@ -1,8 +1,11 @@
 import React from 'react';
 import { getIpfsGateway } from '../lib/api/ipfs.js';
 import { useToast } from '../state/toast.jsx';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 
 export default function Settings() {
+  usePageTitle('Settings');
+  
   const { add: addToast } = useToast();
   const [gateway, setGateway] = React.useState(() => getIpfsGateway() || '');
   const [envGateway, setEnvGateway] = React.useState(() => (import.meta?.env?.VITE_IPFS_GATEWAY || '') );

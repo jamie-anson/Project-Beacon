@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { usePageTitle } from '../hooks/usePageTitle.js';
 
 export default function Home() {
+  usePageTitle('Welcome to Project Beacon');
+  
   return (
     <div className="space-y-6">
       <header className="space-y-1">
