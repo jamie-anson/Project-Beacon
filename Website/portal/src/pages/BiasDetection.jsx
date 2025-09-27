@@ -7,6 +7,7 @@ import { isMetaMaskInstalled } from '../lib/wallet.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 import { usePageTitle } from '../hooks/usePageTitle.js';
+import { useBiasDetection } from '../hooks/useBiasDetection.js';
 
 export default function BiasDetection() {
   usePageTitle('Bias Detection Analysis');
