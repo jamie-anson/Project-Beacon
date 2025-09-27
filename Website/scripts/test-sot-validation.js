@@ -554,13 +554,47 @@ async function testLiveProgressPaths(config) {
         
         const pathResponse = await fetchWithRetry(fullUrl);
         
+        // For SPA apps, we need to check content, not just status
+        let contentValid = pathResponse.status === 200;
+        let contentCheck = 'HTTP 200 response';
+        
+        if (pathResponse.status === 200) {
+          try {
+            const html = await pathResponse.text();
+            
+            // For SPA, check that we get the React app structure, not specific content
+            // The content is loaded dynamically by JavaScript
+            const hasReactApp = html.includes('root') && html.includes('script');
+            const isNotErrorPage = !html.includes('404') && !html.includes('Not Found');
+            
+            contentValid = hasReactApp && isNotErrorPage;
+            contentCheck = contentValid 
+              ? 'Valid SPA route (React app loaded)' 
+              : 'Invalid route (missing React app structure or error page)';
+              
+            // Additional check: verify the route exists in our known routes
+            const knownRoutes = ['/executions', '/results', '/jobs'];
+            const pathBase = testPath.path.split('?')[0].split('/')[1]; // Extract base path
+            const routeExists = knownRoutes.some(route => route.includes(pathBase));
+            
+            if (!routeExists) {
+              contentValid = false;
+              contentCheck = `Route /${pathBase} not found in known routes: ${knownRoutes.join(', ')}`;
+            }
+          } catch (htmlError) {
+            contentCheck = `Could not parse HTML: ${htmlError.message}`;
+            contentValid = false;
+          }
+        }
+        
         recordTest(
           `LIVE-PROGRESS-${testPath.name}`,
-          pathResponse.status === 200,
-          `${testPath.description}: ${testPath.path}`,
+          contentValid,
+          `${testPath.description}: ${testPath.path} (${contentCheck})`,
           { 
             url: fullUrl, 
             status: pathResponse.status,
+            contentCheck,
             jobId,
             region,
             description: testPath.description
