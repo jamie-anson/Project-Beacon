@@ -10,6 +10,7 @@ import { usePageTitle } from '../hooks/usePageTitle.js';
 import { useBiasDetection } from '../hooks/useBiasDetection.js';
 import useWs from '../state/useWs.js';
 import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
+import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
 
 export default function BiasDetection() {
   usePageTitle('Bias Detection Analysis');
