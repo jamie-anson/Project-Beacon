@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { compareDiffs } from '../../lib/api/diffs/index.js';
 // Force rebuild to clear cache issues
 
 export default function LiveProgressTable({ 
@@ -114,18 +113,6 @@ function normalizeRegion(r) {
     }
   };
 
-  const VerifyBadge = ({ exec }) => {
-    const verified = exec?.region_verified === true || String(exec?.verification_status || '').toLowerCase() === 'verified';
-    const method = (exec?.verification_method || '').toLowerCase();
-    const needsProbe = method === 'needs_probe' || (!verified && method === '');
-    const label = verified ? (method === 'probe' ? 'probe-verified' : 'strict-verified') : (needsProbe ? 'needs-probe' : (method || 'unverified'));
-    const cls = verified
-      ? 'bg-green-100 text-green-800'
-      : needsProbe
-      ? 'bg-amber-100 text-amber-800'
-      : 'bg-gray-600 text-gray-200';
-    return <span className={`text-xs px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
-  };
 
   // Overall progress calculation
   const execs = activeJob?.executions || [];
@@ -198,22 +185,18 @@ function normalizeRegion(r) {
 
       {/* Detailed Progress Table */}
       <div className="border border-gray-600 rounded">
-        <div className="grid grid-cols-7 text-xs bg-gray-700 text-gray-300">
+        <div className="grid grid-cols-5 text-xs bg-gray-700 text-gray-300">
           <div className="px-3 py-2">Region</div>
           <div className="px-3 py-2">Status</div>
           <div className="px-3 py-2">Started</div>
           <div className="px-3 py-2">Provider</div>
-          <div className="px-3 py-2">Retries</div>
-          <div className="px-3 py-2">ETA</div>
-          <div className="px-3 py-2">Verification</div>
+          <div className="px-3 py-2">Answer</div>
         </div>
         {['US','EU','ASIA'].map((r) => {
           const e = (activeJob?.executions || []).find((x) => regionCodeFromExec(x) === r);
           const status = jobCompleted ? 'completed' : (e?.status || e?.state || 'pending');
           const started = e?.started_at || e?.created_at;
           const provider = e?.provider_id || e?.provider;
-          const retries = e?.retries;
-          const eta = e?.eta;
 
           const failure = e?.output?.failure || e?.failure || e?.failure_reason || e?.output?.failure_reason;
           const failureMessage = typeof failure === 'object' ? failure?.message : null;
@@ -262,15 +245,9 @@ function normalizeRegion(r) {
           const enhancedStatus = getEnhancedStatus();
           
           return (
-            <div key={r} className="grid grid-cols-7 text-sm border-t border-gray-600 hover:bg-gray-700">
-              <div className="px-3 py-2 font-medium flex items-center gap-2">
+            <div key={r} className="grid grid-cols-5 text-sm border-t border-gray-600 hover:bg-gray-700">
+              <div className="px-3 py-2 font-medium">
                 <span>{r}</span>
-                {e?.id && (
-                  <Link
-                    to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(r)}`}
-                    className="text-xs text-beacon-600 underline decoration-dotted"
-                  >executions</Link>
-                )}
               </div>
               <div className="px-3 py-2">
                 <div className="flex flex-col gap-1">
@@ -293,9 +270,16 @@ function normalizeRegion(r) {
               </div>
               <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
               <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
-              <div className="px-3 py-2 text-xs">{Number.isFinite(retries) ? retries : '—'}</div>
-              <div className="px-3 py-2 text-xs">{eta ? (typeof eta === 'number' ? `${eta}s` : String(eta)) : '—'}</div>
-              <div className="px-3 py-2"><VerifyBadge exec={e} /></div>
+              <div className="px-3 py-2">
+                {e?.id ? (
+                  <Link
+                    to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(r)}`}
+                    className="text-xs text-beacon-600 underline decoration-dotted"
+                  >Answer</Link>
+                ) : (
+                  <span className="text-xs text-gray-500">—</span>
+                )}
+              </div>
             </div>
           );
         })}
@@ -304,7 +288,6 @@ function normalizeRegion(r) {
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-2">
         <button onClick={refetchActive} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">Refresh</button>
-        <QuickCompareCTA activeJob={activeJob} disabled={actionsDisabled} />
         {(() => {
           const showDiffCta = !!jobId; // always show when we have a job id
           if (!showDiffCta) return null;
@@ -336,90 +319,3 @@ function normalizeRegion(r) {
   );
 }
 
-function QuickCompareCTA({ activeJob, disabled = false }) {
-  const [open, setOpen] = useState(false);
-  const [aRegion, setARegion] = useState('us-east');
-  const [bRegion, setBRegion] = useState('eu-west');
-  const [aText, setAText] = useState('');
-  const [bText, setBText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-
-  async function onCompare() {
-    setLoading(true); setError(''); setResult(null);
-    try {
-      const res = await compareDiffs({ a: { region: aRegion, text: aText }, b: { region: bRegion, text: bText }, algorithm: 'simple' });
-      setResult(res);
-    } catch (e) {
-      setError(e?.message || String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => !disabled && setOpen(v => !v)}
-        disabled={disabled}
-        className={`px-3 py-1.5 bg-blue-600 text-white rounded text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
-        title={disabled ? 'Available when job completes' : 'Ad-hoc compare two texts using the backend diffs service'}
-      >
-        {open ? 'Close Quick Compare' : 'Quick Compare (Backend)'}
-      </button>
-      {open && !disabled && (
-        <div className="absolute right-0 mt-2 w-[36rem] max-w-[90vw] z-10 bg-gray-800 border border-gray-600 rounded shadow-lg p-3 space-y-2">
-          <div className="text-sm font-medium text-gray-200">Ad-hoc Compare</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Region A</label>
-              <select value={aRegion} onChange={e => setARegion(e.target.value)} className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600">
-                <option value="us-east">us-east</option>
-                <option value="eu-west">eu-west</option>
-                <option value="asia-pacific">asia-pacific</option>
-              </select>
-              <textarea value={aText} onChange={e => setAText(e.target.value)} rows={6} placeholder="Paste text A here" className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600"></textarea>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Region B</label>
-              <select value={bRegion} onChange={e => setBRegion(e.target.value)} className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600">
-                <option value="eu-west">eu-west</option>
-                <option value="us-east">us-east</option>
-                <option value="asia-pacific">asia-pacific</option>
-              </select>
-              <textarea value={bText} onChange={e => setBText(e.target.value)} rows={6} placeholder="Paste text B here" className="w-full bg-gray-700 text-gray-100 text-sm rounded px-2 py-1 border border-gray-600"></textarea>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-400">Backend: diffs compare (simple)</div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setAText(''); setBText(''); setResult(null); setError(''); }} className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500">Clear</button>
-              <button onClick={() => prefillFromExecutions(activeJob, { setARegion, setBRegion, setAText, setBText, setError })} className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500" title="Prefill from latest completed region outputs">Use latest outputs</button>
-              <button onClick={onCompare} disabled={loading || (!aText && !bText)} className="px-3 py-1.5 bg-beacon-600 text-white rounded text-sm hover:bg-beacon-700 disabled:opacity-50">
-                {loading ? 'Comparing…' : 'Compare'}
-              </button>
-            </div>
-          </div>
-          {error && (
-            <div className="text-xs text-red-500">{error}</div>
-          )}
-          {result && (
-            <div className="space-y-2">
-              <div className="text-xs text-gray-300">Similarity: <span className="font-mono">{(result?.similarity ?? 0).toFixed(2)}</span></div>
-              <div className="max-h-40 overflow-auto border border-gray-600 rounded">
-                {(result?.segments || []).map((s, i) => (
-                  <div key={i} className="text-xs grid grid-cols-3 gap-2 px-2 py-1 border-b border-gray-700">
-                    <div className="font-mono text-gray-400">{s.type}</div>
-                    <div className="font-mono text-gray-200 truncate" title={s.a}>{s.a}</div>
-                    <div className="font-mono text-gray-200 truncate" title={s.b}>{s.b}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
