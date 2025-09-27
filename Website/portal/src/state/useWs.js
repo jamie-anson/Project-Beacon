@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
 export default function useWs(path = '/ws', opts = {}) {
   const onMessage = opts.onMessage; // function(eventObj)
@@ -15,7 +15,8 @@ export default function useWs(path = '/ws', opts = {}) {
     try { return /^(1|true|yes|on)$/i.test(String(v || '')); } catch { return false; }
   }
 
-  function wsEnabled() {
+  // Memoize wsEnabled to prevent infinite loops
+  const wsEnabled = useMemo(() => {
     // Explicit opt-in required to prevent runaway connection attempts
     try {
       const lsVal = localStorage.getItem('beacon:enable_ws');
@@ -27,11 +28,11 @@ export default function useWs(path = '/ws', opts = {}) {
     } catch {}
     // Default: disabled to prevent console spam and connection issues
     return false;
-  }
+  }, []); // Empty deps - only calculate once
 
   const connect = useCallback(() => {
     // Feature flag: allow enabling via env or localStorage
-    if (!wsEnabled()) {
+    if (!wsEnabled) {
       try {
         const envVal = import.meta?.env?.VITE_ENABLE_WS;
         const lsVal = (()=>{ try{ return localStorage.getItem('beacon:enable_ws'); }catch{return null;} })();
@@ -118,10 +119,10 @@ export default function useWs(path = '/ws', opts = {}) {
     } catch (e) {
       setError(e);
     }
-  }, [path, onMessage]);
+  }, [path, onMessage, wsEnabled]);
 
   useEffect(() => {
-    if (!wsEnabled()) {
+    if (!wsEnabled) {
       setConnected(false);
       setError(new Error('WebSocket disabled by config'));
       return;
