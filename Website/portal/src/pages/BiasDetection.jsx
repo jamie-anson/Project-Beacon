@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '../state/useQuery.js';
 import { getJob } from '../lib/api/runner/jobs.js';
 import { getCrossRegionDiff } from '../lib/api/diffs/index.js';
@@ -95,13 +95,20 @@ export default function BiasDetection() {
     { interval: pollMs }
   );
 
+  // Memoize the polling interval to prevent infinite loops
+  const calculatedPollMs = useMemo(() => {
+    return getPollingInterval(activeJob);
+  }, [activeJob]);
+
   // Update polling interval reactively when the active job changes state
   useEffect(() => {
-    const next = getPollingInterval(activeJob);
-    if (typeof next === 'number' && next > 0 && next !== pollMs) {
-      setPollMs(next);
+    if (typeof calculatedPollMs === 'number' && calculatedPollMs > 0 && calculatedPollMs !== pollMs) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 BiasDetection: Updating poll interval from', pollMs, 'to', calculatedPollMs);
+      }
+      setPollMs(calculatedPollMs);
     }
-  }, [activeJob, pollMs]);
+  }, [calculatedPollMs, pollMs]);
 
   // Subscribe to WebSocket job/execution updates and refetch the active job when relevant
   useWs('/ws', {
