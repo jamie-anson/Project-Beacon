@@ -124,43 +124,286 @@
 
 ---
 
-## 🧪 Test Cases to Implement
+## 🧪 COMPREHENSIVE TEST SUITE - Complete Visibility
 
-### Model Mapping Tests
+### 1. API Data Validation Tests
 ```javascript
-// Test 1: Single-model job (current scenario)
-expect(transform(qwenOnlyData)).toHaveModels(['qwen2.5-1.5b']);
-expect(transform(qwenOnlyData).models[0].regions).toHaveLength(3);
+// Test raw API response structure
+describe('Cross-Region Diff API', () => {
+  test('API response contains expected fields', async () => {
+    const response = await getCrossRegionDiff(jobId);
+    expect(response).toMatchSchema({
+      job_id: expect.any(String),
+      executions: expect.arrayContaining([
+        expect.objectContaining({
+          region: expect.stringMatching(/^(us-east|eu-west|asia-pacific)$/),
+          output_data: expect.objectContaining({
+            response: expect.any(String),
+            metadata: expect.objectContaining({
+              model: expect.stringMatching(/^(llama3\.2-1b|qwen2\.5-1\.5b|mistral-7b)$/)
+            })
+          })
+        })
+      ])
+    });
+  });
 
-// Test 2: Multi-model job (target scenario)  
-expect(transform(multiModelData)).toHaveModels(['llama3.2-1b', 'qwen2.5-1.5b', 'mistral-7b']);
-expect(transform(multiModelData).models).toEach(model => 
-  expect(model.regions).toHaveLength(3)
-);
-
-// Test 3: Model detection accuracy
-expect(detectModelId(qwenExecution)).toBe('qwen2.5-1.5b');
-expect(detectModelId(llamaExecution)).toBe('llama3.2-1b');
+  test('Model metadata consistency across executions', async () => {
+    const response = await getCrossRegionDiff(jobId);
+    const models = response.executions.map(e => e.output_data.metadata.model);
+    const uniqueModels = [...new Set(models)];
+    
+    // Log for visibility
+    console.log('🔍 Models found in API:', uniqueModels);
+    console.log('🔍 Total executions:', response.executions.length);
+    console.log('🔍 Executions per model:', 
+      uniqueModels.map(model => ({
+        model,
+        count: models.filter(m => m === model).length,
+        regions: response.executions
+          .filter(e => e.output_data.metadata.model === model)
+          .map(e => e.region)
+      }))
+    );
+    
+    expect(uniqueModels.length).toBeGreaterThan(0);
+  });
+});
 ```
 
-### Portal UI Tests
+### 2. Transform Function Deep Testing
 ```javascript
-// Test 1: Single-model UI state
-render(<CrossRegionDiffPage jobId="bias-detection-1758933513" />);
-expect(screen.getByText('Qwen 2.5-1.5B Instruct')).toBeVisible();
-expect(screen.queryByText('Llama 3.2-1B Instruct')).toHaveClass('disabled');
+describe('Transform Function - Complete Visibility', () => {
+  test('Model ID detection from all possible sources', () => {
+    const testCases = [
+      {
+        name: 'Direct model_id field',
+        execution: { model_id: 'qwen2.5-1.5b', region: 'us-east' },
+        expected: 'qwen2.5-1.5b'
+      },
+      {
+        name: 'Output data metadata',
+        execution: { 
+          region: 'us-east',
+          output_data: { metadata: { model: 'qwen2.5-1.5b' } }
+        },
+        expected: 'qwen2.5-1.5b'
+      },
+      {
+        name: 'Provider ID inference',
+        execution: { 
+          region: 'us-east',
+          provider_id: 'modal-qwen-us-east'
+        },
+        expected: 'qwen2.5-1.5b'
+      },
+      {
+        name: 'Fallback to default',
+        execution: { region: 'us-east' },
+        expected: 'llama3.2-1b'
+      }
+    ];
 
-// Test 2: Multi-model UI state  
-render(<CrossRegionDiffPage jobId="true-multi-model-job" />);
-expect(screen.getAllByText(/Instruct/)).toHaveLength(3);
+    testCases.forEach(({ name, execution, expected }) => {
+      const result = detectModelId(execution);
+      console.log(`🔍 ${name}: ${JSON.stringify(execution)} → ${result}`);
+      expect(result).toBe(expected);
+    });
+  });
+
+  test('Model execution mapping with debug output', () => {
+    const mockExecutions = [
+      { id: 1, region: 'us-east', output_data: { metadata: { model: 'qwen2.5-1.5b' } } },
+      { id: 2, region: 'eu-west', output_data: { metadata: { model: 'qwen2.5-1.5b' } } },
+      { id: 3, region: 'asia-pacific', output_data: { metadata: { model: 'llama3.2-1b' } } }
+    ];
+
+    const result = transformCrossRegionDiff({ executions: mockExecutions });
+    
+    // Complete visibility logging
+    console.log('🔍 Transform Input:', mockExecutions);
+    console.log('🔍 Transform Output Models:', result.models.map(m => ({
+      model_id: m.model_id,
+      regions: m.regions.map(r => r.region_code)
+    })));
+    
+    expect(result.models).toHaveLength(2); // qwen and llama
+    expect(result.models.find(m => m.model_id === 'qwen2.5-1.5b').regions).toHaveLength(2);
+    expect(result.models.find(m => m.model_id === 'llama3.2-1b').regions).toHaveLength(1);
+  });
+});
 ```
 
-### SoT Validation Enhancements
+### 3. Portal State Management Tests
 ```javascript
-// Test model mapping validation
-await testModelMapping(jobId);
-await testPortalUIState(jobId);
-await testBiasMetricsAccuracy(jobId);
+describe('CrossRegionDiffPage State Management', () => {
+  test('Model selector state with single-model data', async () => {
+    const mockData = createMockSingleModelData('qwen2.5-1.5b');
+    
+    render(<CrossRegionDiffPage jobId="test-job" />);
+    
+    // Wait for data load and log state
+    await waitFor(() => {
+      const selectors = screen.getAllByRole('button', { name: /instruct/i });
+      console.log('🔍 Available selectors:', selectors.map(s => s.textContent));
+      
+      const activeSelector = screen.getByRole('button', { pressed: true });
+      console.log('🔍 Active selector:', activeSelector.textContent);
+      
+      expect(activeSelector).toHaveTextContent('Qwen 2.5-1.5B Instruct');
+    });
+  });
+
+  test('Model selector behavior on selection change', async () => {
+    const mockData = createMockMultiModelData();
+    
+    render(<CrossRegionDiffPage jobId="test-job" />);
+    
+    // Test each model selection
+    const models = ['llama3.2-1b', 'qwen2.5-1.5b', 'mistral-7b'];
+    
+    for (const modelId of models) {
+      const selector = screen.getByText(new RegExp(modelId.replace(/[.-]/g, '\\$&'), 'i'));
+      fireEvent.click(selector);
+      
+      await waitFor(() => {
+        const regionCards = screen.getAllByTestId('region-card');
+        console.log(`🔍 ${modelId} selected - Region cards:`, regionCards.length);
+        console.log(`🔍 ${modelId} responses:`, 
+          regionCards.map(card => card.querySelector('[data-testid="response-text"]')?.textContent)
+        );
+        
+        expect(regionCards).toHaveLength(3); // us-east, eu-west, asia-pacific
+      });
+    }
+  });
+});
+```
+
+### 4. End-to-End Workflow Tests
+```javascript
+describe('Complete Bias Detection Workflow', () => {
+  test('Job submission to results display', async () => {
+    // 1. Submit job
+    const jobResponse = await submitBiasDetectionJob({
+      question: 'What happened at Tiananmen Square on June 4, 1989?',
+      models: ['qwen2.5-1.5b', 'llama3.2-1b', 'mistral-7b']
+    });
+    
+    console.log('🔍 Job submitted:', jobResponse.job_id);
+    
+    // 2. Wait for completion
+    await waitForJobCompletion(jobResponse.job_id, { timeout: 300000 });
+    
+    // 3. Fetch cross-region diff
+    const diffData = await getCrossRegionDiff(jobResponse.job_id);
+    console.log('🔍 Diff data models:', diffData.executions.map(e => ({
+      region: e.region,
+      model: e.output_data.metadata.model,
+      responseLength: e.output_data.response.length
+    })));
+    
+    // 4. Test Portal display
+    render(<CrossRegionDiffPage jobId={jobResponse.job_id} />);
+    
+    await waitFor(() => {
+      const biasMetrics = screen.getByTestId('bias-metrics');
+      console.log('🔍 Bias metrics displayed:', biasMetrics.textContent);
+      
+      expect(biasMetrics).toBeInTheDocument();
+    });
+  });
+});
+```
+
+### 5. SoT Validation Enhanced Tests
+```javascript
+describe('Enhanced SoT Validation', () => {
+  test('Model mapping validation across all jobs', async () => {
+    const jobs = await getAllJobs();
+    const results = [];
+    
+    for (const job of jobs.slice(0, 10)) { // Test recent 10 jobs
+      try {
+        const diffData = await getCrossRegionDiff(job.id);
+        const portalData = transformCrossRegionDiff(diffData);
+        
+        const validation = {
+          jobId: job.id,
+          apiModels: [...new Set(diffData.executions.map(e => e.output_data?.metadata?.model).filter(Boolean))],
+          portalModels: portalData.models.map(m => m.model_id),
+          executionCount: diffData.executions.length,
+          regionCount: [...new Set(diffData.executions.map(e => e.region))].length,
+          status: 'success'
+        };
+        
+        results.push(validation);
+        console.log(`🔍 Job ${job.id}:`, validation);
+        
+      } catch (error) {
+        results.push({
+          jobId: job.id,
+          status: 'error',
+          error: error.message
+        });
+        console.error(`❌ Job ${job.id} failed:`, error.message);
+      }
+    }
+    
+    // Aggregate analysis
+    const successfulJobs = results.filter(r => r.status === 'success');
+    const modelMappingAccuracy = successfulJobs.filter(r => 
+      r.apiModels.length === r.portalModels.length &&
+      r.apiModels.every(m => r.portalModels.includes(m))
+    ).length / successfulJobs.length;
+    
+    console.log('🔍 SoT Validation Summary:', {
+      totalJobs: results.length,
+      successfulJobs: successfulJobs.length,
+      modelMappingAccuracy: `${(modelMappingAccuracy * 100).toFixed(1)}%`,
+      commonIssues: results.filter(r => r.status === 'error').map(r => r.error)
+    });
+    
+    expect(modelMappingAccuracy).toBeGreaterThan(0.8); // 80% accuracy threshold
+  });
+});
+```
+
+### 6. Performance & Error Boundary Tests
+```javascript
+describe('Error Handling & Performance', () => {
+  test('Large dataset handling', async () => {
+    const largeDataset = createMockDataWithExecutions(100); // 100 executions
+    
+    const startTime = performance.now();
+    const result = transformCrossRegionDiff(largeDataset);
+    const endTime = performance.now();
+    
+    console.log(`🔍 Transform performance: ${endTime - startTime}ms for 100 executions`);
+    console.log(`🔍 Memory usage: ${JSON.stringify(result).length} bytes`);
+    
+    expect(endTime - startTime).toBeLessThan(1000); // Under 1 second
+    expect(result.models.length).toBeGreaterThan(0);
+  });
+
+  test('Malformed data handling', () => {
+    const malformedCases = [
+      { name: 'null executions', data: { executions: null } },
+      { name: 'empty executions', data: { executions: [] } },
+      { name: 'missing metadata', data: { executions: [{ region: 'us-east' }] } },
+      { name: 'invalid region', data: { executions: [{ region: 'invalid' }] } }
+    ];
+
+    malformedCases.forEach(({ name, data }) => {
+      console.log(`🔍 Testing ${name}:`, data);
+      
+      expect(() => {
+        const result = transformCrossRegionDiff(data);
+        console.log(`🔍 ${name} result:`, result);
+      }).not.toThrow();
+    });
+  });
+});
 ```
 
 ---
