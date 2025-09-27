@@ -48,12 +48,14 @@ export function extractKeywordsFromResponse(response) {
  * @returns {DiffAnalysis|null}
  */
 export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MODELS) {
-  console.log('🔍 Transform Debug - Input:', {
-    apiData: apiData ? 'present' : 'null',
-    jobData: jobData ? 'present' : 'null',
-    executionsCount: apiData?.executions?.length,
-    firstExecution: apiData?.executions?.[0]
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Transform Debug - Input:', {
+      apiData: apiData ? 'present' : 'null',
+      jobData: jobData ? 'present' : 'null',
+      executionsCount: apiData?.executions?.length,
+      firstExecution: apiData?.executions?.[0]
+    });
+  }
 
   if (!apiData) return null;
 
@@ -96,13 +98,15 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
       }
     }
     
-    console.log('🔍 Model ID Detection:', {
-      execId: exec.id,
-      detectedModelId: modelId,
-      fromOutputData: exec.output_data?.metadata?.model,
-      fromMetadata: exec.metadata?.model,
-      providerId: exec.provider_id
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Model ID Detection:', {
+        execId: exec.id,
+        detectedModelId: modelId,
+        fromOutputData: exec.output_data?.metadata?.model,
+        fromMetadata: exec.metadata?.model,
+        providerId: exec.provider_id
+      });
+    }
     
     if (!acc[modelId]) {
       acc[modelId] = {};
@@ -117,14 +121,16 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
     return acc;
   }, {});
 
-  console.log('🔍 Model Execution Map:', {
-    modelIds: Object.keys(modelExecutionMap),
-    executionsPerModel: Object.entries(modelExecutionMap).map(([modelId, regions]) => ({
-      modelId,
-      regionCount: Object.keys(regions).length,
-      regions: Object.keys(regions)
-    }))
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Model Execution Map:', {
+      modelIds: Object.keys(modelExecutionMap),
+      executionsPerModel: Object.entries(modelExecutionMap).map(([modelId, regions]) => ({
+        modelId,
+        regionCount: Object.keys(regions).length,
+        regions: Object.keys(regions)
+      }))
+    });
+  }
 
   const normalizedModels = models.map((model) => {
     const modelExecutions = modelExecutionMap[model.id] || {};
@@ -142,14 +148,16 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
 
         const response = resolveResponse(exec?.output_data || exec?.output);
         
-        console.log(`🔍 Model ${model.id} Region ${regionCode} Response Debug:`, {
-          execId: exec?.id,
-          modelId: exec?.model_id,
-          hasOutputData: !!exec?.output_data,
-          hasOutput: !!exec?.output,
-          responseLength: response?.length,
-          responsePreview: response?.slice(0, 100) + '...'
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔍 Model ${model.id} Region ${regionCode} Response Debug:`, {
+            execId: exec?.id,
+            modelId: exec?.model_id,
+            hasOutputData: !!exec?.output_data,
+            hasOutput: !!exec?.output,
+            responseLength: response?.length,
+            responsePreview: response?.slice(0, 100) + '...'
+          });
+        }
 
         return {
           region_code: regionCode,

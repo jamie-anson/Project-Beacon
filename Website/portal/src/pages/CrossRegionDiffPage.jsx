@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import DiffHeader from '../components/diffs/DiffHeader.jsx';
 import ModelSelector from '../components/diffs/ModelSelector.jsx';
@@ -23,6 +23,7 @@ export default function CrossRegionDiffPage() {
   const navigate = useNavigate();
   const { add: addToast } = useToast();
   const [selectedModel, setSelectedModel] = useState(null); // Will be set based on available data
+  const [switchingQuestion, setSwitchingQuestion] = useState(false);
   
   usePageTitle('Cross-Region Bias Detection Results');
 
@@ -57,13 +58,33 @@ export default function CrossRegionDiffPage() {
   ] : [];
   
   // Filter to only show questions from this job (excluding the current one)
-  const jobQuestions = job?.questions || [];
-  const currentQuestion = diffAnalysis?.question?.id || diffAnalysis?.question?.text;
-  const availableQuestions = allQuestions.filter(q => 
-    jobQuestions.includes(q.id) && q.id !== currentQuestion
-  );
+  // Memoized to prevent infinite re-renders
+  const availableQuestions = useMemo(() => {
+    if (!allQuestions.length || !job?.questions?.length) return [];
+    
+    const jobQuestions = job.questions;
+    const currentQuestionId = diffAnalysis?.question?.id || 
+                             diffAnalysis?.question?.text ||
+                             jobQuestions[0]; // fallback to first question
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Question Filter Debug:', {
+        allQuestionsCount: allQuestions.length,
+        jobQuestions,
+        currentQuestionId,
+        filteredCount: allQuestions.filter(q => 
+          jobQuestions.includes(q.id) && q.id !== currentQuestionId
+        ).length
+      });
+    }
+    
+    return allQuestions.filter(q => 
+      jobQuestions.includes(q.id) && q.id !== currentQuestionId
+    );
+  }, [allQuestions, job?.questions, diffAnalysis?.question]);
 
   const handleQuestionSelect = async (questionId) => {
+    setSwitchingQuestion(true);
     try {
       addToast({
         type: 'info',
@@ -170,6 +191,8 @@ export default function CrossRegionDiffPage() {
         message: error.message || 'Failed to create new analysis job',
         duration: 5000
       });
+    } finally {
+      setSwitchingQuestion(false);
     }
   };
 
@@ -224,22 +247,26 @@ export default function CrossRegionDiffPage() {
     );
   }
 
-  // Debug model selection
-  console.log('🔍 Model Selection Debug:', {
-    selectedModel,
-    availableModels,
-    diffAnalysisModels: diffAnalysis?.models,
-    modelIds: diffAnalysis?.models?.map(m => m.model_id)
-  });
+  // Debug model selection (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Model Selection Debug:', {
+      selectedModel,
+      availableModels,
+      diffAnalysisModels: diffAnalysis?.models,
+      modelIds: diffAnalysis?.models?.map(m => m.model_id)
+    });
+  }
 
   const selectedModelData = diffAnalysis.models.find(m => m.model_id === selectedModel);
   const currentModel = availableModels.find(m => m.id === selectedModel);
 
-  console.log('🎯 Selected Model Data:', {
-    selectedModelData,
-    currentModel,
-    hasRegions: selectedModelData?.regions?.length
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🎯 Selected Model Data:', {
+      selectedModelData,
+      currentModel,
+      hasRegions: selectedModelData?.regions?.length
+    });
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -270,6 +297,7 @@ export default function CrossRegionDiffPage() {
         onSelectJob={(value) => navigate(`/portal/results/${value}/diffs`)}
         availableQuestions={availableQuestions}
         onSelectQuestion={handleQuestionSelect}
+        switchingQuestion={switchingQuestion}
       />
 
       <ModelSelector
