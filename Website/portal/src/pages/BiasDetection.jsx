@@ -11,7 +11,6 @@ import { useBiasDetection } from '../hooks/useBiasDetection.js';
 import useWs from '../state/useWs.js';
 import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
 import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
-import JobSummaryCards from '../components/bias-detection/JobSummaryCards.jsx';
 import QuickActions from '../components/bias-detection/QuickActions.jsx';
 import LiveProgressTable from '../components/bias-detection/LiveProgressTable.jsx';
 
@@ -286,6 +285,7 @@ export default function BiasDetection() {
             onRegionToggle={handleRegionToggle}
             calculateEstimatedCost={calculateEstimatedCost}
             readSelectedQuestions={readSelectedQuestions}
+            selectedModels={selectedModels}
           />
 
           {/* Submit Button */}
@@ -339,13 +339,6 @@ export default function BiasDetection() {
         </section>
       )}
 
-      {/* Job Summary Cards */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-100">Recent Jobs by Region</h3>
-        </div>
-        <JobSummaryCards biasJobs={biasJobs} loading={loading} />
-      </section>
 
       {/* Quick Actions */}
       <section>
