@@ -129,6 +129,9 @@ const defaultBiasData = DEFAULT_COUNTRY_DATA.map(({ code, value, category }) => 
   coords: COUNTRY_POLYGONS[code] || [],
 }));
 
+// Static libraries array to prevent reloading warnings
+const GOOGLE_MAPS_LIBRARIES = ['geometry'];
+
 const WorldMapVisualization = ({ biasData = [] }) => {
   const [map, setMap] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
@@ -136,15 +139,13 @@ const WorldMapVisualization = ({ biasData = [] }) => {
 
   // Use secure proxy approach - load Google Maps through backend proxy
   // This keeps the API key secure on the server side
-  // Static libraries array to prevent reloading warnings
-  const libraries = ['geometry'];
   
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     // Temporarily disable proxy until backend endpoint is implemented
     // Use development mode for now (shows watermark but works)
     googleMapsApiKey: '', // Empty key for development
-    libraries: libraries,
+    libraries: GOOGLE_MAPS_LIBRARIES,
     // Add error handling
     onLoad: () => console.log('🗺️ Google Maps loaded (development mode)'),
     onError: (error) => {
