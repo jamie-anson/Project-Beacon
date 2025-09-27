@@ -208,6 +208,37 @@ describe('useEffect Infinite Loop Detection', () => {
     unmount();
   });
 
+  test('detects circular dependency loops (useCallback in useEffect deps)', async () => {
+    const ComponentWithCircularDeps = () => {
+      const [enabled, setEnabled] = useState(true);
+      const [count, setCount] = useState(0);
+
+      // BAD: useCallback depends on enabled, useEffect depends on both
+      const connect = useCallback(() => {
+        if (enabled) {
+          setCount(prev => prev + 1);
+        }
+      }, [enabled]);
+
+      useEffect(() => {
+        connect();
+      }, [connect, enabled]); // Circular: connect depends on enabled, effect depends on both
+
+      return <div>Count: {count}</div>;
+    };
+
+    const { unmount } = render(<ComponentWithCircularDeps />);
+    
+    await waitFor(() => {
+      const hasMaxUpdateWarning = consoleErrors.some(error => 
+        error.includes('Maximum update depth exceeded')
+      );
+      expect(hasMaxUpdateWarning).toBe(true);
+    }, { timeout: 3000 });
+
+    unmount();
+  });
+
   test('validates proper WebSocket memoization prevents loops', async () => {
     const WellBehavedWebSocketComponent = () => {
       const [count, setCount] = useState(0);
@@ -274,6 +305,12 @@ export const useEffectPatternCheckers = {
     const wsFunctionPattern = /useEffect\([^}]+\},\s*\[[^}]*wsEnabled[^\]]*\]/g;
     if (wsFunctionPattern.test(fileContent)) {
       issues.push('WebSocket function in useEffect dependencies (should be memoized)');
+    }
+    
+    // Pattern 5: Circular dependencies (useCallback/useMemo in useEffect deps)
+    const circularDepPattern = /useEffect\([^}]+\},\s*\[[^}]*(?:connect|callback|handler)[^}]*\]/g;
+    if (circularDepPattern.test(fileContent)) {
+      issues.push('Potential circular dependency: useCallback/function in useEffect dependencies');
     }
     
     return issues;

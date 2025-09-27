@@ -71,6 +71,12 @@ jobs:
           exit 1
         fi
         
+        echo "Checking for circular dependencies..."
+        if grep -rE "useEffect.*\[.*connect.*\]" . --include="*.jsx" --include="*.js"; then
+          echo "❌ Found potential circular dependency: useCallback/function in useEffect dependencies"
+          exit 1
+        fi
+        
         echo "✅ Static analysis complete"
         
     - name: Check for missing memoization

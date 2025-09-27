@@ -132,7 +132,7 @@ export default function useWs(path = '/ws', opts = {}) {
       closedRef.current = true;
       try { wsRef.current && wsRef.current.close(); } catch {}
     };
-  }, [connect, wsEnabled]);
+  }, [wsEnabled]);
 
   return { connected, error, socket: wsRef.current, retries, nextDelayMs };
 }
