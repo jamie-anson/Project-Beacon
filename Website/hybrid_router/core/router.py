@@ -109,25 +109,20 @@ class HybridRouter:
         #         max_concurrent=5
         #     ))
         
-        # Modal serverless (burst capacity)
-        modal_defaults = {
-            "us-east": os.getenv("MODAL_US_INFERENCE_URL"),
-            "eu-west": os.getenv("MODAL_EU_INFERENCE_URL"),
-            "asia-pacific": os.getenv("MODAL_APAC_INFERENCE_URL")
+        # Modal serverless (burst capacity) - HARDCODED FOR DEBUGGING
+        modal_endpoints = {
+            "us-east": "https://jamie-anson--project-beacon-hf-us-inference.modal.run",
+            "eu-west": "https://jamie-anson--project-beacon-hf-eu-inference.modal.run",
+            "asia-pacific": "https://jamie-anson--project-beacon-hf-apac-inference.modal.run"
         }
-        modal_endpoint = os.getenv("MODAL_API_BASE")
 
-        for region, endpoint in modal_defaults.items():
-            target_endpoint = endpoint or modal_endpoint
-            if not target_endpoint:
-                continue
-
+        for region, endpoint in modal_endpoints.items():
             self.providers.append(Provider(
                 name=f"modal-{region}",
                 type=ProviderType.MODAL,
-                endpoint=target_endpoint,
+                endpoint=endpoint,
                 region=region,
-                cost_per_second=0.0003,  # T4 pricing
+                cost_per_second=0.00005,  # Lower than Golem to prefer Modal
                 max_concurrent=10
             ))
         

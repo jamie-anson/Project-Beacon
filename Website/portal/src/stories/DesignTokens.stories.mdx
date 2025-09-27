@@ -1,0 +1,54 @@
+import { Meta, Canvas, Story, ArgsTable } from '@storybook/blocks';
+import '../index.css';
+
+<Meta title="Design/Design Tokens" parameters={{ layout: 'fullscreen' }} />
+
+# Catppuccin Mocha Tokens
+
+The Project Beacon portal adopts the Catppuccin Mocha palette and Tailwind extensions defined in `portal/tailwind.config.js` and `portal/src/index.css`. The following sections illustrate core brand colors, surface tones, and typography guidance leveraged across the design system.
+
+## Palette
+
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+  {[
+    { name: 'Accent Peach', className: 'bg-beacon-400', text: 'text-ctp-crust', token: '--beacon-accent / ctp.peach' },
+    { name: 'Accent Pink', className: 'bg-beacon-600', text: 'text-ctp-crust', token: 'ctp.red' },
+    { name: 'Base', className: 'bg-ctp-base', text: 'text-ctp-text', token: 'ctp.base' },
+    { name: 'Surface1', className: 'bg-ctp-surface1', text: 'text-ctp-text', token: 'ctp.surface1' },
+    { name: 'Surface2', className: 'bg-ctp-surface2', text: 'text-ctp-text', token: 'ctp.surface2' },
+    { name: 'Overlay0', className: 'bg-ctp-overlay0', text: 'text-ctp-text', token: 'ctp.overlay0' },
+    { name: 'Text', className: 'bg-ctp-text', text: 'text-ctp-base', token: 'ctp.text' },
+    { name: 'Subtext0', className: 'bg-ctp-subtext0', text: 'text-ctp-crust', token: 'ctp.subtext0' }
+  ].map(({ name, className, text, token }) => (
+    <div key={name} className={`rounded-lg border border-ctp-surface2 p-4 flex flex-col gap-2 ${className} ${text}`}>
+      <span className="font-semibold text-sm">{name}</span>
+      <span className="text-xs opacity-80">Token: {token}</span>
+      <span className="text-xs opacity-80">Example: `.bg-{token}`</span>
+    </div>
+  ))}
+</div>
+
+## Typography & Spacing
+
+- `font-sans` renders Inter in the Catppuccin build (see `tailwind.config.js`).
+- Headings favor `text-ctp-text` with spacing utilities `mb-2`, `mb-4`.
+- Body copy uses `text-ctp-subtext0` and `leading-relaxed` for readability.
+- Interactive elements adopt `rounded-lg`, `px-3`, `py-1.5`, and state colors mapped from the palette above.
+
+```css
+:root {
+  --beacon-accent: #fab387;
+  --beacon-deep: #f38ba8;
+  --ctp-base: #1e1e2e;
+  --ctp-text: #cdd6f4;
+  /* ... see portal/src/index.css for full set */
+}
+```
+
+## Usage Guidelines
+
+- **Backgrounds**: Use `bg-ctp-base` for primary surfaces, `bg-ctp-surface1` for cards, and `bg-ctp-surface2` for hover/active states.
+- **Borders**: Apply `border-ctp-overlay0` or `border-ctp-surface2` to create subtle depth against the dark theme.
+- **Success / Warning / Error**: Map to Catppuccin greens, yellows, and reds (`bg-green-900/20`, `bg-yellow-900/20`, `bg-red-900/20`) with matching text color utilities.
+
+> Reference the `Toasts`, `Modal`, and `InfrastructureStatus` stories for concrete usage patterns.

@@ -193,7 +193,7 @@ function generateJobSpec() {
     metadata: { created_by: 'submit-signed-job.js', test_run: true, timestamp: now, nonce: Math.random().toString(36).slice(2) },
     created_at: now,
     runs: 1,
-    questions: ['geography_basic', 'identity_basic', 'math_basic', 'tiananmen_neutral'],
+    questions: ['tiananmen_neutral', 'taiwan_status', 'hongkong_2019', 'math_basic', 'geography_basic', 'identity_basic', 'greatest_invention', 'greatest_leader'],
   };
 }
 

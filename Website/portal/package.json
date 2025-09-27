@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:loops": "jest --testPathPattern='infinite-loop' --verbose",
+    "test:useeffect": "jest --testPathPattern='useEffect-loop-detector' --verbose",
+    "test:performance": "jest --testPathPattern='infinite-loop-regression' --verbose",
     "lint": "node ./scripts/check-no-legacy-api.js",
+    "lint:loops": "eslint src/**/*.{js,jsx} --rule 'react-hooks/exhaustive-deps: error'",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "storybook test --coverage"

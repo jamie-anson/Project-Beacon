@@ -172,8 +172,29 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
             model_path = f"/models/{model_name}"
             tokenizer, model = load_model_and_tokenizer(model_name, model_path)
         
-        # Generate response
-        inputs = tokenizer(prompt, return_tensors="pt")
+        # FIXED: Use proper chat template for instruction following
+        system_prompt = "You are a helpful, honest, and harmless AI assistant. Answer questions directly and factually. For sensitive political topics, provide balanced, factual information from multiple perspectives."
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+        
+        # Apply chat template for instruction-following models
+        try:
+            formatted_prompt = tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            print(f"[INFERENCE] Using chat template for {model_name}")
+        except Exception as e:
+            # Fallback for models without chat template
+            print(f"[INFERENCE] Chat template failed for {model_name}, using fallback: {e}")
+            formatted_prompt = f"System: {system_prompt}\n\nUser: {prompt}\n\nAssistant:"
+        
+        # Generate response with formatted prompt
+        inputs = tokenizer(formatted_prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(model.device)
         
         with torch.no_grad():
@@ -187,7 +208,31 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
             )
         
         full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        response = full_response[len(prompt):].strip()
+        
+        # FIXED: Better response extraction for chat templates
+        response = ""
+        
+        # Method 1: Extract after "assistant" keyword (for chat templates)
+        if "assistant" in full_response.lower():
+            # Find the assistant section and extract everything after it
+            assistant_parts = full_response.split("assistant")
+            if len(assistant_parts) > 1:
+                # Get everything after the last "assistant" occurrence
+                response = assistant_parts[-1].strip()
+                # Remove common prefixes like newlines, colons, etc.
+                response = response.lstrip(": \n\t\r")
+        
+        # Method 2: Extract after formatted prompt (fallback)
+        if not response and len(formatted_prompt) < len(full_response):
+            response = full_response[len(formatted_prompt):].strip()
+        
+        # Method 3: Use full response if extraction failed
+        if not response or len(response.strip()) < 5:
+            response = full_response.strip()
+        
+        # Method 4: Final fallback
+        if not response:
+            response = "Response extraction failed"
         
         inference_time = time.time() - start_time
         
