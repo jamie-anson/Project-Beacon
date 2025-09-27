@@ -187,33 +187,31 @@ export default function CrossRegionDiffPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-        <span className="ml-3 text-gray-300">Loading cross-region analysis...</span>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-700 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-gray-700 rounded w-3/4 mb-8"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-32 bg-gray-700 rounded"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <ErrorMessage 
-          error={error}
-          onRetry={retryDiff}
-        />
-      </div>
-    );
+    return <ErrorMessage error={error} />;
   }
 
-  if (!job || !diffAnalysis) {
+  if (!diffAnalysis) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="text-center py-12">
-          <p className="text-slate-600">No cross-region analysis data available for this job.</p>
-          <Link to="/portal/bias-detection" className="mt-4 inline-block text-beacon-600 underline">
-            Back to Bias Detection
-          </Link>
-        </div>
+      <div className="text-center py-12">
+        <p className="text-gray-400">No analysis data available for job {jobId}</p>
+        <Link to="/portal/bias-detection" className="mt-4 inline-block text-beacon-600 underline">
+          Back to Bias Detection
+        </Link>
       </div>
     );
   }
