@@ -32,7 +32,9 @@
     "@docusaurus/preset-classic": "^3.4.0",
     "@docusaurus/theme-mermaid": "^3.4.0",
     "@docusaurus/types": "^3.4.0",
+    "@mermaid-js/layout-elk": "^0.1.9",
     "fs-extra": "^11.3.1",
+    "mermaid": "^11.12.0",
     "prism-react-renderer": "^2.4.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
