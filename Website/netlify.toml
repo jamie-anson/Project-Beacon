@@ -5,9 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Force install to tolerate upstream peer/lock drift on Netlify's npm@10 during CI
-  # See build logs complaining about search-insights/react scheduler entries
-  NPM_FLAGS = "--no-audit --fund=false --legacy-peer-deps --force"
+  # Install flags to handle peer dependencies without overriding lock file
+  # Removed --force to ensure package-lock.json is respected
+  NPM_FLAGS = "--no-audit --fund=false --legacy-peer-deps"
   # Increase memory for Node.js builds
   NODE_OPTIONS = "--max-old-space-size=4096"
   # Default IPFS gateway for production portal links (overridable per-deploy)
