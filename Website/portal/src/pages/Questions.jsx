@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { getQuestions } from '../lib/api/runner/questions.js';
 import { useQuery } from '../state/useQuery.js';
 
@@ -20,19 +20,24 @@ export default function Questions() {
     return new Set();
   });
 
+  // Memoize all question IDs to prevent infinite re-renders
+  const allQuestionIds = useMemo(() => {
+    const allIds = [];
+    for (const cat of Object.keys(categories)) {
+      for (const q of categories[cat]) allIds.push(q.question_id);
+    }
+    return allIds;
+  }, [categories]);
+
   // Initialize default selection (all) when data first arrives and nothing selected yet
   React.useEffect(() => {
-    if (!loading && !error) {
-      const allIds = [];
-      for (const cat of Object.keys(categories)) {
-        for (const q of categories[cat]) allIds.push(q.question_id);
+    if (!loading && !error && selected.size === 0 && allQuestionIds.length > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Questions: Initializing default selection with', allQuestionIds.length, 'questions');
       }
-      if (selected.size === 0 && allIds.length > 0) {
-        setSelected(new Set(allIds));
-      }
+      setSelected(new Set(allQuestionIds));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, data]);
+  }, [loading, error, allQuestionIds, selected.size]);
 
   // Persist on change
   React.useEffect(() => {
