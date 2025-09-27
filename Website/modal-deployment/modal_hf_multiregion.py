@@ -169,6 +169,75 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     
     return tokenizer, model
 
+def format_chat_prompt(raw_prompt: str, tokenizer):
+    """
+    Parse raw chat format and apply proper chat template for instruction-tuned models
+    
+    Input format: "system\nYou are...\nuser\nPlease answer...\nassistant\n"
+    Output: Properly formatted chat template
+    """
+    try:
+        # Parse the raw prompt into messages
+        messages = []
+        current_role = None
+        current_content = []
+        
+        for line in raw_prompt.split('\n'):
+            line = line.strip()
+            if line in ['system', 'user', 'assistant']:
+                # Save previous message if exists
+                if current_role and current_content:
+                    messages.append({
+                        "role": current_role,
+                        "content": '\n'.join(current_content).strip()
+                    })
+                # Start new message
+                current_role = line
+                current_content = []
+            elif line and current_role:
+                current_content.append(line)
+        
+        # Add final message if exists
+        if current_role and current_content:
+            messages.append({
+                "role": current_role,
+                "content": '\n'.join(current_content).strip()
+            })
+        
+        # Remove empty assistant message (common in prompts)
+        messages = [msg for msg in messages if not (msg["role"] == "assistant" and not msg["content"])]
+        
+        # Apply chat template if available
+        if hasattr(tokenizer, 'apply_chat_template') and tokenizer.chat_template:
+            try:
+                formatted = tokenizer.apply_chat_template(
+                    messages, 
+                    tokenize=False, 
+                    add_generation_prompt=True
+                )
+                print(f"[CHAT] Applied chat template: {len(messages)} messages")
+                return formatted
+            except Exception as e:
+                print(f"[CHAT] Chat template failed: {e}, falling back to manual format")
+        
+        # Fallback: manual formatting for instruction models
+        if messages:
+            system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
+            user_msg = next((msg["content"] for msg in messages if msg["role"] == "user"), "")
+            
+            if system_msg and user_msg:
+                # Format for instruction-tuned models
+                formatted = f"<|system|>\n{system_msg}\n<|user|>\n{user_msg}\n<|assistant|>\n"
+                print(f"[CHAT] Manual format applied")
+                return formatted
+        
+        print(f"[CHAT] No formatting applied, using raw prompt")
+        return raw_prompt
+        
+    except Exception as e:
+        print(f"[CHAT] Format error: {e}, using raw prompt")
+        return raw_prompt
+
 def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 128):
     """Shared inference logic"""
     import torch
@@ -192,8 +261,9 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
             model_path = f"/models/{model_name}"
             tokenizer, model = load_model_and_tokenizer(model_name, model_path)
         
-        # Prepare input and move to model device to avoid CPU/GPU mismatch
-        inputs = tokenizer(prompt, return_tensors="pt")
+        # Parse chat format and apply proper chat template
+        formatted_prompt = format_chat_prompt(prompt, tokenizer)
+        inputs = tokenizer(formatted_prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(model.device)
         
         # Generate response
@@ -209,8 +279,11 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         
         # Decode response
         full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Remove the original prompt from response
-        response = full_response[len(prompt):].strip()
+        # Remove the formatted prompt from response
+        response = full_response[len(formatted_prompt):].strip()
+        
+        # Clean up common chat template artifacts
+        response = response.replace("<|assistant|>", "").replace("<|end|>", "").strip()
         
         inference_time = time.time() - start_time
         
