@@ -7,6 +7,7 @@ import RegionalBreakdown from '../components/diffs/RegionalBreakdown.jsx';
 import RecentDiffsList from '../components/diffs/RecentDiffsList.jsx';
 import DiffNarrativeTable from '../components/diffs/DiffNarrativeTable.jsx';
 import QuickActions from '../components/diffs/QuickActions.jsx';
+import DiffMapSection from '../components/diffs/DiffMapSection.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { useToast } from '../state/toast.jsx';
