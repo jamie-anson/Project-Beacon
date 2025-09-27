@@ -76,12 +76,33 @@ export function transformCrossRegionDiff(apiData, jobData, models = AVAILABLE_MO
     
     // If no model_id, try to infer from metadata or output_data
     if (!modelId) {
-      modelId = exec.output_data?.metadata?.model || 
-                exec.metadata?.model ||
-                exec.provider_id?.includes('qwen') ? 'qwen2.5-1.5b' :
-                exec.provider_id?.includes('mistral') ? 'mistral-7b' :
-                'qwen2.5-1.5b'; // Based on the API response, this job used Qwen
+      // Check output_data.metadata.model first (most reliable)
+      modelId = exec.output_data?.metadata?.model;
+      
+      // Fallback to other locations
+      if (!modelId) {
+        modelId = exec.metadata?.model;
+      }
+      
+      // Final fallback based on provider
+      if (!modelId) {
+        if (exec.provider_id?.includes('qwen')) {
+          modelId = 'qwen2.5-1.5b';
+        } else if (exec.provider_id?.includes('mistral')) {
+          modelId = 'mistral-7b';
+        } else {
+          modelId = 'llama3.2-1b'; // Default fallback
+        }
+      }
     }
+    
+    console.log('🔍 Model ID Detection:', {
+      execId: exec.id,
+      detectedModelId: modelId,
+      fromOutputData: exec.output_data?.metadata?.model,
+      fromMetadata: exec.metadata?.model,
+      providerId: exec.provider_id
+    });
     
     if (!acc[modelId]) {
       acc[modelId] = {};
