@@ -173,7 +173,7 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     
     return tokenizer, model
 
-def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 128):
+def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 500):
     """Shared inference logic"""
     import torch
     
@@ -353,7 +353,7 @@ def run_inference(
     model_name: str,
     prompt: str, 
     temperature: float = 0.1,
-    max_tokens: int = 128
+    max_tokens: int = 500
 ) -> Dict[str, Any]:
     """HF Transformers inference - EU region"""
     if not MODEL_CACHE:
@@ -425,7 +425,7 @@ def inference(item: dict):
     model_name = item.get("model", "llama3.2-1b")
     prompt = item.get("prompt", "")
     temperature = item.get("temperature", 0.1)
-    max_tokens = item.get("max_tokens", 128)
+    max_tokens = item.get("max_tokens", 500)
     
     return run_inference_logic(model_name, prompt, "eu-west", temperature, max_tokens)
 

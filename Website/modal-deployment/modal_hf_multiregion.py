@@ -260,7 +260,7 @@ def format_chat_prompt(raw_prompt: str, tokenizer):
         print(f"[CHAT] Format error: {e}, using raw prompt")
         return raw_prompt
 
-def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 128):
+def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 500):
     """Shared inference logic"""
     import torch
     
@@ -428,7 +428,7 @@ def run_inference_us(
     model_name: str,
     prompt: str, 
     temperature: float = 0.1,
-    max_tokens: int = 128
+    max_tokens: int = 500
 ) -> Dict[str, Any]:
     """HF Transformers inference - US region"""
     # Ensure models are preloaded
@@ -452,7 +452,7 @@ def run_inference_eu(
     model_name: str,
     prompt: str,
     temperature: float = 0.1,
-    max_tokens: int = 128
+    max_tokens: int = 500
 ) -> Dict[str, Any]:
     """HF Transformers inference - EU region"""
     # Ensure models are preloaded
@@ -476,7 +476,7 @@ def run_inference_apac(
     model_name: str,
     prompt: str,
     temperature: float = 0.1,
-    max_tokens: int = 128
+    max_tokens: int = 500
 ) -> Dict[str, Any]:
     """HF Transformers inference - APAC region"""
     # Ensure models are preloaded
@@ -553,7 +553,7 @@ def inference_api(item: Dict[str, Any]) -> Dict[str, Any]:
     model_name = item.get("model", "llama3.2-1b")
     prompt = item.get("prompt", "")
     temperature = item.get("temperature", 0.1)
-    max_tokens = item.get("max_tokens", 128)
+    max_tokens = item.get("max_tokens", 500)
     region = item.get("region", "us-east")
     
     if not prompt:

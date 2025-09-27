@@ -8,7 +8,7 @@ class InferenceRequest(BaseModel):
     model: str
     prompt: str
     temperature: float = 0.1
-    max_tokens: int = 512
+    max_tokens: int = 500
     region_preference: Optional[str] = None
     cost_priority: bool = True
 
