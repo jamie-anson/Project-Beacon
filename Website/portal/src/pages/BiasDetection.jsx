@@ -13,6 +13,7 @@ import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
 import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
 import JobSummaryCards from '../components/bias-detection/JobSummaryCards.jsx';
 import QuickActions from '../components/bias-detection/QuickActions.jsx';
+import LiveProgressTable from '../components/bias-detection/LiveProgressTable.jsx';
 
 export default function BiasDetection() {
   usePageTitle('Bias Detection Analysis');
