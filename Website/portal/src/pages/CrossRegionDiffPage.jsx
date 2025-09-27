@@ -266,7 +266,7 @@ export default function CrossRegionDiffPage() {
       />
 
       <ModelSelector
-        models={availableModels}
+        models={diffAnalysis?.models?.map(m => availableModels.find(am => am.id === m.model_id)).filter(Boolean) || []}
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
       />
