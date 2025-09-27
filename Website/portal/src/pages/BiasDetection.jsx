@@ -3,7 +3,7 @@ import { useQuery } from '../state/useQuery.js';
 import { getJob } from '../lib/api/runner/jobs.js';
 import { getCrossRegionDiff } from '../lib/api/diffs/index.js';
 import WalletConnection from '../components/WalletConnection.jsx';
-import { isMetaMaskInstalled } from '../lib/wallet.js';
+import { isMetaMaskInstalled, getWalletAuthStatus } from '../lib/wallet.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import InfrastructureStatus from '../components/InfrastructureStatus.jsx';
 import { usePageTitle } from '../hooks/usePageTitle.js';
@@ -41,7 +41,8 @@ export default function BiasDetection() {
     fetchBiasJobs,
     onSubmitJob: handleSubmitJob,
     readSelectedQuestions,
-    calculateEstimatedCost
+    calculateEstimatedCost,
+    resetLiveProgressState
   } = useBiasDetection();
   
   const onSubmitJob = async () => {
@@ -177,6 +178,50 @@ export default function BiasDetection() {
       }
     };
   }, [completionTimer]);
+
+  // Monitor wallet changes and reset Live Progress state
+  useEffect(() => {
+    let lastWalletAddress = null;
+    
+    const checkWalletStatus = () => {
+      const walletStatus = getWalletAuthStatus();
+      const currentAddress = walletStatus?.address;
+      
+      // Reset Live Progress if wallet disconnected or address changed
+      if (lastWalletAddress && (!currentAddress || currentAddress !== lastWalletAddress)) {
+        console.log('🔄 Wallet changed/disconnected - resetting Live Progress state in BiasDetection');
+        setCompletedJob(null);
+        setDiffReady(false);
+        if (completionTimer) {
+          clearTimeout(completionTimer);
+          setCompletionTimer(null);
+        }
+      }
+      
+      lastWalletAddress = currentAddress;
+    };
+    
+    // Check immediately and then periodically
+    checkWalletStatus();
+    const interval = setInterval(checkWalletStatus, 1000);
+    
+    return () => clearInterval(interval);
+  }, [completionTimer]);
+
+  // Reset Live Progress state on hard refresh if wallet is not connected
+  useEffect(() => {
+    const walletStatus = getWalletAuthStatus();
+    if (!walletStatus?.isAuthorized && (activeJobId || completedJob)) {
+      console.log('🔄 Hard refresh detected with no wallet - resetting Live Progress state');
+      resetLiveProgressState();
+      setCompletedJob(null);
+      setDiffReady(false);
+      if (completionTimer) {
+        clearTimeout(completionTimer);
+        setCompletionTimer(null);
+      }
+    }
+  }, []); // Run only once on mount
 
   if (loading) {
     return (

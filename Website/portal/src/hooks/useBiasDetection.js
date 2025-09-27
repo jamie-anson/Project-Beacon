@@ -17,6 +17,14 @@ export function useBiasDetection() {
     try { return sessionStorage.getItem(SESSION_KEY) || ''; } catch { return ''; }
   });
 
+  // Reset Live Progress state on wallet changes or hard refresh
+  const resetLiveProgressState = () => {
+    setActiveJobId('');
+    try { 
+      sessionStorage.removeItem(SESSION_KEY); 
+    } catch {}
+  };
+
   // Multi-region state
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
   
@@ -199,6 +207,30 @@ export function useBiasDetection() {
     }
   };
 
+  // Monitor wallet status and reset Live Progress on wallet changes
+  useEffect(() => {
+    let lastWalletAddress = null;
+    
+    const checkWalletStatus = () => {
+      const walletStatus = getWalletAuthStatus();
+      const currentAddress = walletStatus?.address;
+      
+      // Reset Live Progress if wallet disconnected or address changed
+      if (lastWalletAddress && (!currentAddress || currentAddress !== lastWalletAddress)) {
+        console.log('🔄 Wallet changed/disconnected - resetting Live Progress state');
+        resetLiveProgressState();
+      }
+      
+      lastWalletAddress = currentAddress;
+    };
+    
+    // Check immediately and then periodically
+    checkWalletStatus();
+    const interval = setInterval(checkWalletStatus, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     fetchBiasJobs();
   }, []);
@@ -225,6 +257,7 @@ export function useBiasDetection() {
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob,
+    resetLiveProgressState,
 
     // Utilities
     readSelectedQuestions,
