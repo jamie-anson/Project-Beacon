@@ -50,11 +50,18 @@ export default function CrossRegionDiffPage() {
   
   // Fetch available questions
   const { data: questionsData } = useQuery('questions', () => runnerFetch('/questions'), { interval: 0 });
-  const availableQuestions = questionsData ? [
+  const allQuestions = questionsData ? [
     ...(questionsData.categories?.control_questions || []),
     ...(questionsData.categories?.bias_detection || []),
     ...(questionsData.categories?.cultural_perspective || [])
   ] : [];
+  
+  // Filter to only show questions from this job (excluding the current one)
+  const jobQuestions = job?.questions || [];
+  const currentQuestion = diffAnalysis?.question?.id || diffAnalysis?.question?.text;
+  const availableQuestions = allQuestions.filter(q => 
+    jobQuestions.includes(q.id) && q.id !== currentQuestion
+  );
 
   const handleQuestionSelect = async (questionId) => {
     try {

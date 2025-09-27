@@ -126,7 +126,7 @@ export function useBiasDetection() {
       setIsSubmitting(false);
       return;
     }
-
+    
     const walletStatus = getWalletAuthStatus();
     if (!walletStatus.isAuthorized) {
       addToast(createWarningToast('Please connect and authorize your wallet before submitting a job.'));
@@ -135,10 +135,18 @@ export function useBiasDetection() {
     }
 
     try {
+      // Determine if this is a multi-model job
+      const isMultiModel = selectedModels.length > 1;
+      const benchmarkName = isMultiModel ? 'multi-model-bias-detection' : 'bias-detection';
+      const expectedExecutions = selectedRegions.length * selectedModels.length;
+
       const spec = {
+        id: `bias-detection-${Date.now()}`,
+        version: 'v1',
         benchmark: {
-          name: 'bias-detection',
+          name: benchmarkName,
           version: 'v1',
+          description: isMultiModel ? `Multi-model bias detection across ${selectedModels.length} models` : 'Single-model bias detection',
           container: {
             image: 'ghcr.io/project-beacon/bias-detection:latest',
             tag: 'latest',
@@ -161,7 +169,10 @@ export function useBiasDetection() {
           wallet_address: walletStatus.address,
           execution_type: selectedRegions.length > 1 ? 'cross-region' : 'single-region',
           estimated_cost: calculateEstimatedCost(),
-          model: selectedModel,
+          multi_model: isMultiModel,
+          models: selectedModels,
+          total_executions_expected: expectedExecutions,
+          model: selectedModel, // Keep for backward compatibility
           model_name: availableModels[selectedModel]?.name || selectedModel
         },
         runs: 1,
