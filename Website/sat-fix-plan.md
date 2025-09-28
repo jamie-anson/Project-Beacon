@@ -1180,4 +1180,11 @@ curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?job_id=$JOB_I
 - **Portal → Router `max_tokens`**: Allow portal to set higher `max_tokens` (e.g., 256) via metadata for analysis questions.
 - **Provider refusal metrics**: Emit a `refusal: true/false` flag in receipts to track rate by model/region.
 - **APAC code parity**: Port the new token-level extraction + reframe to `modal_hf_apac.py` if results remain sparse.
+- **Modal endpoint parity**: Switch `modal_hf_eu.py` and `modal_hf_apac.py` web endpoints to `@modal.fastapi_endpoint` (match US, avoid 303 redirects).
+- **Multi-model runner scheduling**: Runner currently dispatches Qwen three times (no Llama/Mistral receipts). Ingest `metadata.models` into `JobSpec.Models` during validation (`runner-app/pkg/models/validation.go`) with default regions + container images, ensure `executeMultiModelJob()` iterates those specs, persist `model_id`, and re-run a 3×3 job to confirm UI shows all models.
+
+#### Execution plan
+- [x] Diagnose runner multi-model scheduling path (`runner-app/internal/service/jobs.go`, `runner-app/internal/worker/job_runner.go`) and confirm only Qwen executes.
+- [ ] Implement runner changes to hydrate `JobSpec.Models`, iterate each model, persist `model_id`, and redeploy.
+- [ ] Submit fresh 3×3 job and verify `portal/src/hooks/useBiasDetection.js` surfaces Qwen, Mistral, and Llama cards.
 

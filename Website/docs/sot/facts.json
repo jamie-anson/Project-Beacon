@@ -401,7 +401,7 @@
       "tables": ["jobs", "executions", "outbox", "idempotency_keys"],
       "key_fields": {
         "jobs": "id (uuid), status, jobspec_hash",
-        "executions": "id (serial), job_id, region, status",
+        "executions": "id (serial), job_id, region, status, model_id",
         "outbox": "id (serial), payload, processed_at",
         "idempotency_keys": "key (varchar), created_at"
       },
