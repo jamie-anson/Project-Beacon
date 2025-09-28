@@ -247,21 +247,42 @@ function normalizeRegion(r) {
           <div className="px-3 py-2">Answer</div>
         </div>
         {['US','EU','ASIA'].map((r) => {
-          const e = (activeJob?.executions || []).find((x) => regionCodeFromExec(x) === r);
+          // For multi-model jobs, get all executions for this region
+          const regionExecs = (activeJob?.executions || []).filter((x) => regionCodeFromExec(x) === r);
+          const e = regionExecs[0]; // Primary execution for basic info
+          
+          // Calculate multi-model status
+          const completedCount = regionExecs.filter(ex => ex?.status === 'completed').length;
+          const failedCount = regionExecs.filter(ex => ex?.status === 'failed').length;
+          const runningCount = regionExecs.filter(ex => ex?.status === 'running').length;
+          const totalModels = regionExecs.length;
+          
           let status;
           if (jobCompleted) {
             status = 'completed';
           } else if (jobFailed || jobStuckTimeout) {
             status = 'failed';
+          } else if (totalModels === 0) {
+            status = 'pending';
+          } else if (completedCount === totalModels) {
+            status = 'completed';
+          } else if (failedCount === totalModels) {
+            status = 'failed';
+          } else if (runningCount > 0) {
+            status = 'running';
           } else {
             status = e?.status || e?.state || 'pending';
           }
+          
           const started = e?.started_at || e?.created_at;
           let provider = e?.provider_id || e?.provider;
           
           // For completed jobs without execution records, show a default provider
           if (jobCompleted && !e) {
             provider = 'completed';
+          } else if (totalModels > 1) {
+            // For multi-model, show model count
+            provider = `${totalModels} models`;
           }
 
           const failure = e?.output?.failure || e?.failure || e?.failure_reason || e?.output?.failure_reason;
@@ -330,6 +351,12 @@ function normalizeRegion(r) {
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(enhancedStatus)}`}>
                     {String(enhancedStatus)}
                   </span>
+                  {/* Show multi-model progress */}
+                  {totalModels > 1 && (
+                    <div className="text-xs text-gray-400">
+                      {completedCount}/{totalModels} models
+                    </div>
+                  )}
                   {/* Show job-level failure messages */}
                   {(jobFailed || jobStuckTimeout) && (
                     <div className="flex flex-col gap-0.5 text-red-500 text-xs">

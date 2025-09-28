@@ -182,3 +182,106 @@ export const CompletedJobMissingExecutions = {
     diffReady: true
   }
 };
+
+// Multi-Model Job - Shows multiple models per region with mixed success/failure
+export const MultiModelJob = {
+  args: {
+    activeJob: {
+      id: 'bias-detection-1759076809505',
+      status: 'completed',
+      created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      executions: [
+        // US-East: All 3 models completed
+        {
+          id: 792,
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          status: 'completed',
+          provider_id: 'modal-us-east',
+          started_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 793,
+          region: 'us-east',
+          model_id: 'mistral-7b',
+          status: 'completed',
+          provider_id: 'modal-us-east',
+          started_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 794,
+          region: 'us-east',
+          model_id: 'qwen2.5-1.5b',
+          status: 'completed',
+          provider_id: 'modal-us-east',
+          started_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+        },
+        // EU-West: All 3 models failed
+        {
+          id: 796,
+          region: 'eu-west',
+          model_id: 'mistral-7b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 797,
+          region: 'eu-west',
+          model_id: 'qwen2.5-1.5b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 798,
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+        },
+        // Asia-Pacific: All 3 models failed
+        {
+          id: 795,
+          region: 'asia-pacific',
+          model_id: 'llama3.2-1b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 799,
+          region: 'asia-pacific',
+          model_id: 'qwen2.5-1.5b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 800,
+          region: 'asia-pacific',
+          model_id: 'mistral-7b',
+          status: 'failed',
+          provider_id: '',
+          started_at: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        }
+      ]
+    },
+    selectedRegions: ['US', 'EU', 'ASIA'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'bias-detection-1759076809505',
+    isCompleted: true,
+    diffReady: true
+  }
+};
