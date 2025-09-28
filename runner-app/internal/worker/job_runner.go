@@ -41,29 +41,31 @@ type execRepoIface interface {
 type ProbeFactory func() negotiation.PreflightProbe
 
 type JobRunner struct {
-	DB           *sql.DB
-	Queue        *queue.Client
-	QueueName    string
-	JobsRepo     jobsRepoIface
-	ExecRepo     execRepoIface
-	ExecutionSvc *service.ExecutionService
-	Golem        *golem.Service
-	Hybrid       *hybrid.Client
-	Bundler      *ipfs.Bundler
-	ProbeFactory ProbeFactory
-	Executor     Executor
-	WSHub        *websocket.Hub
+	DB            *sql.DB
+	Queue         *queue.Client
+	QueueName     string
+	JobsRepo      jobsRepoIface
+	ExecRepo      execRepoIface
+	ExecutionSvc  *service.ExecutionService
+	Golem         *golem.Service
+	Hybrid        *hybrid.Client
+	Bundler       *ipfs.Bundler
+	ProbeFactory  ProbeFactory
+	Executor      Executor
+	WSHub         *websocket.Hub
+	maxConcurrent int // Maximum concurrent executions for bounded concurrency
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
 	jr := &JobRunner{
-		DB:           db,
-		Queue:        q,
-		JobsRepo:     store.NewJobsRepo(db),
-		ExecRepo:     store.NewExecutionsRepo(db),
-		Golem:        gsvc,
-		Bundler:      bundler,
-		ExecutionSvc: service.NewExecutionService(db),
+		DB:            db,
+		Queue:         q,
+		JobsRepo:      store.NewJobsRepo(db),
+		ExecRepo:      store.NewExecutionsRepo(db),
+		Golem:         gsvc,
+		Bundler:       bundler,
+		ExecutionSvc:  service.NewExecutionService(db),
+		maxConcurrent: 10, // Default bounded concurrency limit
 	}
 	
 	// Set default executor to Golem
@@ -223,42 +225,66 @@ type ExecutionResult struct {
 	ModelID     string // NEW: Model ID for multi-model support
 }
 
-// executeMultiModelJob executes a job across multiple models and regions
+// executeMultiModelJob executes a job across multiple models and regions with bounded concurrency
 func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec *models.JobSpec, executor Executor) ([]ExecutionResult, error) {
 	l := logging.FromContext(ctx)
 	
-	// Parallel execution coordination
+	// Parallel execution coordination with bounded concurrency
 	var wg sync.WaitGroup
-	var mu sync.Mutex
+	var resultsMu sync.Mutex
 	var results []ExecutionResult
+	sem := make(chan struct{}, w.maxConcurrent) // Semaphore for bounded concurrency
 	
 	totalExecutions := 0
 	for _, model := range spec.Models {
 		totalExecutions += len(model.Regions)
 	}
 	
-	l.Info().Str("job_id", jobID).Int("model_count", len(spec.Models)).Int("total_executions", totalExecutions).Msg("starting multi-model parallel execution")
+	l.Info().Str("job_id", jobID).Int("model_count", len(spec.Models)).Int("total_executions", totalExecutions).Int("max_concurrent", w.maxConcurrent).Msg("starting multi-model parallel execution")
 	
-	// Execute each model in each of its regions
+	// Execute each model in each of its regions with bounded concurrency
 	for _, model := range spec.Models {
 		for _, region := range model.Regions {
 			wg.Add(1)
+			sem <- struct{}{} // Acquire semaphore slot
 			go func(m models.ModelSpec, r string) {
 				defer wg.Done()
+				defer func() { <-sem }() // Release semaphore slot
 				
 				// Create a modified spec for this specific model
+				// Use shallow copy and be careful with shared pointers
 				modelSpec := *spec
-				modelSpec.Benchmark.Container.Image = m.ContainerImage
+				
+				// Ensure metadata map is not shared between goroutines
+				if modelSpec.Metadata == nil {
+					modelSpec.Metadata = make(map[string]interface{})
+				} else {
+					// Create a new map to avoid concurrent map writes
+					newMetadata := make(map[string]interface{})
+					for k, v := range spec.Metadata {
+						newMetadata[k] = v
+					}
+					modelSpec.Metadata = newMetadata
+				}
+				
+				// For HybridExecutor, set metadata only (router will route by model_id)
 				modelSpec.Metadata["model_id"] = m.ID
 				modelSpec.Metadata["model_name"] = m.Name
+				
+				// Optional: For GolemExecutor, set container image if needed
+				if m.ContainerImage != "" {
+					modelSpec.Benchmark.Container.Image = m.ContainerImage
+				}
 				
 				result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
 				result.ModelID = m.ID // Add model ID to result
 				
 				// Thread-safe result collection
-				mu.Lock()
+				resultsMu.Lock()
 				results = append(results, result)
-				mu.Unlock()
+				resultsMu.Unlock()
+				
+				l.Debug().Str("job_id", jobID).Str("model_id", m.ID).Str("region", r).Str("status", result.Status).Msg("model-region execution completed")
 			}(model, region)
 		}
 	}

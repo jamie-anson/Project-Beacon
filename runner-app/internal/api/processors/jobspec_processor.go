@@ -104,6 +104,65 @@ func (p *JobSpecProcessor) ValidateJobSpec(spec *models.JobSpec) error {
 	return nil
 }
 
+// NormalizeModelsFromMetadata normalizes models from metadata after signature verification
+func (p *JobSpecProcessor) NormalizeModelsFromMetadata(spec *models.JobSpec) {
+	l := logging.FromContext(context.TODO()) // TODO: Pass context through
+	
+	// Skip if Models already populated
+	if len(spec.Models) > 0 {
+		l.Info().Str("job_id", spec.ID).Int("existing_models", len(spec.Models)).Msg("models already populated, skipping normalization")
+		return
+	}
+	
+	// Check for models in metadata
+	raw, ok := spec.Metadata["models"]
+	if !ok {
+		l.Info().Str("job_id", spec.ID).Msg("no models in metadata, will use single-model execution")
+		return
+	}
+	
+	// Handle both array of strings and array of objects with id fields
+	switch vv := raw.(type) {
+	case []interface{}:
+		for _, v := range vv {
+			switch t := v.(type) {
+			case string:
+				// Simple string model ID
+				modelSpec := models.ModelSpec{
+					ID:       t,
+					Name:     t,
+					Provider: "hybrid",
+					Regions:  spec.Constraints.Regions,
+				}
+				spec.Models = append(spec.Models, modelSpec)
+				l.Info().Str("job_id", spec.ID).Str("model_id", t).Msg("normalized string model")
+				
+			case map[string]interface{}:
+				// Object with id and optional name
+				if id, ok := t["id"].(string); ok && id != "" {
+					name, _ := t["name"].(string)
+					if name == "" {
+						name = id // fallback to id if name not provided
+					}
+					
+					modelSpec := models.ModelSpec{
+						ID:       id,
+						Name:     name,
+						Provider: "hybrid",
+						Regions:  spec.Constraints.Regions,
+					}
+					spec.Models = append(spec.Models, modelSpec)
+					l.Info().Str("job_id", spec.ID).Str("model_id", id).Str("model_name", name).Msg("normalized object model")
+				}
+			}
+		}
+	default:
+		l.Warn().Str("job_id", spec.ID).Interface("models_type", vv).Msg("unsupported models format in metadata")
+	}
+	
+	l.Info().Str("job_id", spec.ID).Int("normalized_models", len(spec.Models)).Msg("model normalization completed")
+}
+
 // ProcessJobSpec performs complete JobSpec processing pipeline
 func (p *JobSpecProcessor) ProcessJobSpec(c *gin.Context) (*models.JobSpec, []byte, error) {
 	// Parse request
@@ -124,6 +183,10 @@ func (p *JobSpecProcessor) ProcessJobSpec(c *gin.Context) (*models.JobSpec, []by
 	if err := p.ValidateJobSpec(spec); err != nil {
 		return nil, nil, err
 	}
+	
+	// IMPORTANT: Normalize models AFTER signature verification and validation
+	// This ensures signature verification uses the original payload without modifications
+	p.NormalizeModelsFromMetadata(spec)
 	
 	return spec, rawBody, nil
 }

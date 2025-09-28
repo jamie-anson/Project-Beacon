@@ -53,7 +53,8 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
             e.completed_at,
             e.created_at,
             (e.receipt_data IS NOT NULL) AS has_receipt,
-            e.output_data
+            e.output_data,
+            COALESCE(e.model_id, 'llama3.2-1b') AS model_id
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
         WHERE j.jobspec_id = $1
@@ -76,6 +77,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         CreatedAt   string          `json:"created_at"`
         HasReceipt  bool            `json:"has_receipt"`
         Output      json.RawMessage `json:"output,omitempty"`
+        ModelID     string          `json:"model_id"`
     }
 
     var list []Exec
@@ -83,7 +85,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         var e Exec
         var outputData []byte
         var startedAt, completedAt, createdAt interface{}
-        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData); err != nil {
+        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID); err != nil {
             continue
         }
         if t, ok := startedAt.(time.Time); ok { e.StartedAt = t.Format(time.RFC3339) }
@@ -237,7 +239,8 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 			e.completed_at,
 			e.created_at,
 			e.receipt_data,
-			e.output_data
+			e.output_data,
+			COALESCE(e.model_id, 'llama3.2-1b') AS model_id
 		FROM executions e
 		JOIN jobs j ON e.job_id = j.id
 		ORDER BY e.created_at DESC
@@ -263,6 +266,7 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 		CreatedAt   string          `json:"created_at"`
 		ReceiptID   string          `json:"receipt_id"`
 		Output      json.RawMessage `json:"output,omitempty"`
+		ModelID     string          `json:"model_id"`
 	}
 
 	var executions []ExecutionSummary
@@ -283,6 +287,7 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 			&createdAt,
 			&receiptData,
 			&outputData,
+			&exec.ModelID,
 		)
 		if err != nil {
 			continue // Skip malformed rows
