@@ -114,30 +114,84 @@ function normalizeRegion(r) {
   };
 
 
-  // Overall progress calculation
+  // Overall progress calculation with enhanced job failure detection
   const execs = activeJob?.executions || [];
   const total = selectedRegions.length;
   const statusStr = String(activeJob?.status || activeJob?.state || '').toLowerCase();
   const jobCompleted = isCompleted || ['completed','success','succeeded','done','finished'].includes(statusStr);
+  const jobFailed = ['failed', 'error', 'cancelled', 'timeout'].includes(statusStr);
   const jobId = activeJob?.id || activeJob?.job?.id;
+  
+  // Check if job has been stuck too long (15+ minutes with no executions)
+  const jobCreatedAt = activeJob?.created_at ? new Date(activeJob.created_at) : null;
+  const jobAge = jobCreatedAt ? (Date.now() - jobCreatedAt.getTime()) / 1000 / 60 : 0; // minutes
+  const jobStuckTimeout = jobAge > 15 && execs.length === 0 && !jobCompleted && !jobFailed;
+  
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
-  // Only override execution counts for successful jobs, not failed ones
+  
+  // Handle different job states
   if (jobCompleted) {
     // If the job is successfully complete but we might not have full per-region execution info,
     // present a simple, clear UX: mark progress as fully completed.
     completed = total;
     running = 0;
     failed = 0;
+  } else if (jobFailed || jobStuckTimeout) {
+    // Job failed before creating executions or stuck too long
+    completed = 0;
+    running = 0;
+    failed = total;
   }
+  
   const pct = Math.round((completed / Math.max(total, 1)) * 100);
   const overallCompleted = jobCompleted || (total > 0 && completed >= total);
+  const overallFailed = jobFailed || jobStuckTimeout || (total > 0 && failed >= total);
   const actionsDisabled = !overallCompleted;
-  const showShimmer = !overallCompleted && running > 0;
+  const showShimmer = !overallCompleted && !overallFailed && running > 0;
+
+  // Generate failure message
+  const getFailureMessage = () => {
+    if (jobFailed) {
+      return {
+        title: "Job Failed",
+        message: `Job failed with status: ${statusStr}. This may be due to system issues or invalid job configuration.`,
+        action: "Try submitting a new job or contact support if the issue persists."
+      };
+    }
+    if (jobStuckTimeout) {
+      return {
+        title: "Job Timeout",
+        message: `Job has been running for ${Math.round(jobAge)} minutes without creating any executions.`,
+        action: "The job may be stuck. Try submitting a new job."
+      };
+    }
+    return null;
+  };
+
+  const failureInfo = getFailureMessage();
 
   return (
     <div className="p-4 space-y-3">
+      {/* Failure Alert */}
+      {failureInfo && (
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-red-400 font-medium text-sm">{failureInfo.title}</h4>
+              <p className="text-red-300 text-sm mt-1">{failureInfo.message}</p>
+              <p className="text-red-200 text-xs mt-2">{failureInfo.action}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overall Progress */}
       <div className="space-y-3">
         <div>
@@ -194,7 +248,14 @@ function normalizeRegion(r) {
         </div>
         {['US','EU','ASIA'].map((r) => {
           const e = (activeJob?.executions || []).find((x) => regionCodeFromExec(x) === r);
-          const status = jobCompleted ? 'completed' : (e?.status || e?.state || 'pending');
+          let status;
+          if (jobCompleted) {
+            status = 'completed';
+          } else if (jobFailed || jobStuckTimeout) {
+            status = 'failed';
+          } else {
+            status = e?.status || e?.state || 'pending';
+          }
           const started = e?.started_at || e?.created_at;
           const provider = e?.provider_id || e?.provider;
 
@@ -205,9 +266,19 @@ function normalizeRegion(r) {
 
           const getEnhancedStatus = () => {
             if (loadingActive) return 'refreshing';
-            if (!e) return jobCompleted ? 'completed' : 'pending';
             
-            // Check for infrastructure errors
+            // Handle job-level failures first
+            if (jobFailed || jobStuckTimeout) {
+              return 'failed';
+            }
+            
+            if (jobCompleted) {
+              return 'completed';
+            }
+            
+            if (!e) return 'pending';
+            
+            // Check for execution-level infrastructure errors
             if (e?.error || e?.failure_reason || failureMessage) {
               return 'failed';
             }
@@ -254,7 +325,19 @@ function normalizeRegion(r) {
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(enhancedStatus)}`}>
                     {String(enhancedStatus)}
                   </span>
-                  {(failureMessage || e?.error || e?.failure_reason) && (
+                  {/* Show job-level failure messages */}
+                  {(jobFailed || jobStuckTimeout) && (
+                    <div className="flex flex-col gap-0.5 text-red-500 text-xs">
+                      <span className="truncate" title={failureInfo?.message}>
+                        {jobFailed ? `Job failed: ${statusStr}` : 'Job timeout'}
+                      </span>
+                      <span className="text-red-400/80 uppercase tracking-wide">
+                        {jobStuckTimeout ? `${Math.round(jobAge)}min stuck` : 'system failure'}
+                      </span>
+                    </div>
+                  )}
+                  {/* Show execution-level failure messages */}
+                  {!jobFailed && !jobStuckTimeout && (failureMessage || e?.error || e?.failure_reason) && (
                     <div className="flex flex-col gap-0.5 text-red-500 text-xs">
                       <span className="truncate" title={failureMessage || e?.error || e?.failure_reason}>
                         {(failureMessage || e?.error || e?.failure_reason || '').slice(0, 60)}{(failureMessage || e?.error || e?.failure_reason || '').length > 60 ? '…' : ''}
