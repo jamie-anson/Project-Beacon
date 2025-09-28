@@ -154,3 +154,31 @@ export const MixedExecutionFailures = {
     diffReady: true
   }
 };
+
+// Completed Job with Missing Execution Records - Job completed but some regions missing execution data
+export const CompletedJobMissingExecutions = {
+  args: {
+    activeJob: {
+      id: 'job-bias-detection-partial-1758207500',
+      status: 'completed',
+      created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      executions: [
+        {
+          id: 'exec-us-003',
+          region: 'us-east',
+          status: 'completed',
+          provider_id: 'modal-us-east-1',
+          started_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+          completed_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        }
+        // EU and ASIA executions missing but job marked as completed
+      ]
+    },
+    selectedRegions: ['US', 'EU', 'ASIA'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'job-bias-detection-partial-1758207500',
+    isCompleted: true,
+    diffReady: true
+  }
+};

@@ -257,7 +257,12 @@ function normalizeRegion(r) {
             status = e?.status || e?.state || 'pending';
           }
           const started = e?.started_at || e?.created_at;
-          const provider = e?.provider_id || e?.provider;
+          let provider = e?.provider_id || e?.provider;
+          
+          // For completed jobs without execution records, show a default provider
+          if (jobCompleted && !e) {
+            provider = 'completed';
+          }
 
           const failure = e?.output?.failure || e?.failure || e?.failure_reason || e?.output?.failure_reason;
           const failureMessage = typeof failure === 'object' ? failure?.message : null;
@@ -354,7 +359,7 @@ function normalizeRegion(r) {
               <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
               <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
               <div className="px-3 py-2">
-                {e?.id ? (
+                {(e?.id || jobCompleted) ? (
                   <Link
                     to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(r)}`}
                     className="text-xs text-beacon-600 underline decoration-dotted"
