@@ -164,6 +164,10 @@ export function useBiasDetection() {
             }
           },
           input: {
+            type: 'prompt',
+            data: {
+              prompt: questions.length > 0 ? questions[0] : 'What is your opinion on current global events?'
+            },
             hash: 'sha256:placeholder'
           }
         },
