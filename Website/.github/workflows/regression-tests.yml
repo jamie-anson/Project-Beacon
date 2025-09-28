@@ -1,0 +1,83 @@
+name: Regression Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'portal/src/**'
+      - 'portal/package.json'
+      - 'portal/jest.config.js'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'portal/src/**'
+      - 'portal/package.json'
+      - 'portal/jest.config.js'
+
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./portal
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: portal/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run Prompt Structure Tests
+      run: npm run test:prompt-structure
+      continue-on-error: false
+
+    - name: Run Region Filtering Tests
+      run: npm run test:region-filtering
+      continue-on-error: false
+
+    - name: Run Multi-Model Display Tests
+      run: npm run test:multi-model
+      continue-on-error: false
+
+    - name: Run Integration Tests
+      run: npm run test:integration
+      continue-on-error: false
+
+    - name: Run Full Regression Test Suite
+      run: npm run test:regression
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: regression-test-results
+        path: |
+          portal/coverage/
+          portal/test-results.xml
+        retention-days: 30
+
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    needs: regression-tests
+    if: failure()
+    
+    steps:
+    - name: Notify on regression test failure
+      run: |
+        echo "🚨 REGRESSION TESTS FAILED!"
+        echo "One or more critical bugs may have been reintroduced:"
+        echo "• Prompt Structure Bug: Job specs missing prompt data"
+        echo "• Region Filtering Bug: UI/DB region mapping mismatch"
+        echo "• Multi-Model Display Bug: Incorrect progress indicators"
+        echo ""
+        echo "Please review the test failures and fix before merging."
+        exit 1
