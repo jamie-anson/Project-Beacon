@@ -38,6 +38,16 @@ export default function LiveProgressTable({
     } catch { return ''; }
   }
 
+  // Map display region codes to database region names for filtering
+  function mapRegionToDatabase(displayRegion) {
+    switch (displayRegion) {
+      case 'US': return 'us-east';
+      case 'EU': return 'eu-west';
+      case 'ASIA': return 'asia-pacific';
+      default: return displayRegion.toLowerCase();
+    }
+  }
+
   function prefillFromExecutions(activeJob, setters) {
     const { setARegion, setBRegion, setAText, setBText, setError } = setters || {};
     try {
@@ -388,7 +398,7 @@ function normalizeRegion(r) {
               <div className="px-3 py-2">
                 {(e?.id || jobCompleted) ? (
                   <Link
-                    to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(r)}`}
+                    to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(mapRegionToDatabase(r))}`}
                     className="text-xs text-beacon-600 underline decoration-dotted"
                   >Answer</Link>
                 ) : (
