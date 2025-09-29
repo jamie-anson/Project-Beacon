@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
+	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
 	rbac "github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/redis/go-redis/v9"
@@ -224,6 +225,11 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		admin.GET("/port", adminHandler.GetPortInfo)
 		admin.GET("/hints", adminHandler.GetHints)
 		admin.GET("/circuit-breaker-stats", adminHandler.GetCircuitBreakerStats)
+		// Job timeout management endpoints
+		admin.GET("/stuck-jobs", handlers.CheckStuckJobs)
+		admin.POST("/timeout-stuck-jobs", handlers.TimeoutStuckJobs)
+		// Emergency stop endpoint
+		admin.POST("/jobs/:id/emergency-stop", handlers.EmergencyStopJob)
 	}
 
 	return r
