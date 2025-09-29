@@ -310,3 +310,54 @@ func (r *ExecutionsRepo) InsertExecutionWithModel(
 	}
 	return id, nil
 }
+
+// InsertExecutionWithClassification inserts an execution row with response classification support
+func (r *ExecutionsRepo) InsertExecutionWithClassification(
+	ctx context.Context,
+	jobspecID string,
+	providerID string,
+	region string,
+	status string,
+	startedAt time.Time,
+	completedAt time.Time,
+	outputJSON []byte,
+	receiptJSON []byte,
+	modelID string,
+	isSubstantive bool,
+	isContentRefusal bool,
+	isTechnicalError bool,
+	responseClassification string,
+	responseLength int,
+	systemPrompt string,
+) (int64, error) {
+	// First, verify the job exists
+	var jobID int64
+	err := r.DB.QueryRowContext(ctx, `SELECT id FROM jobs WHERE jobspec_id = $1`, jobspecID).Scan(&jobID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("job not found in database for jobspec_id: %s", jobspecID)
+		}
+		return 0, fmt.Errorf("failed to lookup job: %w", err)
+	}
+
+	// Insert execution with classification fields
+	row := r.DB.QueryRowContext(ctx, `
+		INSERT INTO executions (
+			job_id, provider_id, region, status, started_at, completed_at, 
+			output_data, receipt_data, model_id,
+			is_substantive, is_content_refusal, is_technical_error,
+			response_classification, response_length, system_prompt
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		RETURNING id
+	`, jobID, providerID, region, status, startedAt, completedAt, 
+		outputJSON, receiptJSON, modelID,
+		isSubstantive, isContentRefusal, isTechnicalError,
+		responseClassification, responseLength, systemPrompt)
+	
+	var id int64
+	if err := row.Scan(&id); err != nil {
+		return 0, fmt.Errorf("failed to insert execution with classification: %w", err)
+	}
+	return id, nil
+}

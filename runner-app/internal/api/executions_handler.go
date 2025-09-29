@@ -20,13 +20,19 @@ type ExecutionsHandler struct {
 
 // RegionExecution represents an execution result for a specific region
 type RegionExecution struct {
-	ID          int64           `json:"id"`
-	Region      string          `json:"region"`
-	ProviderID  string          `json:"provider_id"`
-	Status      string          `json:"status"`
-	StartedAt   time.Time       `json:"started_at"`
-	CompletedAt time.Time       `json:"completed_at"`
-	OutputData  json.RawMessage `json:"output_data"`
+	ID                     int64           `json:"id"`
+	Region                 string          `json:"region"`
+	ProviderID             string          `json:"provider_id"`
+	Status                 string          `json:"status"`
+	StartedAt              time.Time       `json:"started_at"`
+	CompletedAt            time.Time       `json:"completed_at"`
+	OutputData             json.RawMessage `json:"output_data"`
+	ModelID                string          `json:"model_id,omitempty"`
+	SystemPrompt           string          `json:"system_prompt,omitempty"`
+	ResponseClassification string          `json:"response_classification,omitempty"`
+	IsSubstantive          bool            `json:"is_substantive,omitempty"`
+	IsContentRefusal       bool            `json:"is_content_refusal,omitempty"`
+	ResponseLength         int             `json:"response_length,omitempty"`
 }
 
 // ListAllExecutionsForJob lists all executions for a given JobSpec ID (including ones without receipts)
@@ -54,7 +60,12 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
             e.created_at,
             (e.receipt_data IS NOT NULL) AS has_receipt,
             e.output_data,
-            COALESCE(e.model_id, 'llama3.2-1b') AS model_id
+            COALESCE(e.model_id, 'llama3.2-1b') AS model_id,
+            COALESCE(e.system_prompt, '') AS system_prompt,
+            COALESCE(e.response_classification, 'unknown') AS response_classification,
+            COALESCE(e.is_substantive, false) AS is_substantive,
+            COALESCE(e.is_content_refusal, false) AS is_content_refusal,
+            COALESCE(e.response_length, 0) AS response_length
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
         WHERE j.jobspec_id = $1
@@ -67,17 +78,22 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
     defer rows.Close()
 
     type Exec struct {
-        ID          int64           `json:"id"`
-        JobID       string          `json:"job_id"`
-        Status      string          `json:"status"`
-        Region      string          `json:"region"`
-        ProviderID  string          `json:"provider_id"`
-        StartedAt   string          `json:"started_at"`
-        CompletedAt string          `json:"completed_at"`
-        CreatedAt   string          `json:"created_at"`
-        HasReceipt  bool            `json:"has_receipt"`
-        Output      json.RawMessage `json:"output,omitempty"`
-        ModelID     string          `json:"model_id"`
+        ID                     int64           `json:"id"`
+        JobID                  string          `json:"job_id"`
+        Status                 string          `json:"status"`
+        Region                 string          `json:"region"`
+        ProviderID             string          `json:"provider_id"`
+        StartedAt              string          `json:"started_at"`
+        CompletedAt            string          `json:"completed_at"`
+        CreatedAt              string          `json:"created_at"`
+        HasReceipt             bool            `json:"has_receipt"`
+        Output                 json.RawMessage `json:"output,omitempty"`
+        ModelID                string          `json:"model_id"`
+        SystemPrompt           string          `json:"system_prompt,omitempty"`
+        ResponseClassification string          `json:"response_classification,omitempty"`
+        IsSubstantive          bool            `json:"is_substantive"`
+        IsContentRefusal       bool            `json:"is_content_refusal"`
+        ResponseLength         int             `json:"response_length,omitempty"`
     }
 
     var list []Exec
@@ -85,7 +101,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         var e Exec
         var outputData []byte
         var startedAt, completedAt, createdAt interface{}
-        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID); err != nil {
+        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength); err != nil {
             continue
         }
         if t, ok := startedAt.(time.Time); ok { e.StartedAt = t.Format(time.RFC3339) }

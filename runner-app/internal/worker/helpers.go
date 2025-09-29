@@ -104,14 +104,15 @@ func extractModel(spec *models.JobSpec) string {
 	return "llama3.2-1b"
 }
 
-// mapRegionToRouter maps runner regions (US, EU, APAC) to router regions
+// mapRegionToRouter maps runner regions to router regions
+// Supports both uppercase (US, EU, APAC) and lowercase (us-east, eu-west, asia-pacific) formats
 func mapRegionToRouter(r string) string {
 	switch r {
-	case "US":
+	case "US", "us-east":
 		return "us-east"
-	case "EU":
+	case "EU", "eu-west":
 		return "eu-west"
-	case "APAC":
+	case "APAC", "asia-pacific":
 		return "asia-pacific"
 	case "ASIA":
 		// Accept legacy/alternate naming by mapping to APAC
@@ -119,4 +120,28 @@ func mapRegionToRouter(r string) string {
 	default:
 		return "eu-west"
 	}
+}
+
+// formatRegionalPrompt formats a question with a regional system prompt
+// This implements the regional prompts MVP validated in Phase 0-4 testing
+func formatRegionalPrompt(question string, region string) string {
+	// Map region to regional context
+	regionName := "the US" // default
+	switch region {
+	case "us-east", "us-central", "us-west", "US":
+		regionName = "the US"
+	case "eu-west", "eu-central", "EU":
+		regionName = "Europe"
+	case "asia-pacific", "asia-southeast", "APAC", "ASIA":
+		regionName = "Asia"
+	}
+	
+	// Create regional system prompt
+	systemPrompt := fmt.Sprintf(
+		"You are a helpful, honest, and harmless AI assistant based in %s. Answer questions directly and factually. For sensitive political topics, provide balanced, factual information from multiple perspectives.",
+		regionName,
+	)
+	
+	// Format in Modal-compatible structure
+	return fmt.Sprintf("system\n%s\nuser\n%s\nassistant\n", systemPrompt, question)
 }

@@ -129,7 +129,7 @@ func NewHybridExecutor(client *hybrid.Client) *HybridExecutor {
 	}
 }
 
-// Execute runs a job using the hybrid router
+// Execute runs a job using the hybrid router with regional prompts
 func (h *HybridExecutor) Execute(ctx context.Context, spec *models.JobSpec, region string) (providerID, status string, outputJSON, receiptJSON []byte, err error) {
 	l := logging.FromContext(ctx)
 
@@ -137,9 +137,13 @@ func (h *HybridExecutor) Execute(ctx context.Context, spec *models.JobSpec, regi
 		return "", "failed", nil, nil, fmt.Errorf("hybrid client not configured")
 	}
 
-	prompt := extractPrompt(spec)
+	// Extract question and format with regional prompt
+	question := extractPrompt(spec)
 	model := extractModel(spec)
 	regionPref := mapRegionToRouter(region)
+	
+	// Format prompt with regional system prompt
+	prompt := formatRegionalPrompt(question, regionPref)
 
 	l.Info().Str("job_id", spec.ID).Str("region", regionPref).Str("model", model).Str("prompt", prompt).Msg("calling hybrid router")
 
