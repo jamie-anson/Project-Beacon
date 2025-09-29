@@ -249,9 +249,10 @@ function normalizeRegion(r) {
 
       {/* Detailed Progress Table */}
       <div className="border border-gray-600 rounded">
-        <div className="grid grid-cols-5 text-xs bg-gray-700 text-gray-300">
+        <div className="grid grid-cols-6 text-xs bg-gray-700 text-gray-300">
           <div className="px-3 py-2">Region</div>
           <div className="px-3 py-2">Status</div>
+          <div className="px-3 py-2">Classification</div>
           <div className="px-3 py-2">Started</div>
           <div className="px-3 py-2">Provider</div>
           <div className="px-3 py-2">Answer</div>
@@ -351,8 +352,48 @@ function normalizeRegion(r) {
 
           const enhancedStatus = getEnhancedStatus();
           
+          // Get classification data from execution
+          const getClassificationBadge = () => {
+            if (!e || !e.response_classification) return null;
+            
+            const classification = e.response_classification;
+            const isSubstantive = e.is_substantive;
+            const isRefusal = e.is_content_refusal;
+            const responseLength = e.response_length || 0;
+            
+            let badgeColor = 'bg-gray-900/20 text-gray-400 border-gray-700';
+            let badgeText = classification;
+            let badgeIcon = null;
+            
+            if (classification === 'substantive' || isSubstantive) {
+              badgeColor = 'bg-green-900/20 text-green-400 border-green-700';
+              badgeText = 'Substantive';
+              badgeIcon = '✓';
+            } else if (classification === 'content_refusal' || isRefusal) {
+              badgeColor = 'bg-orange-900/20 text-orange-400 border-orange-700';
+              badgeText = 'Refusal';
+              badgeIcon = '⚠';
+            } else if (classification === 'technical_failure') {
+              badgeColor = 'bg-red-900/20 text-red-400 border-red-700';
+              badgeText = 'Error';
+              badgeIcon = '✗';
+            }
+            
+            return (
+              <div className="flex flex-col gap-1">
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${badgeColor} inline-flex items-center gap-1`}>
+                  {badgeIcon && <span>{badgeIcon}</span>}
+                  {badgeText}
+                </span>
+                {responseLength > 0 && (
+                  <span className="text-xs text-gray-500">{responseLength} chars</span>
+                )}
+              </div>
+            );
+          };
+          
           return (
-            <div key={r} className="grid grid-cols-5 text-sm border-t border-gray-600 hover:bg-gray-700">
+            <div key={r} className="grid grid-cols-6 text-sm border-t border-gray-600 hover:bg-gray-700">
               <div className="px-3 py-2 font-medium">
                 <span>{r}</span>
               </div>
@@ -392,6 +433,9 @@ function normalizeRegion(r) {
                     </div>
                   )}
                 </div>
+              </div>
+              <div className="px-3 py-2">
+                {getClassificationBadge() || <span className="text-xs text-gray-500">—</span>}
               </div>
               <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
               <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
