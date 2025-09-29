@@ -225,7 +225,7 @@ type ExecutionResult struct {
 	ModelID     string // NEW: Model ID for multi-model support
 }
 
-// executeMultiModelJob executes a job across multiple models, regions, and questions with bounded concurrency
+// executeMultiModelJob executes a job across multiple models and regions with bounded concurrency
 func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec *models.JobSpec, executor Executor) ([]ExecutionResult, error) {
 	l := logging.FromContext(ctx)
 	
@@ -235,96 +235,64 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 	var results []ExecutionResult
 	sem := make(chan struct{}, w.maxConcurrent) // Semaphore for bounded concurrency
 	
-	// Determine questions to execute
-	questions := spec.Questions
-	if len(questions) == 0 {
-		// Fallback: single execution with combined prompt (legacy behavior)
-		questions = []string{""}
-	}
-	
-	// Calculate total executions: models × regions × questions
 	totalExecutions := 0
 	for _, model := range spec.Models {
-		totalExecutions += len(model.Regions) * len(questions)
+		totalExecutions += len(model.Regions)
 	}
 	
-	l.Info().
-		Str("job_id", jobID).
-		Int("model_count", len(spec.Models)).
-		Int("question_count", len(questions)).
-		Int("total_executions", totalExecutions).
-		Int("max_concurrent", w.maxConcurrent).
-		Msg("starting multi-model, multi-question parallel execution")
+	l.Info().Str("job_id", jobID).Int("model_count", len(spec.Models)).Int("total_executions", totalExecutions).Int("max_concurrent", w.maxConcurrent).Msg("starting multi-model parallel execution")
 	
-	// Execute each model in each region for each question with bounded concurrency
+	// Execute each model in each of its regions with bounded concurrency
 	for _, model := range spec.Models {
 		for _, region := range model.Regions {
-			for questionIdx, questionID := range questions {
-				wg.Add(1)
-				sem <- struct{}{} // Acquire semaphore slot
-				go func(m models.ModelSpec, r string, qID string, qIdx int) {
-					defer wg.Done()
-					defer func() { <-sem }() // Release semaphore slot
-					
-					// Create a modified spec for this specific model and question
-					// Use shallow copy and be careful with shared pointers
-					modelSpec := *spec
-					
-					// Ensure metadata map is not shared between goroutines
-					if modelSpec.Metadata == nil {
-						modelSpec.Metadata = make(map[string]interface{})
-					} else {
-						// Create a new map to avoid concurrent map writes
-						newMetadata := make(map[string]interface{})
-						for k, v := range spec.Metadata {
-							newMetadata[k] = v
-						}
-						modelSpec.Metadata = newMetadata
+			wg.Add(1)
+			sem <- struct{}{} // Acquire semaphore slot
+			go func(m models.ModelSpec, r string) {
+				defer wg.Done()
+				defer func() { <-sem }() // Release semaphore slot
+				
+				// Create a modified spec for this specific model
+				// Use shallow copy and be careful with shared pointers
+				modelSpec := *spec
+				
+				// Ensure metadata map is not shared between goroutines
+				if modelSpec.Metadata == nil {
+					modelSpec.Metadata = make(map[string]interface{})
+				} else {
+					// Create a new map to avoid concurrent map writes
+					newMetadata := make(map[string]interface{})
+					for k, v := range spec.Metadata {
+						newMetadata[k] = v
 					}
-					
-					// For HybridExecutor, set metadata only (router will route by model_id)
-					modelSpec.Metadata["model_id"] = m.ID
-					modelSpec.Metadata["model_name"] = m.Name
-					
-					// Set single question for this execution (if not empty/legacy)
-					if qID != "" {
-						modelSpec.Questions = []string{qID}
-						modelSpec.Metadata["question_id"] = qID
-						modelSpec.Metadata["question_index"] = qIdx
-					}
-					
-					// Optional: For GolemExecutor, set container image if needed
-					if m.ContainerImage != "" {
-						modelSpec.Benchmark.Container.Image = m.ContainerImage
-					}
-					
-					result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
-					result.ModelID = m.ID // Add model ID to result
-					
-					// Thread-safe result collection
-					resultsMu.Lock()
-					results = append(results, result)
-					resultsMu.Unlock()
-					
-					questionLog := ""
-					if qID != "" {
-						questionLog = fmt.Sprintf(" question=%s", qID)
-					}
-					l.Debug().
-						Str("job_id", jobID).
-						Str("model_id", m.ID).
-						Str("region", r).
-						Str("status", result.Status).
-						Msgf("model-region-question execution completed%s", questionLog)
-				}(model, region, questionID, questionIdx)
-			}
+					modelSpec.Metadata = newMetadata
+				}
+				
+				// For HybridExecutor, set metadata only (router will route by model_id)
+				modelSpec.Metadata["model_id"] = m.ID
+				modelSpec.Metadata["model_name"] = m.Name
+				
+				// Optional: For GolemExecutor, set container image if needed
+				if m.ContainerImage != "" {
+					modelSpec.Benchmark.Container.Image = m.ContainerImage
+				}
+				
+				result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
+				result.ModelID = m.ID // Add model ID to result
+				
+				// Thread-safe result collection
+				resultsMu.Lock()
+				results = append(results, result)
+				resultsMu.Unlock()
+				
+				l.Debug().Str("job_id", jobID).Str("model_id", m.ID).Str("region", r).Str("status", result.Status).Msg("model-region execution completed")
+			}(model, region)
 		}
 	}
 	
-	// Wait for all model-region-question combinations to complete
+	// Wait for all model-region combinations to complete
 	wg.Wait()
 	
-	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model, multi-question execution completed")
+	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model execution completed")
 	
 	// Return results for processing
 	return results, nil
