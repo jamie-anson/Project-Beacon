@@ -126,6 +126,28 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		return fmt.Errorf("invalid envelope: %w", err)
 	}
 	
+	// CRITICAL: Acquire processing lock to prevent duplicate execution
+	lockKey := fmt.Sprintf("job:processing:%s", env.ID)
+	lockTTL := 15 * time.Minute // Lock expires after 15 minutes
+	
+	// Try to acquire lock using Redis SETNX (SET if Not eXists)
+	if w.Queue != nil && w.Queue.Client != nil {
+		acquired, err := w.Queue.Client.SetNX(ctx, lockKey, "1", lockTTL).Result()
+		if err != nil {
+			l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to acquire processing lock, proceeding anyway")
+		} else if !acquired {
+			l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
+			return nil // Skip this job, it's already being processed
+		} else {
+			l.Info().Str("job_id", env.ID).Msg("acquired processing lock")
+			// Release lock when done
+			defer func() {
+				if delErr := w.Queue.Client.Del(ctx, lockKey).Err(); delErr != nil {
+					l.Warn().Err(delErr).Str("job_id", env.ID).Msg("failed to release processing lock")
+				}
+			}()
+		}
+	}
 
 	// Mark job as processing and fetch JobSpec
 	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "processing"); err != nil {
