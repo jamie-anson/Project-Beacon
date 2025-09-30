@@ -1,0 +1,38 @@
+{
+  "version": "v1",
+  "benchmark": {
+    "name": "simple-test",
+    "description": "Simple single-model test job to debug execution pipeline",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "What is 2+2?"
+      },
+      "hash": "simple-test-hash"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    }
+  },
+  "constraints": {
+    "regions": ["us-east"],
+    "min_regions": 1,
+    "min_success_rate": 1.0,
+    "timeout": 300000000000
+  },
+  "metadata": {
+    "model": "qwen2.5-1.5b",
+    "test_type": "pipeline-debug",
+    "expected_executions": 1
+  },
+  "questions": ["What is 2+2?"],
+  "created_at": "2025-09-28T14:14:00Z"
+}

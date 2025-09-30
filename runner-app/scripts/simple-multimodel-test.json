@@ -1,0 +1,38 @@
+{
+  "version": "v1",
+  "benchmark": {
+    "name": "simple-multimodel-test",
+    "description": "Simple 2-model test to debug multi-model execution",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "What is 2+2?"
+      },
+      "hash": "simple-multimodel-hash"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    }
+  },
+  "constraints": {
+    "regions": ["us-east"],
+    "min_regions": 1,
+    "min_success_rate": 0.5,
+    "timeout": 300000000000
+  },
+  "metadata": {
+    "models": ["qwen2.5-1.5b", "llama3.2-1b"],
+    "test_type": "multimodel-debug",
+    "expected_executions": 2
+  },
+  "questions": ["What is 2+2?"],
+  "created_at": "2025-09-28T15:00:00Z"
+}

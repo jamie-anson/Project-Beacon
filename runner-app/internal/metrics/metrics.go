@@ -98,6 +98,23 @@ var (
 		Help: "Age in seconds of the oldest unpublished outbox entry",
 	})
 
+	// Deduplication metrics
+	ExecutionDuplicatesDetected = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "beacon_execution_duplicates_detected_total",
+			Help: "Number of duplicate execution attempts detected and prevented by auto-stop",
+		},
+		[]string{"job_id", "region", "model_id"},
+	)
+	
+	ExecutionDuplicatesAllowed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "beacon_execution_duplicates_allowed_total",
+			Help: "Number of duplicate executions that were not caught and were inserted",
+		},
+		[]string{"job_id", "region", "model_id"},
+	)
+
 	// Resource monitoring metrics
 	MemoryHeapAllocBytes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "memory_heap_alloc_bytes",

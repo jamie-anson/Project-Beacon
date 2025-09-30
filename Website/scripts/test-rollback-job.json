@@ -1,0 +1,45 @@
+{
+  "benchmark": {
+    "name": "rollback-verification-test",
+    "version": "1.0",
+    "description": "Simple test to verify rollback worked - no duplicates expected",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "tag": "latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "math_basic"
+      },
+      "hash": "sha256:rollback-test"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    },
+    "metadata": {}
+  },
+  "constraints": {
+    "regions": ["US"],
+    "min_regions": 1,
+    "min_success_rate": 0.67,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000
+  },
+  "questions": ["math_basic"],
+  "models": [
+    {
+      "id": "llama3.2-1b",
+      "name": "llama3.2-1b",
+      "provider": "hybrid",
+      "container_image": "",
+      "regions": ["US"]
+    }
+  ],
+  "runs": 1
+}

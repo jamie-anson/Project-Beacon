@@ -231,7 +231,8 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 					e.provider_id,
 					e.started_at,
 					e.completed_at,
-					e.created_at
+					e.created_at,
+					COALESCE(e.model_id, 'llama3.2-1b') AS model_id
 				FROM executions e
 				JOIN jobs j ON e.job_id = j.id
 				WHERE j.jobspec_id = $1
@@ -254,6 +255,7 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 				StartedAt   string `json:"started_at"`
 				CompletedAt string `json:"completed_at"`
 				CreatedAt   string `json:"created_at"`
+				ModelID     string `json:"model_id"`
 			}
 
 			var executions []ExecutionSummary
@@ -269,6 +271,7 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 					&startedAt,
 					&completedAt,
 					&createdAt,
+					&exec.ModelID,
 				)
 				if err != nil {
 					continue // Skip malformed rows

@@ -166,6 +166,20 @@ def load_model_and_tokenizer(model_name: str, model_path: str):
     
     return tokenizer, model
 
+def extract_system_prompt_from_messages(messages: list) -> str:
+    """
+    Extract system prompt from messages list.
+    Returns the system prompt content or empty string if not found.
+    """
+    try:
+        for message in messages:
+            if message.get("role") == "system":
+                return message.get("content", "")
+        return ""
+    except Exception as e:
+        print(f"Error extracting system prompt: {e}")
+        return ""
+
 def run_inference_logic(model_name: str, prompt: str, region: str, temperature: float = 0.1, max_tokens: int = 500):
     """Shared inference logic"""
     import torch
@@ -188,7 +202,13 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
             tokenizer, model = load_model_and_tokenizer(model_name, model_path)
         
         # FIXED: Use proper chat template for instruction following
-        system_prompt = "You are a helpful, honest, and harmless AI assistant. Answer questions directly and factually. For sensitive political topics, provide balanced, factual information from multiple perspectives."
+        # Regional system prompt based on region
+        region_map = {
+            "asia-pacific": "Asia",
+            "asia-southeast": "Asia"
+        }
+        region_name = region_map.get(region, "Asia")
+        system_prompt = f"You are a helpful, honest, and harmless AI assistant based in {region_name}. Answer questions directly and factually. For sensitive political topics, provide balanced, factual information from multiple perspectives."
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -291,17 +311,22 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
             "duration": inference_time
         }
 
+        # Extract system prompt for validation
+        extracted_system_prompt = extract_system_prompt_from_messages(messages)
+        
         receipt = {
             "schema_version": "v0.1.0",
             "execution_details": execution_details,
             "output": {
                 "response": response,
                 "prompt": prompt,
+                "system_prompt": extracted_system_prompt,  # NEW: For validation
                 "tokens_generated": len(tokenizer.encode(response)),
                 "metadata": {
                     "temperature": temperature,
                     "max_tokens": max_tokens,
-                    "full_response": full_response
+                    "full_response": full_response,
+                    "region_context": region  # NEW: Track regional context
                 }
             },
             "provenance": {

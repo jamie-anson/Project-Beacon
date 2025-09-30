@@ -465,16 +465,65 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 	l := logging.FromContext(ctx)
 	
 	regionStart := time.Now()
-	l.Info().Str("job_id", jobID).Str("region", region).Msg("starting region execution")
 	
-	// Execute job in this region
-	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, spec, region)
+	// Extract model ID early for duplicate check
+	modelID := "llama3.2-1b" // default
+	if spec.Metadata != nil {
+		if mid, ok := spec.Metadata["model_id"].(string); ok && mid != "" {
+			modelID = mid
+		}
+	}
 	
 	// Determine actual region for metrics (hybrid executor may map regions)
 	actualRegion := region
 	if w.Hybrid != nil {
 		actualRegion = mapRegionToRouter(region)
 	}
+	
+	// 🛑 AUTO-STOP: Check if execution already exists BEFORE executing
+	// This prevents duplicate executions from wasting compute resources
+	if w.DB != nil {
+		var existingCount int
+		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		
+		// Look up job_id from jobspec_id
+		var jobIDNum int64
+		err := w.DB.QueryRowContext(checkCtx, `SELECT id FROM jobs WHERE jobspec_id = $1`, spec.ID).Scan(&jobIDNum)
+		if err == nil {
+			// Check for existing execution
+			err = w.DB.QueryRowContext(checkCtx, `
+				SELECT COUNT(*) FROM executions 
+				WHERE job_id = $1 AND region = $2 AND model_id = $3
+			`, jobIDNum, actualRegion, modelID).Scan(&existingCount)
+			
+			if err == nil && existingCount > 0 {
+				l.Warn().
+					Str("job_id", jobID).
+					Str("region", actualRegion).
+					Str("model_id", modelID).
+					Int("existing_count", existingCount).
+					Msg("🛑 AUTO-STOP: Duplicate execution detected, skipping")
+				
+				// Increment duplicate detection metric
+				metrics.ExecutionDuplicatesDetected.WithLabelValues(jobID, actualRegion, modelID).Inc()
+				
+				// Return early without executing - AUTO-STOP
+				return ExecutionResult{
+					Region:      actualRegion,
+					Status:      "duplicate_skipped",
+					ModelID:     modelID,
+					StartedAt:   regionStart.UTC(),
+					CompletedAt: time.Now().UTC(),
+				}
+			}
+		}
+	}
+	
+	l.Info().Str("job_id", jobID).Str("region", region).Str("model_id", modelID).Msg("starting region execution")
+	
+	// Execute job in this region
+	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, spec, region)
 	
 	regionEnd := time.Now()
 	result := ExecutionResult{
@@ -532,13 +581,7 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 		l.Info().Str("job_id", jobID).Str("provider", providerID).Str("region", actualRegion).Str("status", status).Msg("region execution successful")
 	}
 	
-	// Extract model ID from spec metadata (for multi-model jobs) or use default
-	modelID := "llama3.2-1b" // default
-	if spec.Metadata != nil {
-		if mid, ok := spec.Metadata["model_id"].(string); ok && mid != "" {
-			modelID = mid
-		}
-	}
+	// Note: modelID already extracted at the beginning of function for duplicate check
 	
 	// Insert execution record in database with model ID
 	execID, insErr := w.ExecRepo.InsertExecutionWithModel(ctx, spec.ID, providerID, actualRegion, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID)

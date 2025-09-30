@@ -161,6 +161,12 @@ func main() {
 			logger.Error().Err(err).Msg("failed to recover stale jobs on startup")
 		}
 
+		// Start job timeout worker for ongoing cleanup of stuck jobs
+		timeoutThreshold := 15 * time.Minute // Jobs processing for >15min are timed out
+		checkInterval := 2 * time.Minute     // Check every 2 minutes
+		timeoutWorker := worker.NewJobTimeoutWorker(database.DB, timeoutThreshold, checkInterval)
+		go timeoutWorker.Start(workerCtx)
+
 		// Initialize Golem service for worker
 		apiKey := os.Getenv("GOLEM_API_KEY")
 		if apiKey == "" {

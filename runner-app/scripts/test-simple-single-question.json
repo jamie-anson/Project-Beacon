@@ -1,0 +1,28 @@
+{
+  "id": "test-rollback-verification",
+  "version": "1.0",
+  "benchmark": {
+    "name": "rollback-verification-test",
+    "version": "1.0"
+  },
+  "container": {
+    "image": "registry.hub.docker.com/projectbeacon/llm-benchmark-llama:latest",
+    "entrypoint": ["python3", "benchmark.py"]
+  },
+  "input": {
+    "hash": "QmTestRollbackHash123",
+    "questions": [
+      "What is 2+2?"
+    ]
+  },
+  "scoring": {
+    "script": "scoring.py",
+    "metrics": ["accuracy"]
+  },
+  "constraints": {
+    "timeout_seconds": 300,
+    "max_retries": 1
+  },
+  "regions": ["US"],
+  "models": ["llama3.2-1b"]
+}

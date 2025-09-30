@@ -1,0 +1,45 @@
+{
+  "benchmark": {
+    "name": "deduplication-fix-test",
+    "version": "1.0",
+    "description": "Test deduplication fix - should create exactly 3 executions (1 model × 3 regions)",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "tag": "latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "math_basic"
+      },
+      "hash": "sha256:dedup-test"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    },
+    "metadata": {}
+  },
+  "constraints": {
+    "regions": ["US", "EU", "ASIA"],
+    "min_regions": 1,
+    "min_success_rate": 0.67,
+    "timeout": 300000000000,
+    "provider_timeout": 120000000000
+  },
+  "questions": ["math_basic"],
+  "models": [
+    {
+      "id": "llama3.2-1b",
+      "name": "llama3.2-1b",
+      "provider": "hybrid",
+      "container_image": "",
+      "regions": ["US", "EU", "ASIA"]
+    }
+  ],
+  "runs": 1
+}

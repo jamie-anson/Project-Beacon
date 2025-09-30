@@ -121,6 +121,9 @@ func (p *JobSpecProcessor) NormalizeModelsFromMetadata(spec *models.JobSpec) {
 		return
 	}
 	
+	// Track seen model IDs to prevent duplicates
+	seenModels := make(map[string]bool)
+	
 	// Handle both array of strings and array of objects with id fields
 	switch vv := raw.(type) {
 	case []interface{}:
@@ -128,6 +131,13 @@ func (p *JobSpecProcessor) NormalizeModelsFromMetadata(spec *models.JobSpec) {
 			switch t := v.(type) {
 			case string:
 				// Simple string model ID
+				// 🛑 DEDUPLICATION: Skip if we've already seen this model ID
+				if seenModels[t] {
+					l.Warn().Str("job_id", spec.ID).Str("model_id", t).Msg("🛑 DEDUP: Skipping duplicate model ID")
+					continue
+				}
+				seenModels[t] = true
+				
 				modelSpec := models.ModelSpec{
 					ID:       t,
 					Name:     t,
@@ -140,6 +150,13 @@ func (p *JobSpecProcessor) NormalizeModelsFromMetadata(spec *models.JobSpec) {
 			case map[string]interface{}:
 				// Object with id and optional name
 				if id, ok := t["id"].(string); ok && id != "" {
+					// 🛑 DEDUPLICATION: Skip if we've already seen this model ID
+					if seenModels[id] {
+						l.Warn().Str("job_id", spec.ID).Str("model_id", id).Msg("🛑 DEDUP: Skipping duplicate model ID")
+						continue
+					}
+					seenModels[id] = true
+					
 					name, _ := t["name"].(string)
 					if name == "" {
 						name = id // fallback to id if name not provided
@@ -160,7 +177,7 @@ func (p *JobSpecProcessor) NormalizeModelsFromMetadata(spec *models.JobSpec) {
 		l.Warn().Str("job_id", spec.ID).Interface("models_type", vv).Msg("unsupported models format in metadata")
 	}
 	
-	l.Info().Str("job_id", spec.ID).Int("normalized_models", len(spec.Models)).Msg("model normalization completed")
+	l.Info().Str("job_id", spec.ID).Int("normalized_models", len(spec.Models)).Int("unique_models", len(seenModels)).Msg("model normalization completed with deduplication")
 }
 
 // ProcessJobSpec performs complete JobSpec processing pipeline

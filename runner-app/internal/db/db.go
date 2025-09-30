@@ -24,6 +24,22 @@ func runWithGolangMigrate(dbURL, path string) error {
     if err != nil {
         return fmt.Errorf("migrate init: %w", err)
     }
+    
+    // Handle dirty database state
+    version, dirty, err := m.Version()
+    if err != nil && err != migrate.ErrNilVersion {
+        return fmt.Errorf("failed to get migration version: %w", err)
+    }
+    
+    if dirty {
+        fmt.Printf("Database is in dirty state at version %d, forcing clean...\n", version)
+        // Force the version to clean state
+        if err := m.Force(int(version)); err != nil {
+            return fmt.Errorf("failed to force clean migration state: %w", err)
+        }
+        fmt.Printf("Successfully cleaned dirty migration state at version %d\n", version)
+    }
+    
     if err := m.Up(); err != nil && err.Error() != "no change" {
         return err
     }
