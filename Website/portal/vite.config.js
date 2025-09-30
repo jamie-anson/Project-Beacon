@@ -10,7 +10,8 @@ export default ({ mode }) => {
     base: '/portal/',
     server: {
       port: 5173,
-      host: true,
+      host: '127.0.0.1', // Fix for Node 18 DNS issues
+      strictPort: false,
       proxy: {
         '/api': {
           target: apiTarget,

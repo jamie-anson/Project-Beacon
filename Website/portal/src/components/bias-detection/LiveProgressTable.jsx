@@ -11,6 +11,19 @@ export default function LiveProgressTable({
   isCompleted = false,
   diffReady = false,
 }) {
+  // State for expandable rows
+  const [expandedRegions, setExpandedRegions] = useState(new Set());
+  
+  const toggleRegion = (region) => {
+    const newExpanded = new Set(expandedRegions);
+    if (newExpanded.has(region)) {
+      newExpanded.delete(region);
+    } else {
+      newExpanded.add(region);
+    }
+    setExpandedRegions(newExpanded);
+  };
+  
   const timeAgo = (ts) => {
     if (!ts) return '';
     try {
@@ -124,9 +137,8 @@ function normalizeRegion(r) {
   };
 
 
-  // Overall progress calculation with enhanced job failure detection
+  // Overall progress calculation with per-question execution support
   const execs = activeJob?.executions || [];
-  const total = selectedRegions.length;
   const statusStr = String(activeJob?.status || activeJob?.state || '').toLowerCase();
   const jobCompleted = isCompleted || ['completed','success','succeeded','done','finished'].includes(statusStr);
   const jobFailed = ['failed', 'error', 'cancelled', 'timeout'].includes(statusStr);
@@ -137,29 +149,63 @@ function normalizeRegion(r) {
   const jobAge = jobCreatedAt ? (Date.now() - jobCreatedAt.getTime()) / 1000 / 60 : 0; // minutes
   const jobStuckTimeout = jobAge > 15 && execs.length === 0 && !jobCompleted && !jobFailed;
   
+  // Calculate expected total executions
+  const uniqueModels = [...new Set(execs.map(e => e.model_id).filter(Boolean))];
+  const uniqueQuestions = [...new Set(execs.map(e => e.question_id).filter(Boolean))];
+  const hasQuestions = uniqueQuestions.length > 0;
+  
+  // For per-question jobs: total = regions × models × questions
+  // For legacy jobs: total = regions × models (or just regions)
+  let expectedTotal;
+  if (hasQuestions) {
+    expectedTotal = selectedRegions.length * (uniqueModels.length || 1) * uniqueQuestions.length;
+  } else if (uniqueModels.length > 0) {
+    expectedTotal = selectedRegions.length * uniqueModels.length;
+  } else {
+    expectedTotal = selectedRegions.length;
+  }
+  
+  // Use actual execution count if we have executions, otherwise use expected
+  const total = execs.length > 0 ? Math.max(execs.length, expectedTotal) : expectedTotal;
+  
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
   let failed = execs.filter((e) => (e?.status || e?.state) === 'failed').length;
+  const pending = total - completed - running - failed;
+  
+  // Determine job stage
+  const getJobStage = () => {
+    if (statusStr === 'created') return 'creating';
+    if (statusStr === 'queued' || statusStr === 'enqueued') return 'queued';
+    if (statusStr === 'processing' && execs.length === 0) return 'spawning';
+    if (statusStr === 'processing' && running > 0) return 'running';
+    if (jobCompleted) return 'completed';
+    if (jobFailed || jobStuckTimeout) return 'failed';
+    return 'unknown';
+  };
+  
+  const jobStage = getJobStage();
   
   // Handle different job states
-  if (jobCompleted) {
-    // If the job is successfully complete but we might not have full per-region execution info,
-    // present a simple, clear UX: mark progress as fully completed.
+  if (jobCompleted && execs.length === 0) {
+    // Job completed but no execution records (legacy or error case)
     completed = total;
     running = 0;
     failed = 0;
   } else if (jobFailed || jobStuckTimeout) {
-    // Job failed before creating executions or stuck too long
-    completed = 0;
-    running = 0;
-    failed = total;
+    // Job failed before creating executions
+    if (execs.length === 0) {
+      completed = 0;
+      running = 0;
+      failed = total;
+    }
   }
   
   const pct = Math.round((completed / Math.max(total, 1)) * 100);
   const overallCompleted = jobCompleted || (total > 0 && completed >= total);
   const overallFailed = jobFailed || jobStuckTimeout || (total > 0 && failed >= total);
   const actionsDisabled = !overallCompleted;
-  const showShimmer = !overallCompleted && !overallFailed && running > 0;
+  const showShimmer = !overallCompleted && !overallFailed && (running > 0 || jobStage === 'spawning');
 
   // Generate failure message
   const getFailureMessage = () => {
@@ -202,13 +248,64 @@ function normalizeRegion(r) {
         </div>
       )}
 
-      {/* Overall Progress */}
+      {/* Enhanced Overall Progress */}
       <div className="space-y-3">
-        <div>
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span>Overall Progress</span>
-            <span className="text-gray-400">{completed}/{total} regions · {pct}%</span>
+        {/* Stage indicator */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {jobStage === 'creating' && (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
+                <span className="text-sm text-cyan-400">Creating job...</span>
+              </>
+            )}
+            {jobStage === 'queued' && (
+              <>
+                <div className="animate-pulse h-4 w-4 bg-yellow-500 rounded-full" />
+                <span className="text-sm text-yellow-400">Job queued, waiting for worker...</span>
+              </>
+            )}
+            {jobStage === 'spawning' && (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                <span className="text-sm text-blue-400">Starting executions...</span>
+              </>
+            )}
+            {jobStage === 'running' && (
+              <>
+                <div className="relative h-4 w-4">
+                  <div className="absolute inset-0 animate-ping h-4 w-4 bg-green-500 rounded-full opacity-20" />
+                  <div className="relative h-4 w-4 bg-green-500 rounded-full" />
+                </div>
+                <span className="text-sm text-green-400">Executing questions...</span>
+              </>
+            )}
+            {jobStage === 'completed' && (
+              <>
+                <div className="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-sm text-green-400 font-medium">Job completed successfully!</span>
+              </>
+            )}
+            {jobStage === 'failed' && (
+              <>
+                <div className="h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-sm text-red-400 font-medium">Job failed</span>
+              </>
+            )}
           </div>
+          <span className="text-xs text-gray-400">{completed}/{total} executions</span>
+        </div>
+        
+        {/* Progress bar */}
+        <div>
           <div className={`w-full h-3 bg-gray-700 rounded overflow-hidden relative ${showShimmer ? 'animate-pulse' : ''}`}>
             <div className="h-full flex relative z-10">
               <div 
@@ -225,8 +322,14 @@ function normalizeRegion(r) {
               ></div>
             </div>
             {showShimmer && (
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
             )}
+          </div>
+          <div className="flex items-center justify-between text-xs mt-1">
+            <span className="text-gray-400">
+              {hasQuestions ? `${uniqueQuestions.length} questions × ${uniqueModels.length || 1} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
+            </span>
+            <span className="text-gray-400 font-medium">{pct}%</span>
           </div>
         </div>
         
@@ -237,25 +340,58 @@ function normalizeRegion(r) {
             <span className="text-gray-300">Completed: {completed}</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-yellow-500 rounded"></div>
+            <div className={`w-2 h-2 bg-yellow-500 rounded ${running > 0 ? 'animate-pulse' : ''}`}></div>
             <span className="text-gray-300">Running: {running}</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-red-500 rounded"></div>
             <span className="text-gray-300">Failed: {failed}</span>
           </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-gray-500 rounded"></div>
+            <span className="text-gray-300">Pending: {pending}</span>
+          </div>
         </div>
+        
+        {/* Per-question breakdown (if applicable) */}
+        {hasQuestions && uniqueQuestions.length > 0 && execs.length > 0 && (
+          <div className="bg-gray-800/50 border border-gray-600 rounded p-3 space-y-1">
+            <div className="text-xs font-medium text-gray-300 mb-2">Question Progress</div>
+            {uniqueQuestions.map(questionId => {
+              const questionExecs = execs.filter(e => e.question_id === questionId);
+              const qCompleted = questionExecs.filter(e => e.status === 'completed').length;
+              const qTotal = questionExecs.length;
+              const qExpected = selectedRegions.length * (uniqueModels.length || 1);
+              const qRefused = questionExecs.filter(e => e.response_classification === 'content_refusal' || e.is_content_refusal).length;
+              
+              return (
+                <div key={questionId} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-300 font-mono">{questionId}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">{qCompleted}/{qExpected}</span>
+                    {qRefused > 0 && (
+                      <span className="px-2 py-0.5 bg-orange-900/20 text-orange-400 rounded-full text-xs">
+                        {qRefused} refusals
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Detailed Progress Table */}
       <div className="border border-gray-600 rounded">
-        <div className="grid grid-cols-6 text-xs bg-gray-700 text-gray-300">
+        <div className="grid grid-cols-7 text-xs bg-gray-700 text-gray-300">
           <div className="px-3 py-2">Region</div>
+          <div className="px-3 py-2">Progress</div>
           <div className="px-3 py-2">Status</div>
-          <div className="px-3 py-2">Classification</div>
+          <div className="px-3 py-2">Models</div>
+          <div className="px-3 py-2">Questions</div>
           <div className="px-3 py-2">Started</div>
-          <div className="px-3 py-2">Provider</div>
-          <div className="px-3 py-2">Answer</div>
+          <div className="px-3 py-2">Actions</div>
         </div>
         {['US','EU','ASIA'].map((r) => {
           // For multi-model jobs, get all executions for this region
@@ -392,12 +528,38 @@ function normalizeRegion(r) {
             );
           };
           
+          const isExpanded = expandedRegions.has(r);
+          
           return (
-            <div key={r} className="grid grid-cols-6 text-sm border-t border-gray-600 hover:bg-gray-700">
-              <div className="px-3 py-2 font-medium">
-                <span>{r}</span>
-              </div>
-              <div className="px-3 py-2">
+            <React.Fragment key={r}>
+              {/* Summary Row */}
+              <div className="grid grid-cols-7 text-sm border-t border-gray-600 hover:bg-gray-700 cursor-pointer" onClick={() => toggleRegion(r)}>
+                {/* Region */}
+                <div className="px-3 py-2 font-medium flex items-center gap-2">
+                  <span>{r}</span>
+                  {hasQuestions && regionExecs.length > 0 && (
+                    <svg className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                
+                {/* Progress */}
+                <div className="px-3 py-2">
+                  {regionExecs.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">{completedCount}/{regionExecs.length}</span>
+                      <div className="flex-1 h-2 bg-gray-700 rounded overflow-hidden min-w-[40px]">
+                        <div className="h-full bg-green-500" style={{ width: `${(completedCount/regionExecs.length)*100}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-500">—</span>
+                  )}
+                </div>
+                
+                {/* Status */}
+                <div className="px-3 py-2">
                 <div className="flex flex-col gap-1">
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(enhancedStatus)}`}>
                     {String(enhancedStatus)}
@@ -434,22 +596,100 @@ function normalizeRegion(r) {
                   )}
                 </div>
               </div>
-              <div className="px-3 py-2">
-                {getClassificationBadge() || <span className="text-xs text-gray-500">—</span>}
+                
+                {/* Models */}
+                <div className="px-3 py-2 text-xs text-gray-400">
+                  {uniqueModels.length > 0 ? `${uniqueModels.length} models` : '—'}
+                </div>
+                
+                {/* Questions */}
+                <div className="px-3 py-2 text-xs text-gray-400">
+                  {hasQuestions ? `${uniqueQuestions.length} questions` : '—'}
+                </div>
+                
+                {/* Started */}
+                <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>
+                  {started ? timeAgo(started) : '—'}
+                </div>
+                
+                {/* Actions */}
+                <div className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  {regionExecs.length > 0 ? (
+                    <Link
+                      to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(mapRegionToDatabase(r))}`}
+                      className="text-xs text-beacon-600 underline decoration-dotted hover:text-beacon-500"
+                    >
+                      View
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-gray-500">—</span>
+                  )}
+                </div>
               </div>
-              <div className="px-3 py-2 text-xs" title={started ? new Date(started).toLocaleString() : ''}>{started ? timeAgo(started) : '—'}</div>
-              <div className="px-3 py-2 font-mono text-xs" title={provider}>{provider ? truncateMiddle(provider, 6, 4) : '—'}</div>
-              <div className="px-3 py-2">
-                {(e?.id || jobCompleted) ? (
-                  <Link
-                    to={`/executions?job=${encodeURIComponent(activeJob?.id || activeJob?.job?.id || '')}&region=${encodeURIComponent(mapRegionToDatabase(r))}`}
-                    className="text-xs text-beacon-600 underline decoration-dotted"
-                  >Answer</Link>
-                ) : (
-                  <span className="text-xs text-gray-500">—</span>
-                )}
-              </div>
-            </div>
+              
+              {/* Expanded Details */}
+              {isExpanded && hasQuestions && regionExecs.length > 0 && (
+                <div className="border-t border-gray-600 bg-gray-800/50">
+                  <div className="px-6 py-3">
+                    <div className="text-xs font-medium text-gray-300 mb-2">Execution Details for {r}</div>
+                    <div className="space-y-1">
+                      {/* Group by model and question */}
+                      {uniqueModels.map(modelId => (
+                        <div key={modelId} className="space-y-1">
+                          <div className="text-xs font-medium text-gray-400 mt-2 mb-1">{modelId}</div>
+                          {uniqueQuestions.map(questionId => {
+                            const exec = regionExecs.find(e => e.model_id === modelId && e.question_id === questionId);
+                            if (!exec) return null;
+                            
+                            const execStatus = exec.status || exec.state || 'pending';
+                            const classification = exec.response_classification || exec.is_content_refusal ? 'content_refusal' : exec.is_substantive ? 'substantive' : null;
+                            
+                            return (
+                              <div key={`${modelId}-${questionId}`} className="grid grid-cols-4 text-xs py-1.5 px-2 hover:bg-gray-700/50 rounded">
+                                {/* Question */}
+                                <div className="font-mono text-gray-300">{questionId}</div>
+                                
+                                {/* Status */}
+                                <div>
+                                  <span className={`px-2 py-0.5 rounded-full border text-xs ${getStatusColor(execStatus)}`}>
+                                    {execStatus}
+                                  </span>
+                                </div>
+                                
+                                {/* Classification */}
+                                <div>
+                                  {classification === 'content_refusal' && (
+                                    <span className="px-2 py-0.5 bg-orange-900/20 text-orange-400 rounded-full border border-orange-700 text-xs">
+                                      ⚠ Refusal
+                                    </span>
+                                  )}
+                                  {classification === 'substantive' && (
+                                    <span className="px-2 py-0.5 bg-green-900/20 text-green-400 rounded-full border border-green-700 text-xs">
+                                      ✓ Substantive
+                                    </span>
+                                  )}
+                                  {!classification && <span className="text-gray-500">—</span>}
+                                </div>
+                                
+                                {/* Link */}
+                                <div>
+                                  <Link
+                                    to={`/executions/${exec.id}`}
+                                    className="text-beacon-600 underline decoration-dotted hover:text-beacon-500"
+                                  >
+                                    View
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>

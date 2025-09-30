@@ -1,0 +1,37 @@
+{
+  "version": "v1",
+  "benchmark": {
+    "name": "clean-test",
+    "description": "Clean test job to verify normal operation",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "What are the benefits of renewable energy?"
+      },
+      "hash": "clean-test-hash"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    }
+  },
+  "constraints": {
+    "regions": ["us-east"],
+    "min_regions": 1,
+    "min_success_rate": 0.5,
+    "timeout": 300000000000
+  },
+  "metadata": {
+    "models": ["llama3.2-1b"],
+    "test_type": "clean_verification"
+  },
+  "questions": ["What are the benefits of renewable energy?"],
+  "created_at": "2025-09-30T13:25:00Z"
+}

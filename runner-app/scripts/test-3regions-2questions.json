@@ -1,0 +1,40 @@
+{
+  "version": "v1",
+  "benchmark": {
+    "name": "full-test-3regions-2questions",
+    "description": "Comprehensive test: 3 regions, 2 models, 2 questions",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "Multi-question test"
+      },
+      "hash": "3regions-2questions-hash"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    }
+  },
+  "constraints": {
+    "regions": ["us-east", "eu-west", "asia-pacific"],
+    "min_regions": 2,
+    "min_success_rate": 0.67,
+    "timeout": 300000000000
+  },
+  "metadata": {
+    "models": ["llama3.2-1b", "qwen2.5-1.5b"],
+    "test_type": "comprehensive_multi_region_multi_question"
+  },
+  "questions": [
+    "What is the capital of France?",
+    "What is 2 + 2?"
+  ],
+  "created_at": "2025-09-30T15:31:00Z"
+}

@@ -34,6 +34,7 @@ type jobsRepoIface interface {
 type execRepoIface interface {
 	InsertExecution(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte) (int64, error)
 	InsertExecutionWithModel(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string) (int64, error)
+	InsertExecutionWithModelAndQuestion(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string, questionID string) (int64, error)
 	UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error
 }
 
@@ -293,7 +294,8 @@ type ExecutionResult struct {
 	StartedAt   time.Time
 	CompletedAt time.Time
 	ExecutionID int64
-	ModelID     string // NEW: Model ID for multi-model support
+	ModelID     string // Model ID for multi-model support
+	QuestionID  string // Question ID for per-question execution
 }
 
 // executeMultiModelJob executes a job across multiple models and regions with bounded concurrency
@@ -461,12 +463,9 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 }
 
 // executeSingleRegion executes a job in a single region and returns the result
+// If the job has questions, it executes each question separately in parallel
 func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec *models.JobSpec, region string, executor Executor) ExecutionResult {
-	l := logging.FromContext(ctx)
-	
-	regionStart := time.Now()
-	
-	// Extract model ID early for duplicate check
+	// Extract model ID early
 	modelID := "llama3.2-1b" // default
 	if spec.Metadata != nil {
 		if mid, ok := spec.Metadata["model_id"].(string); ok && mid != "" {
@@ -474,62 +473,124 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 		}
 	}
 	
-	// Determine actual region for metrics (hybrid executor may map regions)
+	// Determine actual region for metrics
 	actualRegion := region
 	if w.Hybrid != nil {
 		actualRegion = mapRegionToRouter(region)
 	}
 	
+	// If no questions, execute once (backward compatibility)
+	if len(spec.Questions) == 0 {
+		return w.executeQuestion(ctx, jobID, spec, actualRegion, modelID, "", executor)
+	}
+	
+	// Execute each question separately in parallel
+	var wg sync.WaitGroup
+	var resultsMu sync.Mutex
+	var results []ExecutionResult
+	
+	for _, questionID := range spec.Questions {
+		wg.Add(1)
+		go func(qid string) {
+			defer wg.Done()
+			result := w.executeQuestion(ctx, jobID, spec, actualRegion, modelID, qid, executor)
+			resultsMu.Lock()
+			results = append(results, result)
+			resultsMu.Unlock()
+		}(questionID)
+	}
+	
+	wg.Wait()
+	
+	// Return aggregated result (first result for backward compatibility)
+	// In multi-question mode, individual results are already saved to DB
+	if len(results) > 0 {
+		return results[0]
+	}
+	
+	return ExecutionResult{
+		Region:      actualRegion,
+		Status:      "failed",
+		ModelID:     modelID,
+		StartedAt:   time.Now().UTC(),
+		CompletedAt: time.Now().UTC(),
+		Error:       fmt.Errorf("no questions executed"),
+	}
+}
+
+// executeQuestion executes a single question for a given model and region
+func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *models.JobSpec, region string, modelID string, questionID string, executor Executor) ExecutionResult {
+	l := logging.FromContext(ctx)
+	
+	regionStart := time.Now()
+	
 	// 🛑 AUTO-STOP: Check if execution already exists BEFORE executing
-	// This prevents duplicate executions from wasting compute resources
+	// Now includes question_id for per-question deduplication
 	if w.DB != nil {
 		var existingCount int
 		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		
-		// Look up job_id from jobspec_id
-		var jobIDNum int64
-		err := w.DB.QueryRowContext(checkCtx, `SELECT id FROM jobs WHERE jobspec_id = $1`, spec.ID).Scan(&jobIDNum)
-		if err == nil {
-			// Check for existing execution
-			err = w.DB.QueryRowContext(checkCtx, `
-				SELECT COUNT(*) FROM executions 
-				WHERE job_id = $1 AND region = $2 AND model_id = $3
-			`, jobIDNum, actualRegion, modelID).Scan(&existingCount)
+		// Check for existing execution using string jobspec_id directly
+		// Note: executions.job_id stores the string jobspec_id, not the numeric jobs.id
+		query := `
+			SELECT COUNT(*) FROM executions 
+			WHERE job_id = $1 AND region = $2 AND model_id = $3`
+		args := []interface{}{spec.ID, region, modelID}
+		
+		// Add question_id to check if provided
+		if questionID != "" {
+			query += ` AND question_id = $4`
+			args = append(args, questionID)
+		} else {
+			query += ` AND (question_id IS NULL OR question_id = '')`
+		}
+		
+		err := w.DB.QueryRowContext(checkCtx, query, args...).Scan(&existingCount)
+		
+		if err == nil && existingCount > 0 {
+			l.Warn().
+				Str("job_id", jobID).
+				Str("region", region).
+				Str("model_id", modelID).
+				Str("question_id", questionID).
+				Int("existing_count", existingCount).
+				Msg("🛑 AUTO-STOP: Duplicate execution detected, skipping")
 			
-			if err == nil && existingCount > 0 {
-				l.Warn().
-					Str("job_id", jobID).
-					Str("region", actualRegion).
-					Str("model_id", modelID).
-					Int("existing_count", existingCount).
-					Msg("🛑 AUTO-STOP: Duplicate execution detected, skipping")
-				
-				// Increment duplicate detection metric
-				metrics.ExecutionDuplicatesDetected.WithLabelValues(jobID, actualRegion, modelID).Inc()
-				
-				// Return early without executing - AUTO-STOP
-				return ExecutionResult{
-					Region:      actualRegion,
-					Status:      "duplicate_skipped",
-					ModelID:     modelID,
-					StartedAt:   regionStart.UTC(),
-					CompletedAt: time.Now().UTC(),
-				}
+			// Increment duplicate detection metric
+			metrics.ExecutionDuplicatesDetected.WithLabelValues(jobID, region, modelID).Inc()
+			
+			// Return early without executing - AUTO-STOP
+			return ExecutionResult{
+				Region:      region,
+				Status:      "duplicate_skipped",
+				ModelID:     modelID,
+				QuestionID:  questionID,
+				StartedAt:   regionStart.UTC(),
+				CompletedAt: time.Now().UTC(),
 			}
 		}
 	}
 	
-	l.Info().Str("job_id", jobID).Str("region", region).Str("model_id", modelID).Msg("starting region execution")
+	questionLog := l.With().Str("job_id", jobID).Str("region", region).Str("model_id", modelID).Str("question_id", questionID).Logger()
+	questionLog.Info().Msg("starting question execution")
+	
+	// Create single-question spec
+	singleQuestionSpec := *spec
+	if questionID != "" {
+		singleQuestionSpec.Questions = []string{questionID}
+	}
 	
 	// Execute job in this region
-	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, spec, region)
+	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, &singleQuestionSpec, region)
 	
 	regionEnd := time.Now()
 	result := ExecutionResult{
-		Region:      actualRegion,
+		Region:      region,
 		ProviderID:  providerID,
 		Status:      status,
+		ModelID:     modelID,
+		QuestionID:  questionID,
 		OutputJSON:  outputJSON,
 		ReceiptJSON: receiptJSON,
 		Error:       err,
@@ -539,7 +600,7 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 	
 	// Handle execution result logging and metrics
 	if err != nil {
-		l.Error().Err(err).Str("job_id", jobID).Str("region", actualRegion).Msg("region execution failed")
+		questionLog.Error().Err(err).Msg("question execution failed")
 		result.Status = "failed"
 		
 		// Increment failure metrics
@@ -558,13 +619,15 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 				}
 			}
 		}
-		metrics.RunnerFailuresTotal.WithLabelValues(actualRegion, errorType, component).Inc()
+		metrics.RunnerFailuresTotal.WithLabelValues(region, errorType, component).Inc()
 		
 		// Broadcast failure event via WebSocket
 		if w.WSHub != nil {
 			failureEvent := map[string]interface{}{
 				"job_id": jobID,
-				"region": actualRegion,
+				"region": region,
+				"model_id": modelID,
+				"question_id": questionID,
 				"error_type": errorType,
 				"component": component,
 				"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -578,32 +641,31 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 			w.WSHub.BroadcastMessage("runner.execution_failed", failureEvent)
 		}
 	} else {
-		l.Info().Str("job_id", jobID).Str("provider", providerID).Str("region", actualRegion).Str("status", status).Msg("region execution successful")
+		questionLog.Info().Str("provider", providerID).Str("status", status).Msg("question execution successful")
 	}
 	
-	// Note: modelID already extracted at the beginning of function for duplicate check
-	
-	// Insert execution record in database with model ID
-	execID, insErr := w.ExecRepo.InsertExecutionWithModel(ctx, spec.ID, providerID, actualRegion, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID)
+	// Insert execution record in database with model ID and question ID
+	execID, insErr := w.ExecRepo.InsertExecutionWithModelAndQuestion(ctx, spec.ID, providerID, region, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID, questionID)
 	if insErr != nil {
-		l.Error().Err(insErr).Str("job_id", jobID).Str("region", actualRegion).Str("model_id", modelID).Msg("failed to insert execution record")
+		questionLog.Error().Err(insErr).Msg("failed to insert execution record")
 	} else {
 		result.ExecutionID = execID
-		result.ModelID = modelID // Set model ID in result
-		l.Info().Str("job_id", jobID).Int64("execution_id", execID).Str("region", actualRegion).Str("model_id", modelID).Msg("execution record created")
+		result.ModelID = modelID
+		result.QuestionID = questionID
+		questionLog.Info().Int64("execution_id", execID).Msg("execution record created")
 		
-		// NEW: Calculate and store bias scores for successful executions
+		// Calculate and store bias scores for successful executions
 		if result.Status == "completed" && w.ExecutionSvc != nil && w.ExecutionSvc.BiasScorer != nil {
 			go w.calculateBiasScoreAsync(ctx, execID, spec, outputJSON, providerID)
 		}
 	}
 	
 	// Update metrics
-	metrics.ExecutionDurationSeconds.WithLabelValues(actualRegion, result.Status).Observe(time.Since(regionStart).Seconds())
+	metrics.ExecutionDurationSeconds.WithLabelValues(region, result.Status).Observe(time.Since(regionStart).Seconds())
 	
 	// Best-effort: region verification
 	if execID > 0 {
-		go w.verifyRegionAsync(ctx, execID, actualRegion)
+		go w.verifyRegionAsync(ctx, execID, region)
 	}
 	
 	return result

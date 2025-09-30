@@ -288,6 +288,24 @@ func (r *ExecutionsRepo) InsertExecutionWithModel(
 	receiptJSON []byte,
 	modelID string,
 ) (int64, error) {
+	// Delegate to InsertExecutionWithModelAndQuestion with empty question_id
+	return r.InsertExecutionWithModelAndQuestion(ctx, jobspecID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, "")
+}
+
+// InsertExecutionWithModelAndQuestion inserts an execution row with model_id and question_id support
+func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
+	ctx context.Context,
+	jobspecID string,
+	providerID string,
+	region string,
+	status string,
+	startedAt time.Time,
+	completedAt time.Time,
+	outputJSON []byte,
+	receiptJSON []byte,
+	modelID string,
+	questionID string,
+) (int64, error) {
 	// First, verify the job exists
 	var jobID int64
 	err := r.DB.QueryRowContext(ctx, `SELECT id FROM jobs WHERE jobspec_id = $1`, jobspecID).Scan(&jobID)
@@ -298,12 +316,22 @@ func (r *ExecutionsRepo) InsertExecutionWithModel(
 		return 0, fmt.Errorf("failed to lookup job: %w", err)
 	}
 
-	// Now insert the execution with the found job ID and model_id
-	row := r.DB.QueryRowContext(ctx, `
-		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id
-	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
+	// Now insert the execution with the found job ID, model_id, and question_id
+	var row *sql.Row
+	if questionID != "" {
+		row = r.DB.QueryRowContext(ctx, `
+			INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			RETURNING id
+		`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionID)
+	} else {
+		row = r.DB.QueryRowContext(ctx, `
+			INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			RETURNING id
+		`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
+	}
+	
 	var id int64
 	if err := row.Scan(&id); err != nil {
 		return 0, fmt.Errorf("failed to insert execution: %w", err)

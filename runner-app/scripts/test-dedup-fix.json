@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "benchmark": {
+    "name": "dedup-test",
+    "description": "Test deduplication fixes with duplicate models",
+    "container": {
+      "image": "ghcr.io/project-beacon/bias-detection:latest",
+      "resources": {
+        "cpu": "1000m",
+        "memory": "2Gi"
+      }
+    },
+    "input": {
+      "type": "prompt",
+      "data": {
+        "prompt": "What is your perspective on democracy?"
+      },
+      "hash": "dedup-test-hash"
+    },
+    "scoring": {
+      "method": "default",
+      "parameters": {}
+    }
+  },
+  "constraints": {
+    "regions": ["us-east"],
+    "min_regions": 1,
+    "min_success_rate": 0.5,
+    "timeout": 300000000000
+  },
+  "metadata": {
+    "models": [
+      "llama3.2-1b",
+      "qwen2.5-1.5b",
+      "llama3.2-1b",
+      "qwen2.5-1.5b"
+    ],
+    "test_type": "deduplication_verification",
+    "expected_executions": 2,
+    "expected_duplicates_detected": 2
+  },
+  "questions": ["What is your perspective on democracy?"],
+  "created_at": "2025-09-30T12:17:00Z"
+}

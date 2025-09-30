@@ -50,10 +50,10 @@ MODEL_REGISTRY = {
     },
     "mistral-7b": {
         "hf_model": "mistralai/Mistral-7B-Instruct-v0.3", 
-        "gpu": "A10G",
-        "memory_gb": 16,
+        "gpu": "T4",
+        "memory_gb": 12,
         "context_length": 32768,
-        "description": "Strong 7B parameter general-purpose model"
+        "description": "Strong 7B parameter general-purpose model (8-bit on T4)"
     },
     "qwen2.5-1.5b": {
         "hf_model": "Qwen/Qwen2.5-1.5B-Instruct",
@@ -365,12 +365,12 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
 # EU Region Function
 @app.function(
     image=image,
-    gpu="A10G",
+    gpu="T4",
     volumes={"/models": models_volume},
     timeout=900,
-    scaledown_window=600,
+    container_idle_timeout=120,  # Stay warm for 2 min between requests (enough for job)
     region=["eu-west", "eu-north"],
-    memory=16384,
+    memory=12288,  # 12GB for Mistral
     secrets=SECRETS,
     startup_timeout=1800,
 )
@@ -432,12 +432,12 @@ def health_check() -> Dict[str, Any]:
 # Web endpoints for HTTP access
 @app.function(
     image=image,
-    gpu="A10G",
+    gpu="T4",
     volumes={"/models": models_volume},
     timeout=900,
-    scaledown_window=600,
+    container_idle_timeout=120,  # Stay warm for 2 min between requests
     region=["eu-west", "eu-north"],
-    memory=16384,
+    memory=12288,  # 12GB for Mistral
     secrets=SECRETS,
     startup_timeout=1800,
 )
