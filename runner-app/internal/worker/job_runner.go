@@ -143,14 +143,17 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			// Job is currently processing - check lock to prevent duplicates
 			checkLockKey := fmt.Sprintf("job:processing:%s", env.ID)
 			
-			if w.Queue != nil && w.Queue.Client != nil {
-				// Check if lock exists
-				exists, err := w.Queue.Client.Exists(ctx, checkLockKey).Result()
-				if err != nil {
-					l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to check processing lock, proceeding anyway")
-				} else if exists > 0 {
-					l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
-					return nil // Skip this job, it's already being processed
+			if w.Queue != nil {
+				redisClient := w.Queue.GetRedisClient()
+				if redisClient != nil {
+					// Check if lock exists
+					exists, err := redisClient.Exists(ctx, checkLockKey).Result()
+					if err != nil {
+						l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to check processing lock, proceeding anyway")
+					} else if exists > 0 {
+						l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
+						return nil // Skip this job, it's already being processed
+					}
 				}
 			}
 		}
@@ -160,23 +163,26 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	lockKey := fmt.Sprintf("job:processing:%s", env.ID)
 	lockTTL := 15 * time.Minute // Lock expires after 15 minutes
 	
-	if w.Queue != nil && w.Queue.Client != nil {
-		acquired, err := w.Queue.Client.SetNX(ctx, lockKey, "1", lockTTL).Result()
-		if err != nil {
-			l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to acquire processing lock, proceeding anyway")
-		} else if !acquired {
-			l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
-			return nil // Skip this job, it's already being processed
-		} else {
-			l.Info().Str("job_id", env.ID).Msg("acquired processing lock")
-			// Release lock when done (success or failure)
-			defer func() {
-				if delErr := w.Queue.Client.Del(ctx, lockKey).Err(); delErr != nil {
-					l.Warn().Err(delErr).Str("job_id", env.ID).Msg("failed to release processing lock")
-				} else {
-					l.Info().Str("job_id", env.ID).Msg("released processing lock")
-				}
-			}()
+	if w.Queue != nil {
+		redisClient := w.Queue.GetRedisClient()
+		if redisClient != nil {
+			acquired, err := redisClient.SetNX(ctx, lockKey, "1", lockTTL).Result()
+			if err != nil {
+				l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to acquire processing lock, proceeding anyway")
+			} else if !acquired {
+				l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
+				return nil // Skip this job, it's already being processed
+			} else {
+				l.Info().Str("job_id", env.ID).Msg("acquired processing lock")
+				// Release lock when done (success or failure)
+				defer func() {
+					if delErr := redisClient.Del(ctx, lockKey).Err(); delErr != nil {
+						l.Warn().Err(delErr).Str("job_id", env.ID).Msg("failed to release processing lock")
+					} else {
+						l.Info().Str("job_id", env.ID).Msg("released processing lock")
+					}
+				}()
+			}
 		}
 	}
 
