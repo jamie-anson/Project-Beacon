@@ -192,12 +192,15 @@ func EmergencyStopJob(c *gin.Context) {
 	}
 
 	// Get database connection
-	database, err := db.GetDB()
+	dbURL := os.Getenv("DATABASE_URL")
+	database, err := db.Initialize(dbURL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "database connection failed", "details": err.Error()})
 		return
 	}
-	defer database.Close()
+	if database.DB != nil {
+		defer database.Close()
+	}
 
 	// Get current job status
 	var currentStatus string
