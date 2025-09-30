@@ -127,10 +127,39 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}
 	
 	// CRITICAL: Acquire processing lock to prevent duplicate execution
+	// Check current job status first - allow retries of failed/cancelled jobs
+	_, currentStatus, _, _, _, statusErr := w.JobsRepo.GetJob(ctx, env.ID)
+	if statusErr == nil {
+		// If job is already in a terminal state, check if this is a retry
+		if currentStatus == "completed" {
+			l.Info().Str("job_id", env.ID).Msg("job already completed, skipping duplicate")
+			return nil
+		}
+		// Allow retries for failed/cancelled jobs by not checking lock
+		if currentStatus == "failed" || currentStatus == "cancelled" {
+			l.Info().Str("job_id", env.ID).Str("status", currentStatus).Msg("retrying previously failed/cancelled job")
+			// Don't check lock for retries - proceed to processing
+		} else if currentStatus == "processing" {
+			// Job is currently processing - check lock to prevent duplicates
+			checkLockKey := fmt.Sprintf("job:processing:%s", env.ID)
+			
+			if w.Queue != nil && w.Queue.Client != nil {
+				// Check if lock exists
+				exists, err := w.Queue.Client.Exists(ctx, checkLockKey).Result()
+				if err != nil {
+					l.Warn().Err(err).Str("job_id", env.ID).Msg("failed to check processing lock, proceeding anyway")
+				} else if exists > 0 {
+					l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
+					return nil // Skip this job, it's already being processed
+				}
+			}
+		}
+	}
+	
+	// Acquire lock for this processing attempt
 	lockKey := fmt.Sprintf("job:processing:%s", env.ID)
 	lockTTL := 15 * time.Minute // Lock expires after 15 minutes
 	
-	// Try to acquire lock using Redis SETNX (SET if Not eXists)
 	if w.Queue != nil && w.Queue.Client != nil {
 		acquired, err := w.Queue.Client.SetNX(ctx, lockKey, "1", lockTTL).Result()
 		if err != nil {
@@ -140,10 +169,12 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			return nil // Skip this job, it's already being processed
 		} else {
 			l.Info().Str("job_id", env.ID).Msg("acquired processing lock")
-			// Release lock when done
+			// Release lock when done (success or failure)
 			defer func() {
 				if delErr := w.Queue.Client.Del(ctx, lockKey).Err(); delErr != nil {
 					l.Warn().Err(delErr).Str("job_id", env.ID).Msg("failed to release processing lock")
+				} else {
+					l.Info().Str("job_id", env.ID).Msg("released processing lock")
 				}
 			}()
 		}
