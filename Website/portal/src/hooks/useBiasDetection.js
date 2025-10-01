@@ -29,8 +29,9 @@ export function useBiasDetection() {
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
   
   // Model selection state - support both single and multi-select
-  const [selectedModel, setSelectedModel] = useState('qwen2.5-1.5b');
-  const [selectedModels, setSelectedModels] = useState(['qwen2.5-1.5b']);
+  // Default: all models selected for MVP
+  const [selectedModel, setSelectedModel] = useState('llama3.2-1b');
+  const [selectedModels, setSelectedModels] = useState(['llama3.2-1b', 'mistral-7b', 'qwen2.5-1.5b']);
   
   // Helper function to safely handle model selection changes
   const handleModelChange = (newSelection) => {
@@ -146,7 +147,7 @@ export function useBiasDetection() {
       // Determine if this is a multi-model job
       const isMultiModel = selectedModels.length > 1;
       const benchmarkName = isMultiModel ? 'multi-model-bias-detection' : 'bias-detection';
-      const expectedExecutions = selectedRegions.length * selectedModels.length;
+      const expectedExecutions = selectedRegions.length * selectedModels.length * questions.length;
 
       const spec = {
         id: `bias-detection-${Date.now()}`,

@@ -82,43 +82,37 @@ export default function ModelSelector({
                 }
               }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type={isMultiSelect ? "checkbox" : "radio"}
-                    name={isMultiSelect ? undefined : "model"}
-                    value={model.id}
-                    checked={isMultiSelect 
-                      ? safeSelectedModels.includes(model.id)
-                      : safeSelectedModel === model.id
-                    }
-                    onChange={(e) => {
-                      try {
-                        if (isMultiSelect) {
-                          const newSelection = e.target.checked
-                            ? [...safeSelectedModels, model.id]
-                            : safeSelectedModels.filter(id => id !== model.id);
-                          // Ensure at least one model is selected
-                          const finalSelection = newSelection.length > 0 ? newSelection : [model.id];
-                          safeOnModelChange(finalSelection);
-                        } else {
-                          safeOnModelChange(model.id);
-                        }
-                      } catch (error) {
-                        console.warn('Error in input change:', error);
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type={isMultiSelect ? "checkbox" : "radio"}
+                  name={isMultiSelect ? undefined : "model"}
+                  value={model.id}
+                  checked={isMultiSelect 
+                    ? safeSelectedModels.includes(model.id)
+                    : safeSelectedModel === model.id
+                  }
+                  onChange={(e) => {
+                    try {
+                      if (isMultiSelect) {
+                        const newSelection = e.target.checked
+                          ? [...safeSelectedModels, model.id]
+                          : safeSelectedModels.filter(id => id !== model.id);
+                        // Ensure at least one model is selected
+                        const finalSelection = newSelection.length > 0 ? newSelection : [model.id];
+                        safeOnModelChange(finalSelection);
+                      } else {
+                        safeOnModelChange(model.id);
                       }
-                    }}
-                    className="rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500"
-                  />
-                  <span className="font-medium text-gray-100">{model.name}</span>
-                </div>
-                <span className="text-xs text-gray-300">Est. cost</span>
+                    } catch (error) {
+                      console.warn('Error in input change:', error);
+                    }
+                  }}
+                  className="rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500"
+                />
+                <span className="font-medium text-gray-100">{model.name}</span>
               </div>
               <div className="text-sm text-gray-300">{model.description}</div>
               <div className="text-xs text-gray-400 mt-1">Speed: {model.speed} • Quality: {model.quality}</div>
-              <div className="text-sm font-medium text-orange-400 mt-2">
-                ${model.cost.toFixed(4)}/sec
-              </div>
             </div>
           ))}
         </div>
