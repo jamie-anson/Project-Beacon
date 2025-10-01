@@ -209,12 +209,13 @@ function normalizeRegion(r) {
   const jobStage = getJobStage();
   
   // Calculate time remaining (5 minute countdown)
+  // Note: tick state forces re-calculation every second
   const estimatedDuration = 5 * 60; // 5 minutes in seconds
   const elapsedSeconds = jobCreatedAt ? Math.floor((Date.now() - jobCreatedAt.getTime()) / 1000) : 0;
   const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
   const remainingMinutes = Math.floor(remainingSeconds / 60);
   const remainingSecsDisplay = remainingSeconds % 60;
-  const timeRemaining = jobCompleted || jobFailed 
+  const timeRemaining = (jobCompleted || jobFailed || tick < 0) // tick forces re-render
     ? null 
     : `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
   
