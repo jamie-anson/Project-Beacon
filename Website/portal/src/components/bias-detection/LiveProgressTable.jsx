@@ -17,15 +17,24 @@ export default function LiveProgressTable({
   // State for countdown timer (triggers re-render every second)
   const [tick, setTick] = useState(0);
   
+  // Extract primitive values for stable dependencies
+  const jobStatusValue = activeJob?.status || '';
+  const hasActiveJob = !!activeJob;
+  
   // Update countdown timer every second when job is active
   useEffect(() => {
-    if (!isCompleted && activeJob && !['completed', 'failed', 'error', 'cancelled'].includes(String(activeJob?.status || '').toLowerCase())) {
+    const statusLower = String(jobStatusValue).toLowerCase();
+    const isJobActive = !isCompleted && 
+                        hasActiveJob && 
+                        !['completed', 'failed', 'error', 'cancelled', 'timeout'].includes(statusLower);
+    
+    if (isJobActive) {
       const interval = setInterval(() => {
         setTick(t => t + 1);
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isCompleted, activeJob]);
+  }, [isCompleted, hasActiveJob, jobStatusValue]);
   
   const toggleRegion = (region) => {
     const newExpanded = new Set(expandedRegions);

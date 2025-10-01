@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class HybridRouter:
     def __init__(self):
         self.providers: List[Provider] = []
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(timeout=300.0)  # Increased for cold starts
         self.setup_providers()
 
     def _build_failure(
