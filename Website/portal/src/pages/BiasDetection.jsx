@@ -24,6 +24,9 @@ export default function BiasDetection() {
   // Dynamic polling interval state (avoid referencing activeJob before it's initialized)
   const [pollMs, setPollMs] = useState(5000);
   
+  // Use ref to track timer without causing re-renders in useEffect dependencies
+  const completionTimerRef = React.useRef(completionTimer);
+  
   const {
     biasJobs,
     loading,
@@ -52,8 +55,8 @@ export default function BiasDetection() {
   };
 
   const dismissCompletedJob = () => {
-    if (completionTimer) {
-      clearTimeout(completionTimer);
+    if (completionTimerRef.current) {
+      clearTimeout(completionTimerRef.current);
       setCompletionTimer(null);
     }
     setActiveJobId('');
@@ -132,6 +135,11 @@ export default function BiasDetection() {
     }
   });
 
+  // Sync ref with state changes
+  React.useEffect(() => {
+    completionTimerRef.current = completionTimer;
+  }, [completionTimer]);
+
   useEffect(() => {
     // Handle job completion - keep progress visible for 60 seconds (only for successful jobs)
     const status = activeJob?.status;
@@ -146,8 +154,8 @@ export default function BiasDetection() {
       }
       
       // Clear any existing timer
-      if (completionTimer) {
-        clearTimeout(completionTimer);
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
       }
       
       // Set timer to clear after 60 seconds
@@ -159,7 +167,7 @@ export default function BiasDetection() {
       
       setCompletionTimer(timer);
     }
-  }, [activeJob, setActiveJobId, completionTimer]);
+  }, [activeJob, setActiveJobId]);
 
   useEffect(() => {
     // If backend returns 404 for the active job, clear it
@@ -172,11 +180,11 @@ export default function BiasDetection() {
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
-      if (completionTimer) {
-        clearTimeout(completionTimer);
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
       }
     };
-  }, [completionTimer]);
+  }, []);
 
   // Monitor wallet changes and reset Live Progress state
   useEffect(() => {
@@ -191,8 +199,8 @@ export default function BiasDetection() {
         console.log('🔄 Wallet changed/disconnected - resetting Live Progress state in BiasDetection');
         setCompletedJob(null);
         setDiffReady(false);
-        if (completionTimer) {
-          clearTimeout(completionTimer);
+        if (completionTimerRef.current) {
+          clearTimeout(completionTimerRef.current);
           setCompletionTimer(null);
         }
       }
@@ -205,7 +213,7 @@ export default function BiasDetection() {
     const interval = setInterval(checkWalletStatus, 1000);
     
     return () => clearInterval(interval);
-  }, [completionTimer]);
+  }, []);
 
   // Reset Live Progress state on hard refresh if wallet is not connected
   useEffect(() => {
