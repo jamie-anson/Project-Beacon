@@ -28,11 +28,32 @@ export default function LiveProgressTable({
                         hasActiveJob && 
                         !['completed', 'failed', 'error', 'cancelled', 'timeout'].includes(statusLower);
     
+    console.log('[LiveProgress] useEffect tick setup', {
+      isJobActive,
+      isCompleted,
+      hasActiveJob,
+      jobStatusValue,
+      statusLower,
+      currentTick: tick
+    });
+    
     if (isJobActive) {
+      console.log('[LiveProgress] Setting up tick interval');
       const interval = setInterval(() => {
-        setTick(t => t + 1);
+        console.log('[LiveProgress] Tick interval fired');
+        setTick(t => {
+          console.log('[LiveProgress] Setting tick from', t, 'to', t + 1);
+          return t + 1;
+        });
       }, 1000);
-      return () => clearInterval(interval);
+      return () => {
+        console.log('[LiveProgress] Clearing tick interval');
+        clearInterval(interval);
+      };
+    } else {
+      // Reset tick when job becomes inactive to prevent stale state
+      console.log('[LiveProgress] Job inactive, resetting tick to 0');
+      setTick(0);
     }
   }, [isCompleted, hasActiveJob, jobStatusValue]);
   
@@ -167,7 +188,18 @@ function normalizeRegion(r) {
   const jobId = activeJob?.id || activeJob?.job?.id;
   
   // Check if job has been stuck too long (15+ minutes with no executions)
+  console.log('[LiveProgress] Raw created_at value:', {
+    raw: activeJob?.created_at,
+    type: typeof activeJob?.created_at,
+    activeJob: activeJob
+  });
   const jobCreatedAt = activeJob?.created_at ? new Date(activeJob.created_at) : null;
+  console.log('[LiveProgress] Parsed jobCreatedAt:', {
+    jobCreatedAt,
+    isValid: jobCreatedAt instanceof Date && !isNaN(jobCreatedAt.getTime()),
+    timestamp: jobCreatedAt?.getTime(),
+    iso: jobCreatedAt?.toISOString()
+  });
   const jobAge = jobCreatedAt ? (Date.now() - jobCreatedAt.getTime()) / 1000 / 60 : 0; // minutes
   const jobStuckTimeout = jobAge > 15 && execs.length === 0 && !jobCompleted && !jobFailed;
   
@@ -225,16 +257,91 @@ function normalizeRegion(r) {
   
   // Calculate time remaining (10 minute countdown to match backend timeout)
   // tick state updates every second, forcing this calculation to re-run
-  const estimatedDuration = 10 * 60; // 10 minutes in seconds
-  // Use tick to force re-render every second (tick increments but we still use Date.now())
-  const _ = tick; // Force dependency on tick for re-calculation
-  const elapsedSeconds = jobCreatedAt ? Math.floor((Date.now() - jobCreatedAt.getTime()) / 1000) : 0;
-  const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
-  const remainingMinutes = Math.floor(remainingSeconds / 60);
-  const remainingSecsDisplay = remainingSeconds % 60;
-  const timeRemaining = (jobCompleted || jobFailed || remainingSeconds <= 0) 
-    ? null 
-    : `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+  const calculateTimeRemaining = () => {
+    console.log('[LiveProgress] calculateTimeRemaining called', {
+      tick,
+      jobCompleted,
+      jobFailed,
+      jobCreatedAt: jobCreatedAt?.toISOString(),
+      hasActiveJob,
+      activeJobId: activeJob?.id
+    });
+    
+    // Early exit if job is not active
+    if (jobCompleted || jobFailed) {
+      console.log('[LiveProgress] Job completed or failed, no countdown');
+      return null;
+    }
+    
+    // Validate job creation time exists and is reasonable
+    if (!jobCreatedAt || isNaN(jobCreatedAt.getTime())) {
+      console.warn('[LiveProgress] Invalid job creation time', {
+        jobCreatedAt,
+        isNaN: jobCreatedAt ? isNaN(jobCreatedAt.getTime()) : 'null',
+        activeJob: activeJob
+      });
+      return null;
+    }
+    
+    const estimatedDuration = 10 * 60; // 10 minutes in seconds
+    const now = Date.now();
+    const createdTime = jobCreatedAt.getTime();
+    
+    console.log('[LiveProgress] Time calculation', {
+      now,
+      createdTime,
+      diff: now - createdTime,
+      diffMinutes: Math.floor((now - createdTime) / 1000 / 60)
+    });
+    
+    // Sanity check: creation time should not be in the future (allow 5 second tolerance for clock skew)
+    if (createdTime > now + 5000) {
+      console.warn('[LiveProgress] Job creation time is in the future, skipping countdown', {
+        createdTime,
+        now,
+        diff: createdTime - now
+      });
+      return null;
+    }
+    
+    // Calculate elapsed time (ensure non-negative)
+    const elapsedMs = Math.max(0, now - createdTime);
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    
+    // Calculate remaining time (ensure non-negative)
+    const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
+    
+    console.log('[LiveProgress] Time remaining calculation', {
+      elapsedSeconds,
+      remainingSeconds,
+      estimatedDuration,
+      willShowCountdown: remainingSeconds > 0
+    });
+    
+    // Stop showing countdown when time expires
+    if (remainingSeconds <= 0) {
+      console.log('[LiveProgress] Time expired, no countdown');
+      return null;
+    }
+    
+    const remainingMinutes = Math.floor(remainingSeconds / 60);
+    const remainingSecsDisplay = remainingSeconds % 60;
+    const formatted = `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+    
+    console.log('[LiveProgress] Countdown formatted', {
+      remainingMinutes,
+      remainingSecsDisplay,
+      formatted
+    });
+    
+    return formatted;
+  };
+  
+  // Use tick to force re-calculation every second
+  const _ = tick;
+  const timeRemaining = calculateTimeRemaining();
+  
+  console.log('[LiveProgress] Final timeRemaining value:', timeRemaining);
   
   // Handle different job states
   if (jobCompleted && execs.length === 0) {
