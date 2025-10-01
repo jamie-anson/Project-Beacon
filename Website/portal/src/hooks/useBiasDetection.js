@@ -175,7 +175,9 @@ export function useBiasDetection() {
         constraints: {
           regions: selectedRegions,
           min_regions: 1,
-          min_success_rate: undefined
+          min_success_rate: undefined,
+          timeout: 600000000000, // 10 minutes in nanoseconds (600s * 1e9)
+          provider_timeout: 600000000000 // 10 minutes for Modal GPU queue + cold starts
         },
         metadata: {
           created_by: 'portal',
