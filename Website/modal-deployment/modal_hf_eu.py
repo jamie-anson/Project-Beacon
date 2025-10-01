@@ -381,8 +381,18 @@ def run_inference(
     max_tokens: int = 500
 ) -> Dict[str, Any]:
     """HF Transformers inference - EU region"""
-    if not MODEL_CACHE:
-        preload_all_models()
+    # Only load the requested model on cold start, not all 3
+    if model_name not in MODEL_CACHE or MODEL_CACHE[model_name].get("status") != "ready":
+        print(f"[COLD START] Loading only requested model: {model_name}")
+        model_path = f"/models/{model_name}"
+        tokenizer, model = load_model_and_tokenizer(model_name, model_path)
+        MODEL_CACHE[model_name] = {
+            "tokenizer": tokenizer,
+            "model": model,
+            "config": MODEL_REGISTRY[model_name],
+            "loaded_at": time.time(),
+            "status": "ready"
+        }
     return run_inference_logic(model_name, prompt, "eu-west", temperature, max_tokens)
 
 @app.function(
