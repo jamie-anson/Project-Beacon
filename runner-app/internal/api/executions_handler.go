@@ -61,6 +61,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
             (e.receipt_data IS NOT NULL) AS has_receipt,
             e.output_data,
             COALESCE(e.model_id, 'llama3.2-1b') AS model_id,
+            COALESCE(e.question_id, '') AS question_id,
             COALESCE(e.system_prompt, '') AS system_prompt,
             COALESCE(e.response_classification, 'unknown') AS response_classification,
             COALESCE(e.is_substantive, false) AS is_substantive,
@@ -89,6 +90,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         HasReceipt             bool            `json:"has_receipt"`
         Output                 json.RawMessage `json:"output,omitempty"`
         ModelID                string          `json:"model_id"`
+        QuestionID             string          `json:"question_id,omitempty"`
         SystemPrompt           string          `json:"system_prompt,omitempty"`
         ResponseClassification string          `json:"response_classification,omitempty"`
         IsSubstantive          bool            `json:"is_substantive"`
@@ -101,7 +103,7 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         var e Exec
         var outputData []byte
         var startedAt, completedAt, createdAt interface{}
-        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength); err != nil {
+        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.QuestionID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength); err != nil {
             continue
         }
         if t, ok := startedAt.(time.Time); ok { e.StartedAt = t.Format(time.RFC3339) }
