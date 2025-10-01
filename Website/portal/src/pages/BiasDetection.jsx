@@ -314,7 +314,7 @@ export default function BiasDetection() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-medium text-gray-100">Live Progress</h3>
-                <p className="text-sm text-gray-400 mt-1">Real-time execution status across regions</p>
+                <p className="text-sm text-gray-400 mt-1">Real-time execution status across regions of your job: {activeJobId || completedJob?.id || 'N/A'}</p>
               </div>
               {completedJob && (
                 <button

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 // Force rebuild to clear cache issues
 
@@ -13,6 +13,19 @@ export default function LiveProgressTable({
 }) {
   // State for expandable rows
   const [expandedRegions, setExpandedRegions] = useState(new Set());
+  
+  // State for countdown timer (triggers re-render every second)
+  const [tick, setTick] = useState(0);
+  
+  // Update countdown timer every second when job is active
+  useEffect(() => {
+    if (!isCompleted && activeJob && !['completed', 'failed', 'error', 'cancelled'].includes(String(activeJob?.status || '').toLowerCase())) {
+      const interval = setInterval(() => {
+        setTick(t => t + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isCompleted, activeJob]);
   
   const toggleRegion = (region) => {
     const newExpanded = new Set(expandedRegions);
@@ -186,6 +199,16 @@ function normalizeRegion(r) {
   
   const jobStage = getJobStage();
   
+  // Calculate time remaining (5 minute countdown)
+  const estimatedDuration = 5 * 60; // 5 minutes in seconds
+  const elapsedSeconds = jobCreatedAt ? Math.floor((Date.now() - jobCreatedAt.getTime()) / 1000) : 0;
+  const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
+  const remainingMinutes = Math.floor(remainingSeconds / 60);
+  const remainingSecsDisplay = remainingSeconds % 60;
+  const timeRemaining = jobCompleted || jobFailed 
+    ? null 
+    : `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+  
   // Handle different job states
   if (jobCompleted && execs.length === 0) {
     // Job completed but no execution records (legacy or error case)
@@ -301,7 +324,9 @@ function normalizeRegion(r) {
               </>
             )}
           </div>
-          <span className="text-xs text-gray-400">{completed}/{total} executions</span>
+          <span className="text-xs text-gray-400">
+            {timeRemaining ? `Time remaining: ~${timeRemaining}` : `${completed}/${total} executions`}
+          </span>
         </div>
         
         {/* Progress bar */}
@@ -329,7 +354,7 @@ function normalizeRegion(r) {
             <span className="text-gray-400">
               {hasQuestions ? `${uniqueQuestions.length} questions × ${uniqueModels.length || 1} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
             </span>
-            <span className="text-gray-400 font-medium">{pct}%</span>
+            <span className="text-gray-400 font-medium">{completed}/{total} executions</span>
           </div>
         </div>
         
