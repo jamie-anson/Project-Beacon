@@ -69,7 +69,7 @@ func (js *JobSpec) Validate() error {
 		js.Constraints.Timeout = 10 * time.Minute // Default timeout
 	}
 	if js.Constraints.ProviderTimeout == 0 {
-		js.Constraints.ProviderTimeout = 2 * time.Minute // Default provider timeout
+		js.Constraints.ProviderTimeout = 5 * time.Minute // Default provider timeout (increased for cold starts)
 	}
 	if js.Benchmark.Input.Hash == "" {
 		return fmt.Errorf("input hash is required for integrity verification")
