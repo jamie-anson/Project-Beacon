@@ -171,31 +171,39 @@ function normalizeRegion(r) {
   const jobAge = jobCreatedAt ? (Date.now() - jobCreatedAt.getTime()) / 1000 / 60 : 0; // minutes
   const jobStuckTimeout = jobAge > 15 && execs.length === 0 && !jobCompleted && !jobFailed;
   
-  // Calculate expected total executions
-  const uniqueModels = [...new Set(execs.map(e => e.model_id).filter(Boolean))];
-  const uniqueQuestions = [...new Set(execs.map(e => e.question_id).filter(Boolean))];
-  const hasQuestions = uniqueQuestions.length > 0;
+  // Get questions and models from job spec (source of truth)
+  const jobSpec = activeJob?.job || activeJob;
+  const specQuestions = jobSpec?.questions || [];
+  const specModels = jobSpec?.models || [];
   
-  // Calculate total based on actual model-region-question combinations
-  // This handles cases where different regions have different numbers of models
-  let expectedTotal;
-  if (hasQuestions && execs.length > 0) {
-    // Count unique model-region-question combinations from executions
-    const uniqueCombos = new Set(
-      execs.map(e => `${e.region || ''}-${e.model_id || ''}-${e.question_id || ''}`)
-    );
-    expectedTotal = uniqueCombos.size;
-  } else if (hasQuestions && uniqueQuestions.length > 0) {
-    // Fallback: estimate from questions × models × regions
-    expectedTotal = selectedRegions.length * (uniqueModels.length || 1) * uniqueQuestions.length;
-  } else if (uniqueModels.length > 0) {
-    expectedTotal = selectedRegions.length * uniqueModels.length;
+  // Calculate expected total from job spec (accurate source of truth)
+  let expectedTotal = 0;
+  if (specQuestions.length > 0 && specModels.length > 0) {
+    // Calculate based on actual model-region distribution from spec
+    for (const model of specModels) {
+      const modelRegions = model.regions || [];
+      expectedTotal += modelRegions.length * specQuestions.length;
+    }
+  } else if (specModels.length > 0) {
+    // No questions, just models × regions
+    for (const model of specModels) {
+      expectedTotal += (model.regions || []).length;
+    }
   } else {
+    // Fallback to selected regions
     expectedTotal = selectedRegions.length;
   }
   
-  // Use actual execution count if we have executions, otherwise use expected
-  const total = execs.length > 0 ? Math.max(execs.length, expectedTotal) : expectedTotal;
+  // For display purposes, get unique values from executions
+  const uniqueModels = [...new Set(execs.map(e => e.model_id).filter(Boolean))];
+  const uniqueQuestions = [...new Set(execs.map(e => e.question_id).filter(Boolean))];
+  const hasQuestions = specQuestions.length > 0 || uniqueQuestions.length > 0;
+  
+  // Use spec questions if available, otherwise fall back to execution questions
+  const displayQuestions = specQuestions.length > 0 ? specQuestions : uniqueQuestions;
+  
+  // Total is the expected total from spec
+  const total = expectedTotal > 0 ? expectedTotal : Math.max(execs.length, selectedRegions.length);
   
   let completed = execs.filter((e) => (e?.status || e?.state) === 'completed').length;
   let running = execs.filter((e) => (e?.status || e?.state) === 'running').length;
@@ -371,7 +379,7 @@ function normalizeRegion(r) {
           </div>
           <div className="flex items-center justify-between text-xs mt-1">
             <span className="text-gray-400">
-              {hasQuestions ? `${uniqueQuestions.length} questions × ${uniqueModels.length || 1} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
+              {hasQuestions ? `${specQuestions.length || displayQuestions.length} questions × ${specModels.length || uniqueModels.length} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
             </span>
             <span className="text-gray-400 font-medium">{completed}/{total} executions</span>
           </div>
@@ -398,14 +406,24 @@ function normalizeRegion(r) {
         </div>
         
         {/* Per-question breakdown (if applicable) */}
-        {hasQuestions && uniqueQuestions.length > 0 && execs.length > 0 && (
+        {hasQuestions && displayQuestions.length > 0 && (
           <div className="bg-gray-800/50 border border-gray-600 rounded p-3 space-y-1">
             <div className="text-xs font-medium text-gray-300 mb-2">Question Progress</div>
-            {uniqueQuestions.map(questionId => {
+            {displayQuestions.map(questionId => {
               const questionExecs = execs.filter(e => e.question_id === questionId);
               const qCompleted = questionExecs.filter(e => e.status === 'completed').length;
               const qTotal = questionExecs.length;
-              const qExpected = selectedRegions.length * (uniqueModels.length || 1);
+              
+              // Calculate expected per question from spec
+              let qExpected = 0;
+              if (specModels.length > 0) {
+                for (const model of specModels) {
+                  qExpected += (model.regions || []).length;
+                }
+              } else {
+                qExpected = selectedRegions.length * (uniqueModels.length || 1);
+              }
+              
               const qRefused = questionExecs.filter(e => e.response_classification === 'content_refusal' || e.is_content_refusal).length;
               
               return (
