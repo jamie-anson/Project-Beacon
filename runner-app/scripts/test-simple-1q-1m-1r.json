@@ -1,0 +1,6 @@
+{
+  "questions": ["math_basic"],
+  "models": ["llama3.2-1b"],
+  "regions": ["US"],
+  "description": "Simple test: 1 question × 1 model × 1 region = 1 execution"
+}

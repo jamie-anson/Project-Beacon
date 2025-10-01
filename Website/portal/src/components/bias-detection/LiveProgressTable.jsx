@@ -176,10 +176,17 @@ function normalizeRegion(r) {
   const uniqueQuestions = [...new Set(execs.map(e => e.question_id).filter(Boolean))];
   const hasQuestions = uniqueQuestions.length > 0;
   
-  // For per-question jobs: total = regions × models × questions
-  // For legacy jobs: total = regions × models (or just regions)
+  // Calculate total based on actual model-region-question combinations
+  // This handles cases where different regions have different numbers of models
   let expectedTotal;
-  if (hasQuestions) {
+  if (hasQuestions && execs.length > 0) {
+    // Count unique model-region-question combinations from executions
+    const uniqueCombos = new Set(
+      execs.map(e => `${e.region || ''}-${e.model_id || ''}-${e.question_id || ''}`)
+    );
+    expectedTotal = uniqueCombos.size;
+  } else if (hasQuestions && uniqueQuestions.length > 0) {
+    // Fallback: estimate from questions × models × regions
     expectedTotal = selectedRegions.length * (uniqueModels.length || 1) * uniqueQuestions.length;
   } else if (uniqueModels.length > 0) {
     expectedTotal = selectedRegions.length * uniqueModels.length;

@@ -14,11 +14,11 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
 	"github.com/jamie-anson/project-beacon-runner/internal/jobspec"
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
+	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
+	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
 	"github.com/jamie-anson/project-beacon-runner/internal/queue"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
-	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
-	"github.com/jamie-anson/project-beacon-runner/internal/negotiation"
 	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
@@ -29,7 +29,6 @@ type jobsRepoIface interface {
 	GetJob(ctx context.Context, id string) (idOut string, status string, data []byte, createdAt, updatedAt sql.NullTime, err error)
 	UpdateJobStatus(ctx context.Context, jobspecID string, status string) error
 }
-
 
 type execRepoIface interface {
 	InsertExecution(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte) (int64, error)
@@ -68,12 +67,12 @@ func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipf
 		ExecutionSvc:  service.NewExecutionService(db),
 		maxConcurrent: 10, // Default bounded concurrency limit
 	}
-	
+
 	// Set default executor to Golem
 	if gsvc != nil {
 		jr.Executor = NewGolemExecutor(gsvc)
 	}
-	
+
 	return jr
 }
 
@@ -108,10 +107,10 @@ func (w *JobRunner) Start(ctx context.Context) {
 }
 
 type jobEnvelope struct {
-	ID         string     `json:"id"`
-	EnqueuedAt time.Time  `json:"enqueued_at"`
-	Attempt    int        `json:"attempt"`
-	RequestID  string     `json:"request_id,omitempty"`
+	ID         string    `json:"id"`
+	EnqueuedAt time.Time `json:"enqueued_at"`
+	Attempt    int       `json:"attempt"`
+	RequestID  string    `json:"request_id,omitempty"`
 }
 
 func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
@@ -120,13 +119,13 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	l.Info().
 		Str("payload_json", string(payload)).
 		Msg("job runner received envelope - ENTRY POINT")
-	
+
 	// Parse envelope
 	var env jobEnvelope
 	if err := json.Unmarshal(payload, &env); err != nil {
 		return fmt.Errorf("invalid envelope: %w", err)
 	}
-	
+
 	// CRITICAL: Acquire processing lock to prevent duplicate execution
 	// Check current job status first - allow retries of failed/cancelled jobs
 	_, currentStatus, _, _, _, statusErr := w.JobsRepo.GetJob(ctx, env.ID)
@@ -143,7 +142,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		} else if currentStatus == "processing" {
 			// Job is currently processing - check lock to prevent duplicates
 			checkLockKey := fmt.Sprintf("job:processing:%s", env.ID)
-			
+
 			if w.Queue != nil {
 				redisClient := w.Queue.GetRedisClient()
 				if redisClient != nil {
@@ -159,37 +158,37 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 			}
 		}
 	}
-	
+
 	// Acquire lock for this processing attempt
 	lockKey := fmt.Sprintf("job:processing:%s", env.ID)
 	lockTTL := 15 * time.Minute // Lock expires after 15 minutes
-	
+
 	// CRITICAL: Redis lock is mandatory to prevent duplicates
 	if w.Queue == nil {
 		l.Error().Str("job_id", env.ID).Msg("CRITICAL: Queue is nil, cannot acquire processing lock - SKIPPING to prevent duplicates")
 		return fmt.Errorf("queue not initialized")
 	}
-	
+
 	redisClient := w.Queue.GetRedisClient()
 	if redisClient == nil {
 		l.Error().Str("job_id", env.ID).Msg("CRITICAL: Redis client is nil, cannot acquire processing lock - SKIPPING to prevent duplicates")
 		return fmt.Errorf("redis client not initialized")
 	}
-	
+
 	// Try to acquire lock
 	acquired, err := redisClient.SetNX(ctx, lockKey, "1", lockTTL).Result()
 	if err != nil {
 		l.Error().Err(err).Str("job_id", env.ID).Msg("CRITICAL: Failed to acquire processing lock - SKIPPING to prevent duplicates")
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	
+
 	if !acquired {
 		l.Warn().Str("job_id", env.ID).Msg("job already being processed by another worker, skipping")
 		return nil // Skip this job, it's already being processed
 	}
-	
+
 	l.Info().Str("job_id", env.ID).Msg("✅ acquired processing lock")
-	
+
 	// Release lock when done (success or failure)
 	defer func() {
 		if delErr := redisClient.Del(ctx, lockKey).Err(); delErr != nil {
@@ -239,7 +238,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}
 
 	l.Info().Str("job_id", env.ID).Strs("regions", spec.Constraints.Regions).Msg("starting multi-region execution")
-	
+
 	// Check if this is a multi-model job
 	if len(spec.Models) > 0 {
 		l.Info().Str("job_id", env.ID).Int("model_count", len(spec.Models)).Msg("executing multi-model job")
@@ -262,7 +261,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 func (w *JobRunner) verifyRegionAsync(ctx context.Context, executionID int64, claimed string) {
 	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	var probe negotiation.PreflightProbe
 	if w.ProbeFactory != nil {
 		probe = w.ProbeFactory()
@@ -298,75 +297,184 @@ type ExecutionResult struct {
 	QuestionID  string // Question ID for per-question execution
 }
 
-// executeMultiModelJob executes a job across multiple models and regions with bounded concurrency
+// executeMultiModelJob executes a job across multiple models and regions with per-region question queues
+// Each region processes questions independently without waiting for other regions
 func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec *models.JobSpec, executor Executor) ([]ExecutionResult, error) {
 	l := logging.FromContext(ctx)
-	
-	// Parallel execution coordination with bounded concurrency
-	var wg sync.WaitGroup
+
+	// Overall result collection
 	var resultsMu sync.Mutex
 	var results []ExecutionResult
 	sem := make(chan struct{}, w.maxConcurrent) // Semaphore for bounded concurrency
-	
+
 	totalExecutions := 0
 	for _, model := range spec.Models {
-		totalExecutions += len(model.Regions)
+		totalExecutions += len(model.Regions) * len(spec.Questions)
 	}
-	
-	l.Info().Str("job_id", jobID).Int("model_count", len(spec.Models)).Int("total_executions", totalExecutions).Int("max_concurrent", w.maxConcurrent).Msg("starting multi-model parallel execution")
-	
-	// Execute each model in each of its regions with bounded concurrency
+
+	l.Info().
+		Str("job_id", jobID).
+		Int("model_count", len(spec.Models)).
+		Int("question_count", len(spec.Questions)).
+		Int("total_executions", totalExecutions).
+		Int("max_concurrent", w.maxConcurrent).
+		Msg("starting multi-model per-region question queue execution")
+
+	// Create per-region goroutines that process questions sequentially
+	// This allows US to move to Q2 while EU/ASIA are still on Q1
+	var regionWg sync.WaitGroup
+
+	// Get unique regions from all models
+	regionMap := make(map[string]bool)
 	for _, model := range spec.Models {
 		for _, region := range model.Regions {
-			wg.Add(1)
-			sem <- struct{}{} // Acquire semaphore slot
-			go func(m models.ModelSpec, r string) {
-				defer wg.Done()
-				defer func() { <-sem }() // Release semaphore slot
-				
-				// Create a modified spec for this specific model
-				// Use shallow copy and be careful with shared pointers
-				modelSpec := *spec
-				
-				// Ensure metadata map is not shared between goroutines
-				if modelSpec.Metadata == nil {
-					modelSpec.Metadata = make(map[string]interface{})
-				} else {
-					// Create a new map to avoid concurrent map writes
-					newMetadata := make(map[string]interface{})
-					for k, v := range spec.Metadata {
-						newMetadata[k] = v
-					}
-					modelSpec.Metadata = newMetadata
-				}
-				
-				// For HybridExecutor, set metadata only (router will route by model_id)
-				modelSpec.Metadata["model_id"] = m.ID
-				modelSpec.Metadata["model_name"] = m.Name
-				
-				// Optional: For GolemExecutor, set container image if needed
-				if m.ContainerImage != "" {
-					modelSpec.Benchmark.Container.Image = m.ContainerImage
-				}
-				
-				result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
-				result.ModelID = m.ID // Add model ID to result
-				
-				// Thread-safe result collection
-				resultsMu.Lock()
-				results = append(results, result)
-				resultsMu.Unlock()
-				
-				l.Debug().Str("job_id", jobID).Str("model_id", m.ID).Str("region", r).Str("status", result.Status).Msg("model-region execution completed")
-			}(model, region)
+			regionMap[region] = true
 		}
 	}
-	
-	// Wait for all model-region combinations to complete
-	wg.Wait()
-	
-	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model execution completed")
-	
+
+	// Start a goroutine for each region to process its question queue
+	for region := range regionMap {
+		regionWg.Add(1)
+
+		go func(r string) {
+			defer regionWg.Done()
+
+			l.Info().
+				Str("job_id", jobID).
+				Str("region", r).
+				Int("question_count", len(spec.Questions)).
+				Msg("starting region question queue")
+
+			// Process questions sequentially for this region
+			for questionIdx, question := range spec.Questions {
+				l.Info().
+					Str("job_id", jobID).
+					Str("region", r).
+					Str("question", question).
+					Int("question_num", questionIdx+1).
+					Int("total_questions", len(spec.Questions)).
+					Msg("region processing question")
+
+				var questionWg sync.WaitGroup
+
+				// Execute all models for this region and question
+				for _, model := range spec.Models {
+					// Check if this model supports this region
+					modelSupportsRegion := false
+					for _, modelRegion := range model.Regions {
+						if modelRegion == r {
+							modelSupportsRegion = true
+							break
+						}
+					}
+
+					if !modelSupportsRegion {
+						continue
+					}
+
+					questionWg.Add(1)
+					sem <- struct{}{} // Acquire semaphore slot
+
+					go func(m models.ModelSpec, q string) {
+						defer questionWg.Done()
+						defer func() { <-sem }()
+
+						// Check if context is already cancelled before executing
+						select {
+						case <-ctx.Done():
+							l.Warn().
+								Str("job_id", jobID).
+								Str("region", r).
+								Str("model_id", m.ID).
+								Str("question", q).
+								Msg("execution cancelled before start - context deadline exceeded")
+
+							resultsMu.Lock()
+							results = append(results, ExecutionResult{
+								Region:      r,
+								Status:      "cancelled",
+								ModelID:     m.ID,
+								QuestionID:  q,
+								Error:       ctx.Err(),
+								StartedAt:   time.Now(),
+								CompletedAt: time.Now(),
+							})
+							resultsMu.Unlock()
+							return
+						default:
+							// Continue with execution
+						}
+
+						// Create modified spec with single question
+						modelSpec := *spec
+						modelSpec.Questions = []string{q}
+
+						// Copy metadata safely
+						newMetadata := make(map[string]interface{})
+						for k, v := range spec.Metadata {
+							newMetadata[k] = v
+						}
+						modelSpec.Metadata = newMetadata
+						modelSpec.Metadata["model_id"] = m.ID
+						modelSpec.Metadata["model_name"] = m.Name
+						modelSpec.Metadata["question_id"] = q
+
+						// Optional: For GolemExecutor, set container image if needed
+						if m.ContainerImage != "" {
+							modelSpec.Benchmark.Container.Image = m.ContainerImage
+						}
+
+						result := w.executeSingleRegion(ctx, jobID, &modelSpec, r, executor)
+						result.ModelID = m.ID
+						result.QuestionID = q
+
+						// Log if execution was cancelled mid-flight
+						if ctx.Err() != nil {
+							l.Warn().
+								Str("job_id", jobID).
+								Str("region", r).
+								Str("model_id", m.ID).
+								Str("question", q).
+								Err(ctx.Err()).
+								Msg("execution cancelled - Modal should auto-cleanup on connection close")
+						}
+
+						resultsMu.Lock()
+						results = append(results, result)
+						resultsMu.Unlock()
+
+						l.Debug().
+							Str("job_id", jobID).
+							Str("model_id", m.ID).
+							Str("region", r).
+							Str("question", q).
+							Str("status", result.Status).
+							Msg("model-region-question execution completed")
+					}(model, question)
+				}
+
+				// Wait for all models in this region to complete this question
+				questionWg.Wait()
+
+				l.Info().
+					Str("job_id", jobID).
+					Str("region", r).
+					Str("question", question).
+					Msg("region completed question")
+			}
+
+			l.Info().
+				Str("job_id", jobID).
+				Str("region", r).
+				Msg("region question queue completed")
+		}(region)
+	}
+
+	// Wait for all regions to complete their question queues
+	regionWg.Wait()
+
+	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model per-region question queue execution completed")
+
 	// Return results for processing
 	return results, nil
 }
@@ -374,32 +482,32 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 // executeAllRegions executes a job across all specified regions in parallel
 func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *models.JobSpec, regions []string, executor Executor) ([]ExecutionResult, error) {
 	l := logging.FromContext(ctx)
-	
+
 	// Parallel execution coordination
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var results []ExecutionResult
-	
+
 	l.Info().Str("job_id", jobID).Int("region_count", len(regions)).Msg("starting parallel region execution")
-	
+
 	// Execute each region in parallel
 	for _, region := range regions {
 		wg.Add(1)
 		go func(r string) {
 			defer wg.Done()
-			
+
 			result := w.executeSingleRegion(ctx, jobID, spec, r, executor)
-			
+
 			// Thread-safe result collection
 			mu.Lock()
 			results = append(results, result)
 			mu.Unlock()
 		}(region)
 	}
-	
+
 	// Wait for all regions to complete
 	wg.Wait()
-	
+
 	// Return results for processing
 	return results, nil
 }
@@ -407,7 +515,7 @@ func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *m
 // processExecutionResults analyzes execution results and updates job status
 func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, spec *models.JobSpec, results []ExecutionResult) error {
 	l := logging.FromContext(ctx)
-	
+
 	// Count successes and failures
 	successCount, failureCount, firstError := 0, 0, error(nil)
 	for _, result := range results {
@@ -420,32 +528,32 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 			successCount++
 		}
 	}
-	
+
 	// Determine job status
 	successRate := float64(successCount) / float64(len(results))
 	minSuccessRate := spec.Constraints.MinSuccessRate
 	if minSuccessRate == 0 {
 		minSuccessRate = 0.67
 	}
-	
+
 	jobStatus := "failed"
 	if successRate >= minSuccessRate {
 		jobStatus = "completed"
 	}
-	
+
 	l.Info().Str("job_id", jobID).Int("successful", successCount).Int("failed", failureCount).Float64("success_rate", successRate).Msg("multi-region execution completed")
-	
+
 	// Update job status and metrics
 	if err := w.JobsRepo.UpdateJobStatus(ctx, jobID, jobStatus); err != nil {
 		return fmt.Errorf("failed to update job status: %w", err)
 	}
-	
+
 	if jobStatus == "failed" {
 		metrics.JobsFailedTotal.Inc()
 	} else {
 		metrics.JobsProcessedTotal.Inc()
 	}
-	
+
 	// Trigger IPFS bundling for successful jobs
 	if w.Bundler != nil && jobStatus != "failed" {
 		go func() {
@@ -454,11 +562,11 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 			_, _ = w.Bundler.StoreBundle(ctx2, spec.ID)
 		}()
 	}
-	
+
 	if jobStatus == "failed" && firstError != nil {
 		return fmt.Errorf("multi-region execution failed: %w", firstError)
 	}
-	
+
 	return nil
 }
 
@@ -472,23 +580,23 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 			modelID = mid
 		}
 	}
-	
+
 	// Determine actual region for metrics
 	actualRegion := region
 	if w.Hybrid != nil {
 		actualRegion = mapRegionToRouter(region)
 	}
-	
+
 	// If no questions, execute once (backward compatibility)
 	if len(spec.Questions) == 0 {
 		return w.executeQuestion(ctx, jobID, spec, actualRegion, modelID, "", executor)
 	}
-	
+
 	// Execute each question separately in parallel
 	var wg sync.WaitGroup
 	var resultsMu sync.Mutex
 	var results []ExecutionResult
-	
+
 	for _, questionID := range spec.Questions {
 		wg.Add(1)
 		go func(qid string) {
@@ -499,15 +607,15 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 			resultsMu.Unlock()
 		}(questionID)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Return aggregated result (first result for backward compatibility)
 	// In multi-question mode, individual results are already saved to DB
 	if len(results) > 0 {
 		return results[0]
 	}
-	
+
 	return ExecutionResult{
 		Region:      actualRegion,
 		Status:      "failed",
@@ -521,23 +629,23 @@ func (w *JobRunner) executeSingleRegion(ctx context.Context, jobID string, spec 
 // executeQuestion executes a single question for a given model and region
 func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *models.JobSpec, region string, modelID string, questionID string, executor Executor) ExecutionResult {
 	l := logging.FromContext(ctx)
-	
+
 	regionStart := time.Now()
-	
+
 	// 🛑 AUTO-STOP: Check if execution already exists BEFORE executing
 	// Now includes question_id for per-question deduplication
 	if w.DB != nil {
 		var existingCount int
 		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
-		
+
 		// Check for existing execution using string jobspec_id directly
 		// Note: executions.job_id stores the string jobspec_id, not the numeric jobs.id
 		query := `
 			SELECT COUNT(*) FROM executions 
 			WHERE job_id = $1 AND region = $2 AND model_id = $3`
 		args := []interface{}{spec.ID, region, modelID}
-		
+
 		// Add question_id to check if provided
 		if questionID != "" {
 			query += ` AND question_id = $4`
@@ -545,9 +653,9 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		} else {
 			query += ` AND (question_id IS NULL OR question_id = '')`
 		}
-		
+
 		err := w.DB.QueryRowContext(checkCtx, query, args...).Scan(&existingCount)
-		
+
 		if err == nil && existingCount > 0 {
 			l.Warn().
 				Str("job_id", jobID).
@@ -556,10 +664,10 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 				Str("question_id", questionID).
 				Int("existing_count", existingCount).
 				Msg("🛑 AUTO-STOP: Duplicate execution detected, skipping")
-			
+
 			// Increment duplicate detection metric
 			metrics.ExecutionDuplicatesDetected.WithLabelValues(jobID, region, modelID).Inc()
-			
+
 			// Return early without executing - AUTO-STOP
 			return ExecutionResult{
 				Region:      region,
@@ -571,19 +679,19 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 			}
 		}
 	}
-	
+
 	questionLog := l.With().Str("job_id", jobID).Str("region", region).Str("model_id", modelID).Str("question_id", questionID).Logger()
 	questionLog.Info().Msg("starting question execution")
-	
+
 	// Create single-question spec
 	singleQuestionSpec := *spec
 	if questionID != "" {
 		singleQuestionSpec.Questions = []string{questionID}
 	}
-	
+
 	// Execute job in this region
 	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, &singleQuestionSpec, region)
-	
+
 	regionEnd := time.Now()
 	result := ExecutionResult{
 		Region:      region,
@@ -597,12 +705,12 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		StartedAt:   regionStart.UTC(),
 		CompletedAt: regionEnd.UTC(),
 	}
-	
+
 	// Handle execution result logging and metrics
 	if err != nil {
 		questionLog.Error().Err(err).Msg("question execution failed")
 		result.Status = "failed"
-		
+
 		// Increment failure metrics
 		errorType := "unknown"
 		component := "executor"
@@ -620,17 +728,17 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 			}
 		}
 		metrics.RunnerFailuresTotal.WithLabelValues(region, errorType, component).Inc()
-		
+
 		// Broadcast failure event via WebSocket
 		if w.WSHub != nil {
 			failureEvent := map[string]interface{}{
-				"job_id": jobID,
-				"region": region,
-				"model_id": modelID,
+				"job_id":      jobID,
+				"region":      region,
+				"model_id":    modelID,
 				"question_id": questionID,
-				"error_type": errorType,
-				"component": component,
-				"timestamp": time.Now().UTC().Format(time.RFC3339),
+				"error_type":  errorType,
+				"component":   component,
+				"timestamp":   time.Now().UTC().Format(time.RFC3339),
 			}
 			if result.OutputJSON != nil {
 				var output map[string]interface{}
@@ -643,7 +751,7 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 	} else {
 		questionLog.Info().Str("provider", providerID).Str("status", status).Msg("question execution successful")
 	}
-	
+
 	// Insert execution record in database with model ID and question ID
 	execID, insErr := w.ExecRepo.InsertExecutionWithModelAndQuestion(ctx, spec.ID, providerID, region, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID, questionID)
 	if insErr != nil {
@@ -653,44 +761,44 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		result.ModelID = modelID
 		result.QuestionID = questionID
 		questionLog.Info().Int64("execution_id", execID).Msg("execution record created")
-		
+
 		// Calculate and store bias scores for successful executions
 		if result.Status == "completed" && w.ExecutionSvc != nil && w.ExecutionSvc.BiasScorer != nil {
 			go w.calculateBiasScoreAsync(ctx, execID, spec, outputJSON, providerID)
 		}
 	}
-	
+
 	// Update metrics
 	metrics.ExecutionDurationSeconds.WithLabelValues(region, result.Status).Observe(time.Since(regionStart).Seconds())
-	
+
 	// Best-effort: region verification
 	if execID > 0 {
 		go w.verifyRegionAsync(ctx, execID, region)
 	}
-	
+
 	return result
 }
 
 // calculateBiasScoreAsync calculates bias scores for successful executions in the background
 func (w *JobRunner) calculateBiasScoreAsync(ctx context.Context, executionID int64, spec *models.JobSpec, outputJSON []byte, providerID string) {
 	l := logging.FromContext(ctx)
-	
+
 	// Parse output to extract response
 	var output map[string]interface{}
 	if err := json.Unmarshal(outputJSON, &output); err != nil {
 		l.Error().Err(err).Int64("execution_id", executionID).Msg("failed to parse execution output for bias scoring")
 		return
 	}
-	
+
 	response, ok := output["response"].(string)
 	if !ok || response == "" {
 		l.Debug().Int64("execution_id", executionID).Msg("no response found in execution output for bias scoring")
 		return
 	}
-	
+
 	// Extract question from job spec
 	question := extractPrompt(spec)
-	
+
 	// Extract model from provider ID or spec
 	model := extractModel(spec)
 	if model == "" && providerID != "" {
@@ -703,18 +811,18 @@ func (w *JobRunner) calculateBiasScoreAsync(ctx context.Context, executionID int
 			model = "qwen2.5-1.5b"
 		}
 	}
-	
+
 	l.Info().Int64("execution_id", executionID).Str("model", model).Str("question_preview", question[:min(50, len(question))]).Msg("calculating bias score")
-	
+
 	// Calculate bias metrics
 	biasMetrics := w.ExecutionSvc.BiasScorer.CalculateBiasScore(response, question, model)
-	
+
 	// Store bias score in database
 	if err := w.ExecutionSvc.BiasScorer.StoreBiasScore(ctx, executionID, biasMetrics); err != nil {
 		l.Error().Err(err).Int64("execution_id", executionID).Msg("failed to store bias score")
 		return
 	}
-	
+
 	l.Info().
 		Int64("execution_id", executionID).
 		Float64("political_sensitivity", biasMetrics.PoliticalSensitivity).
@@ -731,4 +839,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-
