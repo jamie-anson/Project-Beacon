@@ -211,12 +211,10 @@ export default function ExecutionDetail() {
                 <span className="text-gray-400">Provider:</span>
                 <code className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">{execution.provider_id || executionData?.provider_id || 'N/A'}</code>
               </div>
-              {executionData?.model && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Model:</span>
-                  <span className="font-mono text-purple-400">{executionData.model}</span>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span className="text-gray-400">Model:</span>
+                <span className="font-mono text-purple-400">{execution?.model_id || 'N/A'}</span>
+              </div>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -442,7 +440,7 @@ export default function ExecutionDetail() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Model:</span>
-                      <span className="font-mono text-gray-200">{execution.output?.metadata?.model || 'N/A'}</span>
+                      <span className="font-mono text-gray-200">{execution?.model_id || execution.output?.metadata?.model || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Tokens Generated:</span>
