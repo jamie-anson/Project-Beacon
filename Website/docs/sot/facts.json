@@ -1343,5 +1343,30 @@
     },
     "effective_at": "2025-09-27T00:18:00+01:00",
     "notes": "Portal UI routes for bias detection system. /portal/results/{job-id}/diffs is the main cross-region analysis page that shows real AI responses and bias metrics. Fixed to use runnerFetch first for reliable data retrieval."
+  },
+  {
+    "id": "api-0003",
+    "action": "add",
+    "type": "api_routing",
+    "subject": "hybrid_router_inference",
+    "env": "prod",
+    "data": {
+      "service": "hybrid_router",
+      "base_url": "https://project-beacon-production.up.railway.app",
+      "inference_endpoints": {
+        "primary": "/inference",
+        "legacy": "/v1/inference",
+        "status": "both endpoints supported (v1 is alias)"
+      },
+      "runner_calls": "/v1/inference",
+      "fix_applied": "Added /v1/inference route as alias to /inference in hybrid_router/api/inference.py",
+      "region_behavior": {
+        "us_east": "Direct Modal provider (modal-us-east) - bypasses router",
+        "asia_pacific": "Direct Modal provider (modal-asia-pacific) - bypasses router",
+        "eu_west": "No direct provider - uses hybrid router /v1/inference endpoint"
+      }
+    },
+    "effective_at": "2025-10-01T18:39:00+01:00",
+    "notes": "FIXED: Added /v1/inference route to hybrid router as alias for /inference. This resolves EU region 404 failures. Both /inference and /v1/inference now work. Runner calls /v1/inference, which is now supported."
   }
 ]
