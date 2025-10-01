@@ -1368,5 +1368,22 @@
     },
     "effective_at": "2025-10-01T18:39:00+01:00",
     "notes": "FIXED: Added /v1/inference route to hybrid router as alias for /inference. This resolves EU region 404 failures. Both /inference and /v1/inference now work. Runner calls /v1/inference, which is now supported."
+  },
+  {
+    "id": "perf-0001",
+    "action": "add",
+    "type": "performance",
+    "subject": "hybrid_router_timeout",
+    "env": "prod",
+    "data": {
+      "service": "hybrid_router",
+      "timeout_seconds": 600,
+      "previous_timeout": 300,
+      "reason": "Modal GPU queue + cold start delays",
+      "observed_delays": "8+ minutes for APAC region during concurrent requests",
+      "impact": "Prevents HTTP 303 redirects and timeout failures during GPU queue waits"
+    },
+    "effective_at": "2025-10-01T20:47:00+01:00",
+    "notes": "Increased hybrid router timeout from 5 minutes to 10 minutes. Modal's GPU queue can take 8+ minutes when multiple inference requests arrive simultaneously (multi-model jobs). This prevents premature timeouts and HTTP 303 redirect errors."
   }
 ]
