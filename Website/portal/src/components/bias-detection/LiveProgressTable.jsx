@@ -208,11 +208,11 @@ function normalizeRegion(r) {
   
   const jobStage = getJobStage();
   
-  // Calculate time remaining (5 minute countdown)
+  // Calculate time remaining (10 minute countdown to match backend timeout)
   // tick state updates every second, forcing this calculation to re-run
-  const estimatedDuration = 5 * 60; // 5 minutes in seconds
-  // Use tick to ensure fresh Date.now() calculation on every tick update
-  const elapsedSeconds = jobCreatedAt && tick >= 0 ? Math.floor((Date.now() - jobCreatedAt.getTime()) / 1000) : 0;
+  const estimatedDuration = 10 * 60; // 10 minutes in seconds
+  // Force re-calculation by using tick value (changes every second)
+  const elapsedSeconds = jobCreatedAt ? Math.floor((Date.now() - jobCreatedAt.getTime()) / 1000) + (tick * 0) : 0;
   const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
   const remainingMinutes = Math.floor(remainingSeconds / 60);
   const remainingSecsDisplay = remainingSeconds % 60;
