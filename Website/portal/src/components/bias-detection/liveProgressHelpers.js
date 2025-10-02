@@ -126,17 +126,30 @@ function calculateModelProgress(regionData) {
 
 /**
  * Calculate status for a model
- * - Failed: if any region failed
- * - Complete: if all regions completed
- * - Processing: if any region processing
- * - Pending: otherwise
+ * Backend can return: 'completed', 'failed', 'cancelled', 'duplicate_skipped'
+ * 
+ * Priority:
+ * 1. Failed: if ANY region failed/cancelled
+ * 2. Complete: if ALL regions completed OR duplicate_skipped
+ * 3. Pending: if any region still pending (no execution record)
  */
 function calculateModelStatus(regionData) {
   const statuses = regionData.map(r => r.status);
   
-  if (statuses.some(s => s === 'failed' || s === 'cancelled')) return 'failed';
-  if (statuses.every(s => s === 'completed')) return 'completed';
-  if (statuses.some(s => s === 'processing' || s === 'running')) return 'processing';
+  // Any failure/cancellation = failed
+  if (statuses.some(s => s === 'failed' || s === 'cancelled')) {
+    return 'failed';
+  }
+  
+  // All completed or skipped = completed
+  const completedOrSkipped = statuses.every(s => 
+    s === 'completed' || s === 'duplicate_skipped'
+  );
+  if (completedOrSkipped) {
+    return 'completed';
+  }
+  
+  // Default: pending (waiting for execution records to be created)
   return 'pending';
 }
 
