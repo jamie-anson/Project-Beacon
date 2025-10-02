@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RegionRow from './RegionRow';
 import { getStatusColor, getStatusText, formatProgress } from './liveProgressHelpers';
+import { encodeQuestionId } from '../../lib/diffs/questionId';
 
 /**
  * ModelRow - Model level component with collapsible region details
@@ -10,7 +11,7 @@ import { getStatusColor, getStatusText, formatProgress } from './liveProgressHel
  * - Model name with collapse arrow
  * - Progress bar (completed regions / total regions)
  * - Status (Processing/Complete/Failed)
- * - View Diffs button (enabled when all regions complete)
+ * - Compare button (enabled when all regions complete, links to Layer 2 page)
  * 
  * When expanded:
  * - Shows RegionRow for each region (US, EU)
@@ -26,9 +27,11 @@ const ModelRow = memo(function ModelRow({
   
   const { modelId, modelName, regions, progress, status, diffsEnabled } = modelData;
   
-  const handleViewDiffs = () => {
+  const handleCompare = () => {
     if (diffsEnabled) {
-      navigate(`/results/${jobId}/diffs?question=${questionId}&model=${modelId}`);
+      // Navigate to Layer 2 model region diff page
+      const encodedQuestion = encodeQuestionId(questionId);
+      navigate(`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`);
     }
   };
   
@@ -71,10 +74,10 @@ const ModelRow = memo(function ModelRow({
           </span>
         </div>
         
-        {/* View Diffs Button */}
+        {/* Compare Button */}
         <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={handleViewDiffs}
+            onClick={handleCompare}
             disabled={!diffsEnabled}
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               diffsEnabled
@@ -82,7 +85,7 @@ const ModelRow = memo(function ModelRow({
                 : 'bg-gray-700 text-gray-500 cursor-not-allowed'
             }`}
           >
-            View Diffs
+            Compare
           </button>
         </div>
       </div>

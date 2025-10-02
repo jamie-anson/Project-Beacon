@@ -8,7 +8,7 @@ import { getStatusColor, getStatusText, formatProgress } from './liveProgressHel
  * 
  * Displays:
  * - Question text
- * - View Diffs button (summary across all models)
+ * - Detect Bias button (summary across all models)
  * 
  * Always shows:
  * - All models for this question (not collapsible at question level)
@@ -29,7 +29,7 @@ const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedReg
     setExpandedModels(newExpanded);
   };
   
-  const handleViewDiffs = () => {
+  const handleDetectBias = () => {
     if (diffsEnabled) {
       navigate(`/results/${jobId}/diffs?question=${questionId}`);
     }
@@ -47,10 +47,10 @@ const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedReg
           {displayQuestion}
         </div>
         
-        {/* View Diffs Button */}
+        {/* Detect Bias Button */}
         <div className="flex items-center">
           <button
-            onClick={handleViewDiffs}
+            onClick={handleDetectBias}
             disabled={!diffsEnabled}
             className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
               diffsEnabled
@@ -58,7 +58,7 @@ const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedReg
                 : 'bg-gray-700 text-gray-500 cursor-not-allowed'
             }`}
           >
-            View Diffs
+            Detect Bias
           </button>
         </div>
       </div>
