@@ -488,7 +488,11 @@ function normalizeRegion(r) {
           <div className="px-3 py-2">Started</div>
           <div className="px-3 py-2">Actions</div>
         </div>
-        {['US','EU','ASIA'].map((r) => {
+        {['US','EU','ASIA'].filter(r => {
+          // Only show regions that have executions OR are in selectedRegions
+          const regionExecs = (activeJob?.executions || []).filter((x) => regionCodeFromExec(x) === r);
+          return regionExecs.length > 0 || selectedRegions.includes(r);
+        }).map((r) => {
           // For multi-model jobs, get all executions for this region
           const regionExecs = (activeJob?.executions || []).filter((x) => regionCodeFromExec(x) === r);
           const e = regionExecs[0]; // Primary execution for basic info
