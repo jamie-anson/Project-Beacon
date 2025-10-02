@@ -20,14 +20,28 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
   const models = jobSpec?.models || [];
   const executions = activeJob?.executions || [];
   
+  // Validation: Check for data integrity
+  if (!Array.isArray(selectedRegions) || selectedRegions.length === 0) {
+    console.error('[transformExecutionsToQuestions] Invalid selectedRegions:', selectedRegions);
+    return [];
+  }
+  
+  if (!Array.isArray(models) || models.length === 0) {
+    console.warn('[transformExecutionsToQuestions] No models defined');
+    return [];
+  }
+  
   // Debug logging to catch state reversion issues
   console.log('[transformExecutionsToQuestions]', {
     totalExecutions: executions.length,
+    selectedRegions: selectedRegions,
+    models: models.map(m => m.id || m),
+    questions: questions,
     executionStatuses: executions.map(e => ({ 
       id: e.id, 
       question: e.question_id, 
       model: e.model_id, 
-      region: e.region, // ← CRITICAL: Need to see if region is present
+      region: e.region,
       status: e.status 
     }))
   });
@@ -46,24 +60,43 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
     
     // Build model data for this question
     const modelData = models.map(model => {
-      const modelExecs = questionExecs.filter(e => e.model_id === model.id);
+      // Handle both object {id: "..."} and string "..." formats
+      const modelId = typeof model === 'string' ? model : model.id;
+      if (!modelId) {
+        console.error('[transformExecutionsToQuestions] Invalid model:', model);
+        return null;
+      }
+      
+      const modelExecs = questionExecs.filter(e => e.model_id === modelId);
       
       // Debug: Log model executions, especially if any failed
       if (modelExecs.some(e => e.status === 'failed')) {
-        console.log(`[MODEL EXECS WITH FAILURES] Q:${questionId} M:${model.id}:`, 
+        console.log(`[MODEL EXECS WITH FAILURES] Q:${questionId} M:${modelId}:`, 
           modelExecs.map(e => ({ id: e.id, region: e.region, norm: normalizeRegion(e.region), status: e.status }))
         );
       }
       
       // Build region data for this model
       const regionData = selectedRegions.map(region => {
-        const regionExec = modelExecs.find(e => normalizeRegion(e.region) === region);
+        // Find execution for this region with defensive checks
+        const regionExec = modelExecs.find(e => {
+          if (!e || !e.region) return false;
+          const normalized = normalizeRegion(e.region);
+          return normalized === region;
+        });
         
         // Debug: Log when execution is not found
-        if (!regionExec) {
-          console.warn(`[MISSING EXECUTION] Q:${questionId} M:${model.id} R:${region} - Not found in modelExecs:`, 
-            modelExecs.map(e => ({ id: e.id, region: e.region, normalized: normalizeRegion(e.region) }))
-          );
+        if (!regionExec && modelExecs.length > 0) {
+          console.warn(`[MISSING EXECUTION] Q:${questionId} M:${modelId} R:${region}`, {
+            lookingFor: region,
+            availableExecs: modelExecs.map(e => ({ 
+              id: e.id, 
+              region: e.region, 
+              normalized: normalizeRegion(e.region),
+              status: e.status,
+              matches: normalizeRegion(e.region) === region
+            }))
+          });
         }
         
         return {
@@ -79,14 +112,14 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
       const modelDiffsEnabled = isModelComplete(regionData);
       
       return {
-        modelId: model.id,
-        modelName: model.name || model.id,
+        modelId: modelId,
+        modelName: (typeof model === 'object' ? model.name : null) || modelId,
         regions: regionData,
         progress: modelProgress,
         status: modelStatus,
         diffsEnabled: modelDiffsEnabled
       };
-    });
+    }).filter(Boolean); // Remove any null entries from invalid models
     
     // Calculate question-level progress and status
     const questionProgress = calculateQuestionProgress(modelData, selectedRegions.length);
