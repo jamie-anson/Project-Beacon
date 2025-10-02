@@ -44,6 +44,13 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
       const regionData = selectedRegions.map(region => {
         const regionExec = modelExecs.find(e => normalizeRegion(e.region) === region);
         
+        // Debug: Log when execution is not found
+        if (!regionExec) {
+          console.warn(`[MISSING EXECUTION] Q:${questionId} M:${model.id} R:${region} - Not found in modelExecs:`, 
+            modelExecs.map(e => ({ id: e.id, region: e.region, normalized: normalizeRegion(e.region) }))
+          );
+        }
+        
         return {
           region,
           execution: regionExec || null,
