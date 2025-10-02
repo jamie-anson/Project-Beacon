@@ -46,11 +46,14 @@ export function useModelRegionDiff(jobId, modelId, questionId, { pollInterval = 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Decode question ID from hyphenated format
+      // Decode question ID for display purposes
       const decodedQuestion = decodeQuestionId(questionId);
       
-      // Fetch cross-region execution data for specific model and question
-      const crossRegionData = await runnerFetch(`/executions/${jobId}/cross-region?model_id=${modelId}&question_id=${decodedQuestion}`);
+      // Convert hyphenated URL format to underscored database format
+      // URL: "tiananmen-neutral" -> DB: "tiananmen_neutral"
+      const dbQuestionId = questionId.replace(/-/g, '_');
+      
+      const crossRegionData = await runnerFetch(`/executions/${jobId}/cross-region?model_id=${modelId}&question_id=${dbQuestionId}`);
 
       // Transform data for this specific model and question
       const transformed = transformModelRegionDiff(crossRegionData, modelId, decodedQuestion);
