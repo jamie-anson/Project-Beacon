@@ -36,9 +36,24 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
   return questions.map(questionId => {
     const questionExecs = executions.filter(e => e.question_id === questionId);
     
+    // Debug: Log failed executions that might be missing
+    const failedExecs = questionExecs.filter(e => e.status === 'failed');
+    if (failedExecs.length > 0) {
+      console.log(`[FAILED EXECUTIONS] Q:${questionId} has ${failedExecs.length} failed:`, 
+        failedExecs.map(e => ({ id: e.id, model: e.model_id, region: e.region, status: e.status }))
+      );
+    }
+    
     // Build model data for this question
     const modelData = models.map(model => {
       const modelExecs = questionExecs.filter(e => e.model_id === model.id);
+      
+      // Debug: Log model executions, especially if any failed
+      if (modelExecs.some(e => e.status === 'failed')) {
+        console.log(`[MODEL EXECS WITH FAILURES] Q:${questionId} M:${model.id}:`, 
+          modelExecs.map(e => ({ id: e.id, region: e.region, norm: normalizeRegion(e.region), status: e.status }))
+        );
+      }
       
       // Build region data for this model
       const regionData = selectedRegions.map(region => {
