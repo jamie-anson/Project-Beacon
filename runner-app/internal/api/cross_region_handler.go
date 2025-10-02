@@ -26,7 +26,7 @@ var regionMetadata = map[string]struct {
 	"asia-pacific": {Code: "ASIA", Name: "Asia Pacific", Flag: "🌏"},
 }
 
-// GetCrossRegionDiff handles GET /api/v1/executions/{jobId}/cross-region?model_id={modelId}
+// GetCrossRegionDiff handles GET /api/v1/executions/{jobId}/cross-region?model_id={modelId}&question_id={questionId}
 func (h *CrossRegionHandler) GetCrossRegionDiff(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -44,15 +44,22 @@ func (h *CrossRegionHandler) GetCrossRegionDiff(c *gin.Context) {
 		return
 	}
 
+	// Extract question_id from query params
+	questionID := c.Query("question_id")
+	if questionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "question_id query parameter is required"})
+		return
+	}
+
 	// Fetch executions from database
-	executions, err := h.ExecutionsRepo.GetCrossRegionExecutions(ctx, jobID, modelID)
+	executions, err := h.ExecutionsRepo.GetCrossRegionExecutions(ctx, jobID, modelID, questionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch executions: %v", err)})
 		return
 	}
 
 	if len(executions) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No executions found for job %s and model %s", jobID, modelID)})
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No executions found for job %s, model %s, question %s", jobID, modelID, questionID)})
 		return
 	}
 

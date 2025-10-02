@@ -339,9 +339,9 @@ func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
 	return id, nil
 }
 
-// GetCrossRegionExecutions fetches all executions for a job and model across regions
+// GetCrossRegionExecutions fetches all executions for a job, model, and question across regions
 // Returns executions ordered by region for cross-region comparison
-func (r *ExecutionsRepo) GetCrossRegionExecutions(ctx context.Context, jobID, modelID string) ([]map[string]interface{}, error) {
+func (r *ExecutionsRepo) GetCrossRegionExecutions(ctx context.Context, jobID, modelID, questionID string) ([]map[string]interface{}, error) {
 	if r.DB == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -367,11 +367,11 @@ func (r *ExecutionsRepo) GetCrossRegionExecutions(ctx context.Context, jobID, mo
 			j.jobspec_id
 		FROM executions e
 		JOIN jobs j ON e.job_id = j.id
-		WHERE j.jobspec_id = $1 AND e.model_id = $2
+		WHERE j.jobspec_id = $1 AND e.model_id = $2 AND e.question_id = $3
 		ORDER BY e.region ASC, e.created_at DESC
 	`
 
-	rows, err := r.DB.QueryContext(ctx, query, jobID, modelID)
+	rows, err := r.DB.QueryContext(ctx, query, jobID, modelID, questionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query cross-region executions: %w", err)
 	}

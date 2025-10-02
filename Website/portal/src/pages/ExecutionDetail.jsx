@@ -333,7 +333,7 @@ export default function ExecutionDetail() {
                           <div className="text-sm text-green-300 font-medium mb-2">
                             {questionMap[response.question_id] || response.question || 'Question text not available'}
                           </div>
-                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 max-w-prose">
                             "{response.response || response.answer || 'No response available'}"
                           </div>
                           <div className="flex justify-between mt-2 text-xs text-gray-400">
@@ -381,7 +381,7 @@ export default function ExecutionDetail() {
                     <div className="space-y-3">
                       <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                         <div className="text-sm text-green-300 font-medium mb-2">Generated Response:</div>
-                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 max-w-prose">
                           "{executionData.output_data?.response || executionData.output_data?.text_output || executionData.output_data?.stdout || executionData.output_data?.output || JSON.stringify(executionData.output_data, null, 2) || 'No output available'}"
                         </div>
                       </div>
@@ -418,7 +418,7 @@ export default function ExecutionDetail() {
                   
                   <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
                     <div className="text-sm text-blue-300 font-medium mb-2">Generated Response:</div>
-                    <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 whitespace-pre-wrap">
+                    <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 whitespace-pre-wrap max-w-prose">
                       "{execution.output?.response || execution.output?.text_output || 'No response available'}"
                     </div>
                     
@@ -474,7 +474,7 @@ export default function ExecutionDetail() {
                           <div className="text-sm text-blue-300 font-medium mb-2">
                             {questionMap[response.question_id] || response.question || 'Question text not available'}
                           </div>
-                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                          <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 max-w-prose">
                             "{response.response || 'No response available'}"
                           </div>
                           <div className="flex justify-between mt-2 text-xs text-gray-400">
@@ -522,7 +522,7 @@ export default function ExecutionDetail() {
                     <div className="space-y-3">
                       <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
                         <div className="text-sm text-blue-300 font-medium mb-2">Generated Response:</div>
-                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600">
+                        <div className="text-gray-100 bg-gray-700 rounded p-3 border border-gray-600 max-w-prose">
                           "{receipt.output?.response || receipt.output?.data?.text_output || receipt.output?.stdout || 'No output available'}"
                         </div>
                       </div>

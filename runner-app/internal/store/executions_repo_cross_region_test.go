@@ -40,27 +40,27 @@ func TestGetCrossRegionExecutions_Success(t *testing.T) {
 	// Insert US execution
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO executions (
-			job_id, region, status, provider_id, model_id,
+			job_id, region, status, provider_id, model_id, question_id,
 			output_data, started_at, created_at,
 			response_length, is_substantive
 		)
-		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', ?, datetime('now'), datetime('now'), 100, 1)
+		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', 'identity_basic', ?, datetime('now'), datetime('now'), 100, 1)
 	`, outputUSJSON)
 	require.NoError(t, err)
 
 	// Insert EU execution
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO executions (
-			job_id, region, status, provider_id, model_id,
+			job_id, region, status, provider_id, model_id, question_id,
 			output_data, started_at, created_at,
 			response_length, is_substantive
 		)
-		VALUES (1, 'eu-west', 'completed', 'modal-eu-001', 'llama3.2-1b', ?, datetime('now'), datetime('now'), 80, 1)
+		VALUES (1, 'eu-west', 'completed', 'modal-eu-001', 'llama3.2-1b', 'identity_basic', ?, datetime('now'), datetime('now'), 80, 1)
 	`, outputEUJSON)
 	require.NoError(t, err)
 
 	// Test GetCrossRegionExecutions
-	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-123", "llama3.2-1b")
+	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-123", "llama3.2-1b", "identity_basic")
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(executions))
 
@@ -89,7 +89,7 @@ func TestGetCrossRegionExecutions_NoResults(t *testing.T) {
 	repo := NewExecutionsRepo(db)
 	ctx := context.Background()
 
-	executions, err := repo.GetCrossRegionExecutions(ctx, "nonexistent-job", "llama3.2-1b")
+	executions, err := repo.GetCrossRegionExecutions(ctx, "nonexistent-job", "llama3.2-1b", "identity_basic")
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(executions))
 }
@@ -112,21 +112,21 @@ func TestGetCrossRegionExecutions_FiltersByModel(t *testing.T) {
 
 	// Insert executions for different models
 	_, err = db.ExecContext(ctx, `
-		INSERT INTO executions (job_id, region, status, provider_id, model_id, output_data, started_at, created_at)
+		INSERT INTO executions (job_id, region, status, provider_id, model_id, question_id, output_data, started_at, created_at)
 		VALUES 
-			(1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', ?, datetime('now'), datetime('now')),
-			(1, 'us-east', 'completed', 'modal-us-001', 'mistral-7b', ?, datetime('now'), datetime('now'))
+			(1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', 'identity_basic', ?, datetime('now'), datetime('now')),
+			(1, 'us-east', 'completed', 'modal-us-001', 'mistral-7b', 'identity_basic', ?, datetime('now'), datetime('now'))
 	`, outputJSON, outputJSON)
 	require.NoError(t, err)
 
 	// Query for llama3.2-1b only
-	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-456", "llama3.2-1b")
+	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-456", "llama3.2-1b", "identity_basic")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(executions))
 	assert.Equal(t, "llama3.2-1b", executions[0]["model_id"])
 
 	// Query for mistral-7b only
-	executions, err = repo.GetCrossRegionExecutions(ctx, "test-job-456", "mistral-7b")
+	executions, err = repo.GetCrossRegionExecutions(ctx, "test-job-456", "mistral-7b", "identity_basic")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(executions))
 	assert.Equal(t, "mistral-7b", executions[0]["model_id"])
@@ -151,14 +151,14 @@ func TestGetCrossRegionExecutions_HandlesNullFields(t *testing.T) {
 	// Insert execution with NULL optional fields
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO executions (
-			job_id, region, status, provider_id, model_id,
+			job_id, region, status, provider_id, model_id, question_id,
 			output_data, started_at, created_at
 		)
-		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', ?, datetime('now'), datetime('now'))
+		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', 'identity_basic', ?, datetime('now'), datetime('now'))
 	`, outputJSON)
 	require.NoError(t, err)
 
-	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-789", "llama3.2-1b")
+	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-789", "llama3.2-1b", "identity_basic")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(executions))
 

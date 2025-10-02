@@ -1,15 +1,15 @@
 package hybrid
 
 import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "os"
-    "strconv"
-    "time"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 )
 
 // Client is a minimal HTTP client for the Hybrid Router
@@ -26,15 +26,31 @@ func New(baseURL string) *Client {
 	}
 	// Determine HTTP timeout: default 120s, overridable via env
 	timeoutSec := 120
+	envVarUsed := "default"
+	envVarValue := ""
+
 	if v := os.Getenv("HYBRID_ROUTER_TIMEOUT"); v != "" {
+		envVarValue = v
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			timeoutSec = n
+			envVarUsed = "HYBRID_ROUTER_TIMEOUT"
+		} else {
+			envVarUsed = "HYBRID_ROUTER_TIMEOUT (invalid)"
 		}
 	} else if v := os.Getenv("HYBRID_TIMEOUT"); v != "" {
+		envVarValue = v
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			timeoutSec = n
+			envVarUsed = "HYBRID_TIMEOUT"
+		} else {
+			envVarUsed = "HYBRID_TIMEOUT (invalid)"
 		}
 	}
+
+	// LOG THE ACTUAL TIMEOUT VALUE BEING USED
+	fmt.Printf("[HYBRID_CLIENT_INIT] timeout=%ds source=%s env_value=%q url=%s\n",
+		timeoutSec, envVarUsed, envVarValue, baseURL)
+
 	return &Client{
 		baseURL:    trimRightSlash(baseURL),
 		httpClient: &http.Client{Timeout: time.Duration(timeoutSec) * time.Second},
@@ -77,12 +93,12 @@ func (c *Client) RunInference(ctx context.Context, req InferenceRequest) (*Infer
 		if err == nil {
 			return out, nil
 		}
-		
+
 		// If it's a router error (not HTTP error), return the response with the error
 		if IsRouterError(err) {
 			return out, err
 		}
-		
+
 		// If 404, try next path; otherwise, keep the error and continue
 		if IsNotFound(err) {
 			lastErr = fmt.Errorf("router http 404 on %s: %w", p, err)
@@ -105,7 +121,7 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
-	
+
 	res, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		// Check if it's a timeout error
@@ -115,18 +131,18 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 		return nil, NewNetworkError("HTTP request failed", err)
 	}
 	defer res.Body.Close()
-	
+
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		// Include a snippet of the response body for diagnostics
 		body, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return nil, NewHTTPError(res.StatusCode, string(body), url)
 	}
-	
+
 	var out InferenceResponse
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		return nil, NewJSONError("failed to decode response", err)
 	}
-	
+
 	if !out.Success {
 		// Propagate router error for higher-level logging/persistence
 		msg := out.Error
@@ -137,4 +153,3 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 	}
 	return &out, nil
 }
-
