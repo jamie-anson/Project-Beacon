@@ -46,8 +46,8 @@ export function useModelRegionDiff(jobId, modelId, questionId, { pollInterval = 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Fetch cross-region execution data
-      const crossRegionData = await runnerFetch(`/executions/${jobId}/cross-region`);
+      // Fetch cross-region execution data for specific model
+      const crossRegionData = await runnerFetch(`/executions/${jobId}/cross-region?model_id=${modelId}`);
       
       // Decode question ID from hyphenated format
       const decodedQuestion = decodeQuestionId(questionId);
