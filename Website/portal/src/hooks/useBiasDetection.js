@@ -25,8 +25,8 @@ export function useBiasDetection() {
     } catch {}
   };
 
-  // Multi-region state
-  const [selectedRegions, setSelectedRegions] = useState(['US', 'EU', 'ASIA']);
+  // Multi-region state (default to US+EU only, ASIA disabled due to timeout issues)
+  const [selectedRegions, setSelectedRegions] = useState(['US', 'EU']);
   
   // Model selection state - support both single and multi-select
   // Default: all models selected for MVP
