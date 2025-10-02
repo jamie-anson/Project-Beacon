@@ -307,15 +307,28 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 	var results []ExecutionResult
 	sem := make(chan struct{}, w.maxConcurrent) // Semaphore for bounded concurrency
 
-	totalExecutions := 0
-	for _, model := range spec.Models {
-		totalExecutions += len(model.Regions) * len(spec.Questions)
+	// Calculate total executions based on user-selected regions
+	selectedRegions := spec.Constraints.Regions
+	if len(selectedRegions) == 0 {
+		// Fallback: use all model regions if no constraints specified
+		regionMap := make(map[string]bool)
+		for _, model := range spec.Models {
+			for _, region := range model.Regions {
+				regionMap[region] = true
+			}
+		}
+		for region := range regionMap {
+			selectedRegions = append(selectedRegions, region)
+		}
 	}
+
+	totalExecutions := len(spec.Models) * len(selectedRegions) * len(spec.Questions)
 
 	l.Info().
 		Str("job_id", jobID).
 		Int("model_count", len(spec.Models)).
 		Int("question_count", len(spec.Questions)).
+		Int("selected_region_count", len(selectedRegions)).
 		Int("total_executions", totalExecutions).
 		Int("max_concurrent", w.maxConcurrent).
 		Msg("starting multi-model per-region question queue execution")
@@ -324,16 +337,13 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 	// This allows US to move to Q2 while EU/ASIA are still on Q1
 	var regionWg sync.WaitGroup
 
-	// Get unique regions from all models
-	regionMap := make(map[string]bool)
-	for _, model := range spec.Models {
-		for _, region := range model.Regions {
-			regionMap[region] = true
-		}
-	}
+	l.Info().
+		Str("job_id", jobID).
+		Strs("selected_regions", selectedRegions).
+		Msg("executing in user-selected regions")
 
-	// Start a goroutine for each region to process its question queue
-	for region := range regionMap {
+	// Start a goroutine for each selected region to process its question queue
+	for _, region := range selectedRegions {
 		regionWg.Add(1)
 
 		go func(r string) {
@@ -347,6 +357,21 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 
 			// Process questions sequentially for this region
 			for questionIdx, question := range spec.Questions {
+				// Check if context is cancelled before processing next question
+				select {
+				case <-ctx.Done():
+					l.Warn().
+						Str("job_id", jobID).
+						Str("region", r).
+						Int("question_num", questionIdx+1).
+						Int("completed_questions", questionIdx).
+						Err(ctx.Err()).
+						Msg("stopping region question queue - context cancelled")
+					return // Exit region goroutine immediately
+				default:
+					// Continue processing
+				}
+
 				l.Info().
 					Str("job_id", jobID).
 					Str("region", r).
@@ -370,6 +395,20 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 
 					if !modelSupportsRegion {
 						continue
+					}
+
+					// Check context before spawning goroutine
+					select {
+					case <-ctx.Done():
+						l.Warn().
+							Str("job_id", jobID).
+							Str("region", r).
+							Str("model_id", model.ID).
+							Str("question", question).
+							Msg("skipping model execution - context cancelled")
+						continue // Skip this model, don't spawn goroutine
+					default:
+						// Continue
 					}
 
 					questionWg.Add(1)
@@ -473,7 +512,11 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 	// Wait for all regions to complete their question queues
 	regionWg.Wait()
 
-	l.Info().Str("job_id", jobID).Int("results_count", len(results)).Msg("multi-model per-region question queue execution completed")
+	l.Info().
+		Str("job_id", jobID).
+		Int("results_count", len(results)).
+		Int("expected_executions", totalExecutions).
+		Msg("all region question queues completed - ready for status calculation")
 
 	// Return results for processing
 	return results, nil
@@ -530,7 +573,8 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 	}
 
 	// Determine job status
-	successRate := float64(successCount) / float64(len(results))
+	totalExecutions := len(results)
+	successRate := float64(successCount) / float64(totalExecutions)
 	minSuccessRate := spec.Constraints.MinSuccessRate
 	if minSuccessRate == 0 {
 		minSuccessRate = 0.67
@@ -541,7 +585,15 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 		jobStatus = "completed"
 	}
 
-	l.Info().Str("job_id", jobID).Int("successful", successCount).Int("failed", failureCount).Float64("success_rate", successRate).Msg("multi-region execution completed")
+	l.Info().
+		Str("job_id", jobID).
+		Int("completed", successCount).
+		Int("failed", failureCount).
+		Int("total", totalExecutions).
+		Float64("success_rate", successRate).
+		Float64("min_success_rate", minSuccessRate).
+		Str("final_status", jobStatus).
+		Msg("calculating final job status after all executions")
 
 	// Update job status and metrics
 	if err := w.JobsRepo.UpdateJobStatus(ctx, jobID, jobStatus); err != nil {
