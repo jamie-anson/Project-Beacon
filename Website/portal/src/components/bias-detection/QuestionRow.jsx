@@ -43,34 +43,14 @@ export default function QuestionRow({ questionData, jobId, selectedRegions }) {
   return (
     <div className="bg-gray-800 border border-gray-600 rounded-lg mb-4">
       {/* Question Header */}
-      <div className="grid grid-cols-4 gap-4 px-4 py-4 border-b border-gray-700">
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
         {/* Question Text */}
         <div className="font-medium text-gray-100 text-base">
           {displayQuestion}
         </div>
         
-        {/* Progress Bar */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-3 bg-gray-700 rounded overflow-hidden">
-            <div 
-              className="h-full bg-green-500 transition-all duration-300"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          <span className="text-sm text-gray-400 min-w-[3rem] text-right">
-            {formatProgress(progress)}
-          </span>
-        </div>
-        
-        {/* Status */}
-        <div className="flex items-center">
-          <span className={`inline-block px-3 py-1 rounded-full border text-sm ${getStatusColor(status)}`}>
-            {getStatusText(status)}
-          </span>
-        </div>
-        
         {/* View Diffs Button */}
-        <div className="flex items-center justify-end">
+        <div className="flex items-center">
           <button
             onClick={handleViewDiffs}
             disabled={!diffsEnabled}
