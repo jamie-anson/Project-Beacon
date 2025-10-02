@@ -95,13 +95,15 @@ export default function ModelRow({
             <div>Status</div>
             <div className="text-right">View Result</div>
           </div>
-          {regions.map(regionData => (
-            <RegionRow
-              key={regionData.region}
-              region={regionData.region}
-              execution={regionData.execution}
-            />
-          ))}
+          {regions
+            .filter(regionData => regionData.region !== 'ASIA') // Hide ASIA temporarily
+            .map(regionData => (
+              <RegionRow
+                key={regionData.region}
+                region={regionData.region}
+                execution={regionData.execution}
+              />
+            ))}
         </div>
       )}
     </div>
