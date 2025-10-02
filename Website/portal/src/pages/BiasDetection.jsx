@@ -12,7 +12,7 @@ import useWs from '../state/useWs.js';
 import ModelSelector from '../components/bias-detection/ModelSelector.jsx';
 import RegionSelector from '../components/bias-detection/RegionSelector.jsx';
 import QuickActions from '../components/bias-detection/QuickActions.jsx';
-import LiveProgressTable from '../components/bias-detection/LiveProgressTable.jsx';
+import LiveProgressTableV2 from '../components/bias-detection/LiveProgressTableV2.jsx';
 
 export default function BiasDetection() {
   usePageTitle('Bias Detection Analysis');
@@ -334,7 +334,7 @@ export default function BiasDetection() {
               )}
             </div>
           </div>
-          <LiveProgressTable 
+          <LiveProgressTableV2 
             activeJob={activeJob || completedJob}
             selectedRegions={selectedRegions}
             loadingActive={loadingActive}
