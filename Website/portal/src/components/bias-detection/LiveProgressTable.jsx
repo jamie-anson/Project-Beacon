@@ -192,19 +192,14 @@ function normalizeRegion(r) {
   const specQuestions = jobSpec?.questions || [];
   const specModels = jobSpec?.models || [];
   
-  // Calculate expected total from job spec (accurate source of truth)
+  // Calculate expected total: questions × models × SELECTED regions (not spec regions)
   let expectedTotal = 0;
   if (specQuestions.length > 0 && specModels.length > 0) {
-    // Calculate based on actual model-region distribution from spec
-    for (const model of specModels) {
-      const modelRegions = model.regions || [];
-      expectedTotal += modelRegions.length * specQuestions.length;
-    }
+    // Use selectedRegions (what user actually selected), not model.regions from spec
+    expectedTotal = specQuestions.length * specModels.length * selectedRegions.length;
   } else if (specModels.length > 0) {
-    // No questions, just models × regions
-    for (const model of specModels) {
-      expectedTotal += (model.regions || []).length;
-    }
+    // No questions, just models × selected regions
+    expectedTotal = specModels.length * selectedRegions.length;
   } else {
     // Fallback to selected regions
     expectedTotal = selectedRegions.length;
@@ -488,7 +483,7 @@ function normalizeRegion(r) {
           <div className="px-3 py-2">Started</div>
           <div className="px-3 py-2">Actions</div>
         </div>
-        {['US','EU','ASIA'].filter(r => {
+        {['US','EU' /* 'ASIA' temporarily disabled */].filter(r => {
           // Only show regions that have executions OR are in selectedRegions
           const regionExecs = (activeJob?.executions || []).filter((x) => regionCodeFromExec(x) === r);
           return regionExecs.length > 0 || selectedRegions.includes(r);
