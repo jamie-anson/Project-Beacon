@@ -309,17 +309,19 @@ export default function Dashboard() {
 
             <div className="flex items-center justify-between py-2">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
                 <div>
-                  <div className="font-medium text-sm">APAC</div>
-                  <div className="text-xs text-gray-400">T4/A10 • AP-Southeast/Northeast</div>
+                  <div className="font-medium text-sm">
+                    APAC <span className="text-xs text-gray-500">(Disabled)</span>
+                  </div>
+                  <div className="text-xs text-gray-400">Temporarily unavailable</div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
-                  healthy
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-900/20 text-gray-500">
+                  disabled
                 </span>
-                <div className="text-xs text-gray-400 mt-1">modal.com</div>
+                <div className="text-xs text-gray-400 mt-1">Infrastructure optimization</div>
               </div>
             </div>
           </div>

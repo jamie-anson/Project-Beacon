@@ -113,7 +113,9 @@ class HybridRouter:
         modal_endpoints = {
             "us-east": "https://jamie-anson--project-beacon-hf-us-inference.modal.run",
             "eu-west": "https://jamie-anson--project-beacon-hf-eu-inference.modal.run",
-            "asia-pacific": "https://jamie-anson--project-beacon-hf-apac-inference.modal.run"
+            # TEMPORARILY DISABLED: APAC has 6+ minute cold starts causing Railway 150s timeouts
+            # Re-enable when keep-warm strategy implemented (~$87/month) or platform timeout increased
+            # "asia-pacific": "https://jamie-anson--project-beacon-hf-apac-inference.modal.run"
         }
 
         for region, endpoint in modal_endpoints.items():
@@ -170,7 +172,8 @@ class HybridRouter:
                 health_defaults = {
                     "us-east": os.getenv("MODAL_US_HEALTH_URL"),
                     "eu-west": os.getenv("MODAL_EU_HEALTH_URL"),
-                    "asia-pacific": os.getenv("MODAL_APAC_HEALTH_URL")
+                    # TEMPORARILY DISABLED: APAC
+                    # "asia-pacific": os.getenv("MODAL_APAC_HEALTH_URL")
                 }
                 fallback_health = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
                 # Use per-region health endpoint when set; otherwise fall back

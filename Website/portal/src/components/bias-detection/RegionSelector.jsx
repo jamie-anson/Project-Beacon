@@ -8,9 +8,14 @@ export default function RegionSelector({
   selectedModels = []
 }) {
   const availableRegions = [
-    { code: 'US', name: 'United States' },
-    { code: 'EU', name: 'Europe' },
-    { code: 'ASIA', name: 'Asia Pacific' }
+    { code: 'US', name: 'United States', disabled: false },
+    { code: 'EU', name: 'Europe', disabled: false },
+    { 
+      code: 'ASIA', 
+      name: 'Asia Pacific', 
+      disabled: true,
+      disabledReason: 'Temporarily unavailable due to infrastructure optimization'
+    }
   ];
 
   return (
@@ -21,22 +26,34 @@ export default function RegionSelector({
           {availableRegions.map((region) => (
             <div
               key={region.code}
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                selectedRegions.includes(region.code)
-                  ? 'border-orange-500 bg-orange-50 bg-opacity-10'
-                  : 'border-gray-600 hover:border-gray-500'
+              className={`border rounded-lg p-4 transition-all ${
+                region.disabled
+                  ? 'border-gray-700 bg-gray-800 opacity-50 cursor-not-allowed'
+                  : selectedRegions.includes(region.code)
+                  ? 'border-orange-500 bg-orange-50 bg-opacity-10 cursor-pointer'
+                  : 'border-gray-600 hover:border-gray-500 cursor-pointer'
               }`}
-              onClick={() => onRegionToggle(region.code)}
+              onClick={() => !region.disabled && onRegionToggle(region.code)}
+              title={region.disabled ? region.disabledReason : ''}
             >
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={selectedRegions.includes(region.code)}
                   onChange={() => onRegionToggle(region.code)}
-                  className="rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500"
+                  disabled={region.disabled}
+                  className="rounded border-gray-600 bg-gray-700 text-orange-500 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <span className="font-medium text-gray-100">{region.name}</span>
+                <span className={`font-medium ${region.disabled ? 'text-gray-500' : 'text-gray-100'}`}>
+                  {region.name}
+                  {region.disabled && (
+                    <span className="ml-2 text-xs text-gray-500">(Disabled)</span>
+                  )}
+                </span>
               </div>
+              {region.disabled && region.disabledReason && (
+                <p className="mt-2 text-xs text-gray-500">{region.disabledReason}</p>
+              )}
             </div>
           ))}
         </div>
