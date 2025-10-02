@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ModelRow from './ModelRow';
 import { getStatusColor, getStatusText, formatProgress } from './liveProgressHelpers';
@@ -8,14 +8,12 @@ import { getStatusColor, getStatusText, formatProgress } from './liveProgressHel
  * 
  * Displays:
  * - Question text
- * - Progress bar (completed executions / total expected)
- * - Status (Processing/Complete/Failed)
  * - View Diffs button (summary across all models)
  * 
  * Always shows:
  * - All models for this question (not collapsible at question level)
  */
-export default function QuestionRow({ questionData, jobId, selectedRegions }) {
+const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedRegions }) {
   const navigate = useNavigate();
   const [expandedModels, setExpandedModels] = useState(new Set());
   
@@ -80,4 +78,6 @@ export default function QuestionRow({ questionData, jobId, selectedRegions }) {
       </div>
     </div>
   );
-}
+});
+
+export default QuestionRow;

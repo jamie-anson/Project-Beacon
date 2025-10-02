@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import QuestionRow from './QuestionRow';
 import { transformExecutionsToQuestions } from './liveProgressHelpers';
 
@@ -60,8 +60,10 @@ export default function LiveProgressTableV2({
     }
   }, [isCompleted, hasActiveJob, jobStatusValue]);
   
-  // Transform executions into question-centric data
-  const questionData = transformExecutionsToQuestions(activeJob, selectedRegions);
+  // Transform executions into question-centric data (memoized to prevent unnecessary recalculations)
+  const questionData = useMemo(() => {
+    return transformExecutionsToQuestions(activeJob, selectedRegions);
+  }, [activeJob?.executions, selectedRegions, activeJob?.job?.questions, activeJob?.job?.models]);
   
   // Calculate overall progress for summary
   const execs = activeJob?.executions || [];

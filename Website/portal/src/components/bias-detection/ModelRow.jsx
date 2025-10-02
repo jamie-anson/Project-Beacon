@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RegionRow from './RegionRow';
 import { getStatusColor, getStatusText, formatProgress } from './liveProgressHelpers';
@@ -13,9 +13,9 @@ import { getStatusColor, getStatusText, formatProgress } from './liveProgressHel
  * - View Diffs button (enabled when all regions complete)
  * 
  * When expanded:
- * - Shows RegionRow for each region (US, EU, ASIA)
+ * - Shows RegionRow for each region (US, EU)
  */
-export default function ModelRow({ 
+const ModelRow = memo(function ModelRow({ 
   questionId,
   jobId,
   modelData, 
@@ -108,4 +108,6 @@ export default function ModelRow({
       )}
     </div>
   );
-}
+});
+
+export default ModelRow;

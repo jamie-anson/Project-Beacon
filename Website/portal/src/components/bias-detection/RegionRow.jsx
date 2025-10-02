@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { getStatusColor, getStatusText } from './liveProgressHelpers';
 
 /**
  * RegionRow - Leaf level component showing individual region execution
  * 
  * Displays:
- * - Region name (United States, Europe, Asia Pacific)
+ * - Region name (United States, Europe)
  * - Status (Complete/Processing/Cancelled/Failed)
  * - Answer link (opens execution in new tab)
  */
-export default function RegionRow({ region, execution }) {
+const RegionRow = memo(function RegionRow({ region, execution }) {
   const regionNames = {
     'US': 'United States',
     'EU': 'Europe',
@@ -54,4 +54,6 @@ export default function RegionRow({ region, execution }) {
       </div>
     </div>
   );
-}
+});
+
+export default RegionRow;
