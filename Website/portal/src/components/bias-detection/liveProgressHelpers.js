@@ -23,7 +23,13 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
   // Debug logging to catch state reversion issues
   console.log('[transformExecutionsToQuestions]', {
     totalExecutions: executions.length,
-    executionStatuses: executions.map(e => ({ id: e.id, question: e.question_id, model: e.model_id, status: e.status }))
+    executionStatuses: executions.map(e => ({ 
+      id: e.id, 
+      question: e.question_id, 
+      model: e.model_id, 
+      region: e.region, // ← CRITICAL: Need to see if region is present
+      status: e.status 
+    }))
   });
   
   // Build question-centric structure
