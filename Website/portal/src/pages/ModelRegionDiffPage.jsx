@@ -26,12 +26,6 @@ export default function ModelRegionDiffPage() {
   // Find current model info
   const currentModel = AVAILABLE_MODELS.find(m => m.id === modelId);
   
-  // Region selection state (managed by hook when data is ready)
-  const { activeRegion, setActiveRegion, compareRegion, setCompareRegion } = useRegionSelection(
-    data?.regions,
-    data?.home_region
-  );
-  
   usePageTitle(`${currentModel?.name || modelId} - Cross-Region Comparison`);
 
   // Fetch data
@@ -46,6 +40,12 @@ export default function ModelRegionDiffPage() {
     pollInterval: 0,
     enableMock: true // Enable mock for development
   });
+
+  // Region selection state (managed by hook when data is ready)
+  const { activeRegion, setActiveRegion, compareRegion, setCompareRegion } = useRegionSelection(
+    data?.regions,
+    data?.home_region
+  );
 
   // Show mock data warning
   React.useEffect(() => {
