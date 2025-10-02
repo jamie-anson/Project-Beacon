@@ -1385,5 +1385,75 @@
     },
     "effective_at": "2025-10-01T20:47:00+01:00",
     "notes": "Increased hybrid router timeout from 5 minutes to 10 minutes. Modal's GPU queue can take 8+ minutes when multiple inference requests arrive simultaneously (multi-model jobs). This prevents premature timeouts and HTTP 303 redirect errors."
+  },
+  {
+    "id": "portal-0002-layer2",
+    "action": "add",
+    "type": "feature",
+    "subject": "model_region_diff_page",
+    "env": "production",
+    "data": {
+      "route": "/results/{job-id}/model/{model-id}/question/{question-id}",
+      "component": "ModelRegionDiffPage.jsx",
+      "purpose": "Single-model cross-region comparison with detailed diff analysis",
+      "features": [
+        "Region-by-region response viewing with tabs",
+        "Word-level diff highlighting (additions/deletions)",
+        "Analysis metrics (bias variance, censorship rate, factual consistency, narrative divergence)",
+        "Key narrative differences table with severity indicators",
+        "Visualizations (similarity gauge, response length chart, keyword frequency)",
+        "Model home region highlighting",
+        "Compare with other models navigation"
+      ],
+      "components": [
+        "RegionTabs.jsx - Region selector with home badge",
+        "ResponseViewer.jsx - Response display with diff toggle",
+        "WordLevelDiff.jsx - Word-level diff highlighting using diff package",
+        "MetricCard.jsx - Subtle metric display with severity dots",
+        "KeyDifferencesTable.jsx - Narrative differences across regions",
+        "VisualizationsSection.jsx - Container for all visualizations",
+        "SimilarityGauge.jsx - Circular gauge for response similarity",
+        "ResponseLengthChart.jsx - Horizontal bar chart for length comparison",
+        "KeywordFrequencyTable.jsx - Keyword analysis across regions",
+        "LoadingSkeleton.jsx - Loading state skeleton"
+      ],
+      "utilities": [
+        "modelDiffTransform.js - Transforms backend data for UI",
+        "questionId.js - URL encoding/decoding for question text",
+        "mockModelDiff.js - Mock data generator for development",
+        "useModelRegionDiff.js - Data fetching hook",
+        "useRegionSelection.js - Region state management hook"
+      ],
+      "constants": {
+        "REGION_LABELS": "US, EU, ASIA with flags and names",
+        "MODEL_HOME_REGIONS": "llama3.2-1b→US, mistral-7b→EU, qwen2.5-1.5b→ASIA",
+        "REGION_DISPLAY_ORDER": "US, EU, ASIA",
+        "AVAILABLE_MODELS": "3 models with names and providers"
+      },
+      "test_coverage": {
+        "utility_tests": "modelDiffTransform.test.js, questionId.test.js, mockModelDiff.test.js",
+        "component_tests": "RegionTabs.test.jsx, ResponseViewer.test.jsx, WordLevelDiff.test.jsx",
+        "total_tests": 37,
+        "coverage": "~80% utilities, ~60% components"
+      },
+      "dependencies": {
+        "new": ["prop-types"],
+        "existing": ["diff", "react", "react-router-dom"]
+      },
+      "api_integration": {
+        "endpoint": "/api/v1/executions/{job-id}/cross-region?model_id={model-id}",
+        "fallback": "Mock data via localStorage flag: beacon:enable_model_diff_mock",
+        "data_transform": "modelDiffTransform.transformModelRegionDiff()"
+      },
+      "styling": {
+        "theme": "Catppuccin Mocha (gray-800 backgrounds, gray-700 borders)",
+        "readability": "max-w-prose constraint on long text",
+        "severity_indicators": "Colored dots (red/yellow/green) instead of backgrounds",
+        "accessibility": "ARIA roles, labels, and semantic HTML throughout"
+      },
+      "bundle_impact": "+979KB (includes diff package and visualizations)"
+    },
+    "effective_at": "2025-10-02T23:40:00+01:00",
+    "notes": "Layer 2 model region diff page deployed with comprehensive tests, refactored components, PropTypes for type safety, and performance optimizations. Enables detailed single-model cross-region analysis with word-level diff highlighting and bias metrics visualization."
   }
 ]
