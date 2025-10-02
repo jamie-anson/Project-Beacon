@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useModelRegionDiff } from '../hooks/useModelRegionDiff.js';
 import { useRegionSelection } from '../hooks/useRegionSelection.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import { useJob } from '../hooks/useJob.js';
+import { getJob } from '../lib/api/runner/jobs.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
@@ -43,7 +43,14 @@ export default function ModelRegionDiffPage() {
   });
 
   // Fetch job details to get all questions
-  const { job: jobDetails } = useJob(jobId);
+  const [jobDetails, setJobDetails] = React.useState(null);
+  
+  React.useEffect(() => {
+    if (!jobId) return;
+    getJob({ id: jobId })
+      .then(response => setJobDetails(response.job))
+      .catch(err => console.error('Failed to fetch job details:', err));
+  }, [jobId]);
 
   // Region selection state (managed by hook when data is ready)
   const { activeRegion, setActiveRegion, compareRegion, setCompareRegion } = useRegionSelection(
