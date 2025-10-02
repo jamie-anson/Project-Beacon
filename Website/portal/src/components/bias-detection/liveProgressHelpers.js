@@ -20,6 +20,12 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
   const models = jobSpec?.models || [];
   const executions = activeJob?.executions || [];
   
+  // Debug logging to catch state reversion issues
+  console.log('[transformExecutionsToQuestions]', {
+    totalExecutions: executions.length,
+    executionStatuses: executions.map(e => ({ id: e.id, question: e.question_id, model: e.model_id, status: e.status }))
+  });
+  
   // Build question-centric structure
   return questions.map(questionId => {
     const questionExecs = executions.filter(e => e.question_id === questionId);
