@@ -188,12 +188,23 @@ function normalizeRegion(r) {
   const jobId = activeJob?.id || activeJob?.job?.id;
   
   // Check if job has been stuck too long (15+ minutes with no executions)
-  console.log('[LiveProgress] Raw created_at value:', {
-    raw: activeJob?.created_at,
-    type: typeof activeJob?.created_at,
-    activeJob: activeJob
+  console.log('[LiveProgress] Raw activeJob structure:', {
+    created_at: activeJob?.created_at,
+    createdAt: activeJob?.createdAt,
+    job_created_at: activeJob?.job?.created_at,
+    job_createdAt: activeJob?.job?.createdAt,
+    full_activeJob: activeJob
   });
-  const jobCreatedAt = activeJob?.created_at ? new Date(activeJob.created_at) : null;
+  
+  // Try multiple field names (API inconsistency between snake_case and camelCase)
+  const createdAtValue = activeJob?.created_at || activeJob?.createdAt || activeJob?.job?.created_at || activeJob?.job?.createdAt;
+  
+  console.log('[LiveProgress] Found created_at value:', {
+    value: createdAtValue,
+    type: typeof createdAtValue
+  });
+  
+  const jobCreatedAt = createdAtValue ? new Date(createdAtValue) : null;
   console.log('[LiveProgress] Parsed jobCreatedAt:', {
     jobCreatedAt,
     isValid: jobCreatedAt instanceof Date && !isNaN(jobCreatedAt.getTime()),
