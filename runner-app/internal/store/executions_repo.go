@@ -339,6 +339,132 @@ func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
 	return id, nil
 }
 
+// GetCrossRegionExecutions fetches all executions for a job and model across regions
+// Returns executions ordered by region for cross-region comparison
+func (r *ExecutionsRepo) GetCrossRegionExecutions(ctx context.Context, jobID, modelID string) ([]map[string]interface{}, error) {
+	if r.DB == nil {
+		return nil, errors.New("database connection is nil")
+	}
+
+	query := `
+		SELECT 
+			e.id,
+			e.job_id,
+			e.region,
+			e.status,
+			e.provider_id,
+			e.model_id,
+			e.question_id,
+			e.output_data,
+			e.started_at,
+			e.completed_at,
+			e.created_at,
+			e.response_length,
+			e.response_classification,
+			e.is_substantive,
+			e.is_content_refusal,
+			e.is_technical_error,
+			j.jobspec_id
+		FROM executions e
+		JOIN jobs j ON e.job_id = j.id
+		WHERE j.jobspec_id = $1 AND e.model_id = $2
+		ORDER BY e.region ASC, e.created_at DESC
+	`
+
+	rows, err := r.DB.QueryContext(ctx, query, jobID, modelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cross-region executions: %w", err)
+	}
+	defer rows.Close()
+
+	var executions []map[string]interface{}
+	for rows.Next() {
+		var (
+			id                     int64
+			jobIDVal               int64
+			region                 string
+			status                 string
+			providerID             string
+			modelIDVal             string
+			questionID             sql.NullString
+			outputData             []byte
+			startedAt              time.Time
+			completedAt            sql.NullTime
+			createdAt              time.Time
+			responseLength         sql.NullInt64
+			responseClassification sql.NullString
+			isSubstantive          sql.NullBool
+			isContentRefusal       sql.NullBool
+			isTechnicalError       sql.NullBool
+			jobspecID              string
+		)
+
+		err := rows.Scan(
+			&id, &jobIDVal, &region, &status, &providerID, &modelIDVal, &questionID,
+			&outputData, &startedAt, &completedAt, &createdAt,
+			&responseLength, &responseClassification,
+			&isSubstantive, &isContentRefusal, &isTechnicalError,
+			&jobspecID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan execution row: %w", err)
+		}
+
+		// Parse output_data JSON
+		var output map[string]interface{}
+		if len(outputData) > 0 {
+			if err := json.Unmarshal(outputData, &output); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal output_data: %w", err)
+			}
+		}
+
+		execution := map[string]interface{}{
+			"id":          id,
+			"job_id":      jobspecID,
+			"region":      region,
+			"status":      status,
+			"provider_id": providerID,
+			"model_id":    modelIDVal,
+			"output":      output,
+			"started_at":  startedAt,
+			"created_at":  createdAt,
+		}
+
+		if questionID.Valid {
+			execution["question_id"] = questionID.String
+		}
+		if completedAt.Valid {
+			execution["completed_at"] = completedAt.Time
+			// Calculate duration in milliseconds
+			duration := completedAt.Time.Sub(startedAt).Milliseconds()
+			execution["duration_ms"] = duration
+		}
+		if responseLength.Valid {
+			execution["response_length"] = responseLength.Int64
+		}
+		if responseClassification.Valid {
+			execution["response_classification"] = responseClassification.String
+		}
+		if isSubstantive.Valid {
+			execution["is_substantive"] = isSubstantive.Bool
+		}
+		if isContentRefusal.Valid {
+			execution["is_content_refusal"] = isContentRefusal.Bool
+		}
+		if isTechnicalError.Valid {
+			execution["is_technical_error"] = isTechnicalError.Bool
+		}
+
+		executions = append(executions, execution)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating execution rows: %w", err)
+	}
+
+	return executions, nil
+}
+
 // InsertExecutionWithClassification inserts an execution row with response classification support
 func (r *ExecutionsRepo) InsertExecutionWithClassification(
 	ctx context.Context,

@@ -33,6 +33,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	var jobsHandler *JobsHandler
 	var adminHandler *AdminHandler
 	var executionsHandler *ExecutionsHandler
+	var crossRegionHandler *CrossRegionHandler
 	
 	if jobsService != nil {
 		jobsHandler = NewJobsHandler(jobsService, cfg, redisClient)
@@ -42,6 +43,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			adminHandler = NewAdminHandlerWithJobsService(cfg, jobsService)
 		}
 		executionsHandler = NewExecutionsHandler(jobsService.ExecutionsRepo)
+		crossRegionHandler = &CrossRegionHandler{ExecutionsRepo: jobsService.ExecutionsRepo}
 	} else {
 		// For testing with nil service
 		adminHandler = NewAdminHandler(cfg)
@@ -129,6 +131,8 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			executions := v1.Group("/executions")
 			{
 				executions.GET("", executionsHandler.ListExecutions)
+				// Layer 2: Cross-region model diff endpoint (job-level, model-scoped)
+				executions.GET("/:id/cross-region", crossRegionHandler.GetCrossRegionDiff)
 				executions.GET("/:id/receipt", executionsHandler.GetExecutionReceipt)
 				executions.GET("/:id/details", executionsHandler.GetExecutionDetails)
 				// Cross-Region Diffs endpoints (enabled for Portal UI)
