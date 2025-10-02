@@ -92,9 +92,11 @@ export default function BiasDetection() {
   };
 
   // Poll active job if any
+  // Use exec_limit: 100 to handle multi-model jobs (up to ~33 executions per job realistically)
+  // 2Q × 3M × 3R = 18 executions max, but use 100 for safety
   const { data: activeJob, loading: loadingActive, error: activeErr, refetch: refetchActive } = useQuery(
     activeJobId ? `job:${activeJobId}` : null,
-    () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 10 }) : Promise.resolve(null),
+    () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 100 }) : Promise.resolve(null),
     { interval: pollMs }
   );
 
