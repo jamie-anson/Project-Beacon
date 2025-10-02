@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useModelRegionDiff } from '../hooks/useModelRegionDiff.js';
 import { useRegionSelection } from '../hooks/useRegionSelection.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
+import { useJob } from '../hooks/useJob.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast } from '../lib/errorUtils.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
@@ -13,7 +14,7 @@ import KeyDifferencesTable from '../components/diffs/KeyDifferencesTable.jsx';
 import MetricCard from '../components/diffs/MetricCard.jsx';
 import VisualizationsSection from '../components/diffs/VisualizationsSection.jsx';
 import ModelRegionDiffLoadingSkeleton from '../components/diffs/LoadingSkeleton.jsx';
-import { decodeQuestionId } from '../lib/diffs/questionId.js';
+import { decodeQuestionId, encodeQuestionId } from '../lib/diffs/questionId.js';
 
 export default function ModelRegionDiffPage() {
   const { jobId, modelId, questionId } = useParams();
@@ -40,6 +41,9 @@ export default function ModelRegionDiffPage() {
     pollInterval: 0,
     enableMock: true // Enable mock for development
   });
+
+  // Fetch job details to get all questions
+  const { job: jobDetails } = useJob(jobId);
 
   // Region selection state (managed by hook when data is ready)
   const { activeRegion, setActiveRegion, compareRegion, setCompareRegion } = useRegionSelection(
@@ -254,28 +258,33 @@ export default function ModelRegionDiffPage() {
         metrics={data.metrics}
       />
 
-      {/* Try Other Models Section */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-100 mb-4">
-          Compare with Other Models
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {AVAILABLE_MODELS.filter(m => m.id !== modelId).map((model) => (
-            <Link
-              key={model.id}
-              to={`/results/${jobId}/model/${model.id}/question/${questionId}`}
-              className="block p-4 bg-gray-900 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 rounded-lg transition-colors group"
-            >
-              <div className="font-medium text-gray-100 group-hover:text-blue-300 mb-1">
-                {model.name}
-              </div>
-              <div className="text-xs text-gray-400">
-                {model.provider}
-              </div>
-            </Link>
-          ))}
+      {/* Try Other Questions Section */}
+      {jobDetails?.questions && jobDetails.questions.length > 1 && (
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-100 mb-4">
+            Try Other Questions
+          </h3>
+          <div className="space-y-2">
+            {jobDetails.questions
+              .filter(q => encodeQuestionId(q) !== questionId)
+              .map((question) => {
+                const encodedQuestion = encodeQuestionId(question);
+                const displayQuestion = question.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                return (
+                  <Link
+                    key={question}
+                    to={`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`}
+                    className="block p-4 bg-gray-900 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 rounded-lg transition-colors group"
+                  >
+                    <div className="text-gray-100 group-hover:text-blue-300">
+                      {displayQuestion}
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Provenance Footer */}
       <div className="flex flex-col items-center gap-4 py-6 border-t border-gray-700">
