@@ -339,39 +339,74 @@ func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
 	return id, nil
 }
 
-// GetCrossRegionExecutions fetches all executions for a job, model, and question across regions
+// GetCrossRegionExecutions fetches all executions for a job, model, and optionally question across regions
 // Returns executions ordered by region for cross-region comparison
+// If questionID is empty, it will return all executions for the job+model (for backward compatibility)
 func (r *ExecutionsRepo) GetCrossRegionExecutions(ctx context.Context, jobID, modelID, questionID string) ([]map[string]interface{}, error) {
 	if r.DB == nil {
 		return nil, errors.New("database connection is nil")
 	}
 
-	query := `
-		SELECT 
-			e.id,
-			e.job_id,
-			e.region,
-			e.status,
-			e.provider_id,
-			e.model_id,
-			e.question_id,
-			e.output_data,
-			e.started_at,
-			e.completed_at,
-			e.created_at,
-			e.response_length,
-			e.response_classification,
-			e.is_substantive,
-			e.is_content_refusal,
-			e.is_technical_error,
-			j.jobspec_id
-		FROM executions e
-		JOIN jobs j ON e.job_id = j.id
-		WHERE j.jobspec_id = $1 AND e.model_id = $2 AND e.question_id = $3
-		ORDER BY e.region ASC, e.created_at DESC
-	`
+	var query string
+	var args []interface{}
 
-	rows, err := r.DB.QueryContext(ctx, query, jobID, modelID, questionID)
+	if questionID != "" {
+		// Filter by question_id if provided
+		query = `
+			SELECT 
+				e.id,
+				e.job_id,
+				e.region,
+				e.status,
+				e.provider_id,
+				e.model_id,
+				e.question_id,
+				e.output_data,
+				e.started_at,
+				e.completed_at,
+				e.created_at,
+				e.response_length,
+				e.response_classification,
+				e.is_substantive,
+				e.is_content_refusal,
+				e.is_technical_error,
+				j.jobspec_id
+			FROM executions e
+			JOIN jobs j ON e.job_id = j.id
+			WHERE j.jobspec_id = $1 AND e.model_id = $2 AND e.question_id = $3
+			ORDER BY e.region ASC, e.created_at DESC
+		`
+		args = []interface{}{jobID, modelID, questionID}
+	} else {
+		// Backward compatibility: return all executions for job+model if no question_id
+		query = `
+			SELECT 
+				e.id,
+				e.job_id,
+				e.region,
+				e.status,
+				e.provider_id,
+				e.model_id,
+				e.question_id,
+				e.output_data,
+				e.started_at,
+				e.completed_at,
+				e.created_at,
+				e.response_length,
+				e.response_classification,
+				e.is_substantive,
+				e.is_content_refusal,
+				e.is_technical_error,
+				j.jobspec_id
+			FROM executions e
+			JOIN jobs j ON e.job_id = j.id
+			WHERE j.jobspec_id = $1 AND e.model_id = $2
+			ORDER BY e.region ASC, e.created_at DESC
+		`
+		args = []interface{}{jobID, modelID}
+	}
+
+	rows, err := r.DB.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query cross-region executions: %w", err)
 	}

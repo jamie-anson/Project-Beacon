@@ -44,12 +44,8 @@ func (h *CrossRegionHandler) GetCrossRegionDiff(c *gin.Context) {
 		return
 	}
 
-	// Extract question_id from query params
+	// Extract question_id from query params (optional for backward compatibility)
 	questionID := c.Query("question_id")
-	if questionID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "question_id query parameter is required"})
-		return
-	}
 
 	// Fetch executions from database
 	executions, err := h.ExecutionsRepo.GetCrossRegionExecutions(ctx, jobID, modelID, questionID)
