@@ -15,6 +15,8 @@ export function encodeQuestionId(questionText) {
   return questionText
     .toLowerCase()
     .trim()
+    // Replace underscores with hyphens first (for database IDs like "identity_basic")
+    .replace(/_/g, '-')
     // Replace spaces with hyphens
     .replace(/\s+/g, '-')
     // Remove special characters except hyphens

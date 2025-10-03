@@ -5,6 +5,11 @@ describe('encodeQuestionId', () => {
     expect(encodeQuestionId('What Happened In Tiananmen Square')).toBe('what-happened-in-tiananmen-square');
   });
 
+  test('converts underscores to hyphens (for database IDs)', () => {
+    expect(encodeQuestionId('identity_basic')).toBe('identity-basic');
+    expect(encodeQuestionId('tiananmen_neutral')).toBe('tiananmen-neutral');
+  });
+
   test('removes special characters and trims hyphens', () => {
     expect(encodeQuestionId('  Hello, World!  ')).toBe('hello-world');
     expect(encodeQuestionId('C++ & Rust  ')).toBe('c-rust');
