@@ -53,9 +53,10 @@ export function transformModelRegionDiff(apiData, modelId, questionText) {
 
   // Filter region results for this specific model
   const modelRegionResults = regionResults.filter(result => {
-    const resultModelId = result.metadata?.model_id || 
-                          result.execution_output?.metadata?.model ||
-                          result.model_id;
+    // Check result.model_id first (from API), then fall back to nested paths
+    const resultModelId = result.model_id ||
+                          result.metadata?.model_id || 
+                          result.execution_output?.metadata?.model;
     
     // Debug logging
     if (modelId === 'mistral-7b' || modelId === 'qwen2.5-1.5b') {
