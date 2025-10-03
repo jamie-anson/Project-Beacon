@@ -768,7 +768,7 @@ function normalizeRegion(r) {
                                 {/* Link */}
                                 <div>
                                   <Link
-                                    to={`/executions/${exec.id}`}
+                                    to={`/portal/executions/${exec.id}`}
                                     className="text-beacon-600 underline decoration-dotted hover:text-beacon-500"
                                   >
                                     View

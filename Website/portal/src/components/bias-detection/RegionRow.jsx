@@ -39,7 +39,7 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
       <div className="text-right">
         {hasAnswer ? (
           <a
-            href={`/executions/${executionId}`}
+            href={`/portal/executions/${executionId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-beacon-600 hover:text-beacon-500 underline decoration-dotted text-sm font-medium"
