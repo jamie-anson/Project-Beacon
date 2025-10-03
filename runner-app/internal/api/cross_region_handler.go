@@ -106,6 +106,7 @@ func transformCrossRegionData(executions []map[string]interface{}, jobID, modelI
 			"flag":         meta.Flag,
 			"status":       status,
 			"provider_id":  exec["provider_id"],
+			"model_id":     exec["model_id"],
 			"execution_id": exec["id"],
 			"started_at":   exec["started_at"],
 		}
