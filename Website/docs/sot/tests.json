@@ -1,0 +1,434 @@
+[
+  {
+    "id": "test-suite-0001",
+    "name": "Portal Unit Tests",
+    "type": "unit",
+    "runner": "jest",
+    "location": "portal/src/**/__tests__/*.{test.js,test.jsx}",
+    "file_count": 27,
+    "test_count": "~170+",
+    "coverage_areas": [
+      "API client (http, config, error handling)",
+      "React hooks (useBiasDetection, useCrossRegionDiff, useRecentDiffs)",
+      "Components (LiveProgressTable, WalletConnection, Diffs)",
+      "Utilities (errorUtils, wallet, useEffect loop detection)",
+      "Diff transformations (questionId encoding/decoding, modelId validation, modelDiff, mockModelDiff)",
+      "Integration flows (BiasDetectionFlow)",
+      "Regression tests (infinite loops, state stability)"
+    ],
+    "ci_workflows": ["test.yml", "pr-tests.yml", "pr-checks.yml"],
+    "run_command": "cd portal && npm test",
+    "watch_command": "cd portal && npm test:watch",
+    "specific_commands": {
+      "prompt_structure": "cd portal && npm run test:prompt-structure",
+      "region_filtering": "cd portal && npm run test:region-filtering",
+      "multi_model": "cd portal && npm run test:multi-model",
+      "integration": "cd portal && npm run test:integration",
+      "loops": "cd portal && npm run test:loops",
+      "useeffect": "cd portal && npm run test:useeffect",
+      "performance": "cd portal && npm run test:performance",
+      "websocket": "cd portal && npm run test:websocket"
+    },
+    "key_files": [
+      "portal/src/lib/api/__tests__/http.test.js",
+      "portal/src/lib/__tests__/api.test.js",
+      "portal/src/lib/__tests__/errorUtils.test.js",
+      "portal/src/lib/__tests__/wallet.test.js",
+      "portal/src/hooks/__tests__/useBiasDetection.test.js",
+      "portal/src/hooks/__tests__/useCrossRegionDiff.test.js",
+      "portal/src/components/bias-detection/__tests__/LiveProgressTable.test.jsx",
+      "portal/src/components/bias-detection/__tests__/LiveProgressTable.perQuestion.test.jsx",
+      "portal/src/components/bias-detection/__tests__/liveProgressHelpers.test.js",
+      "portal/src/components/bias-detection/__tests__/liveProgressStateStability.test.js",
+      "portal/src/lib/diffs/__tests__/questionId.integration.test.js",
+      "portal/src/lib/diffs/__tests__/questionId.test.js",
+      "portal/src/lib/diffs/__tests__/modelId.test.js",
+      "portal/src/lib/diffs/__tests__/modelDiffTransform.test.js",
+      "portal/src/pages/__tests__/Executions.test.jsx",
+      "portal/src/pages/__tests__/infinite-loop-regression.test.js",
+      "portal/src/__tests__/integration/BiasDetectionFlow.test.jsx"
+    ],
+    "effective_at": "2025-10-03T01:25:00+01:00",
+    "notes": "Comprehensive Jest test suite covering portal functionality with focus on state management, API integration, and regression prevention. Includes Layer 2 cross-region diff tests with question ID encoding/decoding (27 tests) and model ID validation for special characters (16 tests)."
+  },
+  {
+    "id": "test-suite-0002",
+    "name": "E2E Browser Tests",
+    "type": "e2e",
+    "runner": "playwright",
+    "location": "tests/e2e/*.test.js",
+    "file_count": 5,
+    "test_count": "~20+",
+    "coverage_areas": [
+      "CORS integration from browser",
+      "Deployment verification",
+      "Wallet integration",
+      "Infrastructure health checks",
+      "Asset loading and static resources"
+    ],
+    "ci_workflows": ["test.yml", "deployment-tests.yml", "e2e-remote.yml"],
+    "run_command": "npx playwright test",
+    "browsers": ["chromium"],
+    "key_files": [
+      "tests/e2e/cors-integration.test.js",
+      "tests/e2e/deployment-verification.test.js",
+      "tests/e2e/wallet-integration.test.js",
+      "tests/e2e/infrastructure-health.test.js",
+      "tests/e2e/asset-loading.test.js"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Real browser tests validating production-like behavior including CORS, deployments, and infrastructure"
+  },
+  {
+    "id": "test-suite-0003",
+    "name": "Integration Shell Tests",
+    "type": "integration",
+    "runner": "bash",
+    "location": "tests/integration/*.sh",
+    "file_count": 5,
+    "test_count": "~50+ checks",
+    "coverage_areas": [
+      "Quick smoke tests (health endpoints)",
+      "Basic pipeline (job submission → execution)",
+      "Advanced pipeline (multi-region, transparency)",
+      "Cross-service integration",
+      "Full pipeline validation"
+    ],
+    "ci_workflows": ["production-tests.yml", "scheduled-monitoring.yml"],
+    "run_command": "chmod +x tests/integration/<script>.sh && ./tests/integration/<script>.sh",
+    "key_files": [
+      "tests/integration/quick-smoke-test.sh",
+      "tests/integration/basic-pipeline-test.sh",
+      "tests/integration/advanced-pipeline-test.sh",
+      "tests/integration/cross-service-tests.sh",
+      "tests/integration/pipeline-tests.sh"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Shell-based integration tests for backend services, job processing pipeline, and cross-service communication"
+  },
+  {
+    "id": "test-suite-0004",
+    "name": "Build Validation Tests",
+    "type": "validation",
+    "runner": "node",
+    "location": "scripts/test-*.js",
+    "file_count": 15,
+    "test_count": "~100+ validations",
+    "coverage_areas": [
+      "Build output validation (CORS settings survival)",
+      "API payload validation",
+      "Portal signing validation",
+      "Job payload structure",
+      "Schema validation",
+      "Route validation",
+      "SoT (Source of Truth) validation",
+      "Import validation",
+      "Model mapping validation",
+      "Transform validation",
+      "State management validation",
+      "React component integration"
+    ],
+    "ci_workflows": ["test.yml", "pr-checks.yml", "sot-validate.yml"],
+    "run_command": "node scripts/<test-script>.js",
+    "key_files": [
+      "scripts/test-build-output.js",
+      "scripts/test-job-payload.js",
+      "scripts/test-portal-signing.js",
+      "scripts/test-cors-api.js",
+      "scripts/test-sot-validation.js",
+      "scripts/validate-schemas.js",
+      "scripts/test-routes.js",
+      "scripts/test-import-validation.js",
+      "scripts/test-model-mapping-validation.js",
+      "scripts/test-transform-debug.js",
+      "scripts/test-portal-state-management.js",
+      "scripts/test-react-component-integration.js",
+      "scripts/test-end-to-end-workflow.js",
+      "scripts/test-multi-model-job.js",
+      "scripts/test-mock-data-scenarios.js"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Node.js validation scripts ensuring build artifacts, API contracts, and data structures are correct"
+  },
+  {
+    "id": "test-suite-0005",
+    "name": "Pre-Deployment Validation",
+    "type": "validation",
+    "runner": "node",
+    "location": "scripts/pre-deploy-validation.js",
+    "file_count": 1,
+    "test_count": "11 checks",
+    "coverage_areas": [
+      "Portal build exists",
+      "CORS settings in bundle",
+      "API client configuration",
+      "Environment variables",
+      "Static assets",
+      "Redirects configuration",
+      "Portal unit tests pass",
+      "Build output validation",
+      "API payload validation",
+      "Playwright browser tests",
+      "Bundle size check"
+    ],
+    "ci_workflows": ["deploy.yml"],
+    "run_command": "npm run validate:pre-deploy",
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Comprehensive pre-deployment checklist preventing broken deployments"
+  },
+  {
+    "id": "test-suite-0006",
+    "name": "Storybook Component Tests",
+    "type": "component",
+    "runner": "storybook",
+    "location": "portal/src/**/*.stories.{js,jsx}",
+    "file_count": "~10+",
+    "test_count": "~50+ stories",
+    "coverage_areas": [
+      "LiveProgressTable scenarios",
+      "Diff visualization components",
+      "UI component states",
+      "Accessibility testing",
+      "Visual regression"
+    ],
+    "ci_workflows": ["portal.yml"],
+    "run_command": "cd portal && npm run storybook",
+    "test_command": "cd portal && npm run test-storybook",
+    "build_command": "cd portal && npm run build-storybook",
+    "port": 6006,
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Storybook for component development, testing, and documentation with a11y addon"
+  },
+  {
+    "id": "test-suite-0007",
+    "name": "Production Monitoring Tests",
+    "type": "monitoring",
+    "runner": "bash/curl",
+    "location": ".github/workflows/production-tests.yml",
+    "file_count": 1,
+    "test_count": "4 phases",
+    "coverage_areas": [
+      "Smoke tests (quick health checks)",
+      "Health tests (service availability)",
+      "Integration tests (cross-service)",
+      "Regression tests (known issues)"
+    ],
+    "ci_workflows": ["production-tests.yml"],
+    "schedule": "Every 4 hours",
+    "phases": [
+      {
+        "name": "smoke-tests",
+        "timeout": "5 minutes",
+        "description": "Quick health endpoint checks"
+      },
+      {
+        "name": "health-checks",
+        "timeout": "10 minutes",
+        "description": "Comprehensive service health validation"
+      },
+      {
+        "name": "integration-tests",
+        "timeout": "15 minutes",
+        "description": "Cross-service integration validation"
+      },
+      {
+        "name": "regression-tests",
+        "timeout": "20 minutes",
+        "description": "Known issue regression prevention"
+      }
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Scheduled production monitoring with automatic issue creation on failures"
+  },
+  {
+    "id": "test-suite-0008",
+    "name": "Deployment Validation Tests",
+    "type": "deployment",
+    "runner": "bash/curl",
+    "location": ".github/workflows/deployment-tests.yml",
+    "file_count": 1,
+    "test_count": "~15 validations",
+    "coverage_areas": [
+      "Portal deployment health",
+      "Runner API availability",
+      "Hybrid router health",
+      "Cross-service connectivity",
+      "Rollback recommendations"
+    ],
+    "ci_workflows": ["deployment-tests.yml"],
+    "trigger": "After successful deployments",
+    "targets": ["portal", "runner", "hybrid"],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Post-deployment validation with automatic rollback alerts on failures"
+  },
+  {
+    "id": "test-suite-0009",
+    "name": "Security Scanning",
+    "type": "security",
+    "runner": "npm audit",
+    "location": ".github/workflows/security-scan.yml",
+    "file_count": 1,
+    "test_count": "Vulnerability scanning",
+    "coverage_areas": [
+      "Dependency vulnerabilities",
+      "Security advisories",
+      "Outdated packages"
+    ],
+    "ci_workflows": ["security-scan.yml", "security.yml"],
+    "schedule": "Weekly",
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Weekly security vulnerability scanning with automatic issue creation"
+  },
+  {
+    "id": "test-suite-0010",
+    "name": "Infinite Loop Detection",
+    "type": "regression",
+    "runner": "jest",
+    "location": "portal/src/pages/__tests__/infinite-loop-regression.test.js",
+    "file_count": 1,
+    "test_count": "~10+",
+    "coverage_areas": [
+      "useEffect dependency arrays",
+      "State update loops",
+      "WebSocket reconnection loops",
+      "API polling loops"
+    ],
+    "ci_workflows": ["infinite-loop-detection.yml", "test.yml"],
+    "run_command": "cd portal && npm run test:loops",
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Specialized regression tests preventing infinite loop bugs that caused production issues"
+  },
+  {
+    "id": "test-suite-0011",
+    "name": "SoT Validation Tests",
+    "type": "validation",
+    "runner": "node",
+    "location": "scripts/test-sot-validation.js",
+    "file_count": 1,
+    "test_count": "~20+ validations",
+    "coverage_areas": [
+      "facts.json schema validation",
+      "ID uniqueness",
+      "Timestamp format",
+      "Required fields",
+      "Data integrity",
+      "Cross-references"
+    ],
+    "ci_workflows": ["sot-validate.yml"],
+    "run_command": "npm run test:sot",
+    "verbose_command": "npm run test:sot:verbose",
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Validates Source of Truth (facts.json) integrity and prevents invalid entries"
+  },
+  {
+    "id": "test-suite-0012",
+    "name": "Regression Test Suite",
+    "type": "regression",
+    "runner": "bash/node",
+    "location": ".github/workflows/regression-tests.yml",
+    "file_count": 1,
+    "test_count": "~30+ checks",
+    "coverage_areas": [
+      "Known bug prevention",
+      "CORS regression",
+      "Signature verification",
+      "Job processing pipeline",
+      "Multi-model execution",
+      "Cross-region diffs"
+    ],
+    "ci_workflows": ["regression-tests.yml"],
+    "schedule": "Daily",
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Comprehensive regression test suite preventing reintroduction of fixed bugs"
+  },
+  {
+    "id": "test-workflow-0001",
+    "name": "Main Test Workflow",
+    "type": "ci_workflow",
+    "runner": "github_actions",
+    "location": ".github/workflows/test.yml",
+    "trigger": "push, pull_request (main, develop)",
+    "node_versions": ["18.x", "20.x"],
+    "steps": [
+      "Portal unit tests with coverage",
+      "Portal build",
+      "Build output validation",
+      "API payload validation",
+      "Playwright browser tests"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Primary CI workflow running on every push/PR"
+  },
+  {
+    "id": "test-workflow-0002",
+    "name": "PR Checks Workflow",
+    "type": "ci_workflow",
+    "runner": "github_actions",
+    "location": ".github/workflows/pr-checks.yml",
+    "trigger": "pull_request",
+    "features": [
+      "Automatic PR comments with test results",
+      "Test summary in PR description",
+      "Failure notifications"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "Enhanced PR validation with inline comments"
+  },
+  {
+    "id": "test-workflow-0003",
+    "name": "Scheduled Monitoring",
+    "type": "ci_workflow",
+    "runner": "github_actions",
+    "location": ".github/workflows/scheduled-monitoring.yml",
+    "trigger": "schedule (continuous)",
+    "features": [
+      "Continuous production monitoring",
+      "Automatic issue creation on failures",
+      "Performance tracking",
+      "Weekly comprehensive reports"
+    ],
+    "effective_at": "2025-10-03T01:13:00+01:00",
+    "notes": "24/7 production monitoring with alerting"
+  },
+  {
+    "id": "test-coverage-summary",
+    "type": "summary",
+    "total_test_suites": 12,
+    "total_test_files": "~71+",
+    "total_test_count": "~420+",
+    "total_workflows": 18,
+    "test_types": {
+      "unit": "~170+ tests",
+      "integration": "~50+ tests",
+      "e2e": "~20+ tests",
+      "validation": "~100+ checks",
+      "regression": "~40+ tests",
+      "security": "continuous scanning",
+      "monitoring": "continuous checks"
+    },
+    "coverage_areas": [
+      "Portal UI components and pages",
+      "API client and HTTP layer",
+      "React hooks and state management",
+      "Diff transformations and visualizations",
+      "Job submission and execution pipeline",
+      "Cross-region analysis",
+      "Multi-model support",
+      "Wallet integration",
+      "CORS and security",
+      "Build artifacts and deployments",
+      "Infrastructure health",
+      "Regression prevention"
+    ],
+    "ci_cd_integration": {
+      "pre_commit": "Linting and validation",
+      "pre_push": "Unit tests",
+      "pr_validation": "Full test suite + browser tests",
+      "post_deployment": "Deployment validation",
+      "scheduled": "Production monitoring + security scanning",
+      "manual_triggers": "All workflows support manual dispatch"
+    },
+    "effective_at": "2025-10-03T01:25:00+01:00",
+    "notes": "Comprehensive test infrastructure covering unit, integration, e2e, validation, regression, security, and monitoring. Recent additions: Layer 2 cross-region diff tests (questionId.integration.test.js with 17 tests, modelId.test.js with 16 tests) ensuring proper URL encoding/decoding and model ID validation for special characters (dots, hyphens)."
+  }
+]
