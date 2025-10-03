@@ -56,11 +56,26 @@ export function transformModelRegionDiff(apiData, modelId, questionText) {
     const resultModelId = result.metadata?.model_id || 
                           result.execution_output?.metadata?.model ||
                           result.model_id;
+    
+    // Debug logging
+    if (modelId === 'mistral-7b' || modelId === 'qwen2.5-1.5b') {
+      console.log(`[DEBUG] Checking result for ${modelId}:`, {
+        region: result.region,
+        result_model_id: result.model_id,
+        metadata_model_id: result.metadata?.model_id,
+        execution_model: result.execution_output?.metadata?.model,
+        resolved_model_id: resultModelId,
+        matches: resultModelId === modelId
+      });
+    }
+    
     return resultModelId === modelId;
   });
 
   if (modelRegionResults.length === 0) {
     console.warn(`No region results found for model ${modelId}`);
+    console.warn(`[DEBUG] Total region_results received: ${regionResults.length}`);
+    console.warn(`[DEBUG] Sample result:`, regionResults[0]);
     return null;
   }
 
