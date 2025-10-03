@@ -154,6 +154,14 @@ export default function Executions() {
                           >
                             View Receipt
                           </Link>
+                          {jobId && status === 'completed' && (
+                            <Link 
+                              to={`/bias-detection/${encodeURIComponent(jobId)}`}
+                              className="text-green-600 hover:text-green-700 underline decoration-dotted text-xs"
+                            >
+                              Bias Analysis
+                            </Link>
+                          )}
                           <CopyButton text={String(id)} label="Copy ID" />
                         </>
                       )}

@@ -16,6 +16,7 @@ import ModelRegionDiffPage from './pages/ModelRegionDiffPage.jsx';
 import Executions from './pages/Executions.jsx';
 import ExecutionDetail from './pages/ExecutionDetail.jsx';
 import DemoResults from './pages/DemoResults.jsx';
+import BiasDetectionResults from './pages/BiasDetectionResults.jsx';
 import useWs from './state/useWs.js';
 import { BUILD_CID, BUILD_COMMIT, shortCommit } from './lib/buildInfo.js';
 
@@ -168,6 +169,7 @@ export default function App() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/bias-detection" element={<BiasDetection />} />
+        <Route path="/bias-detection/:jobId" element={<BiasDetectionResults />} />
         <Route path="/results/:jobId/diffs" element={<CrossRegionDiffPage />} />
         <Route path="/results/:jobId/model/:modelId/question/:questionId" element={<ModelRegionDiffPage />} />
         <Route path="/world" element={<WorldView />} />

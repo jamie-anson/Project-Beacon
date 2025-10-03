@@ -1,4 +1,5 @@
 import { runnerFetch } from '../http.js';
+import { resolveRunnerBase } from '../config.js';
 
 export function getExecutions({ limit = 20 } = {}) {
   return runnerFetch(`/executions?limit=${limit}`).then((data) => {
@@ -30,4 +31,28 @@ export function createCrossRegionDiff(jobId) {
 
 export function getRegionResults(jobId) {
   return runnerFetch(`/executions/${encodeURIComponent(jobId)}/regions`);
+}
+
+export function getBiasAnalysis(jobId) {
+  // Note: This endpoint is v2, but runnerFetch adds /api/v1 prefix
+  // So we need to construct the full path without the prefix
+  const base = resolveRunnerBase();
+  const url = base 
+    ? `${base}/api/v2/jobs/${encodeURIComponent(jobId)}/bias-analysis`
+    : `/api/v2/jobs/${encodeURIComponent(jobId)}/bias-analysis`;
+  
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    mode: 'cors',
+    credentials: 'omit'
+  }).then(async (res) => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    return res.json();
+  });
 }

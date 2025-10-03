@@ -57,14 +57,15 @@
     "type": "e2e",
     "runner": "playwright",
     "location": "tests/e2e/*.test.js",
-    "file_count": 5,
-    "test_count": "~20+",
+    "file_count": 6,
+    "test_count": "~28+",
     "coverage_areas": [
       "CORS integration from browser",
       "Deployment verification",
       "Wallet integration",
       "Infrastructure health checks",
-      "Asset loading and static resources"
+      "Asset loading and static resources",
+      "Bias detection results page (full user flow, error states, navigation)"
     ],
     "ci_workflows": ["test.yml", "deployment-tests.yml", "e2e-remote.yml"],
     "run_command": "npx playwright test",
@@ -74,10 +75,11 @@
       "tests/e2e/deployment-verification.test.js",
       "tests/e2e/wallet-integration.test.js",
       "tests/e2e/infrastructure-health.test.js",
-      "tests/e2e/asset-loading.test.js"
+      "tests/e2e/asset-loading.test.js",
+      "tests/e2e/bias-detection-results.test.js"
     ],
-    "effective_at": "2025-10-03T01:13:00+01:00",
-    "notes": "Real browser tests validating production-like behavior including CORS, deployments, and infrastructure"
+    "effective_at": "2025-10-03T12:50:00+01:00",
+    "notes": "Real browser tests validating production-like behavior including CORS, deployments, infrastructure, and bias detection results page with 8 comprehensive tests covering happy path, error states, navigation, and API integration"
   },
   {
     "id": "test-suite-0003",
@@ -391,16 +393,118 @@
     "notes": "24/7 production monitoring with alerting"
   },
   {
+    "id": "test-suite-0013",
+    "name": "Bias Detection Backend Tests",
+    "type": "unit",
+    "runner": "go test",
+    "location": "runner-app/internal/{analysis,store,handlers}/*_test.go",
+    "file_count": 4,
+    "test_count": 51,
+    "coverage_areas": [
+      "OpenAI API integration and mocking",
+      "Summary generation (400-500 word AI summaries)",
+      "Prompt building and validation",
+      "Cross-region diff engine with OpenAI integration",
+      "Bias detection and censorship analysis",
+      "Database persistence (analysis, region scores)",
+      "API endpoints (GET /api/v2/jobs/{jobId}/bias-analysis)",
+      "Error handling and fallback mechanisms",
+      "JSON marshaling/unmarshaling",
+      "Edge cases (null data, API failures, missing regions)"
+    ],
+    "test_files": [
+      "runner-app/internal/analysis/llm_summary_test.go",
+      "runner-app/internal/analysis/cross_region_diff_engine_integration_test.go",
+      "runner-app/internal/store/cross_region_repo_test.go",
+      "runner-app/internal/handlers/bias_analysis_handler_test.go"
+    ],
+    "test_breakdown": {
+      "llm_summary_test": {
+        "tests": 18,
+        "coverage": "~85%",
+        "areas": [
+          "Generator initialization with/without API key",
+          "OpenAI API request formatting (model, temperature, max_tokens)",
+          "Response parsing and content extraction",
+          "Error handling for API failures (401, 500, etc.)",
+          "Prompt building with all metrics (bias, censorship, regions)",
+          "Percentage formatting and null data handling",
+          "Required prompt sections validation"
+        ]
+      },
+      "cross_region_diff_engine_integration": {
+        "tests": 12,
+        "coverage": "~80%",
+        "areas": [
+          "End-to-end analysis workflow",
+          "OpenAI fallback to template summary",
+          "Bias detection and scoring validation",
+          "Censorship detection across regions",
+          "Key differences identification",
+          "Risk assessment with confidence scores",
+          "Null/missing data handling"
+        ]
+      },
+      "cross_region_repo": {
+        "tests": 12,
+        "coverage": "~75%",
+        "areas": [
+          "GetByJobSpecID - find execution by jobspec_id",
+          "GetCrossRegionAnalysisByExecutionID - retrieve analysis",
+          "CreateCrossRegionAnalysis - persist analysis",
+          "JSON field marshaling (key_differences, risk_assessment)",
+          "Large text storage (500+ word summaries)",
+          "Null field handling for optional metrics"
+        ]
+      },
+      "bias_analysis_handler": {
+        "tests": 9,
+        "coverage": "~90%",
+        "areas": [
+          "GET /api/v2/jobs/{jobId}/bias-analysis endpoint",
+          "Response structure validation (job_id, analysis, region_scores)",
+          "404 when job/analysis not found",
+          "500 when region results fetch fails",
+          "Regions without scoring data handling",
+          "Analysis persistence after generation",
+          "Graceful degradation (continues if persistence fails)"
+        ]
+      }
+    },
+    "mocking_strategy": {
+      "openai_api": "httptest.NewServer for HTTP mocking",
+      "database": "Repository mocks for unit tests, real DB for integration",
+      "handlers": "MockCrossRegionRepo and MockDiffEngine interfaces"
+    },
+    "run_commands": {
+      "all_tests": "cd runner-app && go test ./...",
+      "analysis_tests": "cd runner-app && go test ./internal/analysis/...",
+      "handler_tests": "cd runner-app && go test ./internal/handlers/...",
+      "store_tests": "cd runner-app && go test ./internal/store/...",
+      "with_coverage": "cd runner-app && go test -cover ./...",
+      "integration_only": "cd runner-app && go test -tags=integration ./internal/store/...",
+      "skip_integration": "cd runner-app && go test -short ./..."
+    },
+    "dependencies": {
+      "testing_frameworks": ["testing", "testify/assert", "testify/require"],
+      "mocking": ["httptest", "gin testmode"],
+      "external_apis": ["OpenAI GPT-4o-mini"]
+    },
+    "documentation": "runner-app/BIAS_DETECTION_TEST_SUITE.md",
+    "effective_at": "2025-10-03T12:15:00+01:00",
+    "notes": "Comprehensive test suite for Bias Detection backend covering OpenAI integration, analysis persistence, and API endpoints. Includes 51 tests with ~80% overall coverage. Features HTTP mocking for OpenAI API, repository mocks for handlers, and realistic multi-region test data. Tests validate 400-500 word AI-generated summaries, bias detection algorithms, censorship analysis, and graceful fallback mechanisms."
+  },
+  {
     "id": "test-coverage-summary",
     "type": "summary",
-    "total_test_suites": 12,
-    "total_test_files": "~71+",
-    "total_test_count": "~420+",
+    "total_test_suites": 13,
+    "total_test_files": "~76+",
+    "total_test_count": "~479+",
     "total_workflows": 18,
     "test_types": {
-      "unit": "~170+ tests",
+      "unit": "~221+ tests (170 portal + 51 backend)",
       "integration": "~50+ tests",
-      "e2e": "~20+ tests",
+      "e2e": "~28+ tests (20 existing + 8 bias detection)",
       "validation": "~100+ checks",
       "regression": "~40+ tests",
       "security": "continuous scanning",
@@ -414,6 +518,7 @@
       "Job submission and execution pipeline",
       "Cross-region analysis",
       "Multi-model support",
+      "Bias detection backend (OpenAI integration, analysis persistence)",
       "Wallet integration",
       "CORS and security",
       "Build artifacts and deployments",
