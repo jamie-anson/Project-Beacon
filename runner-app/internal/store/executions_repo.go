@@ -316,21 +316,17 @@ func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
 		return 0, fmt.Errorf("failed to lookup job: %w", err)
 	}
 
-	// Now insert the execution with the found job ID, model_id, and question_id
-	var row *sql.Row
+	// Always insert with question_id column (NULL if empty for backward compatibility)
+	var questionIDPtr *string
 	if questionID != "" {
-		row = r.DB.QueryRowContext(ctx, `
-			INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-			RETURNING id
-		`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionID)
-	} else {
-		row = r.DB.QueryRowContext(ctx, `
-			INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			RETURNING id
-		`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
+		questionIDPtr = &questionID
 	}
+	
+	row := r.DB.QueryRowContext(ctx, `
+		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id
+	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionIDPtr)
 	
 	var id int64
 	if err := row.Scan(&id); err != nil {
