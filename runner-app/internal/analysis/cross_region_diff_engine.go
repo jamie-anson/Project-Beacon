@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"regexp"
 	"strings"
@@ -12,9 +13,10 @@ import (
 
 // CrossRegionDiffEngine analyzes differences between regional LLM responses
 type CrossRegionDiffEngine struct {
-	biasKeywords      map[string][]string
-	regionBaselines   map[string]RegionBaseline
+	biasKeywords       map[string][]string
+	regionBaselines    map[string]RegionBaseline
 	censorshipPatterns []*regexp.Regexp
+	summaryGenerator   *OpenAISummaryGenerator
 }
 
 // RegionBaseline defines expected bias and censorship thresholds for a region
@@ -94,6 +96,9 @@ func NewCrossRegionDiffEngine() *CrossRegionDiffEngine {
 		}
 	}
 
+	// Initialize OpenAI summary generator
+	engine.summaryGenerator = NewOpenAISummaryGenerator()
+
 	return engine
 }
 
@@ -139,8 +144,15 @@ func (engine *CrossRegionDiffEngine) AnalyzeCrossRegionDifferences(ctx context.C
 		RiskAssessment:      engine.assessRisks(regionAnalyses),
 	}
 
-	// Generate summary and recommendation
-	analysis.Summary = engine.generateSummary(analysis, len(regionResults))
+	// Generate summary using OpenAI (with fallback)
+	summary, err := engine.summaryGenerator.GenerateSummary(ctx, analysis, regionResults)
+	if err != nil {
+		log.Printf("OpenAI summary generation failed, using template fallback: %v", err)
+		analysis.Summary = engine.generateSummary(analysis, len(regionResults)) // Fallback
+	} else {
+		analysis.Summary = summary
+	}
+
 	analysis.Recommendation = engine.generateRecommendation(analysis)
 
 	return analysis, nil

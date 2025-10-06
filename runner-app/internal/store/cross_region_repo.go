@@ -371,3 +371,99 @@ func (r *CrossRegionRepo) GetRegionResults(ctx context.Context, crossRegionExecI
 	
 	return results, nil
 }
+
+// GetByJobSpecID finds cross-region execution by jobspec_id
+func (r *CrossRegionRepo) GetByJobSpecID(ctx context.Context, jobSpecID string) (*CrossRegionExecution, error) {
+	query := `
+		SELECT id, jobspec_id, total_regions, success_count, failure_count, min_regions_required,
+			   min_success_rate, status, started_at, completed_at, duration_ms, created_at, updated_at
+		FROM cross_region_executions 
+		WHERE jobspec_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	
+	var exec CrossRegionExecution
+	var completedAt sql.NullTime
+	var durationMs sql.NullInt64
+	
+	err := r.db.QueryRowContext(ctx, query, jobSpecID).Scan(
+		&exec.ID, &exec.JobSpecID, &exec.TotalRegions, &exec.SuccessCount, &exec.FailureCount,
+		&exec.MinRegionsRequired, &exec.MinSuccessRate, &exec.Status, &exec.StartedAt,
+		&completedAt, &durationMs, &exec.CreatedAt, &exec.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("cross-region execution not found for jobspec_id: %s", jobSpecID)
+		}
+		return nil, fmt.Errorf("failed to get cross-region execution: %w", err)
+	}
+	
+	if completedAt.Valid {
+		exec.CompletedAt = &completedAt.Time
+	}
+	if durationMs.Valid {
+		exec.DurationMs = &durationMs.Int64
+	}
+	
+	return &exec, nil
+}
+
+// GetCrossRegionAnalysisByExecutionID retrieves analysis by execution ID
+func (r *CrossRegionRepo) GetCrossRegionAnalysisByExecutionID(ctx context.Context, execID string) (*CrossRegionAnalysisRecord, error) {
+	query := `
+		SELECT id, cross_region_execution_id, bias_variance, censorship_rate, factual_consistency,
+			   narrative_divergence, key_differences, risk_assessment, summary, recommendation,
+			   created_at, updated_at
+		FROM cross_region_analyses 
+		WHERE cross_region_execution_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	
+	var record CrossRegionAnalysisRecord
+	var biasVariance, censorshipRate, factualConsistency, narrativeDivergence sql.NullFloat64
+	var keyDifferencesJSON, riskAssessmentJSON sql.NullString
+	var summary, recommendation sql.NullString
+	
+	err := r.db.QueryRowContext(ctx, query, execID).Scan(
+		&record.ID, &record.CrossRegionExecutionID, &biasVariance, &censorshipRate,
+		&factualConsistency, &narrativeDivergence, &keyDifferencesJSON, &riskAssessmentJSON,
+		&summary, &recommendation, &record.CreatedAt, &record.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("analysis not found for execution_id: %s", execID)
+		}
+		return nil, fmt.Errorf("failed to get cross-region analysis: %w", err)
+	}
+	
+	if biasVariance.Valid {
+		record.BiasVariance = &biasVariance.Float64
+	}
+	if censorshipRate.Valid {
+		record.CensorshipRate = &censorshipRate.Float64
+	}
+	if factualConsistency.Valid {
+		record.FactualConsistency = &factualConsistency.Float64
+	}
+	if narrativeDivergence.Valid {
+		record.NarrativeDivergence = &narrativeDivergence.Float64
+	}
+	if summary.Valid {
+		record.Summary = &summary.String
+	}
+	if recommendation.Valid {
+		record.Recommendation = &recommendation.String
+	}
+	
+	// Unmarshal JSON fields
+	if keyDifferencesJSON.Valid {
+		json.Unmarshal([]byte(keyDifferencesJSON.String), &record.KeyDifferences)
+	}
+	if riskAssessmentJSON.Valid {
+		json.Unmarshal([]byte(riskAssessmentJSON.String), &record.RiskAssessment)
+	}
+	
+	return &record, nil
+}

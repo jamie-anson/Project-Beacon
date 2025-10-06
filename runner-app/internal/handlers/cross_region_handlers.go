@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -347,7 +348,73 @@ func (h *CrossRegionHandlers) GetDiffAnalysis(c *gin.Context) {
 		return
 	}
 
+	// Save analysis to database
+	_, err = h.crossRegionRepo.CreateCrossRegionAnalysis(c.Request.Context(), executionID, analysis)
+	if err != nil {
+		// Log warning but don't fail the request - analysis can still be returned
+		// This allows the API to work even if DB persistence fails
+		c.Header("X-Warning", fmt.Sprintf("Failed to persist analysis: %v", err))
+	}
+
 	c.JSON(http.StatusOK, analysis)
+}
+
+// GetJobBiasAnalysis handles GET /api/v2/jobs/{jobId}/bias-analysis
+func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
+	jobID := c.Param("jobId")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Job ID is required",
+		})
+		return
+	}
+
+	// 1. Find cross_region_execution by jobspec_id
+	crossRegionExec, err := h.crossRegionRepo.GetByJobSpecID(c.Request.Context(), jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Job not found or analysis not available",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// 2. Get analysis record
+	analysis, err := h.crossRegionRepo.GetCrossRegionAnalysisByExecutionID(c.Request.Context(), crossRegionExec.ID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Bias analysis not found for this job",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// 3. Get region results for per-region scores
+	regionResults, err := h.crossRegionRepo.GetRegionResults(c.Request.Context(), crossRegionExec.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch region results",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// 4. Build region scores map
+	regionScores := make(map[string]interface{})
+	for _, result := range regionResults {
+		if result.Scoring != nil {
+			regionScores[result.Region] = result.Scoring
+		}
+	}
+
+	// 5. Return combined response
+	c.JSON(http.StatusOK, gin.H{
+		"job_id":                   jobID,
+		"cross_region_execution_id": crossRegionExec.ID,
+		"analysis":                 analysis,
+		"region_scores":            regionScores,
+		"created_at":               analysis.CreatedAt,
+	})
 }
 
 // GetRegionResult handles GET /api/v1/executions/{id}/regions/{region}

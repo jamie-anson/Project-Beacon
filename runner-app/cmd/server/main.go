@@ -98,6 +98,12 @@ func main() {
 		api.GET("/executions/cross-region", crossRegionHandlers.ListCrossRegionExecutions)
 	}
 
+	// V2 API endpoints - Bias Detection Results
+	apiV2 := r.Group("/api/v2")
+	{
+		apiV2.GET("/jobs/:jobId/bias-analysis", crossRegionHandlers.GetJobBiasAnalysis)
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8091"
