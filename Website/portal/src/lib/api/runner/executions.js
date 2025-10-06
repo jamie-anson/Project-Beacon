@@ -56,3 +56,31 @@ export function getBiasAnalysis(jobId) {
     return res.json();
   });
 }
+
+/**
+ * Retry a single failed question for a specific execution and region
+ * @param {string} executionId - The execution ID
+ * @param {string} region - The region name (e.g., "United States", "Europe")
+ * @param {number} questionIndex - The zero-based question index
+ * @returns {Promise<Object>} Updated execution data with retry result
+ */
+export function retryQuestion(executionId, region, questionIndex) {
+  return runnerFetch(`/executions/${encodeURIComponent(executionId)}/retry-question`, {
+    method: 'POST',
+    body: JSON.stringify({
+      region,
+      question_index: questionIndex
+    })
+  });
+}
+
+/**
+ * Retry all failed questions for a given execution
+ * @param {string} executionId - The execution ID
+ * @returns {Promise<Object>} Batch retry results
+ */
+export function retryAllFailed(executionId) {
+  return runnerFetch(`/executions/${encodeURIComponent(executionId)}/retry-all-failed`, {
+    method: 'POST'
+  });
+}

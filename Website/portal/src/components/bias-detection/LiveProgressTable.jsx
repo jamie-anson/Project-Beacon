@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { retryQuestion } from '../../lib/api/runner/executions';
+import { showToast } from '../Toasts';
 // Force rebuild to clear cache issues
 
 export default function LiveProgressTable({ 
@@ -16,6 +19,9 @@ export default function LiveProgressTable({
   
   // State for countdown timer (triggers re-render every second)
   const [tick, setTick] = useState(0);
+  
+  // State for retry operations
+  const [retryingQuestions, setRetryingQuestions] = useState(new Set());
   
   // State to track when we first saw this job (for countdown)
   const [jobStartTime, setJobStartTime] = useState(null);
@@ -76,6 +82,46 @@ export default function LiveProgressTable({
       const day = Math.floor(hr / 24);
       return `${day}d ago`;
     } catch { return String(ts); }
+  };
+  
+  // Check if a question execution failed
+  const isQuestionFailed = (exec) => {
+    if (!exec) return false;
+    const status = (exec.status || exec.state || '').toLowerCase();
+    return status === 'failed' || status === 'timeout' || status === 'error' || exec.error || exec.failure_reason;
+  };
+  
+  // Handle retry for a specific question
+  const handleRetryQuestion = async (executionId, region, questionIndex) => {
+    const retryKey = `${executionId}-${region}-${questionIndex}`;
+    
+    // Prevent duplicate retries
+    if (retryingQuestions.has(retryKey)) return;
+    
+    setRetryingQuestions(prev => new Set(prev).add(retryKey));
+    
+    try {
+      await retryQuestion(executionId, region, questionIndex);
+      
+      showToast('Question retry queued successfully', 'success');
+      
+      // Refetch active job to get updated status
+      if (refetchActive) {
+        setTimeout(() => refetchActive(), 2000);
+      }
+    } catch (error) {
+      console.error('Retry failed:', error);
+      showToast(
+        error.message || 'Failed to retry question. Please try again.',
+        'error'
+      );
+    } finally {
+      setRetryingQuestions(prev => {
+        const next = new Set(prev);
+        next.delete(retryKey);
+        return next;
+      });
+    }
   };
 
   // Normalize exec region into one of US/EU/ASIA to match table rows
@@ -406,9 +452,16 @@ function normalizeRegion(r) {
             )}
           </div>
           <div className="flex items-center justify-between text-xs mt-1">
-            <span className="text-gray-400">
-              {hasQuestions ? `${specQuestions.length || displayQuestions.length} questions × ${specModels.length || uniqueModels.length} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
-            </span>
+            {!overallCompleted && !overallFailed ? (
+              <div className="flex items-center gap-2 text-gray-400">
+                <Loader2 className="h-3 w-3 animate-spin text-green-400" />
+                <span>Processing...</span>
+              </div>
+            ) : (
+              <span className="text-gray-400">
+                {hasQuestions ? `${specQuestions.length || displayQuestions.length} questions × ${specModels.length || uniqueModels.length} models × ${selectedRegions.length} regions` : `${selectedRegions.length} regions`}
+              </span>
+            )}
             <span className="text-gray-400 font-medium">{completed}/{total} executions</span>
           </div>
         </div>
@@ -765,14 +818,27 @@ function normalizeRegion(r) {
                                   {!classification && <span className="text-gray-500">—</span>}
                                 </div>
                                 
-                                {/* Link */}
+                                {/* Link/Retry */}
                                 <div>
-                                  <Link
-                                    to={`/portal/executions/${exec.id}`}
-                                    className="text-beacon-600 underline decoration-dotted hover:text-beacon-500"
-                                  >
-                                    View
-                                  </Link>
+                                  {isQuestionFailed(exec) ? (
+                                    <button
+                                      onClick={() => {
+                                        const questionIdx = uniqueQuestions.indexOf(questionId);
+                                        handleRetryQuestion(exec.id, mapRegionToDatabase(r), questionIdx);
+                                      }}
+                                      disabled={retryingQuestions.has(`${exec.id}-${mapRegionToDatabase(r)}-${uniqueQuestions.indexOf(questionId)}`)}
+                                      className="text-yellow-400 hover:text-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors underline decoration-dotted"
+                                    >
+                                      {retryingQuestions.has(`${exec.id}-${mapRegionToDatabase(r)}-${uniqueQuestions.indexOf(questionId)}`) ? 'Retrying...' : 'Retry'}
+                                    </button>
+                                  ) : (
+                                    <Link
+                                      to={`/portal/executions/${exec.id}`}
+                                      className="text-pink-400 hover:text-pink-300 underline decoration-dotted"
+                                    >
+                                      Answer
+                                    </Link>
+                                  )}
                                 </div>
                               </div>
                             );
