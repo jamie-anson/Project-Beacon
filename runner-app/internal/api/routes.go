@@ -1,12 +1,14 @@
 package api
 
 import (
+	"os"
 	"time"
 	
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
 	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
+	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
 	rbac "github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/redis/go-redis/v9"
@@ -43,6 +45,21 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			adminHandler = NewAdminHandlerWithJobsService(cfg, jobsService)
 		}
 		executionsHandler = NewExecutionsHandler(jobsService.ExecutionsRepo)
+		
+		// Initialize RetryService with hybrid client
+		if jobsService.ExecutionsRepo != nil && jobsService.ExecutionsRepo.DB != nil {
+			// Get hybrid router URL from environment (same as job_runner.go)
+			hybridRouterURL := os.Getenv("HYBRID_ROUTER_URL")
+			if hybridRouterURL == "" {
+				hybridRouterURL = os.Getenv("HYBRID_BASE")
+			}
+			if hybridRouterURL != "" {
+				hybridClient := hybrid.New(hybridRouterURL)
+				retryService := service.NewRetryService(jobsService.ExecutionsRepo.DB, hybridClient)
+				executionsHandler.RetryService = retryService
+			}
+		}
+		
 		crossRegionHandler = &CrossRegionHandler{ExecutionsRepo: jobsService.ExecutionsRepo}
 	} else {
 		// For testing with nil service
@@ -140,6 +157,8 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				executions.GET("/:id/regions", executionsHandler.GetRegionResults)
 				// NEW: Bias scoring endpoint
 				executions.GET("/:id/bias-score", executionsHandler.GetBiasScore)
+				// NEW: Retry failed questions endpoint
+				executions.POST("/:id/retry-question", executionsHandler.RetryQuestion)
 			}
 			// Job-scoped executions (includes rows without receipts)
 			v1.GET("/jobs/:id/executions/all", executionsHandler.ListAllExecutionsForJob)

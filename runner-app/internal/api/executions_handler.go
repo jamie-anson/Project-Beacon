@@ -1,21 +1,25 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 )
 
 // ExecutionsHandler handles execution-related API endpoints
 type ExecutionsHandler struct {
 	ExecutionsRepo *store.ExecutionsRepo
+	RetryService   *service.RetryService
 }
 
 // RegionExecution represents an execution result for a specific region
@@ -887,4 +891,181 @@ func (h *ExecutionsHandler) generateSummaryAndRecommendation(regionCount int, bi
 	}
 	
 	return summary, recommendation
+}
+
+// RetryQuestionRequest represents a request to retry a failed question
+type RetryQuestionRequest struct {
+	Region        string `json:"region" binding:"required"`
+	QuestionIndex int    `json:"question_index" binding:"required"`
+}
+
+// RetryQuestionResponse represents the response from a retry attempt
+type RetryQuestionResponse struct {
+	ExecutionID  string                 `json:"execution_id"`
+	Region       string                 `json:"region"`
+	QuestionIndex int                   `json:"question_index"`
+	Status       string                 `json:"status"`
+	RetryAttempt int                    `json:"retry_attempt"`
+	UpdatedAt    string                 `json:"updated_at"`
+	Result       map[string]interface{} `json:"result,omitempty"`
+	Error        string                 `json:"error,omitempty"`
+}
+
+// RetryQuestion retries a single failed question for a specific execution and region
+func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
+	ctx := c.Request.Context()
+	executionIDStr := c.Param("id")
+	
+	executionID, err := strconv.ParseInt(executionIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid execution ID",
+		})
+		return
+	}
+	
+	var req RetryQuestionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("Invalid request: %v", err),
+		})
+		return
+	}
+	
+	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Database connection not available",
+		})
+		return
+	}
+	
+	// Check if execution exists and get current retry count
+	var (
+		currentRetryCount int
+		maxRetries        int
+		currentStatus     string
+		jobID             int
+		jobSpecID         string
+		modelID           string
+		questionID        string
+	)
+	
+	err = h.ExecutionsRepo.DB.QueryRowContext(ctx, `
+		SELECT 
+			e.retry_count, 
+			e.max_retries, 
+			e.status,
+			e.job_id,
+			j.jobspec_id,
+			COALESCE(e.model_id, 'llama3.2-1b'),
+			COALESCE(e.question_id, '')
+		FROM executions e
+		JOIN jobs j ON e.job_id = j.id
+		WHERE e.id = $1 AND e.region = $2
+	`, executionID, req.Region).Scan(
+		&currentRetryCount,
+		&maxRetries,
+		&currentStatus,
+		&jobID,
+		&jobSpecID,
+		&modelID,
+		&questionID,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Execution not found for the specified region",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch execution details",
+		})
+		return
+	}
+	
+	// Check if execution is in a retryable state
+	if currentStatus != "failed" && currentStatus != "timeout" && currentStatus != "error" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("Execution is not in a retryable state (current status: %s)", currentStatus),
+		})
+		return
+	}
+	
+	// Check if max retries reached
+	if currentRetryCount >= maxRetries {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":          "Max retry attempts reached",
+			"retry_attempt":  currentRetryCount,
+			"max_attempts":   maxRetries,
+		})
+		return
+	}
+	
+	// Increment retry count and update retry history
+	newRetryCount := currentRetryCount + 1
+	retryHistoryEntry := map[string]interface{}{
+		"attempt":   newRetryCount,
+		"timestamp": time.Now().Format(time.RFC3339),
+		"status":    "retrying",
+	}
+	
+	// Update execution record with retry attempt
+	_, err = h.ExecutionsRepo.DB.ExecContext(ctx, `
+		UPDATE executions 
+		SET 
+			retry_count = $1,
+			last_retry_at = NOW(),
+			retry_history = retry_history || $2::jsonb,
+			status = 'retrying',
+			updated_at = NOW()
+		WHERE id = $3
+	`, newRetryCount, fmt.Sprintf("[%s]", mustMarshalJSON(retryHistoryEntry)), executionID)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update retry count",
+		})
+		return
+	}
+	
+	// Trigger actual re-execution of the question
+	if h.RetryService != nil {
+		// Run re-execution asynchronously to avoid blocking the HTTP response
+		go func() {
+			retryCtx := context.Background()
+			if err := h.RetryService.RetryQuestionExecution(retryCtx, executionID, req.Region, req.QuestionIndex); err != nil {
+				// Log error but don't fail the HTTP response
+				// The execution status will be updated in the database
+				log.Printf("[RETRY] Retry execution failed for execution %d: %v", executionID, err)
+			}
+		}()
+	} else {
+		log.Printf("[RETRY] Warning: RetryService is nil, cannot execute retry for execution %d", executionID)
+	}
+	
+	c.JSON(http.StatusOK, RetryQuestionResponse{
+		ExecutionID:   fmt.Sprintf("%d", executionID),
+		Region:        req.Region,
+		QuestionIndex: req.QuestionIndex,
+		Status:        "retrying",
+		RetryAttempt:  newRetryCount,
+		UpdatedAt:     time.Now().Format(time.RFC3339),
+		Result: map[string]interface{}{
+			"message": "Retry queued successfully",
+			"job_id":  jobSpecID,
+			"model_id": modelID,
+			"question_id": questionID,
+		},
+	})
+}
+
+// mustMarshalJSON marshals data to JSON, panicking on error (for internal use)
+func mustMarshalJSON(v interface{}) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal JSON: %v", err))
+	}
+	return string(data)
 }
