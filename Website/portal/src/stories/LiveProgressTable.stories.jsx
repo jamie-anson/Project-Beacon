@@ -183,6 +183,78 @@ export const CompletedJobMissingExecutions = {
   }
 };
 
+// Multi-Question Job - Shows question-level progress tracking
+export const MultiQuestionJob = {
+  args: {
+    activeJob: {
+      id: 'bias-detection-multi-q-1759080000',
+      status: 'processing',
+      job: {
+        questions: ['q1', 'q2', 'q3'],
+        models: [
+          { id: 'llama3.2-1b', regions: ['US', 'EU'] }
+        ]
+      },
+      executions: [
+        // US - Mixed progress across questions
+        {
+          id: 'exec-us-q1',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          response_classification: 'substantive',
+          is_substantive: true
+        },
+        {
+          id: 'exec-us-q2',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'running',
+          started_at: new Date(Date.now() - 2 * 60 * 1000).toISOString()
+        },
+        {
+          id: 'exec-us-q3',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q3',
+          status: 'failed',
+          started_at: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
+          error: 'Timeout'
+        },
+        // EU - Some completed, some with refusals
+        {
+          id: 'exec-eu-q1',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+          response_classification: 'content_refusal',
+          is_content_refusal: true
+        },
+        {
+          id: 'exec-eu-q2',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'completed',
+          started_at: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        }
+      ]
+    },
+    selectedRegions: ['US', 'EU'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'bias-detection-multi-q-1759080000',
+    isCompleted: false,
+    diffReady: false
+  }
+};
+
 // Multi-Model Job - Shows multiple models per region with mixed success/failure
 export const MultiModelJob = {
   args: {
@@ -283,5 +355,182 @@ export const MultiModelJob = {
     activeJobId: 'bias-detection-1759076809505',
     isCompleted: true,
     diffReady: true
+  }
+};
+
+// Loading State - Shows refreshing status
+export const LoadingState = {
+  args: {
+    activeJob: mockJob,
+    selectedRegions: ['US', 'EU'],
+    loadingActive: true, // Shows refreshing status
+    refetchActive: () => {},
+    activeJobId: mockJob.id,
+    isCompleted: false,
+    diffReady: false
+  }
+};
+
+// Completed Job - All regions successful
+export const CompletedJob = {
+  args: {
+    activeJob: {
+      id: 'bias-detection-completed-1759090000',
+      status: 'completed',
+      job: {
+        questions: ['q1', 'q2'],
+        models: [
+          { id: 'llama3.2-1b', regions: ['US', 'EU'] }
+        ]
+      },
+      executions: [
+        {
+          id: 'exec-us-q1-complete',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        },
+        {
+          id: 'exec-us-q2-complete',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'completed',
+          started_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        },
+        {
+          id: 'exec-eu-q1-complete',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        },
+        {
+          id: 'exec-eu-q2-complete',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'completed',
+          started_at: new Date(Date.now() - 7 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        }
+      ]
+    },
+    selectedRegions: ['US', 'EU'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'bias-detection-completed-1759090000',
+    isCompleted: true,
+    diffReady: true
+  }
+};
+
+// Job with Refusals - Shows content refusal badges
+export const JobWithRefusals = {
+  args: {
+    activeJob: {
+      id: 'bias-detection-refusals-1759091000',
+      status: 'completed',
+      job: {
+        questions: ['q1', 'q2', 'q3'],
+        models: [
+          { id: 'llama3.2-1b', regions: ['US', 'EU'] }
+        ]
+      },
+      executions: [
+        {
+          id: 'exec-us-q1-refusal',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          response_classification: 'content_refusal',
+          is_content_refusal: true
+        },
+        {
+          id: 'exec-us-q2-refusal',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'completed',
+          started_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+          response_classification: 'content_refusal',
+          is_content_refusal: true
+        },
+        {
+          id: 'exec-us-q3-substantive',
+          region: 'us-east',
+          model_id: 'llama3.2-1b',
+          question_id: 'q3',
+          status: 'completed',
+          started_at: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        },
+        {
+          id: 'exec-eu-q1-refusal',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q1',
+          status: 'completed',
+          started_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          response_classification: 'content_refusal',
+          is_content_refusal: true
+        },
+        {
+          id: 'exec-eu-q2-substantive',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q2',
+          status: 'completed',
+          started_at: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        },
+        {
+          id: 'exec-eu-q3-substantive',
+          region: 'eu-west',
+          model_id: 'llama3.2-1b',
+          question_id: 'q3',
+          status: 'completed',
+          started_at: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+          response_classification: 'substantive'
+        }
+      ]
+    },
+    selectedRegions: ['US', 'EU'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'bias-detection-refusals-1759091000',
+    isCompleted: true,
+    diffReady: true
+  }
+};
+
+// Empty Job - No executions yet
+export const EmptyJob = {
+  args: {
+    activeJob: {
+      id: 'bias-detection-empty-1759092000',
+      status: 'queued',
+      job: {
+        questions: ['q1'],
+        models: [
+          { id: 'llama3.2-1b', regions: ['US', 'EU'] }
+        ]
+      },
+      executions: []
+    },
+    selectedRegions: ['US', 'EU'],
+    loadingActive: false,
+    refetchActive: () => {},
+    activeJobId: 'bias-detection-empty-1759092000',
+    isCompleted: false,
+    diffReady: false
   }
 };

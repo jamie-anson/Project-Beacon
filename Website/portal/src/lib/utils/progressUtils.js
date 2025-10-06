@@ -1,0 +1,182 @@
+/**
+ * Progress Utilities
+ * Pure functions for progress calculation and tracking
+ */
+
+/**
+ * Calculate expected total executions
+ * @param {Object} job - The job object
+ * @param {Array} selectedRegions - Array of selected region codes
+ * @returns {number} Expected total executions
+ */
+export function calculateExpectedTotal(job, selectedRegions = []) {
+  const jobSpec = job?.job || job;
+  const specQuestions = jobSpec?.questions || [];
+  const specModels = jobSpec?.models || [];
+  
+  let expectedTotal = 0;
+  
+  if (specQuestions.length > 0 && specModels.length > 0) {
+    // Questions × Models × Selected Regions
+    expectedTotal = specQuestions.length * specModels.length * selectedRegions.length;
+  } else if (specModels.length > 0) {
+    // No questions, just Models × Selected Regions
+    expectedTotal = specModels.length * selectedRegions.length;
+  } else {
+    // Fallback to selected regions
+    expectedTotal = selectedRegions.length;
+  }
+  
+  return expectedTotal;
+}
+
+/**
+ * Calculate progress metrics from executions
+ * @param {Array} executions - Array of execution objects
+ * @param {number} total - Total expected executions
+ * @returns {Object} Progress metrics
+ */
+export function calculateProgress(executions = [], total = 0) {
+  const completed = executions.filter((e) => (e?.status || e?.state) === 'completed').length;
+  const running = executions.filter((e) => (e?.status || e?.state) === 'running').length;
+  const failed = executions.filter((e) => (e?.status || e?.state) === 'failed').length;
+  const pending = Math.max(0, total - completed - running - failed);
+  const percentage = Math.round((completed / Math.max(total, 1)) * 100);
+  
+  return {
+    completed,
+    running,
+    failed,
+    pending,
+    percentage,
+    total
+  };
+}
+
+/**
+ * Calculate time remaining for job (10 minute countdown)
+ * @param {Object} jobStartTime - Object with jobId and startTime
+ * @param {number} tick - Current tick for re-calculation
+ * @param {boolean} jobCompleted - Whether job is completed
+ * @param {boolean} jobFailed - Whether job failed
+ * @returns {string|null} Formatted time remaining or null
+ */
+export function calculateTimeRemaining(jobStartTime, tick, jobCompleted, jobFailed) {
+  // Early exit if job is not active
+  if (jobCompleted || jobFailed) return null;
+  
+  // Need start time to calculate countdown
+  if (!jobStartTime) return null;
+  
+  const estimatedDuration = 10 * 60; // 10 minutes in seconds
+  const now = Date.now();
+  const elapsedMs = now - jobStartTime.startTime;
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  
+  // Calculate remaining time (ensure non-negative)
+  const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
+  
+  // Stop showing countdown when time expires
+  if (remainingSeconds <= 0) return null;
+  
+  const remainingMinutes = Math.floor(remainingSeconds / 60);
+  const remainingSecsDisplay = remainingSeconds % 60;
+  
+  return `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Calculate job age in minutes
+ * @param {Object} jobStartTime - Object with jobId and startTime
+ * @returns {number} Job age in minutes
+ */
+export function calculateJobAge(jobStartTime) {
+  if (!jobStartTime) return 0;
+  return (Date.now() - jobStartTime.startTime) / 1000 / 60;
+}
+
+/**
+ * Check if job is stuck (timeout)
+ * @param {number} jobAge - Job age in minutes
+ * @param {Array} executions - Array of execution objects
+ * @param {boolean} jobCompleted - Whether job is completed
+ * @param {boolean} jobFailed - Whether job failed
+ * @returns {boolean} True if job is stuck
+ */
+export function isJobStuck(jobAge, executions = [], jobCompleted, jobFailed) {
+  return jobAge > 15 && executions.length === 0 && !jobCompleted && !jobFailed;
+}
+
+/**
+ * Get unique models from executions
+ * @param {Array} executions - Array of execution objects
+ * @returns {Array} Array of unique model IDs
+ */
+export function getUniqueModels(executions = []) {
+  return [...new Set(executions.map(e => e.model_id).filter(Boolean))];
+}
+
+/**
+ * Get unique questions from executions
+ * @param {Array} executions - Array of execution objects
+ * @returns {Array} Array of unique question IDs
+ */
+export function getUniqueQuestions(executions = []) {
+  return [...new Set(executions.map(e => e.question_id).filter(Boolean))];
+}
+
+/**
+ * Calculate per-question progress
+ * @param {string} questionId - The question ID
+ * @param {Array} executions - Array of execution objects
+ * @param {Array} specModels - Array of model specs
+ * @param {Array} selectedRegions - Array of selected regions
+ * @param {Array} uniqueModels - Array of unique model IDs
+ * @returns {Object} Question progress metrics
+ */
+export function calculateQuestionProgress(questionId, executions, specModels, selectedRegions, uniqueModels) {
+  const questionExecs = executions.filter(e => e.question_id === questionId);
+  const qCompleted = questionExecs.filter(e => e.status === 'completed').length;
+  const qTotal = questionExecs.length;
+  
+  // Calculate expected per question from spec
+  let qExpected = 0;
+  if (specModels.length > 0) {
+    for (const model of specModels) {
+      qExpected += (model.regions || []).length;
+    }
+  } else {
+    qExpected = selectedRegions.length * (uniqueModels.length || 1);
+  }
+  
+  const qRefused = questionExecs.filter(e => 
+    e.response_classification === 'content_refusal' || e.is_content_refusal
+  ).length;
+  
+  return {
+    completed: qCompleted,
+    total: qTotal,
+    expected: qExpected,
+    refused: qRefused
+  };
+}
+
+/**
+ * Calculate region progress for multi-model jobs
+ * @param {Array} regionExecs - Executions for this region
+ * @returns {Object} Region progress metrics
+ */
+export function calculateRegionProgress(regionExecs = []) {
+  const completedCount = regionExecs.filter(ex => ex?.status === 'completed').length;
+  const failedCount = regionExecs.filter(ex => ex?.status === 'failed').length;
+  const runningCount = regionExecs.filter(ex => ex?.status === 'running').length;
+  const totalModels = regionExecs.length;
+  
+  return {
+    completed: completedCount,
+    failed: failedCount,
+    running: runningCount,
+    total: totalModels,
+    percentage: totalModels > 0 ? Math.round((completedCount / totalModels) * 100) : 0
+  };
+}
