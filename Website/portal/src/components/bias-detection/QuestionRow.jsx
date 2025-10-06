@@ -31,7 +31,7 @@ const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedReg
   
   const handleDetectBias = () => {
     if (diffsEnabled) {
-      navigate(`/results/${jobId}/diffs?question=${questionId}`);
+      navigate(`/bias-detection/${jobId}`);
     }
   };
   
