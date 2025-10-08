@@ -89,7 +89,16 @@ export function getJob({ id, include, exec_limit, exec_offset }) {
   if (exec_limit != null) params.set('exec_limit', String(exec_limit));
   if (exec_offset != null) params.set('exec_offset', String(exec_offset));
   const qs = params.toString();
-  return runnerFetch(`/jobs/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`);
+  const url = `/jobs/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
+  
+  console.log('[getJob] Fetching:', url);
+  
+  return runnerFetch(url).then(response => {
+    console.log('[getJob] Response:', response);
+    console.log('[getJob] Has executions?', 'executions' in response);
+    console.log('[getJob] Executions value:', response.executions);
+    return response;
+  });
 }
 
 export function listJobs({ limit = 50 } = {}) {
