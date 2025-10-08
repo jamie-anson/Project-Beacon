@@ -1,0 +1,155 @@
+[
+  {
+    "id": "ops-0010",
+    "action": "add",
+    "type": "deployment",
+    "subject": "runner_migration",
+    "env": "prod",
+    "data": {
+      "date": "2025-10-08",
+      "old_app": "beacon-runner-change-me",
+      "new_app": "beacon-runner-production",
+      "new_url": "https://beacon-runner-production.fly.dev",
+      "reason": "Fresh deployment to fix port configuration and CORS issues",
+      "status": "completed"
+    },
+    "effective_at": "2025-10-08T12:00:00+01:00",
+    "notes": "Migrated Runner from beacon-runner-change-me to beacon-runner-production with proper port configuration"
+  },
+  {
+    "id": "bug-0010",
+    "action": "add",
+    "type": "bug_fix",
+    "subject": "port_configuration",
+    "env": "prod",
+    "data": {
+      "issue": "App listening on port 8091 instead of 8090",
+      "root_cause": "fly.toml set HTTP_PORT but app reads PORT env var",
+      "fix": "Changed fly.production.toml to set PORT=8090",
+      "file": "runner-app/fly.production.toml"
+    },
+    "effective_at": "2025-10-08T11:10:00+01:00",
+    "notes": "Fixed port mismatch causing 502 errors"
+  },
+  {
+    "id": "bug-0011",
+    "action": "add",
+    "type": "bug_fix",
+    "subject": "dockerfile_binary",
+    "env": "prod",
+    "data": {
+      "issue": "Dockerfile building cmd/server instead of cmd/runner",
+      "root_cause": "Wrong binary deployed - missing /questions and other endpoints",
+      "fix": "Changed Dockerfile line 16 to build ./cmd/runner",
+      "file": "runner-app/Dockerfile"
+    },
+    "effective_at": "2025-10-08T12:15:00+01:00",
+    "notes": "Fixed missing /api/v1/questions endpoint"
+  },
+  {
+    "id": "bug-0012",
+    "action": "add",
+    "type": "bug_fix",
+    "subject": "bias_analysis_endpoint",
+    "env": "prod",
+    "data": {
+      "issue": "404 on /api/v2/jobs/:jobId/bias-analysis",
+      "root_cause": "Endpoint only existed in cmd/server, not cmd/runner",
+      "fix": "Added V2 API group and bias-analysis endpoint to internal/api/routes.go",
+      "file": "runner-app/internal/api/routes.go"
+    },
+    "effective_at": "2025-10-08T12:45:00+01:00",
+    "notes": "Fixed Bias Detection results page 404 error"
+  },
+  {
+    "id": "sec-0005",
+    "action": "add",
+    "type": "security",
+    "subject": "admin_token",
+    "env": "prod",
+    "data": {
+      "token_hash": "fef3eab741631182dc97579b8b44b422fcd26470c46c38e0cfe65e2fbac9ec1f",
+      "env_var": "ADMIN_TOKENS",
+      "usage": "Admin API authentication"
+    },
+    "effective_at": "2025-10-08T11:50:00+01:00",
+    "notes": "New admin token generated for production Runner"
+  },
+  {
+    "id": "srv-0001-update",
+    "action": "update",
+    "type": "server",
+    "subject": "runner",
+    "env": "prod",
+    "data": {
+      "name": "fly-runner-production",
+      "url": "https://beacon-runner-production.fly.dev",
+      "provider": "fly.io",
+      "region": "lhr",
+      "app_name": "beacon-runner-production",
+      "previous_url": "https://beacon-runner-change-me.fly.dev",
+      "previous_app": "beacon-runner-change-me (destroyed)"
+    },
+    "effective_at": "2025-10-08T12:00:00+01:00",
+    "notes": "Updated Runner URL to new production deployment"
+  },
+  {
+    "id": "api-0010",
+    "action": "add",
+    "type": "api_endpoint",
+    "subject": "bias_analysis",
+    "env": "prod",
+    "data": {
+      "endpoint": "/api/v2/jobs/:jobId/bias-analysis",
+      "method": "GET",
+      "handler": "handlers.CrossRegionHandlers.GetJobBiasAnalysis",
+      "purpose": "Portal Bias Detection results page"
+    },
+    "effective_at": "2025-10-08T12:45:00+01:00",
+    "notes": "Added missing V2 API endpoint for bias analysis"
+  },
+  {
+    "id": "cfg-0005",
+    "action": "add",
+    "type": "configuration",
+    "subject": "secrets_migrated",
+    "env": "prod",
+    "data": {
+      "secrets": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "ADMIN_TOKENS",
+        "TRUSTED_KEYS_JSON",
+        "STORACHA_TOKEN",
+        "HYBRID_BASE",
+        "OPENAI_API_KEY"
+      ],
+      "migration_date": "2025-10-08",
+      "from_app": "beacon-runner-change-me",
+      "to_app": "beacon-runner-production"
+    },
+    "effective_at": "2025-10-08T11:30:00+01:00",
+    "notes": "All production secrets migrated to new Runner app"
+  },
+  {
+    "id": "ref-0001",
+    "action": "add",
+    "type": "refactor",
+    "subject": "url_references",
+    "env": "all",
+    "data": {
+      "files_updated": 70,
+      "old_url": "beacon-runner-change-me.fly.dev",
+      "new_url": "beacon-runner-production.fly.dev",
+      "affected_areas": [
+        "portal configuration",
+        "test scripts",
+        "GitHub Actions workflows",
+        "documentation",
+        "Storybook stories"
+      ]
+    },
+    "effective_at": "2025-10-08T12:05:00+01:00",
+    "notes": "Updated all Runner URL references across codebase"
+  }
+]
