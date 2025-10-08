@@ -201,49 +201,27 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	if v.Kind() != reflect.Struct {
-		// Fallback to previous behavior, but still deterministic by re-marshaling into a generic struct-like map
-		// Note: callers should pass a struct pointer for deterministic signing.
-		var m map[string]interface{}
-		b, err := json.Marshal(jobspec)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal jobspec: %w", err)
-		}
-		if err := json.Unmarshal(b, &m); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal jobspec: %w", err)
-		}
-		delete(m, "signature")
-		delete(m, "public_key")
-		delete(m, "id")  // Remove ID for portal compatibility
-		delete(m, "created_at")  // Remove created_at - timestamp formatting may differ
-		
-		// Debug logging
-		canonicalBytes, _ := json.Marshal(m)
-		fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
-		fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
-		
-		return m, nil
+	// Always use map-based approach for consistent canonicalization
+	// This ensures we only include fields that are actually present in the JSON
+	var m map[string]interface{}
+	b, err := json.Marshal(jobspec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal jobspec: %w", err)
 	}
-	t := v.Type()
-	copy := reflect.New(t).Elem()
-	copy.Set(v)
-	// Zero fields named "Signature", "PublicKey", "ID", and "CreatedAt" if they exist
-	// These fields are excluded because:
-	// - ID: Portal signs without ID, server may auto-generate
-	// - CreatedAt: Timestamp formatting may differ between portal and server
-	if f := copy.FieldByName("Signature"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
-		f.SetString("")
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal jobspec: %w", err)
 	}
-	if f := copy.FieldByName("PublicKey"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
-		f.SetString("")
-	}
-	if f := copy.FieldByName("ID"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
-		f.SetString("")
-	}
-	if f := copy.FieldByName("CreatedAt"); f.IsValid() && f.CanSet() {
-		f.Set(reflect.Zero(f.Type()))
-	}
-	return copy.Interface(), nil
+	delete(m, "signature")
+	delete(m, "public_key")
+	delete(m, "id")  // Remove ID for portal compatibility
+	delete(m, "created_at")  // Remove created_at - timestamp formatting may differ
+	
+	// Debug logging
+	canonicalBytes, _ := json.Marshal(m)
+	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
+	fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
+	
+	return m, nil
 }
 
 // CreateSignableReceipt creates a signable version of Receipt (without signature/public_key)
