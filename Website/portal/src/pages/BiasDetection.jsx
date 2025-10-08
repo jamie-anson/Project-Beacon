@@ -111,7 +111,13 @@ export default function BiasDetection() {
     activeJob,
     loadingActive,
     activeErr,
-    executionsCount: activeJob?.executions?.length
+    executionsCount: activeJob?.executions?.length,
+    // Deep inspection of job structure
+    jobKeys: activeJob ? Object.keys(activeJob) : [],
+    hasExecutionsField: activeJob ? 'executions' in activeJob : false,
+    executionsValue: activeJob?.executions,
+    jobStatus: activeJob?.status,
+    jobCreatedAt: activeJob?.created_at
   });
 
   // Memoize the polling interval to prevent infinite loops
