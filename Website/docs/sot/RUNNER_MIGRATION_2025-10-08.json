@@ -151,5 +151,21 @@
     },
     "effective_at": "2025-10-08T12:05:00+01:00",
     "notes": "Updated all Runner URL references across codebase"
+  },
+  {
+    "id": "ops-0011",
+    "action": "add",
+    "type": "optimization",
+    "subject": "machine_scaling",
+    "env": "prod",
+    "data": {
+      "action": "scaled down from 2 to 1 machine",
+      "remaining_machine": "857509c4e7d578",
+      "destroyed_machine": "d8d3747b2d2668",
+      "reason": "Cost optimization - single machine sufficient for MVP traffic",
+      "cost_savings": "~50%"
+    },
+    "effective_at": "2025-10-08T13:51:00+01:00",
+    "notes": "Reduced to 1 machine for cost efficiency. Can scale back up with: flyctl scale count 2"
   }
 ]
