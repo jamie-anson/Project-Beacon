@@ -58,16 +58,8 @@ function Layout({ children }) {
                 )}
               </svg>
             </button>
-            {/* Desktop status and settings */}
+            {/* Desktop settings */}
             <div className="hidden md:flex items-center gap-2 text-xs">
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${connected ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}
-                aria-label="Live updates connection status"
-                title={wsError ? `WebSocket error: ${wsError.message || String(wsError)}${retries ? ` • retries: ${retries}, next: ${Math.round(nextDelayMs/1000)}s` : ''}` : 'Live updates use a real-time connection to the Runner'}
-              >
-                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                {connected ? 'Live updates: Online' : (wsError ? 'Live updates: Error' : 'Live updates: Offline')}
-              </span>
               <NavLink to="/settings" className={({isActive}) => isActive ? 'text-orange-300' : 'text-gray-400 hover:text-white'} title="Settings">Settings</NavLink>
             </div>
           </div>
