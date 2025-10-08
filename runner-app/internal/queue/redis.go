@@ -164,7 +164,8 @@ func (c *Client) StartWorker(ctx context.Context, queueName string, handler func
 		
 		if message == nil {
 			// Also attempt a non-blocking simple dequeue to pick up raw envelopes
-			if payload, _ := c.tryDequeueSimpleOnce(ctx, queueName, 200*time.Millisecond); payload != nil {
+			// Use 1s minimum as required by Redis
+			if payload, _ := c.tryDequeueSimpleOnce(ctx, queueName, 1*time.Second); payload != nil {
 				if hErr := handler(payload); hErr != nil {
 					log.Printf("queue handler error (fallback simple no-msg): %v", hErr)
 				}
