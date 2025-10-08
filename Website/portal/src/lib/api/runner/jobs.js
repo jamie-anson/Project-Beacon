@@ -94,9 +94,20 @@ export function getJob({ id, include, exec_limit, exec_offset }) {
   console.log('[getJob] Fetching:', url);
   
   return runnerFetch(url).then(response => {
-    console.log('[getJob] Response:', response);
-    console.log('[getJob] Has executions?', 'executions' in response);
-    console.log('[getJob] Executions value:', response.executions);
+    console.log('[getJob] Raw API response:', response);
+    
+    // API returns {job: {...}, executions: [...], status: "..."}
+    // We need to flatten this to {id, status, executions, ...jobFields}
+    if (response && response.job) {
+      const flattened = {
+        ...response.job,
+        executions: response.executions || [],
+        status: response.status || response.job.status
+      };
+      console.log('[getJob] Flattened response:', flattened);
+      return flattened;
+    }
+    
     return response;
   });
 }
