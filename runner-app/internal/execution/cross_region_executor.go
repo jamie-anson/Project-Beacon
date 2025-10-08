@@ -186,6 +186,12 @@ func (cre *CrossRegionExecutor) ExecuteAcrossRegions(ctx context.Context, jobSpe
 func (cre *CrossRegionExecutor) createExecutionPlans(ctx context.Context, jobSpec *models.JobSpec) ([]RegionExecutionPlan, error) {
 	var plans []RegionExecutionPlan
 
+	// Check if hybrid router is initialized
+	if cre.hybridRouter == nil {
+		// Hybrid router not initialized - return error with clear message
+		return nil, fmt.Errorf("hybrid router not initialized - cross-region execution not available")
+	}
+
 	// Get available providers from hybrid router
 	providers, err := cre.hybridRouter.GetProviders(ctx)
 	if err != nil {
