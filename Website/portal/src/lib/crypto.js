@@ -37,7 +37,7 @@ export function exportPublicKey(publicKey) {
 }
 
 /**
- * Create signable JobSpec (removes signature and public_key fields)
+ * Create signable JobSpec (removes signature, public_key, and id fields)
  * @param {Object} jobSpec 
  * @returns {Object}
  */
@@ -45,6 +45,7 @@ export function createSignableJobSpec(jobSpec) {
   const signable = { ...jobSpec };
   delete signable.signature;
   delete signable.public_key;
+  delete signable.id;  // Remove ID to match server's signature verification expectations
   return signable;
 }
 
