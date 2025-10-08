@@ -11,9 +11,12 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
 	"github.com/jamie-anson/project-beacon-runner/internal/health"
+	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
 	"github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 )
 
 func corsMiddleware() gin.HandlerFunc {
@@ -59,8 +62,25 @@ func main() {
 	}
 	diffEngine := analysis.NewCrossRegionDiffEngine()
 	
-	// TODO: Initialize CrossRegionExecutor with proper hybrid router and single region executor
-	crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
+	// Initialize hybrid router client
+	hybridRouterURL := os.Getenv("HYBRID_ROUTER_URL")
+	if hybridRouterURL == "" {
+		hybridRouterURL = "https://project-beacon-production.up.railway.app"
+	}
+	hybridClient := hybrid.New(hybridRouterURL)
+	
+	// Initialize logger adapter for cross-region executor
+	zerologger := zlog.Logger
+	logger := execution.NewZerologAdapter(&zerologger)
+	
+	// Initialize single region executor
+	singleRegionExecutor := execution.NewHybridSingleRegionExecutor(hybridClient, logger)
+	
+	// Initialize hybrid router adapter
+	hybridRouterAdapter := execution.NewHybridRouterAdapter(hybridClient)
+	
+	// Initialize cross-region executor with real dependencies
+	crossRegionExecutor := execution.NewCrossRegionExecutor(singleRegionExecutor, hybridRouterAdapter, logger)
 	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
 
 	// Health and admin endpoints

@@ -129,23 +129,105 @@
 
 ---
 
+### Option 5: Temporary Adapter Layer ⚡ QUICK WIN
+**Add middleware to convert standard jobs to cross-region format**
+
+**Pros:**
+- No portal changes needed immediately
+- Fixes issue for all new jobs
+- Buys time for proper portal migration
+- Can be removed later
+
+**Cons:**
+- Technical debt
+- Server-side transformation overhead
+- Doesn't fix historical data
+
+**Implementation:**
+1. Add post-processing hook in standard job handler
+2. Detect multi-region jobs (regions.length > 1)
+3. Automatically create cross_region_executions entry
+4. Run in parallel with standard workflow
+
+**Code Location:** `internal/api/handlers_jobs.go` after job creation
+
+---
+
+## Risk Assessment
+
+### High Risk
+- **Signature rejection**: Cross-region endpoint may reject portal signatures
+- **Data loss**: If backfill fails, historical jobs permanently broken
+- **Breaking change**: Portal change affects all users immediately
+
+### Medium Risk  
+- **Performance**: Cross-region endpoint may be slower
+- **Validation differences**: Cross-region may have stricter validation
+- **Field incompatibilities**: Questions/models arrays may not be supported
+
+### Low Risk
+- **Database impact**: Cross-region creates more rows per job
+- **Monitoring gaps**: May need new alerts for cross-region failures
+
+### Mitigation
+- Test thoroughly with signed payloads before deployment
+- Deploy during low-traffic window
+- Keep standard endpoint as emergency fallback
+- Add feature flag to toggle between endpoints
+
+---
+
 ## Recommended Approach: Option 1
 
 **Use the cross-region endpoint** - it's the cleanest solution that uses existing, tested infrastructure.
 
 ### Implementation Steps
 
-#### Phase 1: Investigate Current Endpoint ✅
-- [x] Confirm `/api/v1/jobs/cross-region` exists
+#### Phase 1: Deep Investigation ✅
+- [x] Confirm `/api/v1/jobs/cross-region` exists in code
 - [x] Review expected request format
 - [x] Compare with portal's current payload
-- [ ] Test endpoint manually with portal-like payload
+- [x] **Test endpoint availability** - ⚠️ **CRITICAL FINDING**
+- [ ] **Test with portal's Ed25519 signing keys**
+- [ ] **Verify questions + models arrays are supported**
+- [ ] **Check response format matches portal expectations**
+- [ ] **Test error responses (400, 401, 403)**
+- [ ] **Measure endpoint latency vs standard endpoint**
+- [ ] **Review handler code for side effects**
+
+**⚠️ CRITICAL DISCOVERY:**
+The production runner (`beacon-runner-production.fly.dev`) is running `cmd/runner/main.go`, which does NOT include the cross-region handlers. The cross-region endpoint exists in `cmd/server/main.go` but is not deployed.
+
+**✅ SOLUTION IMPLEMENTED:**
+Added cross-region endpoint to production runner by modifying `internal/api/routes.go`:
+- Line 107-109: Added `jobs.POST("/cross-region", biasAnalysisHandler.SubmitCrossRegionJob)`
+- Endpoint now available at `/api/v1/jobs/cross-region`
+- Uses existing `handlers.CrossRegionHandlers` infrastructure
+- No deployment changes needed - just code update
+
+**Next: Deploy and test**
+
+#### Phase 1.5: Verify Authentication Requirements
+- [ ] Confirm cross-region endpoint requires Ed25519 signatures
+- [ ] Verify signature canonicalization includes job_spec wrapper
+- [ ] Test with portal's signing flow (signJobSpecForAPI)
+- [ ] Check if wallet_auth is required in cross-region payload
+- [ ] Verify TRUSTED_KEYS_FILE includes portal's public key
 
 #### Phase 2: Update Portal Job Submission
 - [ ] Locate job submission code in portal
 - [ ] Change endpoint from `/api/v1/jobs` to `/api/v1/jobs/cross-region`
 - [ ] Verify payload format matches expected schema
 - [ ] Add any missing required fields
+
+#### Phase 2.5: Feature Flag Implementation
+- [ ] Add `VITE_USE_CROSS_REGION_ENDPOINT` environment variable
+- [ ] Default to `false` initially
+- [ ] Enable for internal testing first
+- [ ] Gradual rollout: 10% → 50% → 100%
+- [ ] Quick rollback via environment variable change
+
+**Benefits:** No code deployment needed for rollback
 
 #### Phase 3: Test End-to-End
 - [ ] Submit test job from portal
@@ -212,6 +294,45 @@ POST /api/v1/jobs
 3. Cross-region has top-level `min_success_rate`
 4. Field naming: `jobspec_id` vs `id`
 
+### Portal Payload Transformation
+
+**⚠️ CRITICAL: Field name is `jobspec` not `job_spec`**
+
+**Required Changes:**
+1. Wrap payload in `jobspec` object (NOT `job_spec`)
+2. Rename `jobspec_id` → `id` inside jobspec
+3. Extract `constraints.regions` → top-level `target_regions`
+4. Extract `constraints.min_success_rate` → top-level (or default to 0.67)
+5. Preserve `questions` and `models` arrays
+
+**Code Example:**
+```javascript
+// Before (standard endpoint)
+const payload = {
+  jobspec_id: id,
+  version: "v1",
+  benchmark: {...},
+  constraints: { regions: ["US", "EU"], min_regions: 1 },
+  questions: [...],
+  models: [...]
+}
+
+// After (cross-region endpoint)
+const payload = {
+  jobspec: {  // CRITICAL: use "jobspec" not "job_spec"
+    id: id,  // renamed from jobspec_id
+    version: "v1",
+    benchmark: {...},
+    constraints: { regions: ["US", "EU"], min_regions: 1 },
+    questions: [...],
+    models: [...]
+  },
+  target_regions: ["US", "EU"],  // extracted from constraints
+  min_regions: 1,
+  min_success_rate: 0.67
+}
+```
+
 ---
 
 ## Database Schema Reference
@@ -264,6 +385,43 @@ POST /api/v1/jobs
 - [ ] Job with partial failures
 - [ ] Job timeout scenarios
 - [ ] Invalid region specifications
+
+---
+
+## Debugging Tools
+
+### Admin Endpoints to Add
+- `GET /admin/jobs/{id}/workflow-type` - Check which workflow was used
+- `GET /admin/jobs/{id}/can-analyze` - Check if analysis data exists
+- `POST /admin/jobs/{id}/backfill-analysis` - Manually trigger analysis generation
+
+### SQL Queries for Investigation
+
+```sql
+-- Find jobs with executions but no cross-region data
+SELECT j.id, j.created_at, COUNT(e.id) as execution_count
+FROM jobs j
+LEFT JOIN executions e ON e.job_id = j.id
+LEFT JOIN cross_region_executions cre ON cre.job_id = j.id
+WHERE e.id IS NOT NULL AND cre.id IS NULL
+GROUP BY j.id
+ORDER BY j.created_at DESC;
+
+-- Check analysis data completeness
+SELECT 
+  j.id,
+  EXISTS(SELECT 1 FROM cross_region_executions WHERE job_id = j.id) as has_cre,
+  EXISTS(SELECT 1 FROM cross_region_analyses WHERE job_id = j.id) as has_analysis
+FROM jobs j
+WHERE j.created_at > NOW() - INTERVAL '7 days';
+```
+
+### Debugging Checklist
+- [ ] Run SQL query to identify affected jobs
+- [ ] Check Runner logs for cross-region endpoint errors
+- [ ] Verify signature verification logs
+- [ ] Test with curl/Postman using signed payload
+- [ ] Review database foreign key constraints
 
 ---
 

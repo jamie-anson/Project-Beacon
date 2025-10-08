@@ -317,10 +317,15 @@ type HybridRouterClient interface {
 }
 
 type Provider struct {
-	ID       string `json:"id"`
-	Region   string `json:"region"`
-	Location string `json:"location"`
-	Status   string `json:"status"`
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Region          string  `json:"region"`
+	Type            string  `json:"type"`
+	Healthy         bool    `json:"healthy"`
+	CostPerSecond   float64 `json:"cost_per_second"`
+	AvgLatency      float64 `json:"avg_latency"`
+	SuccessRate     float64 `json:"success_rate"`
+	LastHealthCheck int64   `json:"last_health_check"`
 }
 
 type Logger interface {

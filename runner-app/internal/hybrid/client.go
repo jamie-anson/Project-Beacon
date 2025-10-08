@@ -84,6 +84,23 @@ type InferenceResponse struct {
 	Metadata     map[string]interface{} `json:"metadata"`
 }
 
+// Provider represents a provider from the hybrid router
+type Provider struct {
+	Name            string  `json:"name"`
+	Type            string  `json:"type"`
+	Region          string  `json:"region"`
+	Healthy         bool    `json:"healthy"`
+	CostPerSecond   float64 `json:"cost_per_second"`
+	AvgLatency      float64 `json:"avg_latency"`
+	SuccessRate     float64 `json:"success_rate"`
+	LastHealthCheck int64   `json:"last_health_check"`
+}
+
+// ProvidersResponse is the response from /providers endpoint
+type ProvidersResponse struct {
+	Providers []Provider `json:"providers"`
+}
+
 func (c *Client) RunInference(ctx context.Context, req InferenceRequest) (*InferenceResponse, error) {
 	// Try common endpoint variants to be resilient to router path changes
 	paths := []string{"/inference", "/api/v1/inference", "/api/inference", "/v1/inference"}
@@ -152,4 +169,35 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 		return &out, NewRouterError(msg)
 	}
 	return &out, nil
+}
+
+// GetProviders retrieves the list of available providers from the hybrid router
+func (c *Client) GetProviders(ctx context.Context) ([]Provider, error) {
+	url := c.baseURL + "/providers"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, NewNetworkError("failed to create HTTP request", err)
+	}
+	httpReq.Header.Set("Accept", "application/json")
+
+	res, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, NewTimeoutError("HTTP request timeout", err)
+		}
+		return nil, NewNetworkError("HTTP request failed", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
+		return nil, NewHTTPError(res.StatusCode, string(body), url)
+	}
+
+	var response ProvidersResponse
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		return nil, NewJSONError("failed to decode providers response", err)
+	}
+
+	return response.Providers, nil
 }
