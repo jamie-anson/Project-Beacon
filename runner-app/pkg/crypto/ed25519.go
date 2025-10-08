@@ -215,6 +215,12 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 		delete(m, "signature")
 		delete(m, "public_key")
 		delete(m, "id")  // Remove ID for portal compatibility
+		
+		// Debug logging
+		canonicalBytes, _ := json.Marshal(m)
+		fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
+		fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
+		
 		return m, nil
 	}
 	t := v.Type()

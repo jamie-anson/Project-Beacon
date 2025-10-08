@@ -237,7 +237,10 @@ export async function signJobSpecForAPI(jobSpec, options = {}) {
   const canonical = canonicalizeJobSpec(signTarget);
   try {
     const sha256 = await sha256HexOfString(canonical);
-    console.debug(`Canonical JSON length: ${canonical.length}; sha256: ${sha256}`);
+    console.log('[SIGNATURE DEBUG] Portal canonical JSON:', canonical);
+    console.log('[SIGNATURE DEBUG] Portal canonical length:', canonical.length);
+    console.log('[SIGNATURE DEBUG] Portal canonical SHA256:', sha256);
+    console.log('[SIGNATURE DEBUG] Portal signing target keys:', Object.keys(signTarget).sort());
   } catch {}
 
   // Sign the target spec (with wallet_auth if included)
