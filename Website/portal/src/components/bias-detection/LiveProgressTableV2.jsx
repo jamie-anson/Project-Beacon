@@ -69,7 +69,8 @@ export default function LiveProgressTableV2({
   const execs = activeJob?.executions || [];
   const jobSpec = activeJob?.job || activeJob;
   const specQuestions = jobSpec?.questions || [];
-  const specModels = jobSpec?.models || [];
+  // Models can be in jobSpec.models OR jobSpec.metadata.models (for cross-region jobs)
+  const specModels = jobSpec?.models || jobSpec?.metadata?.models || [];
   
   // Calculate expected total: questions × models × selected regions
   const expectedTotal = specQuestions.length * specModels.length * selectedRegions.length;
