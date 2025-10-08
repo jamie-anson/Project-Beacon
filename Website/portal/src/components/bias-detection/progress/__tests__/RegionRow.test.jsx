@@ -67,8 +67,8 @@ describe('RegionRow', () => {
   it('should display status badge', () => {
     renderWithRouter(<RegionRow {...defaultProps} />);
 
-    // Should show running status since there's a running execution
-    const statusBadge = screen.getByText('running');
+    // Should show completed status (1 completed, 1 running = partial completion shown)
+    const statusBadge = screen.getByText('completed');
     expect(statusBadge).toBeInTheDocument();
   });
 
@@ -239,5 +239,129 @@ describe('RegionRow', () => {
 
     const row = container.querySelector('.cursor-pointer');
     expect(row).toBeInTheDocument();
+  });
+
+  describe('Processing Animation', () => {
+    it('should show pulse animation when status is running', () => {
+      const runningExecs = [
+        { id: 1, status: 'running', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={runningExecs} />
+      );
+
+      const progressBar = container.querySelector('.bg-green-500');
+      expect(progressBar).toHaveClass('animate-pulse');
+    });
+
+    it('should show pulse animation when status is processing', () => {
+      const processingExecs = [
+        { id: 1, status: 'processing', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={processingExecs} />
+      );
+
+      const progressBar = container.querySelector('.bg-green-500');
+      expect(progressBar).toHaveClass('animate-pulse');
+    });
+
+    it('should show shimmer overlay when status is running', () => {
+      const runningExecs = [
+        { id: 1, status: 'running', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={runningExecs} />
+      );
+
+      const shimmer = container.querySelector('.animate-shimmer');
+      expect(shimmer).toBeInTheDocument();
+      expect(shimmer).toHaveClass('bg-gradient-to-r');
+    });
+
+    it('should show shimmer overlay when status is processing', () => {
+      const processingExecs = [
+        { id: 1, status: 'processing', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={processingExecs} />
+      );
+
+      const shimmer = container.querySelector('.animate-shimmer');
+      expect(shimmer).toBeInTheDocument();
+    });
+
+    it('should NOT show pulse animation when status is completed', () => {
+      const completedExecs = [
+        { id: 1, status: 'completed', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={completedExecs} jobCompleted={true} />
+      );
+
+      const progressBar = container.querySelector('.bg-green-500');
+      expect(progressBar).not.toHaveClass('animate-pulse');
+    });
+
+    it('should NOT show shimmer overlay when status is completed', () => {
+      const completedExecs = [
+        { id: 1, status: 'completed', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={completedExecs} jobCompleted={true} />
+      );
+
+      const shimmer = container.querySelector('.animate-shimmer');
+      expect(shimmer).not.toBeInTheDocument();
+    });
+
+    it('should NOT show animations when status is failed', () => {
+      const failedExecs = [
+        { id: 1, status: 'failed', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={failedExecs} jobFailed={true} />
+      );
+
+      const progressBar = container.querySelector('.bg-green-500');
+      const shimmer = container.querySelector('.animate-shimmer');
+      
+      expect(progressBar).not.toHaveClass('animate-pulse');
+      expect(shimmer).not.toBeInTheDocument();
+    });
+
+    it('should have relative positioning on progress container for shimmer overlay', () => {
+      const runningExecs = [
+        { id: 1, status: 'running', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={runningExecs} />
+      );
+
+      const progressContainer = container.querySelector('.bg-gray-700');
+      expect(progressContainer).toHaveClass('relative');
+    });
+
+    it('should have absolute positioning on shimmer overlay', () => {
+      const runningExecs = [
+        { id: 1, status: 'running', started_at: new Date().toISOString() }
+      ];
+      
+      const { container } = renderWithRouter(
+        <RegionRow {...defaultProps} regionExecs={runningExecs} />
+      );
+
+      const shimmer = container.querySelector('.animate-shimmer');
+      expect(shimmer).toHaveClass('absolute');
+      expect(shimmer).toHaveClass('inset-0');
+    });
   });
 });

@@ -137,7 +137,9 @@ export default function LiveProgressTable({
       <ProgressActions
         jobId={progress.jobId}
         isCompleted={progress.overallCompleted}
+        isFailed={progress.overallFailed || progress.jobStuckTimeout}
         onRefresh={refetchActive}
+        onRetryJob={() => window.location.reload()}
       />
     </div>
   );

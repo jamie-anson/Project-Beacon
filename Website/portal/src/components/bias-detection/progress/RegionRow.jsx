@@ -79,8 +79,18 @@ export default function RegionRow({
         {regionExecs.length > 0 ? (
           <div className="flex items-center gap-2">
             <span className="text-xs">{progress.completed}/{regionExecs.length}</span>
-            <div className="flex-1 h-2 bg-gray-700 rounded overflow-hidden min-w-[40px]">
-              <div className="h-full bg-green-500" style={{ width: `${progress.percentage}%` }} />
+            <div className="flex-1 h-2 bg-gray-700 rounded overflow-hidden min-w-[40px] relative">
+              <div 
+                className={`h-full bg-green-500 transition-all duration-300 ${
+                  status === 'running' || status === 'processing' 
+                    ? 'animate-pulse' 
+                    : ''
+                }`} 
+                style={{ width: `${progress.percentage}%` }} 
+              />
+              {(status === 'running' || status === 'processing') && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+              )}
             </div>
           </div>
         ) : (

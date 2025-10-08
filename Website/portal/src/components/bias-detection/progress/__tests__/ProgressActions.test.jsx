@@ -147,4 +147,194 @@ describe('ProgressActions', () => {
     fireEvent.click(refreshButton);
     expect(mockOnRefresh).toHaveBeenCalledTimes(2);
   });
+
+  describe('Retry Job Button', () => {
+    const mockOnRetryJob = jest.fn();
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should render retry button when job failed', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.getByText('Retry Job')).toBeInTheDocument();
+    });
+
+    it('should NOT render retry button when job succeeded', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={true} 
+          isFailed={false}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.queryByText('Retry Job')).not.toBeInTheDocument();
+    });
+
+    it('should NOT render retry button when job is in progress', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={false}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.queryByText('Retry Job')).not.toBeInTheDocument();
+    });
+
+    it('should NOT render retry button when onRetryJob is not provided', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+        />
+      );
+
+      expect(screen.queryByText('Retry Job')).not.toBeInTheDocument();
+    });
+
+    it('should call onRetryJob when retry button is clicked', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      const retryButton = screen.getByText('Retry Job');
+      fireEvent.click(retryButton);
+
+      expect(mockOnRetryJob).toHaveBeenCalledTimes(1);
+    });
+
+    it('should style retry button with yellow color scheme', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      const retryButton = screen.getByText('Retry Job');
+      expect(retryButton).toHaveClass('bg-yellow-600', 'text-white', 'hover:bg-yellow-700');
+    });
+
+    it('should display rotating arrows icon in retry button', () => {
+      const { container } = renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      const retryButton = screen.getByText('Retry Job');
+      const svg = retryButton.querySelector('svg');
+      
+      expect(svg).toBeInTheDocument();
+      expect(svg).toHaveClass('w-4', 'h-4');
+    });
+
+    it('should position retry button before refresh button', () => {
+      const { container } = renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      const buttons = Array.from(container.querySelectorAll('button'));
+      const retryButton = buttons.find(btn => btn.textContent.includes('Retry Job'));
+      const refreshButton = buttons.find(btn => btn.textContent === 'Refresh');
+      
+      expect(buttons.indexOf(retryButton)).toBeLessThan(buttons.indexOf(refreshButton));
+    });
+
+    it('should handle isFailed=undefined gracefully', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.queryByText('Retry Job')).not.toBeInTheDocument();
+    });
+
+    it('should show retry button for timeout failures', () => {
+      renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={true}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.getByText('Retry Job')).toBeInTheDocument();
+    });
+
+    it('should maintain retry button functionality after state changes', () => {
+      const { rerender } = renderWithRouter(
+        <ProgressActions 
+          jobId="test-job" 
+          isCompleted={false} 
+          isFailed={false}
+          onRefresh={mockOnRefresh}
+          onRetryJob={mockOnRetryJob}
+        />
+      );
+
+      expect(screen.queryByText('Retry Job')).not.toBeInTheDocument();
+
+      rerender(
+        <BrowserRouter>
+          <ProgressActions 
+            jobId="test-job" 
+            isCompleted={false} 
+            isFailed={true}
+            onRefresh={mockOnRefresh}
+            onRetryJob={mockOnRetryJob}
+          />
+        </BrowserRouter>
+      );
+
+      const retryButton = screen.getByText('Retry Job');
+      expect(retryButton).toBeInTheDocument();
+      
+      fireEvent.click(retryButton);
+      expect(mockOnRetryJob).toHaveBeenCalledTimes(1);
+    });
+  });
 });
