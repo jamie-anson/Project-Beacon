@@ -69,9 +69,10 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		// Initialize bias analysis handler for V2 API
 		if jobsService.ExecutionsRepo != nil && jobsService.ExecutionsRepo.DB != nil {
 			crossRegionRepo := store.NewCrossRegionRepo(jobsService.ExecutionsRepo.DB)
+			jobsRepo := store.NewJobsRepo(jobsService.ExecutionsRepo.DB)
 			diffEngine := analysis.NewCrossRegionDiffEngine()
 			crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
-			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine)
+			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
 		}
 	} else {
 		// For testing with nil service

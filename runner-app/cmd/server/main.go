@@ -52,14 +52,16 @@ func main() {
 
 	// Initialize cross-region components with proper database connection
 	var crossRegionRepo *store.CrossRegionRepo
+	var jobsRepo *store.JobsRepo
 	if database.DB != nil {
 		crossRegionRepo = store.NewCrossRegionRepo(database.DB)
+		jobsRepo = store.NewJobsRepo(database.DB)
 	}
 	diffEngine := analysis.NewCrossRegionDiffEngine()
 	
 	// TODO: Initialize CrossRegionExecutor with proper hybrid router and single region executor
 	crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
-	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine)
+	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
 
 	// Health and admin endpoints
 	r.GET("/health", handlers.Health)

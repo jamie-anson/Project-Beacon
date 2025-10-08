@@ -18,6 +18,7 @@ type CrossRegionHandlers struct {
 	crossRegionExecutor *execution.CrossRegionExecutor
 	crossRegionRepo     *store.CrossRegionRepo
 	diffEngine          *analysis.CrossRegionDiffEngine
+	jobsRepo            *store.JobsRepo
 }
 
 // NewCrossRegionHandlers creates new cross-region handlers
@@ -25,11 +26,13 @@ func NewCrossRegionHandlers(
 	executor *execution.CrossRegionExecutor,
 	repo *store.CrossRegionRepo,
 	diffEngine *analysis.CrossRegionDiffEngine,
+	jobsRepo *store.JobsRepo,
 ) *CrossRegionHandlers {
 	return &CrossRegionHandlers{
 		crossRegionExecutor: executor,
 		crossRegionRepo:     repo,
 		diffEngine:          diffEngine,
+		jobsRepo:            jobsRepo,
 	}
 }
 
@@ -117,6 +120,17 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	req.JobSpec.Constraints.Regions = req.TargetRegions
 	req.JobSpec.Constraints.MinRegions = req.MinRegions
 	req.JobSpec.Constraints.MinSuccessRate = req.MinSuccessRate
+
+	// Create job record in jobs table so portal can track it
+	if h.jobsRepo != nil {
+		if err := h.jobsRepo.CreateJob(c.Request.Context(), req.JobSpec); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create job record",
+				"details": err.Error(),
+			})
+			return
+		}
+	}
 
 	// Create cross-region execution record
 	crossRegionExec, err := h.crossRegionRepo.CreateCrossRegionExecution(
