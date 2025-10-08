@@ -107,6 +107,13 @@ export default function BiasDetection() {
     { interval: pollMs }
   );
   
+  if (activeJob) {
+    console.log('[BiasDetection] Job fetch result - FULL JOB OBJECT:', activeJob);
+    console.log('[BiasDetection] Job keys:', Object.keys(activeJob));
+    console.log('[BiasDetection] Job.executions:', activeJob.executions);
+    console.log('[BiasDetection] Job.status:', activeJob.status);
+  }
+  
   console.log('[BiasDetection] Job fetch result:', {
     activeJob,
     loadingActive,
