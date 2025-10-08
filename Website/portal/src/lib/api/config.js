@@ -2,7 +2,7 @@ let cachedRunnerBase;
 let cachedRunnerExplicit;
 
 function computeRunnerBase() {
-  let base = 'https://beacon-runner-change-me.fly.dev';
+  let base = 'https://beacon-runner-production.fly.dev';
   let explicit = false;
 
   // Runtime override (highest precedence)

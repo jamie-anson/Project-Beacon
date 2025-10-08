@@ -1,8 +1,8 @@
 # Netlify redirects for React Router SPA
 # All routes should serve index.html for client-side routing
 
-# API proxy (if needed in the future)
-# /api/*  https://beacon-runner-change-me.fly.dev/api/v1/:splat  200
+# API proxy to new production Runner
+/api/*  https://beacon-runner-production.fly.dev/api/:splat  200
 
 # Serve index.html for all routes (SPA fallback)
 /*    /index.html   200
