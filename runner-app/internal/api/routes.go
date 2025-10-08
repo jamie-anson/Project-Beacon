@@ -5,12 +5,15 @@ import (
 	"time"
 	
 	"github.com/gin-gonic/gin"
+	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/internal/api/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/config"
+	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
 	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
 	rbac "github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -36,6 +39,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	var adminHandler *AdminHandler
 	var executionsHandler *ExecutionsHandler
 	var crossRegionHandler *CrossRegionHandler
+	var biasAnalysisHandler *handlers.CrossRegionHandlers
 	
 	if jobsService != nil {
 		jobsHandler = NewJobsHandler(jobsService, cfg, redisClient)
@@ -61,6 +65,14 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		}
 		
 		crossRegionHandler = &CrossRegionHandler{ExecutionsRepo: jobsService.ExecutionsRepo}
+		
+		// Initialize bias analysis handler for V2 API
+		if jobsService.ExecutionsRepo != nil && jobsService.ExecutionsRepo.DB != nil {
+			crossRegionRepo := store.NewCrossRegionRepo(jobsService.ExecutionsRepo.DB)
+			diffEngine := analysis.NewCrossRegionDiffEngine()
+			crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
+			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine)
+		}
 	} else {
 		// For testing with nil service
 		adminHandler = NewAdminHandler(cfg)
@@ -219,6 +231,14 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				"total": 0,
 			})
 		})
+	}
+
+	// V2 API endpoints - Bias Detection Results
+	v2 := r.Group("/api/v2")
+	{
+		if biasAnalysisHandler != nil {
+			v2.GET("/jobs/:jobId/bias-analysis", biasAnalysisHandler.GetJobBiasAnalysis)
+		}
 	}
 
 	// Auth endpoint (role discovery)

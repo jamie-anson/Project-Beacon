@@ -12,8 +12,8 @@ COPY . .
 # Download dependencies
 RUN go mod download
 
-# Build the server application with API endpoints
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server ./cmd/server
+# Build the runner application with full API endpoints
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -a -installsuffix cgo -o server ./cmd/runner
 
 # Final stage
 FROM alpine:3.18
