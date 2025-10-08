@@ -246,6 +246,11 @@ func removeNullAndEmpty(m map[string]interface{}) {
 			if val == "" && (k == "method" || k == "parameters") {
 				delete(m, k)
 			}
+		case float64:
+			// Remove zero values for fields that shouldn't be present when zero
+			if val == 0 && (k == "min_success_rate") {
+				delete(m, k)
+			}
 		}
 	}
 }
