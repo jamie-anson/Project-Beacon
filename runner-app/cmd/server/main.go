@@ -15,7 +15,6 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/internal/websocket"
-	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 )
 

@@ -2,7 +2,6 @@ package execution
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -65,28 +64,44 @@ func (e *HybridSingleRegionExecutor) ExecuteOnProvider(ctx context.Context, jobS
 		return nil, fmt.Errorf("inference unsuccessful: %s", resp.Error)
 	}
 
-	// Create receipt
-	receipt := &models.Receipt{
-		ID:         fmt.Sprintf("receipt-%s-%d", jobSpec.ID, time.Now().UnixNano()),
-		JobID:      jobSpec.ID,
-		ProviderID: resp.ProviderUsed,
-		Status:     "completed",
-		CreatedAt:  startTime,
+	// Create receipt using proper v0 schema
+	executionDetails := models.ExecutionDetails{
+		TaskID:      fmt.Sprintf("task-%s-%d", jobSpec.ID, time.Now().UnixNano()),
+		ProviderID:  resp.ProviderUsed,
+		Region:      region,
+		StartedAt:   startTime,
 		CompletedAt: time.Now(),
-		Duration:   duration,
-		Output: models.Output{
-			Data: map[string]interface{}{
-				"response": resp.Response,
-				"metadata": resp.Metadata,
-			},
-			Format: "json",
+		Duration:    duration,
+		Status:      "completed",
+	}
+
+	output := models.ExecutionOutput{
+		Data: map[string]interface{}{
+			"response": resp.Response,
+			"metadata": resp.Metadata,
 		},
+		Hash: "", // TODO: Calculate hash of output data
 		Metadata: map[string]interface{}{
 			"provider_used":  resp.ProviderUsed,
 			"inference_time": resp.InferenceSec,
 			"region":         region,
 		},
 	}
+
+	provenance := models.ProvenanceInfo{
+		BenchmarkHash: "", // TODO: Calculate benchmark hash
+		ProviderInfo: map[string]interface{}{
+			"provider": resp.ProviderUsed,
+			"type":     "hybrid_router",
+		},
+		ExecutionEnv: map[string]interface{}{
+			"region": region,
+			"model":  model,
+		},
+	}
+
+	receipt := models.NewReceipt(jobSpec.ID, executionDetails, output, provenance)
+	receipt.CompletedAt = time.Now()
 
 	e.logger.Info("Execution completed successfully",
 		"job_id", jobSpec.ID,
