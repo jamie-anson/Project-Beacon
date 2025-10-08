@@ -194,8 +194,25 @@ export function useBiasDetection() {
         questions,
       };
 
+      // Sign the jobspec
       const signedSpec = await signJobSpecForAPI(spec, { includeWalletAuth: true });
-      const res = await createJob(signedSpec);
+      
+      // For multi-region bias detection, wrap in cross-region format
+      const isMultiRegion = selectedRegions.length > 1;
+      let finalPayload;
+      if (isMultiRegion) {
+        finalPayload = {
+          jobspec: signedSpec,  // The signed jobspec
+          target_regions: selectedRegions,
+          min_regions: 1,
+          min_success_rate: 0.67,
+          enable_analysis: true
+        };
+      } else {
+        finalPayload = signedSpec;
+      }
+      
+      const res = await createJob(finalPayload);
       const id = res?.id || res?.job_id;
       
       if (id) {
