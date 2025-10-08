@@ -223,18 +223,18 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		_ = result.Analysis    // Suppress unused variable warning
 	}()
 
-	// Return immediate response
-	response := CrossRegionJobResponse{
-		CrossRegionExecutionID: crossRegionExec.ID,
-		JobSpecID:              req.JobSpec.ID,
-		TotalRegions:           len(req.TargetRegions),
-		MinRegions:             req.MinRegions,
-		Status:                 "submitted",
-		SubmittedAt:            crossRegionExec.CreatedAt,
-		EstimatedDuration:      "2-5 minutes",
-	}
-
-	c.JSON(http.StatusAccepted, response)
+	// Return immediate response with job_id for portal compatibility
+	c.JSON(http.StatusAccepted, gin.H{
+		"id":                       req.JobSpec.ID, // Portal expects this
+		"job_id":                   req.JobSpec.ID, // Alternative field name
+		"cross_region_execution_id": crossRegionExec.ID,
+		"jobspec_id":               req.JobSpec.ID,
+		"total_regions":            len(req.TargetRegions),
+		"min_regions":              req.MinRegions,
+		"status":                   "submitted",
+		"submitted_at":             crossRegionExec.CreatedAt,
+		"estimated_duration":       "2-5 minutes",
+	})
 }
 
 // GetCrossRegionResult handles GET /api/v1/executions/{id}/cross-region
