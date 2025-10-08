@@ -87,10 +87,18 @@ export function calculateTimeRemaining(jobStartTime, tick, jobCompleted, jobFail
 
 /**
  * Calculate job age in minutes
- * @param {Object} jobStartTime - Object with jobId and startTime
+ * @param {Object} jobStartTime - Object with jobId and startTime (deprecated, use job.created_at instead)
+ * @param {Object} job - Job object with created_at timestamp
  * @returns {number} Job age in minutes
  */
-export function calculateJobAge(jobStartTime) {
+export function calculateJobAge(jobStartTime, job = null) {
+  // Prefer actual job creation time over component mount time
+  if (job && job.created_at) {
+    const createdAt = new Date(job.created_at).getTime();
+    return (Date.now() - createdAt) / 1000 / 60;
+  }
+  
+  // Fallback to component mount time (legacy behavior)
   if (!jobStartTime) return 0;
   return (Date.now() - jobStartTime.startTime) / 1000 / 60;
 }

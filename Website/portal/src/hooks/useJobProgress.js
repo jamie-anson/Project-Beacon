@@ -47,8 +47,8 @@ export function useJobProgress(activeJob, selectedRegions = [], isCompleted = fa
     const jobCompleted = isCompleted || ['completed','success','succeeded','done','finished'].includes(statusStr);
     const jobFailed = ['failed', 'error', 'cancelled', 'timeout'].includes(statusStr);
     
-    // Calculate job age and stuck status
-    const jobAge = calculateJobAge(jobStartTime);
+    // Calculate job age and stuck status (use actual job.created_at for accurate timeout)
+    const jobAge = calculateJobAge(jobStartTime, activeJob);
     const jobStuckTimeout = isJobStuck(jobAge, execs, jobCompleted, jobFailed);
     
     // Calculate expected total and progress
