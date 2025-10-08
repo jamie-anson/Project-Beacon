@@ -27,6 +27,11 @@ func (js *JobSpec) VerifySignature() error {
 		return fmt.Errorf("failed to create signable data: %w", err)
 	}
 
+	// Debug: Log the canonical JSON being verified
+	canonicalBytes, _ := crypto.CanonicalJSON(signableData)
+	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
+	fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
+
 	if err := crypto.VerifyJSONSignature(signableData, js.Signature, publicKey); err != nil {
 		// Try fallback canonicalization for backward compatibility
 		if fallbackData, fallbackErr := crypto.CanonicalizeJobSpecV1(js); fallbackErr == nil {
