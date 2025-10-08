@@ -94,11 +94,25 @@ export default function BiasDetection() {
   // Poll active job if any
   // Use exec_limit: 100 to handle multi-model jobs (up to ~33 executions per job realistically)
   // 2Q × 3M × 3R = 18 executions max, but use 100 for safety
+  console.log('[BiasDetection] Job fetch params:', {
+    activeJobId,
+    hasActiveJobId: !!activeJobId,
+    pollMs,
+    queryKey: activeJobId ? `job:${activeJobId}` : null
+  });
+  
   const { data: activeJob, loading: loadingActive, error: activeErr, refetch: refetchActive } = useQuery(
     activeJobId ? `job:${activeJobId}` : null,
     () => activeJobId ? getJob({ id: activeJobId, include: 'executions', exec_limit: 100 }) : Promise.resolve(null),
     { interval: pollMs }
   );
+  
+  console.log('[BiasDetection] Job fetch result:', {
+    activeJob,
+    loadingActive,
+    activeErr,
+    executionsCount: activeJob?.executions?.length
+  });
 
   // Memoize the polling interval to prevent infinite loops
   const calculatedPollMs = useMemo(() => {
@@ -336,6 +350,15 @@ export default function BiasDetection() {
               )}
             </div>
           </div>
+          {/* Debug: Log activeJob structure */}
+          {console.log('[BiasDetection] activeJob data:', {
+            hasActiveJob: !!activeJob,
+            hasCompletedJob: !!completedJob,
+            jobId: (activeJob || completedJob)?.id,
+            executionsCount: (activeJob || completedJob)?.executions?.length || 0,
+            executionsArray: (activeJob || completedJob)?.executions,
+            fullJob: activeJob || completedJob
+          })}
           <LiveProgressTableV2 
             activeJob={activeJob || completedJob}
             selectedRegions={selectedRegions}
