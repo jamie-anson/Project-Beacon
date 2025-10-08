@@ -46,6 +46,7 @@ export function createSignableJobSpec(jobSpec) {
   delete signable.signature;
   delete signable.public_key;
   delete signable.id;  // Remove ID to match server's signature verification expectations
+  delete signable.created_at;  // Remove created_at - server may format timestamps differently
   return signable;
 }
 

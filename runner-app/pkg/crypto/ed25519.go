@@ -215,6 +215,7 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 		delete(m, "signature")
 		delete(m, "public_key")
 		delete(m, "id")  // Remove ID for portal compatibility
+		delete(m, "created_at")  // Remove created_at - timestamp formatting may differ
 		
 		// Debug logging
 		canonicalBytes, _ := json.Marshal(m)
@@ -226,8 +227,10 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 	t := v.Type()
 	copy := reflect.New(t).Elem()
 	copy.Set(v)
-	// Zero fields named "Signature", "PublicKey", and "ID" if they exist
-	// ID is zeroed because portal signs payload without ID, but server adds ID during validation
+	// Zero fields named "Signature", "PublicKey", "ID", and "CreatedAt" if they exist
+	// These fields are excluded because:
+	// - ID: Portal signs without ID, server may auto-generate
+	// - CreatedAt: Timestamp formatting may differ between portal and server
 	if f := copy.FieldByName("Signature"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
 		f.SetString("")
 	}
@@ -236,6 +239,9 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 	}
 	if f := copy.FieldByName("ID"); f.IsValid() && f.CanSet() && f.Kind() == reflect.String {
 		f.SetString("")
+	}
+	if f := copy.FieldByName("CreatedAt"); f.IsValid() && f.CanSet() {
+		f.Set(reflect.Zero(f.Type()))
 	}
 	return copy.Interface(), nil
 }
