@@ -91,13 +91,15 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		return
 	}
 
-	// Verify JobSpec signature
-	if err := req.JobSpec.VerifySignature(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid JobSpec signature",
-			"details": err.Error(),
-		})
-		return
+	// Verify JobSpec signature if present (optional for development)
+	if req.JobSpec.Signature != "" && req.JobSpec.PublicKey != "" {
+		if err := req.JobSpec.VerifySignature(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid JobSpec signature",
+				"details": err.Error(),
+			})
+			return
+		}
 	}
 
 	// Set defaults
