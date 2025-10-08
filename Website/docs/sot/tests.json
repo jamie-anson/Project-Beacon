@@ -495,11 +495,48 @@
     "notes": "Comprehensive test suite for Bias Detection backend covering OpenAI integration, analysis persistence, and API endpoints. Includes 51 tests with ~80% overall coverage. Features HTTP mocking for OpenAI API, repository mocks for handlers, and realistic multi-region test data. Tests validate 400-500 word AI-generated summaries, bias detection algorithms, censorship analysis, and graceful fallback mechanisms."
   },
   {
+    "id": "test-suite-0014",
+    "name": "Cross-Region Endpoint Tests",
+    "type": "unit",
+    "runner": "go test",
+    "location": "runner-app/internal/handlers/cross_region_signature_test.go",
+    "file_count": 1,
+    "test_count": 11,
+    "coverage_areas": [
+      "Signature verification (optional vs required)",
+      "Payload structure validation",
+      "Portal compatibility (jobspec wrapper format)",
+      "Field name validation (jobspec not job_spec)",
+      "JSON binding and unmarshaling",
+      "Error handling for invalid signatures",
+      "Development mode (no signature required)"
+    ],
+    "test_cases": [
+      "accepts job without signature",
+      "validates job with invalid signature",
+      "accepts job with only signature (no public key)",
+      "rejects invalid jobspec structure",
+      "portal-style payload transformation",
+      "request struct binding validation",
+      "field name correctness (jobspec vs job_spec)"
+    ],
+    "run_command": "cd runner-app && go test ./internal/handlers/cross_region_signature_test.go",
+    "ci_integration": "Runs in deploy-runner.yml before deployment",
+    "prevents_issues": [
+      "Signature verification breaking portal submissions",
+      "Field name mismatches (jobspec vs job_spec)",
+      "Payload structure incompatibilities",
+      "Missing optional signature handling"
+    ],
+    "effective_at": "2025-10-08T17:21:00+01:00",
+    "notes": "Critical regression tests for cross-region endpoint ensuring portal compatibility and optional signature verification. Prevents signature-related deployment failures."
+  },
+  {
     "id": "test-coverage-summary",
     "type": "summary",
-    "total_test_suites": 13,
-    "total_test_files": "~76+",
-    "total_test_count": "~479+",
+    "total_test_suites": 14,
+    "total_test_files": "~77+",
+    "total_test_count": "~490+",
     "total_workflows": 18,
     "test_types": {
       "unit": "~221+ tests (170 portal + 51 backend)",
