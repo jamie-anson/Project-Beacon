@@ -238,6 +238,14 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	{
 		if biasAnalysisHandler != nil {
 			v2.GET("/jobs/:jobId/bias-analysis", biasAnalysisHandler.GetJobBiasAnalysis)
+		} else {
+			// Return 503 when handler not initialized
+			v2.GET("/jobs/:jobId/bias-analysis", func(c *gin.Context) {
+				c.JSON(503, gin.H{
+					"error":   "bias analysis service unavailable",
+					"details": "handler not initialized - check database connection",
+				})
+			})
 		}
 	}
 
