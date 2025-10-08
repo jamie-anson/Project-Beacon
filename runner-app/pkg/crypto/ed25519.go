@@ -216,12 +216,38 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 	delete(m, "id")  // Remove ID for portal compatibility
 	delete(m, "created_at")  // Remove created_at - timestamp formatting may differ
 	
+	// Recursively remove null and empty values to match portal's payload
+	removeNullAndEmpty(m)
+	
 	// Debug logging
 	canonicalBytes, _ := json.Marshal(m)
 	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
 	fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
 	
 	return m, nil
+}
+
+// removeNullAndEmpty recursively removes null values and empty objects/arrays from a map
+func removeNullAndEmpty(m map[string]interface{}) {
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			removeNullAndEmpty(val)
+			// Remove if empty after recursive cleanup
+			if len(val) == 0 {
+				delete(m, k)
+			}
+		case []interface{}:
+			// Keep arrays even if empty (questions, models, etc. might be empty)
+		case nil:
+			delete(m, k)
+		case string:
+			// Remove empty strings for fields that shouldn't be present
+			if val == "" && (k == "method" || k == "parameters") {
+				delete(m, k)
+			}
+		}
+	}
 }
 
 // CreateSignableReceipt creates a signable version of Receipt (without signature/public_key)
