@@ -128,20 +128,21 @@ export default function Dashboard() {
             <div className="text-red-400">Backend unavailable</div>
             <div className="text-xs text-gray-400 mt-1">Transparency service offline</div>
           </div>
-        ) : tRoot ? (
+        ) : (tRoot?.root || tRoot?.merkle_root) ? (
           <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm">
             <div className="flex items-center gap-2">
-              <div>Root: <span className="font-mono break-all">{tRoot.root || tRoot.merkle_root || '—'}</span></div>
-              {(tRoot.root || tRoot.merkle_root) && (
-                <CopyButton text={tRoot.root || tRoot.merkle_root} label="Copy root" />
-              )}
+              <div>Root: <span className="font-mono break-all">{tRoot.root || tRoot.merkle_root}</span></div>
+              <CopyButton text={tRoot.root || tRoot.merkle_root} label="Copy root" />
             </div>
             {tRoot.sequence != null && (
               <div className="text-xs text-gray-400 mt-1">Seq #{tRoot.sequence}{tRoot.updated_at ? ` · ${tRoot.updated_at}` : ''}</div>
             )}
           </div>
         ) : (
-          <div className="text-sm text-gray-400">Loading…</div>
+          <div className="bg-gray-800 border border-gray-700 rounded p-3 text-sm">
+            <div className="text-blue-400">Coming soon</div>
+            <div className="text-xs text-gray-400 mt-1">Transparency log will be available after IPFS service is initialized</div>
+          </div>
         )}
       </section>
       {/* Three-Layer Data Architecture */}
