@@ -40,6 +40,45 @@ export async function createJob(initialJobspec, opts = {}) {
     console.warn('[Beacon] questions injection skipped:', e?.message || String(e));
   }
 
+  // Check if this is a bias detection job with multiple regions
+  const isBiasDetection = String(jobspec?.benchmark?.name || '').toLowerCase().includes('bias');
+  const regions = jobspec?.constraints?.regions || [];
+  const isMultiRegion = regions.length > 0;
+
+  // Use cross-region endpoint for bias detection jobs
+  if (isBiasDetection && isMultiRegion) {
+    console.log('[Beacon] Using cross-region endpoint for bias detection job');
+    
+    // Transform payload for cross-region endpoint
+    const { jobspec_id, constraints, ...rest } = jobspec;
+    const crossRegionPayload = {
+      jobspec: {  // CRITICAL: use "jobspec" not "job_spec"
+        id: jobspec_id,  // Rename jobspec_id -> id
+        ...rest,
+        constraints
+      },
+      target_regions: constraints.regions,
+      min_regions: constraints.min_regions || 1,
+      min_success_rate: constraints.min_success_rate || 0.67,
+      enable_analysis: true
+    };
+
+    console.log('Cross-region payload:', crossRegionPayload);
+
+    const headers = {};
+    const enableIdem = opts.forceIdempotency === true || (opts.forceIdempotency !== false && shouldSendIdempotency());
+    if (enableIdem) {
+      headers['Idempotency-Key'] = key;
+    }
+
+    return runnerFetch('/jobs/cross-region', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(crossRegionPayload),
+    });
+  }
+
+  // Standard endpoint for non-bias-detection jobs
   let bodyString;
   try {
     bodyString = JSON.stringify(jobspec);
