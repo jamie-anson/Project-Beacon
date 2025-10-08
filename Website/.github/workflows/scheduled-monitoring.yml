@@ -33,7 +33,7 @@ jobs:
         echo "" >> availability-report.md
         
         services=(
-          "Runner|https://beacon-runner-change-me.fly.dev/api/v1/health"
+          "Runner|https://beacon-runner-production.fly.dev/api/v1/health"
           "Hybrid|https://project-beacon-production.up.railway.app/health"
           "Portal|https://projectbeacon.netlify.app/"
         )
@@ -64,7 +64,7 @@ jobs:
         echo "## Pipeline Health" >> availability-report.md
         
         # Check recent jobs
-        jobs_response=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=10" || echo "[]")
+        jobs_response=$(curl -s --max-time 10 "https://beacon-runner-production.fly.dev/api/v1/jobs?limit=10" || echo "[]")
         job_count=$(echo "$jobs_response" | jq 'length' 2>/dev/null || echo "0")
         
         if [[ "$job_count" -gt 0 ]]; then
@@ -97,9 +97,9 @@ jobs:
         
         # Collect performance data
         endpoints=(
-          "Runner Health|https://beacon-runner-change-me.fly.dev/api/v1/health"
+          "Runner Health|https://beacon-runner-production.fly.dev/api/v1/health"
           "Hybrid Health|https://project-beacon-production.up.railway.app/health"
-          "Runner Jobs API|https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=1"
+          "Runner Jobs API|https://beacon-runner-production.fly.dev/api/v1/jobs?limit=1"
         )
         
         for endpoint in "${endpoints[@]}"; do

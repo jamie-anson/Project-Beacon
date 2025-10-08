@@ -1,0 +1,40 @@
+# Dockerfile.runpod - RunPod Serverless GPU Image for Project Beacon
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    torch>=2.0.0 \
+    transformers>=4.35.0 \
+    accelerate>=0.24.0 \
+    bitsandbytes>=0.41.0 \
+    sentencepiece>=0.1.99 \
+    safetensors>=0.4.5 \
+    huggingface_hub>=0.21.4 \
+    fastapi>=0.104.0 \
+    pydantic>=2.0.0 \
+    runpod==1.7.13
+
+# Set working directory
+WORKDIR /app
+
+# Copy inference handler
+COPY runpod_handler.py /app/handler.py
+
+# Pre-download model to reduce cold starts
+ARG MODEL_NAME
+ARG HF_MODEL_ID
+RUN python3 -c "from transformers import AutoModelForCausalLM, AutoTokenizer; \
+    print(f'Downloading {MODEL_NAME}...'); \
+    AutoModelForCausalLM.from_pretrained('${HF_MODEL_ID}', torch_dtype='float16'); \
+    AutoTokenizer.from_pretrained('${HF_MODEL_ID}'); \
+    print('Model cached successfully')"
+
+# RunPod expects handler.py as entry point
+CMD ["python3", "-u", "handler.py"]

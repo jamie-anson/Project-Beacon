@@ -12,10 +12,10 @@ This runbook provides step-by-step procedures for handling common error scenario
 **Symptoms**: Service unavailable, health checks failing
 
 **Immediate Actions**:
-1. Check Fly.io app status: `flyctl status --app beacon-runner-change-me`
-2. Check recent logs: `flyctl logs --app beacon-runner-change-me --region lhr`
-3. Restart if needed: `flyctl restart --app beacon-runner-change-me`
-4. Verify health endpoint: `curl https://beacon-runner-change-me.fly.dev/health/ready`
+1. Check Fly.io app status: `flyctl status --app beacon-runner-production`
+2. Check recent logs: `flyctl logs --app beacon-runner-production --region lhr`
+3. Restart if needed: `flyctl restart --app beacon-runner-production`
+4. Verify health endpoint: `curl https://beacon-runner-production.fly.dev/health/ready`
 
 **Escalation**: If restart doesn't resolve, check for infrastructure issues
 
@@ -24,7 +24,7 @@ This runbook provides step-by-step procedures for handling common error scenario
 **Symptoms**: >10% job failure rate over 5 minutes
 
 **Investigation Steps**:
-1. Check job processing metrics: `curl https://beacon-runner-change-me.fly.dev/metrics | grep jobs_`
+1. Check job processing metrics: `curl https://beacon-runner-production.fly.dev/metrics | grep jobs_`
 2. Review recent job logs for error patterns
 3. Check Golem network connectivity
 4. Verify IPFS daemon status
@@ -116,13 +116,13 @@ This runbook provides step-by-step procedures for handling common error scenario
 
 ### Viewing Circuit Breaker Status
 ```bash
-curl -s https://beacon-runner-change-me.fly.dev/health/ready | jq '.services[].circuit_breaker_stats'
+curl -s https://beacon-runner-production.fly.dev/health/ready | jq '.services[].circuit_breaker_stats'
 ```
 
 ### Resetting Circuit Breakers
 ```bash
 # Via API (requires admin token)
-curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/admin/circuit-breakers/reset \
+curl -X POST https://beacon-runner-production.fly.dev/api/v1/admin/circuit-breakers/reset \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
@@ -177,13 +177,13 @@ curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/admin/circuit-breake
 ### Log Analysis
 ```bash
 # Check for errors in last hour
-flyctl logs --app beacon-runner-change-me --region lhr | grep -i error
+flyctl logs --app beacon-runner-production --region lhr | grep -i error
 
 # Monitor job processing
-flyctl logs --app beacon-runner-change-me --region lhr | grep "job.*processed"
+flyctl logs --app beacon-runner-production --region lhr | grep "job.*processed"
 
 # Check circuit breaker events
-flyctl logs --app beacon-runner-change-me --region lhr | grep "circuit.*breaker"
+flyctl logs --app beacon-runner-production --region lhr | grep "circuit.*breaker"
 ```
 
 ## Escalation Procedures

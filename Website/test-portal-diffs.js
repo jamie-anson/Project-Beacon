@@ -7,7 +7,7 @@ console.log('🧪 Starting Portal Diffs Debug Test');
 
 // Test configuration
 const TEST_JOB_ID = 'bias-detection-1758721736';
-const MAIN_BACKEND = 'https://beacon-runner-change-me.fly.dev';
+const MAIN_BACKEND = 'https://beacon-runner-production.fly.dev';
 
 // Helper function to test API calls
 async function testApiCall(url, name) {

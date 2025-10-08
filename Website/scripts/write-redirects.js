@@ -62,7 +62,7 @@ if (!REDIRECT_HYBRID_BASE) {
 }
 
 // Final fallbacks if still empty
-if (!REDIRECT_RUNNER_BASE) REDIRECT_RUNNER_BASE = 'https://beacon-runner-change-me.fly.dev';
+if (!REDIRECT_RUNNER_BASE) REDIRECT_RUNNER_BASE = 'https://beacon-runner-production.fly.dev';
 if (!REDIRECT_HYBRID_BASE) REDIRECT_HYBRID_BASE = 'https://project-beacon-production.up.railway.app';
 
 // Validation warnings

@@ -7,7 +7,7 @@
 
 **Time**: 23:21 UTC  
 **Status**: Production Ready  
-**Deployment**: https://beacon-runner-change-me.fly.dev
+**Deployment**: https://beacon-runner-production.fly.dev
 
 ---
 
@@ -82,7 +82,7 @@ Expected: 64/64 ✅ (100% success rate)
 
 ## 📝 Log Messages to Watch For
 
-When testing, look for these in `flyctl logs -a beacon-runner-change-me`:
+When testing, look for these in `flyctl logs -a beacon-runner-production`:
 
 ### Question Batch Start:
 ```
@@ -122,13 +122,13 @@ multi-model sequential question execution completed
 ### Check Deployment:
 ```bash
 # Health check
-curl https://beacon-runner-change-me.fly.dev/health | jq .
+curl https://beacon-runner-production.fly.dev/health | jq .
 
 # Monitor logs
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 
 # Filter for question batching
-flyctl logs -a beacon-runner-change-me | grep "question batch"
+flyctl logs -a beacon-runner-production | grep "question batch"
 ```
 
 ### Check Modal:

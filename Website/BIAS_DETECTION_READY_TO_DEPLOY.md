@@ -174,7 +174,7 @@ curl https://projectbeacon.netlify.app/portal/
 
 **3. Test API Integration:**
 ```bash
-curl https://beacon-runner-change-me.fly.dev/api/v2/jobs/test/bias-analysis
+curl https://beacon-runner-production.fly.dev/api/v2/jobs/test/bias-analysis
 # Should return 404 (expected)
 ```
 

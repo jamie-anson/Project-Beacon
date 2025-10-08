@@ -357,17 +357,17 @@ The monitoring dashboard at `/monitoring/dashboard.html` automatically tracks:
 
 3. **Update runner app configuration**:
    ```bash
-   flyctl secrets set HYBRID_ROUTER_URL=https://beacon-hybrid-router.fly.dev -a beacon-runner-change-me
+   flyctl secrets set HYBRID_ROUTER_URL=https://beacon-hybrid-router.fly.dev -a beacon-runner-production
    ```
 
 4. **Deploy updated runner app**:
    ```bash
-   flyctl deploy -a beacon-runner-change-me
+   flyctl deploy -a beacon-runner-production
    ```
 
 5. **Verify integration**:
    ```bash
-   curl https://beacon-runner-change-me.fly.dev/health
+   curl https://beacon-runner-production.fly.dev/health
    ```
 
 ## Cost Optimization

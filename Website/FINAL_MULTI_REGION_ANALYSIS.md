@@ -302,7 +302,7 @@ We implemented:
 
 ### Step 1: Check Job Retry Logs
 ```bash
-flyctl logs --app beacon-runner-change-me | \
+flyctl logs --app beacon-runner-production | \
   grep "bias-detection-1759245498941" | \
   grep -E "retry|attempt|failed|dead|requeue"
 ```
@@ -316,7 +316,7 @@ flyctl logs --app beacon-runner-change-me | \
 
 ### Step 2: Check Auto-Stop Logs
 ```bash
-flyctl logs --app beacon-runner-change-me | \
+flyctl logs --app beacon-runner-production | \
   grep "bias-detection-1759245498941" | \
   grep -E "AUTO-STOP|duplicate|existing_count"
 ```
@@ -330,7 +330,7 @@ flyctl logs --app beacon-runner-change-me | \
 
 ### Step 3: Get Full Prompts
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
   jq '.executions[] | select(.id == 953 or .id == 955) | {
     id,
     region,
@@ -350,7 +350,7 @@ curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bi
 
 ### Step 4: Check Execution 953 Status
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
   jq '.executions[] | select(.id == 953) | {
     id,
     status,

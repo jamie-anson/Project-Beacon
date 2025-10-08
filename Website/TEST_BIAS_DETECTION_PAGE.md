@@ -10,7 +10,7 @@
 ### 1. Ensure Backend is Running
 ```bash
 # Check backend health
-curl https://beacon-runner-change-me.fly.dev/health
+curl https://beacon-runner-production.fly.dev/health
 
 # Expected: {"status":"healthy","service":"runner"}
 ```
@@ -72,7 +72,7 @@ npm run build
 **Steps:**
 ```bash
 # Test with non-existent job (should 404)
-curl -i https://beacon-runner-change-me.fly.dev/api/v2/jobs/test-job-123/bias-analysis
+curl -i https://beacon-runner-production.fly.dev/api/v2/jobs/test-job-123/bias-analysis
 
 # Expected: HTTP 404
 # Body: {"error": "Cross-region execution not found for jobspec_id: test-job-123"}
@@ -81,7 +81,7 @@ curl -i https://beacon-runner-change-me.fly.dev/api/v2/jobs/test-job-123/bias-an
 **Test with real job (if available):**
 ```bash
 # Replace with actual job ID
-curl https://beacon-runner-change-me.fly.dev/api/v2/jobs/{REAL_JOB_ID}/bias-analysis | jq
+curl https://beacon-runner-production.fly.dev/api/v2/jobs/{REAL_JOB_ID}/bias-analysis | jq
 
 # Expected: JSON with analysis, region_scores, job_id
 ```
@@ -226,11 +226,11 @@ npm run dev
 
 ```bash
 # 1. Backend health
-curl https://beacon-runner-change-me.fly.dev/health
+curl https://beacon-runner-production.fly.dev/health
 # ✅ Should return healthy
 
 # 2. API endpoint exists
-curl -i https://beacon-runner-change-me.fly.dev/api/v2/jobs/test/bias-analysis
+curl -i https://beacon-runner-production.fly.dev/api/v2/jobs/test/bias-analysis
 # ✅ Should return 404 (expected for test job)
 
 # 3. Portal builds

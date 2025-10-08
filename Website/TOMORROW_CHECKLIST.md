@@ -92,7 +92,7 @@ go test ./internal/worker -v
 ```bash
 cd runner-app
 flyctl deploy
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 ```
 
 **Submit test job**: 2 questions × 2 models × 3 regions
@@ -158,7 +158,7 @@ go test ./internal/worker -v
 
 # 3. Deploy runner
 flyctl deploy
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 
 # 4. Test
 # Submit 2-question job via portal

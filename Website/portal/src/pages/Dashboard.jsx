@@ -197,7 +197,7 @@ export default function Dashboard() {
               </div>
               <div className="text-right">
                 <StatusPill value={healthError ? 'down' : 'healthy'} />
-                <div className="text-xs text-gray-400 mt-1">beacon-runner-change-me</div>
+                <div className="text-xs text-gray-400 mt-1">beacon-runner-production</div>
               </div>
             </div>
 

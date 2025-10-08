@@ -12,7 +12,7 @@ const https = require('https');
 
 // Simulate portal's API base resolution
 const VITE_API_BASE = process.env.VITE_API_BASE;
-const API_BASE_V1 = VITE_API_BASE || 'https://beacon-runner-change-me.fly.dev/api/v1';
+const API_BASE_V1 = VITE_API_BASE || 'https://beacon-runner-production.fly.dev/api/v1';
 
 console.log('🔍 Portal API Configuration Debug');
 console.log('================================');

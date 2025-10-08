@@ -10,7 +10,7 @@ async function validateFix() {
   console.log('🧪 Validating ModelSelector Fix...');
   
   // Test the exact logic that Portal now uses
-  const response = await axios.get('https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
+  const response = await axios.get('https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
   const apiData = response.data;
   
   // Simulate transform (same as before)

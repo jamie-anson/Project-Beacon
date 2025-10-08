@@ -231,7 +231,7 @@ console.log('📋 Railway services health check...');
 const services = [
   { url: 'https://project-beacon-production.up.railway.app', name: 'Hybrid Router', endpoints: ['/health', '/providers'] },
   { url: 'https://backend-diffs-production.up.railway.app', name: 'Backend Diffs', endpoints: ['/health'] },
-  { url: 'https://beacon-runner-change-me.fly.dev', name: 'Runner API', endpoints: ['/health'] }
+  { url: 'https://beacon-runner-production.fly.dev', name: 'Runner API', endpoints: ['/health'] }
 ];
 
 Promise.all(services.map(s => checkRailwayService(s.url, s.name, s.endpoints)))

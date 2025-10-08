@@ -87,7 +87,7 @@ describe('Portal Receipt Display', () => {
 ```bash
 # Test: All service endpoints
 test_service_health() {
-  curl -f "https://beacon-runner-change-me.fly.dev/api/v1/health"
+  curl -f "https://beacon-runner-production.fly.dev/api/v1/health"
   curl -f "https://project-beacon-production.up.railway.app/health"
   curl -f "https://projectbeacon.netlify.app/api/v1/health"
 }

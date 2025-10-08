@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const RUNNER_BASE = process.env.RUNNER_BASE_URL || 'https://beacon-runner-change-me.fly.dev';
+const RUNNER_BASE = process.env.RUNNER_BASE_URL || 'https://beacon-runner-production.fly.dev';
 const PORTAL_BASE = process.env.PORTAL_BASE_URL || 'https://projectbeacon.netlify.app';
 
 test.describe('Bias Detection Results Page', () => {

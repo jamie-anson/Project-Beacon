@@ -76,7 +76,7 @@ Look at how the hybrid client discovers and selects providers:
 ### Step 2: Check Runner Logs for ASIA
 Search for logs when ASIA execution attempts:
 ```bash
-flyctl logs --app beacon-runner-change-me | grep -i "asia"
+flyctl logs --app beacon-runner-production | grep -i "asia"
 ```
 
 ### Step 3: Test Hybrid Router Directly

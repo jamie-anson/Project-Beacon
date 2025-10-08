@@ -40,7 +40,7 @@
 **Backend:**
 - ✅ Code committed: `1b3236b`
 - ✅ Pushed to GitHub
-- ⏳ Deploying to Fly.io (beacon-runner-change-me)
+- ⏳ Deploying to Fly.io (beacon-runner-production)
 
 **Frontend:**
 - ✅ Already deployed (no changes needed)

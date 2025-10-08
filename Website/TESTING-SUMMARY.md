@@ -106,7 +106,7 @@ Reference implementation of the fallback logic
 ### **For debugging:**
 ```javascript
 // Run in browser console to test API manually
-fetch('https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758721736/executions/all')
+fetch('https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1758721736/executions/all')
   .then(r => r.json())
   .then(d => console.log('Execution data:', d));
 ```

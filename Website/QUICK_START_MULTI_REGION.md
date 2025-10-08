@@ -132,7 +132,7 @@ PROVIDERS = {
 cd /Users/Jammie/Desktop/Project\ Beacon/runner-app
 
 # Submit 3-region test
-curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/jobs \
+curl -X POST https://beacon-runner-production.fly.dev/api/v1/jobs \
   -H "Content-Type: application/json" \
   -d @scripts/test-3regions-2questions.json
 ```
@@ -141,7 +141,7 @@ curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/jobs \
 ```bash
 JOB_ID="<job-id-from-above>"
 
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=$JOB_ID" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=$JOB_ID" | \
   jq '[.executions[] | select(.created_at > "2025-09-30T15:00:00Z")] | {
     total: length,
     by_status: group_by(.status) | map({status: .[0].status, count: length}),

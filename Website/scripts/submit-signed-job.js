@@ -5,7 +5,7 @@
 
  Usage:
    # Preferred: use keys from live-job-key.txt (auto-detected)
-   RUNNER_URL=https://beacon-runner-change-me.fly.dev node scripts/submit-signed-job.js
+   RUNNER_URL=https://beacon-runner-production.fly.dev node scripts/submit-signed-job.js
 
    # Or via Netlify proxy (adds Origin header for parity with portal)
    RUNNER_URL=https://projectbeacon.netlify.app node scripts/submit-signed-job.js
@@ -37,7 +37,7 @@ const path = require('path');
 const axios = require('axios');
 const crypto = require('crypto');
 
-const RUNNER_URL = process.env.RUNNER_URL || 'https://beacon-runner-change-me.fly.dev';
+const RUNNER_URL = process.env.RUNNER_URL || 'https://beacon-runner-production.fly.dev';
 const API_JOBS = `${RUNNER_URL}/api/v1/jobs`;
 const PORTAL_ORIGIN = 'https://projectbeacon.netlify.app';
 // Allow overriding request timeout to accommodate Fly cold starts + IPFS init

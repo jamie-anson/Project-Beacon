@@ -163,14 +163,14 @@ go test ./internal/worker -v
 flyctl deploy --remote-only
 
 # Monitor logs
-flyctl logs --app beacon-runner-change-me
+flyctl logs --app beacon-runner-production
 ```
 
 ### Step 4: Test with Sample Job
 
 ```bash
 # Submit test job with 2 questions
-curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/jobs \
+curl -X POST https://beacon-runner-production.fly.dev/api/v1/jobs \
   -H "Content-Type: application/json" \
   -d '{
     "version": "v1",
@@ -194,7 +194,7 @@ curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/jobs \
 JOB_ID="<job-id-from-step-4>"
 
 # Check executions
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=$JOB_ID" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=$JOB_ID" | \
   jq '.executions | map({id, region, model_id, question_id, status})'
 
 # Expected output:

@@ -23,7 +23,7 @@ export const getCrossRegionDiffWithFallback = async (jobId) => {
   try {
     console.log('🔧 Constructing cross-region diff from execution data...');
     
-    const API_BASE = 'https://beacon-runner-change-me.fly.dev';
+    const API_BASE = 'https://beacon-runner-production.fly.dev';
     const executionsUrl = `${API_BASE}/api/v1/jobs/${encodeURIComponent(jobId)}/executions/all`;
     
     const response = await fetch(executionsUrl, {

@@ -39,7 +39,7 @@
 
 ### Check 1: API Response
 ```bash
-curl "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1759330371966?include=executions"
+curl "https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1759330371966?include=executions"
 ```
 
 **Result**: 20 executions, all failed, all with `question_id` ✅
@@ -68,7 +68,7 @@ curl "https://project-beacon-production.up.railway.app/providers"
 
 ### Check 4: Runner Secrets
 ```bash
-flyctl secrets list --app beacon-runner-change-me
+flyctl secrets list --app beacon-runner-production
 ```
 
 **Result**: `HYBRID_BASE`, `HYBRID_ROUTER_URL`, and provider endpoints configured
@@ -104,25 +104,25 @@ The `question_id` column might not have the right constraints.
 ### Step 1: Check Runner Logs (Need to do this)
 ```bash
 # Look for errors around job creation time (14:53:00 UTC)
-flyctl logs --app beacon-runner-change-me | grep -A 5 "14:5[3-5]"
+flyctl logs --app beacon-runner-production | grep -A 5 "14:5[3-5]"
 ```
 
 ### Step 2: Check if Runner is Using Hybrid Router
 ```bash
 # Look for hybrid router calls
-flyctl logs --app beacon-runner-change-me | grep "hybrid"
+flyctl logs --app beacon-runner-production | grep "hybrid"
 ```
 
 ### Step 3: Check Early Failure Reason
 ```bash
 # Look for RecordEarlyFailure calls
-flyctl logs --app beacon-runner-change-me | grep "early failure"
+flyctl logs --app beacon-runner-production | grep "early failure"
 ```
 
 ### Step 4: Test Provider Connectivity
 ```bash
 # SSH into runner and test
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 curl https://project-beacon-production.up.railway.app/providers
 ```
 

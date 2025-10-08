@@ -1,0 +1,42 @@
+# Dockerfile.runpod-reuse - Reuse existing models from local images
+ARG SOURCE_IMAGE
+FROM ${SOURCE_IMAGE} as model-source
+
+# RunPod base image
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    torch>=2.0.0 \
+    transformers>=4.35.0 \
+    accelerate>=0.24.0 \
+    bitsandbytes>=0.41.0 \
+    sentencepiece>=0.1.99 \
+    safetensors>=0.4.5 \
+    huggingface_hub>=0.21.4 \
+    runpod>=1.5.0
+
+# Set working directory
+WORKDIR /app
+
+# Copy RunPod handler
+COPY runpod_handler.py /app/handler.py
+
+# Copy models from existing image (if they exist in HF cache format)
+COPY --from=model-source /root/.cache/huggingface /root/.cache/huggingface 2>/dev/null || true
+
+# Model metadata
+ARG MODEL_NAME
+ARG HF_MODEL_ID
+ENV MODEL_NAME=${MODEL_NAME}
+ENV HF_MODEL_ID=${HF_MODEL_ID}
+
+# RunPod expects handler.py as entry point
+CMD ["python3", "-u", "handler.py"]

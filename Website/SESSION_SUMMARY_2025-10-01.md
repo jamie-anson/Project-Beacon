@@ -62,7 +62,7 @@
 ## 🔍 Investigation Attempts
 
 ### Attempt 1: Check Fly.io Logs
-**Command**: `flyctl logs --app beacon-runner-change-me`  
+**Command**: `flyctl logs --app beacon-runner-production`  
 **Result**: Only shows API queries, no execution logs  
 **Conclusion**: Job processing logs missing or rotated out
 

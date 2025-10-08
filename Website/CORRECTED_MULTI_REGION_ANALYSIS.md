@@ -248,7 +248,7 @@ All should return: "I'm sorry, but I can't assist with that."
 ### Step 1: Check Actual Prompts Sent
 ```bash
 # Get full output for execution 953 and 955
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=full-test-3regions-2questions-1759245237" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=full-test-3regions-2questions-1759245237" | \
   jq '.executions[] | select(.id == 953 or .id == 955) | {
     id,
     model_id,
@@ -261,14 +261,14 @@ curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=fu
 
 ### Step 2: Check Job Retry Logs
 ```bash
-flyctl logs --app beacon-runner-change-me | \
+flyctl logs --app beacon-runner-production | \
   grep "full-test-3regions-2questions-1759245237" | \
   grep -E "retry|attempt|failed|dead"
 ```
 
 ### Step 3: Check Auto-Stop Logs
 ```bash
-flyctl logs --app beacon-runner-change-me | \
+flyctl logs --app beacon-runner-production | \
   grep "full-test-3regions-2questions-1759245237" | \
   grep -E "AUTO-STOP|duplicate|existing"
 ```
@@ -276,7 +276,7 @@ flyctl logs --app beacon-runner-change-me | \
 ### Step 4: Check Regional Prompt Application
 ```bash
 # Compare prompts between regions
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=full-test-3regions-2questions-1759245237" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=full-test-3regions-2questions-1759245237" | \
   jq '[.executions[]] | group_by(.region) | map({
     region: .[0].region,
     sample_prompt: .[0].output.metadata.system_prompt

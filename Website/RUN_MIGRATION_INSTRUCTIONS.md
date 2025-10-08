@@ -10,7 +10,7 @@
 ### Step 1: Get DATABASE_URL
 
 ```bash
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 ```
 
 Once inside the container:
@@ -132,7 +132,7 @@ ALTER TABLE executions DROP COLUMN IF EXISTS question_id;
 
 ```bash
 # Get DATABASE_URL
-flyctl ssh console --app beacon-runner-change-me -C "echo \$DATABASE_URL"
+flyctl ssh console --app beacon-runner-production -C "echo \$DATABASE_URL"
 
 # Run migration (replace <URL>)
 psql "<URL>" -f migrations/007_add_question_id_to_executions.sql

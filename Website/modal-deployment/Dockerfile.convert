@@ -1,0 +1,15 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# Install runpod package
+RUN pip3 install --no-cache-dir runpod>=1.5.0 || pip install --no-cache-dir runpod>=1.5.0
+
+# Copy RunPod handler
+COPY runpod_handler.py /app/handler.py
+
+# Set environment
+ARG MODEL_NAME
+ENV MODEL_NAME=${MODEL_NAME}
+
+WORKDIR /app
+CMD ["python3", "-u", "handler.py"]

@@ -10,7 +10,7 @@ async function testPortalData() {
   console.log('🔍 Testing Portal Data Flow...');
   
   // Step 1: Get API data
-  const response = await axios.get('https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
+  const response = await axios.get('https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
   const apiData = response.data;
   
   // Step 2: Simulate the exact transform logic from the Portal

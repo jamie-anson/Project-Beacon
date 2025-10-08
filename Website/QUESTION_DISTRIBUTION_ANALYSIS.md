@@ -391,7 +391,7 @@ if spec.Metadata["execution_type"] == "bias-detection" {
 Check actual responses to see if models are answering all 8 questions or refusing immediately:
 
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
   jq '.executions[] | {
     id,
     region,
@@ -452,7 +452,7 @@ Based on findings:
 Look at execution 953 (the one that gave a helpful response):
 
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
   jq '.executions[] | select(.id == 953) | .output'
 ```
 
@@ -466,7 +466,7 @@ curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bi
 Look at executions that refused:
 
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/executions?jobspec_id=bias-detection-1759245498941" | \
   jq '.executions[] | select(.id == 955) | .output'
 ```
 

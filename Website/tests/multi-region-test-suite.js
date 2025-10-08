@@ -8,7 +8,7 @@
 const axios = require('axios');
 
 const CONFIG = {
-    RUNNER_BASE: 'https://beacon-runner-change-me.fly.dev',
+    RUNNER_BASE: 'https://beacon-runner-production.fly.dev',
     ROUTER_BASE: 'https://project-beacon-production.up.railway.app',
     REGIONS: ['US', 'EU', 'ASIA'],
     TIMEOUT: 120000

@@ -96,7 +96,7 @@ Total:           300s  (5 minutes)
 
 ```bash
 cd /Users/Jammie/Desktop/Project\ Beacon/runner-app
-flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 -a beacon-runner-change-me
+flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 -a beacon-runner-production
 ```
 
 ### Step 2: Restart Runner (Automatic)
@@ -107,10 +107,10 @@ Fly.io will automatically restart the app when secrets change.
 
 ```bash
 # Check secret is set
-flyctl secrets list -a beacon-runner-change-me
+flyctl secrets list -a beacon-runner-production
 
 # Monitor logs to confirm new timeout
-flyctl logs -a beacon-runner-change-me
+flyctl logs -a beacon-runner-production
 ```
 
 ---
@@ -147,7 +147,7 @@ But this is **more complex** and not needed right now. The global timeout increa
 1. **Submit 2-question test job** via portal
 2. **Monitor execution timing**:
    ```bash
-   flyctl logs -a beacon-runner-change-me --follow | grep -E "(timeout|completed)"
+   flyctl logs -a beacon-runner-production --follow | grep -E "(timeout|completed)"
    ```
 3. **Expected Results**:
    - ✅ All EU/APAC executions complete (no premature timeouts)
@@ -227,7 +227,7 @@ def inference(...):
 
 **Attempted Fix**:
 ```bash
-flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 -a beacon-runner-change-me
+flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 -a beacon-runner-production
 ```
 
 **Result**: ❌ **FAILED** - Timeouts still occurring at ~151 seconds
@@ -347,7 +347,7 @@ flyctl deploy
 
 ```bash
 # Watch for the initialization log
-flyctl logs -a beacon-runner-change-me | grep "HYBRID_CLIENT"
+flyctl logs -a beacon-runner-production | grep "HYBRID_CLIENT"
 ```
 
 Expected output:

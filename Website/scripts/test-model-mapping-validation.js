@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const API_BASE = 'https://beacon-runner-change-me.fly.dev/api/v1';
+const API_BASE = 'https://beacon-runner-production.fly.dev/api/v1';
 const RESULTS_DIR = path.join(__dirname, '../test-results');
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, '-');
 

@@ -10,7 +10,7 @@ const axios = require('axios');
 async function debugTransform() {
   console.log('🔍 Fetching real API data...');
   
-  const response = await axios.get('https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
+  const response = await axios.get('https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758933513/cross-region-diff');
   const apiData = response.data;
   
   console.log('📊 API Data:', {

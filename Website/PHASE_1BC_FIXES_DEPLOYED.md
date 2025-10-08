@@ -175,7 +175,7 @@ l.Info().
 1. **Submit 2-question test job** via portal
 2. **Monitor Fly.io logs**:
    ```bash
-   flyctl logs -a beacon-runner-change-me --follow | grep -E "(context cancelled|status calculation)"
+   flyctl logs -a beacon-runner-production --follow | grep -E "(context cancelled|status calculation)"
    ```
 3. **Monitor Modal dashboard** at https://modal.com/jamie-anson/project-beacon-hf
 4. **Watch for context cancellation messages** when EU fails
@@ -234,7 +234,7 @@ l.Info().
 
 ### Health Checks
 - [ ] Fly.io deployment successful
-- [ ] Runner app healthy: https://beacon-runner-change-me.fly.dev/health
+- [ ] Runner app healthy: https://beacon-runner-production.fly.dev/health
 - [ ] No errors in startup logs
 
 ---
@@ -265,10 +265,10 @@ l.Info().
 
 ```bash
 # Monitor logs for context cancellation
-flyctl logs -a beacon-runner-change-me | grep "context cancelled"
+flyctl logs -a beacon-runner-production | grep "context cancelled"
 
 # Monitor status calculation
-flyctl logs -a beacon-runner-change-me | grep "status calculation"
+flyctl logs -a beacon-runner-production | grep "status calculation"
 
 # Check Modal function calls (manual)
 # Visit: https://modal.com/jamie-anson/project-beacon-hf
@@ -276,7 +276,7 @@ flyctl logs -a beacon-runner-change-me | grep "status calculation"
 # Verify: No requests after job failure timestamp
 
 # Check database execution counts
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/YOUR_JOB_ID?include=executions" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/jobs/YOUR_JOB_ID?include=executions" | \
   jq '[.executions[] | {status, region, model_id, question_id, completed_at}] | group_by(.status) | map({status: .[0].status, count: length})'
 ```
 

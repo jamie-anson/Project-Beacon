@@ -275,7 +275,7 @@ jobs:
         echo "## Runner API Performance" >> performance-report.md
         for i in {1..5}; do
           start_time=$(date +%s%N)
-          curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/health" > /dev/null
+          curl -s --max-time 10 "https://beacon-runner-production.fly.dev/api/v1/health" > /dev/null
           end_time=$(date +%s%N)
           response_time=$(( (end_time - start_time) / 1000000 ))
           echo "- Test $i: ${response_time}ms" >> performance-report.md

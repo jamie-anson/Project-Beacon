@@ -28,7 +28,7 @@ fly deploy
 fly status
 
 # Check logs for migration
-fly logs --app beacon-runner-change-me
+fly logs --app beacon-runner-production
 ```
 
 **Expected:** Migration should run automatically on startup, adding retry columns to executions table.
@@ -72,7 +72,7 @@ git push origin main
 
 ```bash
 # SSH into Fly.io machine
-fly ssh console --app beacon-runner-change-me
+fly ssh console --app beacon-runner-production
 
 # Check database schema
 psql $DATABASE_URL -c "\d executions"
@@ -91,7 +91,7 @@ REGION="us-east"
 QUESTION_INDEX=0
 
 # Test retry endpoint
-curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/executions/$EXECUTION_ID/retry-question \
+curl -X POST https://beacon-runner-production.fly.dev/api/v1/executions/$EXECUTION_ID/retry-question \
   -H "Content-Type: application/json" \
   -d "{\"region\": \"$REGION\", \"question_index\": $QUESTION_INDEX}"
 
@@ -126,10 +126,10 @@ curl -X POST https://beacon-runner-change-me.fly.dev/api/v1/executions/$EXECUTIO
 
 ```bash
 # Check if HYBRID_ROUTER_URL is set
-fly secrets list --app beacon-runner-change-me
+fly secrets list --app beacon-runner-production
 
 # If not set, add it:
-fly secrets set HYBRID_ROUTER_URL="https://project-beacon-production.up.railway.app" --app beacon-runner-change-me
+fly secrets set HYBRID_ROUTER_URL="https://project-beacon-production.up.railway.app" --app beacon-runner-production
 ```
 
 ### Backend (Railway)
@@ -162,7 +162,7 @@ git push origin main
 ### 3. Rollback Runner App
 ```bash
 # Rollback migration
-fly ssh console --app beacon-runner-change-me
+fly ssh console --app beacon-runner-production
 psql $DATABASE_URL -f /app/migrations/0010_add_retry_tracking.down.sql
 exit
 
@@ -178,7 +178,7 @@ fly deploy --image <previous-image-id>
 
 **Runner App:**
 ```bash
-fly logs --app beacon-runner-change-me | grep RETRY
+fly logs --app beacon-runner-production | grep RETRY
 ```
 
 **Backend:**
@@ -230,21 +230,21 @@ AND retry_history != '[]'::jsonb;
 ### Issue: Migration doesn't run
 **Solution:** Manually apply migration
 ```bash
-fly ssh console --app beacon-runner-change-me
+fly ssh console --app beacon-runner-production
 psql $DATABASE_URL -f /app/migrations/0010_add_retry_tracking.up.sql
 ```
 
 ### Issue: Retry endpoint returns 500
 **Solution:** Check logs for error
 ```bash
-fly logs --app beacon-runner-change-me
+fly logs --app beacon-runner-production
 # Look for: [RETRY] errors
 ```
 
 ### Issue: Hybrid router not found
 **Solution:** Verify HYBRID_ROUTER_URL is set
 ```bash
-fly secrets list --app beacon-runner-change-me
+fly secrets list --app beacon-runner-production
 fly secrets set HYBRID_ROUTER_URL="https://project-beacon-production.up.railway.app"
 ```
 

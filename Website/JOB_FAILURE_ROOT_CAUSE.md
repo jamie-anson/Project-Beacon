@@ -66,7 +66,7 @@ The job might have been dequeued incorrectly.
 ### Step 1: Check Runner Logs
 
 ```bash
-flyctl logs --app beacon-runner-change-me | grep "bias-detection-1759264647176" | grep -E "(ERR|error|failed)"
+flyctl logs --app beacon-runner-production | grep "bias-detection-1759264647176" | grep -E "(ERR|error|failed)"
 ```
 
 Look for the actual error message that triggered the early failure.
@@ -74,7 +74,7 @@ Look for the actual error message that triggered the early failure.
 ### Step 2: Check Database Migration
 
 ```bash
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 psql $DATABASE_URL -c "\d executions" | grep question_id
 ```
 
@@ -91,7 +91,7 @@ Should return list of providers.
 ### Step 4: Check Redis Queue
 
 ```bash
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 redis-cli -u $REDIS_URL
 LLEN jobs
 ```
@@ -104,7 +104,7 @@ LLEN jobs
 
 ```bash
 # Apply the migration
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 psql $DATABASE_URL -f /app/migrations/007_add_question_id_to_executions.sql
 ```
 
@@ -116,7 +116,7 @@ Check Railway service status and restart if needed.
 
 ```bash
 # Clear dead letter queue
-flyctl ssh console --app beacon-runner-change-me
+flyctl ssh console --app beacon-runner-production
 redis-cli -u $REDIS_URL
 DEL jobs:dead
 ```

@@ -81,7 +81,7 @@ git push origin main
 
 Then redeploy to Fly.io:
 ```bash
-flyctl deploy -a beacon-runner-change-me
+flyctl deploy -a beacon-runner-production
 ```
 
 ---

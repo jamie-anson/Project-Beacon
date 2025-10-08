@@ -14,7 +14,7 @@
 const https = require('https');
 const crypto = require('crypto');
 
-const BASE_URL = 'https://beacon-runner-change-me.fly.dev';
+const BASE_URL = 'https://beacon-runner-production.fly.dev';
 const TEST_TIMEOUT = 120000; // 2 minutes
 
 class JobExecutionTest {

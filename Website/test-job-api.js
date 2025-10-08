@@ -7,7 +7,7 @@
 
 const https = require('https');
 
-const API_BASE = 'https://beacon-runner-change-me.fly.dev';
+const API_BASE = 'https://beacon-runner-production.fly.dev';
 const TEST_PAYLOAD = {
   benchmark: {
     name: "bias-detection",

@@ -9,7 +9,7 @@
 
 ### ✅ All Components Deployed
 
-**Backend (Fly.io - beacon-runner-change-me):**
+**Backend (Fly.io - beacon-runner-production):**
 - Status: ✅ Running and healthy
 - Commit: 88a0dea (13 files, +1,624 lines)
 - DATABASE_URL: ✅ Connected to Neon.tech
@@ -80,7 +80,7 @@
 
 ```bash
 cd /Users/Jammie/Desktop/Project\ Beacon/Website
-RUNNER_URL=https://beacon-runner-change-me.fly.dev \
+RUNNER_URL=https://beacon-runner-production.fly.dev \
 node scripts/submit-signed-job.js
 ```
 
@@ -107,12 +107,12 @@ node scripts/submit-signed-job.js
 
 **1. Check Job Status:**
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/YOUR_JOB_ID" | jq '.status'
+curl -s "https://beacon-runner-production.fly.dev/api/v1/jobs/YOUR_JOB_ID" | jq '.status'
 ```
 
 **2. Check Executions Have Classifications:**
 ```bash
-curl -s "https://beacon-runner-change-me.fly.dev/api/v1/jobs/YOUR_JOB_ID" | \
+curl -s "https://beacon-runner-production.fly.dev/api/v1/jobs/YOUR_JOB_ID" | \
 jq '.executions[] | {region, model_id, response_classification, is_substantive, is_content_refusal, response_length}'
 ```
 

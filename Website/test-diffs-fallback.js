@@ -9,7 +9,7 @@ async function testDiffsFallback() {
   
   try {
     // Fetch the actual execution data
-    const response = await fetch('https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758981108801/executions/all');
+    const response = await fetch('https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1758981108801/executions/all');
     const data = await response.json();
     
     console.log('📊 Execution Data Summary:');

@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Test configuration
-const API_BASE = 'https://beacon-runner-change-me.fly.dev/api/v1';
+const API_BASE = 'https://beacon-runner-production.fly.dev/api/v1';
 const PORTAL_BASE = 'https://projectbeacon.netlify.app/portal';
 const RESULTS_DIR = path.join(__dirname, '../test-results');
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, '-');

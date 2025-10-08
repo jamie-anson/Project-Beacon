@@ -40,7 +40,7 @@ function exportPublicKey(publicKey) {
 }
 
 // Configuration
-const RUNNER_BASE = process.env.RUNNER_URL || 'https://beacon-runner-change-me.fly.dev';
+const RUNNER_BASE = process.env.RUNNER_URL || 'https://beacon-runner-production.fly.dev';
 const API_BASE = `${RUNNER_BASE}/api/v1`;
 const PORTAL_ORIGIN = 'https://projectbeacon.netlify.app';
 

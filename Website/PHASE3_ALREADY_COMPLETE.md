@@ -188,7 +188,7 @@ Job completed successfully!
 
 ### Check API Response:
 ```bash
-curl https://beacon-runner-change-me.fly.dev/api/v1/executions?limit=5 | jq '.[0].question_id'
+curl https://beacon-runner-production.fly.dev/api/v1/executions?limit=5 | jq '.[0].question_id'
 ```
 
 Expected: Returns question_id if present

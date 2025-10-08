@@ -52,7 +52,7 @@ curl https://jamie-anson--project-beacon-hf-apac-health.modal.run
 - ✅ Enhanced logging for question batches
 
 **Deployment**:
-- ✅ Deployed to Fly.io: https://beacon-runner-change-me.fly.dev
+- ✅ Deployed to Fly.io: https://beacon-runner-production.fly.dev
 - ✅ Health check: All services healthy
 - ✅ Code formatted and validated
 
@@ -132,7 +132,7 @@ Time remaining: ~6:30
 
 ### Immediate Testing:
 - [ ] Submit 8-question test job via portal
-- [ ] Monitor Fly.io logs: `flyctl logs -a beacon-runner-change-me --follow`
+- [ ] Monitor Fly.io logs: `flyctl logs -a beacon-runner-production --follow`
 - [ ] Watch for "starting question batch" messages (8 times)
 - [ ] Watch for "question batch completed" messages (8 times)
 - [ ] Verify gap timing: Q1 complete → Q2 start <2s
@@ -239,13 +239,13 @@ multi-model sequential question execution completed
 
 ```bash
 # Monitor logs
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 
 # Filter for question batching
-flyctl logs -a beacon-runner-change-me | grep "question batch"
+flyctl logs -a beacon-runner-production | grep "question batch"
 
 # Check health
-curl https://beacon-runner-change-me.fly.dev/health | jq .
+curl https://beacon-runner-production.fly.dev/health | jq .
 
 # Check Modal endpoints
 curl https://jamie-anson--project-beacon-hf-us-health.modal.run | jq .models_available

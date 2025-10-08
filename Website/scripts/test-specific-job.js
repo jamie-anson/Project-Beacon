@@ -7,7 +7,7 @@ async function testSpecificJob(jobId) {
   
   try {
     // Test API call
-    const response = await axios.get(`https://beacon-runner-change-me.fly.dev/api/v1/executions/${jobId}/cross-region-diff`);
+    const response = await axios.get(`https://beacon-runner-production.fly.dev/api/v1/executions/${jobId}/cross-region-diff`);
     const apiData = response.data;
     
     console.log('📊 API Response:', {

@@ -10,8 +10,8 @@ async function debugPortalTransform(jobId) {
     console.log('\n📡 Step 1: Fetching API data...');
     
     const [jobResponse, diffResponse] = await Promise.all([
-      axios.get(`https://beacon-runner-change-me.fly.dev/api/v1/jobs/${jobId}`).catch(e => ({ error: e.message })),
-      axios.get(`https://beacon-runner-change-me.fly.dev/api/v1/executions/${jobId}/cross-region-diff`).catch(e => ({ error: e.message }))
+      axios.get(`https://beacon-runner-production.fly.dev/api/v1/jobs/${jobId}`).catch(e => ({ error: e.message })),
+      axios.get(`https://beacon-runner-production.fly.dev/api/v1/executions/${jobId}/cross-region-diff`).catch(e => ({ error: e.message }))
     ]);
     
     console.log('Job API:', jobResponse.error ? `❌ ${jobResponse.error}` : '✅ Success');

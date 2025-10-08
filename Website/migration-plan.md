@@ -161,7 +161,7 @@ Deferred work items (to revisit):
 
 Current focus (active):
 - Use the Hybrid Router at `https://project-beacon-production.up.railway.app` to obtain results immediately.
-- Runner on Fly (`https://beacon-runner-change-me.fly.dev`) submits jobs; trust enforcement is re‑enabled with the portal key.
+- Runner on Fly (`https://beacon-runner-production.fly.dev`) submits jobs; trust enforcement is re‑enabled with the portal key.
 - For faster results, set the desired region first in JobSpec constraints (MVP executes the first region).
 
 ### 5.6 Final Validation

@@ -6,7 +6,7 @@ Comprehensive monitoring and alerting infrastructure for Project Beacon runner u
 ## Components
 
 ### 1. Metrics Collection
-- **Prometheus metrics endpoint**: `https://beacon-runner-change-me.fly.dev/metrics`
+- **Prometheus metrics endpoint**: `https://beacon-runner-production.fly.dev/metrics`
 - **Scrape interval**: 15 seconds
 - **Metrics categories**:
   - HTTP request metrics (latency, throughput, errors)
@@ -50,7 +50,7 @@ Critical alerts configured for:
    - `GC_REMOTE_WRITE_URL`
    - `GC_USERNAME` 
    - `GC_PASSWORD`
-   - `SCRAPE_TARGET=beacon-runner-change-me.fly.dev:443`
+   - `SCRAPE_TARGET=beacon-runner-production.fly.dev:443`
 
 ## Key Metrics to Monitor
 

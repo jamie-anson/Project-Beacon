@@ -320,7 +320,7 @@ go test ./internal/worker -v
 ```bash
 cd runner-app
 flyctl deploy
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 ```
 
 ### Test 3: Submit Test Job
@@ -396,7 +396,7 @@ cd runner-app && go test ./internal/worker -v
 
 # Deployment
 cd runner-app && flyctl deploy
-flyctl logs -a beacon-runner-change-me --follow
+flyctl logs -a beacon-runner-production --follow
 
 # Database verification
 psql $DATABASE_URL -c "\d executions"

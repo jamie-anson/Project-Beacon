@@ -27,7 +27,7 @@
 ### 0.1 Backend Services Status ✅ COMPLETE
 - [x] **Fly.io Runner Health**: All services healthy (yagna, ipfs, database, redis)
 - [x] **Railway Hybrid Router**: Operational with WebSocket support
-- [x] **API Endpoints**: Runner responding on https://beacon-runner-change-me.fly.dev
+- [x] **API Endpoints**: Runner responding on https://beacon-runner-production.fly.dev
 - [x] **Cross-Region API**: Railway responding on https://project-beacon-production.up.railway.app
 
 ### 0.2 CRITICAL DEPLOYMENT PIPELINE FAILURES ❌ URGENT

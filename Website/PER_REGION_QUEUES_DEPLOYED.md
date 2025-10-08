@@ -180,7 +180,7 @@ multi-model per-region question queue execution completed
 
 ### Runner App:
 - ✅ Per-region queue logic deployed
-- ✅ Health check: https://beacon-runner-change-me.fly.dev/health
+- ✅ Health check: https://beacon-runner-production.fly.dev/health
 - ✅ Deployment time: ~2 minutes
 
 ### Portal:
@@ -193,7 +193,7 @@ multi-model per-region question queue execution completed
 
 ### Immediate:
 - [ ] Submit new 2-question test job
-- [ ] Monitor logs: `flyctl logs -a beacon-runner-change-me --follow`
+- [ ] Monitor logs: `flyctl logs -a beacon-runner-production --follow`
 - [ ] Watch for "starting region question queue" (3 times - US, EU, ASIA)
 - [ ] Verify US completes faster than EU/ASIA
 - [ ] Check portal shows both questions processing
@@ -221,10 +221,10 @@ multi-model per-region question queue execution completed
 
 ```bash
 # Monitor logs for per-region queues
-flyctl logs -a beacon-runner-change-me | grep "region question queue"
+flyctl logs -a beacon-runner-production | grep "region question queue"
 
 # Check specific region progress
-flyctl logs -a beacon-runner-change-me | grep "region=us-east"
+flyctl logs -a beacon-runner-production | grep "region=us-east"
 
 # Count executions per region
 psql $DATABASE_URL -c "

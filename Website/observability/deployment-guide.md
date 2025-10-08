@@ -30,15 +30,15 @@ export ES_PASSWORD="your-password"
 ### Fly.io Secrets Configuration
 ```bash
 # Set production logging secrets
-flyctl secrets set LOG_LEVEL=info --app beacon-runner-change-me
-flyctl secrets set LOG_FORMAT=json --app beacon-runner-change-me
-flyctl secrets set ENVIRONMENT=production --app beacon-runner-change-me
-flyctl secrets set APP_VERSION=1.0.0 --app beacon-runner-change-me
+flyctl secrets set LOG_LEVEL=info --app beacon-runner-production
+flyctl secrets set LOG_FORMAT=json --app beacon-runner-production
+flyctl secrets set ENVIRONMENT=production --app beacon-runner-production
+flyctl secrets set APP_VERSION=1.0.0 --app beacon-runner-production
 
 # Optional: Add log forwarding
-flyctl secrets set LOKI_URL="your-loki-url" --app beacon-runner-change-me
-flyctl secrets set LOKI_USERNAME="your-username" --app beacon-runner-change-me
-flyctl secrets set LOKI_PASSWORD="your-password" --app beacon-runner-change-me
+flyctl secrets set LOKI_URL="your-loki-url" --app beacon-runner-production
+flyctl secrets set LOKI_USERNAME="your-username" --app beacon-runner-production
+flyctl secrets set LOKI_PASSWORD="your-password" --app beacon-runner-production
 ```
 
 ## Log Aggregation Setup

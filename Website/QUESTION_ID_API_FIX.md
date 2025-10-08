@@ -23,7 +23,7 @@ The `question_id` field was **missing from API responses** even though it exists
 
 ### Step 1: Check API Response
 ```bash
-curl "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1759264647176?include=executions" | jq '.executions[0] | keys'
+curl "https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1759264647176?include=executions" | jq '.executions[0] | keys'
 ```
 
 **Result**: No `question_id` field in response!
@@ -78,7 +78,7 @@ git commit -m "fix: add question_id to API responses"
 git push origin main
 
 # Deployed to Fly.io
-flyctl deploy --app beacon-runner-change-me
+flyctl deploy --app beacon-runner-production
 ```
 
 ---
@@ -124,7 +124,7 @@ After deployment, API responses will include `question_id`:
 
 ### Step 1: Check API Response
 ```bash
-curl "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1759264647176?include=executions" | jq '.executions[0] | {id, model_id, question_id}'
+curl "https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1759264647176?include=executions" | jq '.executions[0] | {id, model_id, question_id}'
 ```
 
 **Expected**:

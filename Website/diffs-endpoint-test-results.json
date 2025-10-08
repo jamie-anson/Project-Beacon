@@ -104,7 +104,7 @@
     },
     {
       "name": "Main Backend - Cross Region Diff",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758721736/cross-region-diff",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758721736/cross-region-diff",
       "status_code": 404,
       "duration_ms": 178.84,
       "success": false,
@@ -138,7 +138,7 @@
     },
     {
       "name": "Main Backend - Regions",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758721736/regions",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758721736/regions",
       "status_code": 404,
       "duration_ms": 147.31,
       "success": false,
@@ -172,7 +172,7 @@
     },
     {
       "name": "Main Backend - Cross Region",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758721736/cross-region",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758721736/cross-region",
       "status_code": 404,
       "duration_ms": 233.71,
       "success": false,
@@ -206,7 +206,7 @@
     },
     {
       "name": "Main Backend - Diff Analysis",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/executions/bias-detection-1758721736/diff-analysis",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/executions/bias-detection-1758721736/diff-analysis",
       "status_code": 404,
       "duration_ms": 136.77,
       "success": false,
@@ -240,7 +240,7 @@
     },
     {
       "name": "Main Backend - Execution Details",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/executions/637/details",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/executions/637/details",
       "status_code": 200,
       "duration_ms": 138.1,
       "success": true,
@@ -285,7 +285,7 @@
     },
     {
       "name": "Main Backend - Job Executions",
-      "url": "https://beacon-runner-change-me.fly.dev/api/v1/jobs/bias-detection-1758721736/executions/all",
+      "url": "https://beacon-runner-production.fly.dev/api/v1/jobs/bias-detection-1758721736/executions/all",
       "status_code": 200,
       "duration_ms": 141.34,
       "success": true,

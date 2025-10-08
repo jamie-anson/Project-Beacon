@@ -114,7 +114,7 @@ time curl https://jamie-anson--project-beacon-hf-run-inference-apac.modal.run
 ### Step 4: Increase Timeout
 Try increasing `HYBRID_ROUTER_TIMEOUT` to 180 seconds:
 ```bash
-flyctl secrets set HYBRID_ROUTER_TIMEOUT=180 --app beacon-runner-change-me
+flyctl secrets set HYBRID_ROUTER_TIMEOUT=180 --app beacon-runner-production
 ```
 
 ---
@@ -138,7 +138,7 @@ flyctl secrets set HYBRID_ROUTER_TIMEOUT=180 --app beacon-runner-change-me
 
 ### Option 1: Increase Timeout (Quick Fix)
 ```bash
-flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 --app beacon-runner-change-me
+flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 --app beacon-runner-production
 ```
 
 **Pros**: Simple, might fix immediately  
@@ -169,8 +169,8 @@ Switch from Modal to RunPod or another provider in ASIA.
 **Try Option 1 first**: Increase timeout to 300 seconds.
 
 ```bash
-flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 --app beacon-runner-change-me
-flyctl restart --app beacon-runner-change-me
+flyctl secrets set HYBRID_ROUTER_TIMEOUT=300 --app beacon-runner-production
+flyctl restart --app beacon-runner-production
 ```
 
 Then submit another test job and see if ASIA works.

@@ -4,7 +4,7 @@
  Test multi-model job submission to verify backend execution.
  
  Usage:
-   RUNNER_URL=https://beacon-runner-change-me.fly.dev node scripts/test-multi-model-job.js
+   RUNNER_URL=https://beacon-runner-production.fly.dev node scripts/test-multi-model-job.js
    
    # Or via Netlify proxy
    RUNNER_URL=https://projectbeacon.netlify.app node scripts/test-multi-model-job.js
@@ -20,7 +20,7 @@ const path = require('path');
 const axios = require('axios');
 const crypto = require('crypto');
 
-const RUNNER_URL = process.env.RUNNER_URL || 'https://beacon-runner-change-me.fly.dev';
+const RUNNER_URL = process.env.RUNNER_URL || 'https://beacon-runner-production.fly.dev';
 const API_JOBS = `${RUNNER_URL}/api/v1/jobs`;
 const PORTAL_ORIGIN = 'https://projectbeacon.netlify.app';
 const TIMEOUT_MS = 60000;

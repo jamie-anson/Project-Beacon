@@ -201,7 +201,7 @@ Job executes across all regions (typically 2-5 minutes).
 ### Test Endpoint
 ```bash
 # Get bias analysis for a completed job
-curl https://beacon-runner-change-me.fly.dev/api/v2/jobs/{jobId}/bias-analysis
+curl https://beacon-runner-production.fly.dev/api/v2/jobs/{jobId}/bias-analysis
 
 # Example response
 {

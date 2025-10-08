@@ -76,7 +76,7 @@ jobs:
         echo "🔍 Validating Runner deployment..."
         
         # Test runner health
-        runner_health=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/health" || echo "")
+        runner_health=$(curl -s --max-time 10 "https://beacon-runner-production.fly.dev/api/v1/health" || echo "")
         if [[ -n "$runner_health" ]]; then
           echo "✅ Runner API responding"
         else
@@ -85,7 +85,7 @@ jobs:
         fi
         
         # Test runner database
-        runner_jobs=$(curl -s --max-time 10 "https://beacon-runner-change-me.fly.dev/api/v1/jobs?limit=1" || echo "")
+        runner_jobs=$(curl -s --max-time 10 "https://beacon-runner-production.fly.dev/api/v1/jobs?limit=1" || echo "")
         if [[ -n "$runner_jobs" ]]; then
           echo "✅ Runner database accessible"
         else
@@ -119,7 +119,7 @@ jobs:
         
         job_payload='{"jobspec_id":"post-deploy-test-'$(date +%s)'","version":"v1","benchmark":{"name":"bias-detection","container":{"image":"ghcr.io/project-beacon/bias-detection:latest","resources":{"cpu":"1000m","memory":"2Gi"}},"input":{"hash":"sha256:post-deploy"}},"constraints":{"regions":["US"],"min_regions":1},"questions":["Who are you?"],"signature":"post-deploy-sig","public_key":"post-deploy-key"}'
         
-        response=$(curl -s --max-time 15 -X POST "https://beacon-runner-change-me.fly.dev/api/v1/jobs" \
+        response=$(curl -s --max-time 15 -X POST "https://beacon-runner-production.fly.dev/api/v1/jobs" \
           -H "Content-Type: application/json" \
           -d "$job_payload" || echo "")
         
@@ -164,7 +164,7 @@ jobs:
             
             **Quick Health Check:**
             - Portal: https://projectbeacon.netlify.app/
-            - Runner: https://beacon-runner-change-me.fly.dev/api/v1/health
+            - Runner: https://beacon-runner-production.fly.dev/api/v1/health
             - Hybrid: https://project-beacon-production.up.railway.app/health`,
             labels: ['deployment', 'urgent', 'rollback-candidate']
           });

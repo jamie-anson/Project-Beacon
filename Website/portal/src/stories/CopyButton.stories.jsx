@@ -19,7 +19,7 @@ const meta = {
     }
   },
   args: {
-    text: 'https://beacon-runner-change-me.fly.dev/api/v1/health',
+    text: 'https://beacon-runner-production.fly.dev/api/v1/health',
     label: 'Copy URL',
     className: 'bg-ctp-surface1 border-ctp-blue text-ctp-text hover:bg-ctp-surface2 transition-colors'
   }
@@ -40,7 +40,7 @@ export const Default = {
 export const CustomLabel = {
   args: {
     label: 'Copy API Base',
-    text: 'https://beacon-runner-change-me.fly.dev/api/v1'
+    text: 'https://beacon-runner-production.fly.dev/api/v1'
   }
 };
 

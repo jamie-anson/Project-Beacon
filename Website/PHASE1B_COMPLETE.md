@@ -187,7 +187,7 @@ multi-model sequential question execution completed
 
 ```bash
 # Check logs for question batching
-flyctl logs -a beacon-runner-change-me | grep "question batch"
+flyctl logs -a beacon-runner-production | grep "question batch"
 
 # Count executions per question
 psql $DATABASE_URL -c "

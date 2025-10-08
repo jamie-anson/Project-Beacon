@@ -215,7 +215,7 @@ diff modal-deployment/modal_hf_us.py modal-deployment/modal_hf_apac.py
 ### Step 3: Check Auto-Stop Logs
 ```bash
 # Look for auto-stop messages for this job
-flyctl logs --app beacon-runner-change-me | grep "full-test-3regions-2questions-1759245237" | grep -i "auto-stop\|duplicate"
+flyctl logs --app beacon-runner-production | grep "full-test-3regions-2questions-1759245237" | grep -i "auto-stop\|duplicate"
 ```
 
 **Question**: Did auto-stop detect the duplicate? Why didn't it prevent it?
@@ -223,7 +223,7 @@ flyctl logs --app beacon-runner-change-me | grep "full-test-3regions-2questions-
 ### Step 4: Check Job Retry/Reprocessing
 ```bash
 # Check if job was retried
-flyctl logs --app beacon-runner-change-me | grep "full-test-3regions-2questions-1759245237" | grep -i "retry\|attempt\|dead"
+flyctl logs --app beacon-runner-production | grep "full-test-3regions-2questions-1759245237" | grep -i "retry\|attempt\|dead"
 ```
 
 **Question**: Was the job retried? Why the 3-minute gap?
