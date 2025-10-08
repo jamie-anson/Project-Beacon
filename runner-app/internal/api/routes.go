@@ -103,6 +103,10 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
 				jobs.GET("/:id", jobsHandler.GetJob)
 				jobs.GET("", jobsHandler.ListJobs)
+				// Cross-region job submission endpoint
+				if biasAnalysisHandler != nil {
+					jobs.POST("/cross-region", biasAnalysisHandler.SubmitCrossRegionJob)
+				}
 			} else {
 				// Return 503 Service Unavailable when service is nil (testing mode)
 				jobs.POST("", func(c *gin.Context) {
