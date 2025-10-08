@@ -17,7 +17,8 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
   
   const jobSpec = activeJob.job || activeJob;
   const questions = jobSpec?.questions || [];
-  const models = jobSpec?.models || [];
+  // Models can be in jobSpec.models OR jobSpec.metadata.models (for cross-region jobs)
+  const models = jobSpec?.models || jobSpec?.metadata?.models || [];
   const executions = activeJob?.executions || [];
   
   // Validation: Check for data integrity

@@ -90,7 +90,8 @@ export function useJobProgress(activeJob, selectedRegions = [], isCompleted = fa
     // Get spec data
     const jobSpec = activeJob?.job || activeJob;
     const specQuestions = jobSpec?.questions || [];
-    const specModels = jobSpec?.models || [];
+    // Models can be in jobSpec.models OR jobSpec.metadata.models (for cross-region jobs)
+    const specModels = jobSpec?.models || jobSpec?.metadata?.models || [];
     const hasQuestions = specQuestions.length > 0 || uniqueQuestions.length > 0;
     const displayQuestions = specQuestions.length > 0 ? specQuestions : uniqueQuestions;
     
