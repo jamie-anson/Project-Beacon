@@ -95,13 +95,17 @@ func NewCrossRegionExecutor(singleRegionExecutor SingleRegionExecutor, hybridRou
 
 // ExecuteAcrossRegions executes a JobSpec across multiple regions in parallel
 func (cre *CrossRegionExecutor) ExecuteAcrossRegions(ctx context.Context, jobSpec *models.JobSpec) (*CrossRegionResult, error) {
+	fmt.Printf("[EXEC] ExecuteAcrossRegions called for job %s\n", jobSpec.ID)
 	startTime := time.Now()
 	
 	// Create execution plans for each region
+	fmt.Printf("[EXEC] Creating execution plans for job %s\n", jobSpec.ID)
 	plans, err := cre.createExecutionPlans(ctx, jobSpec)
 	if err != nil {
+		fmt.Printf("[EXEC] Failed to create execution plans for job %s: %v\n", jobSpec.ID, err)
 		return nil, fmt.Errorf("failed to create execution plans: %w", err)
 	}
+	fmt.Printf("[EXEC] Created %d execution plans for job %s\n", len(plans), jobSpec.ID)
 
 	cre.logger.Info("Starting cross-region execution",
 		"jobspec_id", jobSpec.ID,
@@ -184,19 +188,25 @@ func (cre *CrossRegionExecutor) ExecuteAcrossRegions(ctx context.Context, jobSpe
 
 // createExecutionPlans creates execution plans for each target region
 func (cre *CrossRegionExecutor) createExecutionPlans(ctx context.Context, jobSpec *models.JobSpec) ([]RegionExecutionPlan, error) {
+	fmt.Printf("[EXEC] createExecutionPlans called for job %s\n", jobSpec.ID)
 	var plans []RegionExecutionPlan
 
 	// Check if hybrid router is initialized
+	fmt.Printf("[EXEC] Checking hybrid router for job %s: router=%v\n", jobSpec.ID, cre.hybridRouter != nil)
 	if cre.hybridRouter == nil {
 		// Hybrid router not initialized - return error with clear message
+		fmt.Printf("[EXEC] ERROR: Hybrid router is nil for job %s\n", jobSpec.ID)
 		return nil, fmt.Errorf("hybrid router not initialized - cross-region execution not available")
 	}
 
 	// Get available providers from hybrid router
+	fmt.Printf("[EXEC] Getting providers from hybrid router for job %s\n", jobSpec.ID)
 	providers, err := cre.hybridRouter.GetProviders(ctx)
 	if err != nil {
+		fmt.Printf("[EXEC] ERROR: Failed to get providers for job %s: %v\n", jobSpec.ID, err)
 		return nil, fmt.Errorf("failed to get providers: %w", err)
 	}
+	fmt.Printf("[EXEC] Got %d providers for job %s\n", len(providers), jobSpec.ID)
 
 	// Create plans for each target region
 	for i, region := range jobSpec.Constraints.Regions {
