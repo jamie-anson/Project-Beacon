@@ -193,16 +193,33 @@ type SignableData struct {
 	Data interface{} `json:"data"`
 }
 
-// CreateSignableJobSpec creates a signable version of JobSpec (without signature/public_key)
-// It returns a STRUCT copy (not a map) so JSON field order is deterministic.
+// CreateSignableJobSpec creates a signable version of JobSpec (with signature/public_key zeroed)
+// For V1 canonicalization: Returns a STRUCT copy with signature/public_key set to empty strings.
+// This preserves field presence for deterministic JSON structure.
 func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
-	// Use reflection to create a shallow copy and zero out Signature/PublicKey if present
+	// Use reflection to create a copy and zero out Signature/PublicKey if present
 	v := reflect.ValueOf(jobspec)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	// Always use map-based approach for consistent canonicalization
-	// This ensures we only include fields that are actually present in the JSON
+	
+	// If it's a struct, create a struct copy with zeroed fields
+	if v.Kind() == reflect.Struct {
+		copyValue := reflect.New(v.Type()).Elem()
+		for i := 0; i < v.NumField(); i++ {
+			fieldName := v.Type().Field(i).Name
+			// Zero out signature and public key fields
+			if fieldName == "Signature" || fieldName == "PublicKey" {
+				// Set to zero value (empty string for string fields)
+				copyValue.Field(i).Set(reflect.Zero(v.Type().Field(i).Type))
+			} else {
+				copyValue.Field(i).Set(v.Field(i))
+			}
+		}
+		return copyValue.Interface(), nil
+	}
+	
+	// For maps, convert to map and DELETE the signature/public_key fields
 	var m map[string]interface{}
 	b, err := json.Marshal(jobspec)
 	if err != nil {
@@ -211,18 +228,10 @@ func CreateSignableJobSpec(jobspec interface{}) (interface{}, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal jobspec: %w", err)
 	}
+	
+	// Delete signature/public_key for map inputs (different behavior than struct)
 	delete(m, "signature")
 	delete(m, "public_key")
-	delete(m, "id")  // Remove ID for portal compatibility
-	delete(m, "created_at")  // Remove created_at - timestamp formatting may differ
-	
-	// Recursively remove null and empty values to match portal's payload
-	removeNullAndEmpty(m)
-	
-	// Debug logging
-	canonicalBytes, _ := json.Marshal(m)
-	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
-	fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
 	
 	return m, nil
 }
