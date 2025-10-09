@@ -1,9 +1,9 @@
 # Hybrid Router Initialization Plan
 
-**Date:** 2025-10-08  
+**Date:** 2025-10-08 → 2025-10-09  
 **Issue:** Cross-region jobs fail with "hybrid router not initialized"  
 **Severity:** HIGH - Blocks cross-region job execution  
-**Status:** ✅ COMPLETE - Deploying v25 with full hybrid router integration
+**Status:** ✅ COMPLETE - v25 deployed, now fixing portal data structure issue
 
 ---
 
@@ -321,6 +321,58 @@ If hybrid router implementation is too complex:
    - Break down into smaller tasks
    - Prioritize critical path
    - Assign time estimates
+
+---
+
+## 🐛 Portal Data Structure Issue (2025-10-09)
+
+### Problem Discovered
+After v25 deployment, portal showed empty executions despite backend working correctly.
+
+**Root Cause:**
+- API returns nested structure: `{job: {...}, executions: null, status: 'queued'}`
+- Portal expected flat structure: `{id, status, executions: [...]}`
+- `transformExecutionsToQuestions()` received `executions: null` → empty UI
+
+**Console Evidence:**
+```javascript
+[getJob] Response: {executions: null, job: {…}, status: 'queued'}
+[getJob] Has executions? true
+[getJob] Executions value: null
+[transformExecutionsToQuestions] {totalExecutions: 0, ...}
+```
+
+### Solution Implemented
+**File:** `portal/src/lib/api/runner/jobs.js`
+
+Added response flattening in `getJob()`:
+```javascript
+// API returns {job: {...}, executions: [...], status: "..."}
+// We need to flatten this to {id, status, executions, ...jobFields}
+if (response && response.job) {
+  const flattened = {
+    ...response.job,
+    executions: response.executions || [],
+    status: response.status || response.job.status
+  };
+  return flattened;
+}
+```
+
+**Changes:**
+- Merges `job` object fields with top-level `executions` and `status`
+- Converts `executions: null` → `executions: []` (empty array)
+- Maintains backward compatibility
+
+**Deployment:**
+- Commit: `c29eeb4`
+- Status: Deployed to production
+- Waiting for Netlify rebuild
+
+**Expected Result:**
+- `activeJob.executions` will be an array (empty or populated)
+- `transformExecutionsToQuestions()` will process correctly
+- UI will show progress when executions are created
 
 ---
 
