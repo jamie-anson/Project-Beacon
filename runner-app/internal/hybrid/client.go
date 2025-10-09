@@ -94,7 +94,7 @@ type Provider struct {
 	CostPerSecond   float64 `json:"cost_per_second"`
 	AvgLatency      float64 `json:"avg_latency"`
 	SuccessRate     float64 `json:"success_rate"`
-	LastHealthCheck int64   `json:"last_health_check"`
+	LastHealthCheck float64 `json:"last_health_check"` // Changed to float64 to match Railway response
 }
 
 // ProvidersResponse is the response from /providers endpoint

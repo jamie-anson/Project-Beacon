@@ -335,7 +335,7 @@ type Provider struct {
 	CostPerSecond   float64 `json:"cost_per_second"`
 	AvgLatency      float64 `json:"avg_latency"`
 	SuccessRate     float64 `json:"success_rate"`
-	LastHealthCheck int64   `json:"last_health_check"`
+	LastHealthCheck float64 `json:"last_health_check"` // Unix timestamp as float64
 }
 
 type Logger interface {
