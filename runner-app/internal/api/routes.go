@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"os"
 	"time"
 	
@@ -11,6 +12,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
 	"github.com/jamie-anson/project-beacon-runner/internal/handlers"
 	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
+	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	rbac "github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -71,7 +73,29 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			crossRegionRepo := store.NewCrossRegionRepo(jobsService.ExecutionsRepo.DB)
 			jobsRepo := store.NewJobsRepo(jobsService.ExecutionsRepo.DB)
 			diffEngine := analysis.NewCrossRegionDiffEngine()
-			crossRegionExecutor := execution.NewCrossRegionExecutor(nil, nil, nil)
+			
+			// Initialize hybrid router client for cross-region execution
+			hybridRouterURL := os.Getenv("HYBRID_BASE")
+			if hybridRouterURL == "" {
+				hybridRouterURL = os.Getenv("HYBRID_ROUTER_URL")
+			}
+			if hybridRouterURL == "" && os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
+				hybridRouterURL = "https://project-beacon-production.up.railway.app" // Default
+			}
+			
+			var crossRegionExecutor *execution.CrossRegionExecutor
+			if hybridRouterURL != "" && os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {
+				// Initialize with hybrid router
+				hybridClient := hybrid.New(hybridRouterURL)
+				logger := logging.FromContext(context.Background())
+				singleRegionExecutor := execution.NewHybridSingleRegionExecutor(hybridClient, logger)
+				hybridRouterAdapter := execution.NewHybridRouterAdapter(hybridClient)
+				crossRegionExecutor = execution.NewCrossRegionExecutor(singleRegionExecutor, hybridRouterAdapter, logger)
+			} else {
+				// Fallback to nil executor (will return error for cross-region jobs)
+				crossRegionExecutor = execution.NewCrossRegionExecutor(nil, nil, nil)
+			}
+			
 			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
 		}
 	} else {
