@@ -87,7 +87,8 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 			if hybridRouterURL != "" && os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {
 				// Initialize with hybrid router
 				hybridClient := hybrid.New(hybridRouterURL)
-				logger := logging.FromContext(context.Background())
+				zerologger := logging.FromContext(context.Background())
+				logger := execution.NewZerologAdapter(&zerologger)
 				singleRegionExecutor := execution.NewHybridSingleRegionExecutor(hybridClient, logger)
 				hybridRouterAdapter := execution.NewHybridRouterAdapter(hybridClient)
 				crossRegionExecutor = execution.NewCrossRegionExecutor(singleRegionExecutor, hybridRouterAdapter, logger)
