@@ -62,18 +62,14 @@ func removeNullAndEmptyValues(m map[string]interface{}) {
 				delete(m, k)
 			}
 		case string:
-			// Remove empty strings
+			// Remove empty strings (but NOT non-empty strings like "latest")
 			if val == "" {
 				delete(m, k)
 			}
 		case nil:
 			// Remove null values
 			delete(m, k)
-		case float64:
-			// Remove zero values for numeric fields (matches omitempty behavior)
-			if val == 0 {
-				delete(m, k)
-			}
+		// DO NOT remove zero numeric values - JavaScript includes them
 		}
 	}
 }
