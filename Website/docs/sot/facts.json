@@ -1455,5 +1455,34 @@
     },
     "effective_at": "2025-10-02T23:40:00+01:00",
     "notes": "Layer 2 model region diff page deployed with comprehensive tests, refactored components, PropTypes for type safety, and performance optimizations. Enables detailed single-model cross-region analysis with word-level diff highlighting and bias metrics visualization."
+  },
+  {
+    "id": "mon-0004",
+    "action": "add",
+    "type": "monitoring",
+    "subject": "sentry_log_forwarding",
+    "env": "prod",
+    "data": {
+      "service": "runner",
+      "integration": "Fly.io native Sentry extension",
+      "dsn": "https://6e47856e4789bf27bb6512c198869c44@o4510159974825984.ingest.us.sentry.io/4510159975153664",
+      "project_id": "4510159975153664",
+      "setup_command": "flyctl ext sentry create",
+      "dashboard_command": "flyctl ext sentry dashboard -a beacon-runner-production",
+      "features": {
+        "log_forwarding": "All stdout/stderr logs automatically forwarded to Sentry",
+        "error_tracking": "Errors and exceptions captured with context",
+        "startup_logs": "Application startup and initialization logs",
+        "operational_logs": "Job processing, database, Redis, IPFS logs"
+      },
+      "alert_configuration": {
+        "frequency": "10 occurrences in 1 minute",
+        "notification_channels": "Sentry dashboard + email"
+      },
+      "log_levels_captured": ["info", "warn", "error", "fatal", "panic"],
+      "managed_by": "Fly.io (automatic secret injection and log shipping)"
+    },
+    "effective_at": "2025-10-09T15:50:00+01:00",
+    "notes": "Fly.io native Sentry integration active. All application logs automatically forwarded to Sentry for monitoring and alerting. No code changes required - Fly manages the integration and secret injection."
   }
 ]

@@ -31,6 +31,10 @@ import (
 	wsHub "github.com/jamie-anson/project-beacon-runner/internal/websocket"
 	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 
+	// Sentry
+	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
+
 	// OpenTelemetry
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -48,6 +52,33 @@ func main() {
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {
 		logger.Fatal().Err(err).Msg("invalid configuration")
+	}
+
+	// Initialize Sentry for error tracking
+	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn: dsn,
+			Environment: getEnvironment(),
+			Release: "runner@" + getVersion(),
+			TracesSampleRate: 0.2, // 20% of transactions for performance monitoring
+			BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+				// Filter out expected errors from graceful shutdowns
+				if strings.Contains(event.Message, "context canceled") {
+					return nil
+				}
+				if strings.Contains(event.Message, "context deadline exceeded") {
+					return nil
+				}
+				return event
+			},
+		}); err != nil {
+			logger.Warn().Err(err).Msg("failed to initialize Sentry")
+		} else {
+			defer sentry.Flush(2 * time.Second)
+			logger.Info().Str("environment", getEnvironment()).Msg("Sentry initialized")
+		}
+	} else {
+		logger.Info().Msg("Sentry disabled (no SENTRY_DSN)")
 	}
 
 	// Materialize trusted keys from environment if provided (helps Fly deploys)
@@ -120,6 +151,13 @@ func main() {
 
 	// Setup routes with services and config
 	r = api.SetupRoutes(jobsService, cfg, redisClient, q)
+
+	// Enable Sentry middleware for error tracking and performance monitoring
+	if os.Getenv("SENTRY_DSN") != "" {
+		r.Use(sentrygin.New(sentrygin.Options{
+			Repanic: true, // Re-panic after capturing to maintain normal error flow
+		}))
+	}
 
 	// Enable OpenTelemetry tracing for Gin routes
 	r.Use(otelgin.Middleware("runner-http"))
@@ -332,6 +370,28 @@ func initOpenTelemetry(ctx context.Context, serviceName string) (*trace.TracerPr
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	return tp, func() {}
+}
+
+// getEnvironment returns the deployment environment for Sentry
+func getEnvironment() string {
+	if region := os.Getenv("FLY_REGION"); region != "" {
+		return "fly-" + region
+	}
+	if env := os.Getenv("ENVIRONMENT"); env != "" {
+		return env
+	}
+	return "development"
+}
+
+// getVersion returns the app version for Sentry releases
+func getVersion() string {
+	if v := os.Getenv("APP_VERSION"); v != "" {
+		return v
+	}
+	if commit := os.Getenv("FLY_COMMIT_SHA"); commit != "" {
+		return commit[:8] // Short commit hash
+	}
+	return "dev"
 }
 // Trigger deployment test
 // Test final deployment fix

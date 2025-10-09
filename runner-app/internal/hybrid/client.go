@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -173,8 +174,8 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 
 // GetProviders retrieves the list of available providers from the hybrid router
 func (c *Client) GetProviders(ctx context.Context) ([]Provider, error) {
-	url := c.baseURL + "/providers"
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	reqURL := c.baseURL + "/providers"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, NewNetworkError("failed to create HTTP request", err)
 	}
@@ -182,6 +183,20 @@ func (c *Client) GetProviders(ctx context.Context) ([]Provider, error) {
 
 	res, err := c.httpClient.Do(httpReq)
 	if err != nil {
+		// Detailed error logging for diagnosis
+		fmt.Printf("[HYBRID] GetProviders HTTP request failed:\n")
+		fmt.Printf("  URL: %s\n", reqURL)
+		fmt.Printf("  Error: %v\n", err)
+		fmt.Printf("  Error Type: %T\n", err)
+		fmt.Printf("  Context Error: %v\n", ctx.Err())
+		
+		// Check if it's a url.Error with more details
+		if urlErr, ok := err.(*url.Error); ok {
+			fmt.Printf("  URL Error Op: %s\n", urlErr.Op)
+			fmt.Printf("  URL Error URL: %s\n", urlErr.URL)
+			fmt.Printf("  URL Error Unwrapped: %v (type: %T)\n", urlErr.Err, urlErr.Err)
+		}
+		
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, NewTimeoutError("HTTP request timeout", err)
 		}
@@ -191,7 +206,7 @@ func (c *Client) GetProviders(ctx context.Context) ([]Provider, error) {
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
-		return nil, NewHTTPError(res.StatusCode, string(body), url)
+		return nil, NewHTTPError(res.StatusCode, string(body), reqURL)
 	}
 
 	var response ProvidersResponse

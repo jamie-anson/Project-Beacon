@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -154,7 +155,11 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	// Start cross-region execution asynchronously
 	go func() {
 		fmt.Printf("[CROSS_REGION] Starting execution for job %s across %d regions\n", req.JobSpec.ID, len(req.TargetRegions))
-		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(c.Request.Context(), req.JobSpec)
+		
+		// Create a new context for the goroutine (parent context will be cancelled after HTTP response)
+		execCtx := context.Background()
+		
+		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
 			fmt.Printf("[CROSS_REGION] Execution failed for job %s: %v\n", req.JobSpec.ID, err)
 			// Update execution status to failed

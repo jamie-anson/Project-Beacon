@@ -33,6 +33,12 @@ func Init() zerolog.Logger {
 	} else {
 		log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 	}
+	
+	// Add Sentry hook if SENTRY_DSN is set
+	if os.Getenv("SENTRY_DSN") != "" {
+		log.Logger = log.Logger.Hook(SentryHook{})
+	}
+	
 	return log.Logger
 }
 
