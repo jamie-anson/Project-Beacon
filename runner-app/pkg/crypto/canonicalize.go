@@ -31,6 +31,10 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 	delete(m, "id")
 	delete(m, "created_at")
 	
+	// Remove null and empty values to match portal's JavaScript JSON.stringify behavior
+	// JavaScript doesn't include undefined/null fields, Go includes them
+	removeNullAndEmptyValues(m)
+	
 	// Encode deterministically
 	b, err := CanonicalJSON(m)
 	if err != nil {
@@ -38,6 +42,34 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 	}
 	// Avoid accidental trailing spaces/newlines
 	return bytes.TrimSpace(b), nil
+}
+
+// removeNullAndEmptyValues recursively removes null values and empty strings from a map
+// This matches JavaScript's JSON.stringify behavior where undefined fields are omitted
+func removeNullAndEmptyValues(m map[string]interface{}) {
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			removeNullAndEmptyValues(val)
+			// Remove if empty after recursive cleanup
+			if len(val) == 0 {
+				delete(m, k)
+			}
+		case string:
+			// Remove empty strings
+			if val == "" {
+				delete(m, k)
+			}
+		case nil:
+			// Remove null values
+			delete(m, k)
+		case float64:
+			// Remove zero values for numeric fields (matches omitempty behavior)
+			if val == 0 {
+				delete(m, k)
+			}
+		}
+	}
 }
 
 // CanonicalizeGenericV1 canonicalizes any JSON-serializable value using the
