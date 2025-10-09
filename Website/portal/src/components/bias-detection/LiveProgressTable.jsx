@@ -7,7 +7,6 @@
 
 import React from 'react';
 import { useJobProgress } from '../../hooks/useJobProgress';
-import { useRetryExecution } from '../../hooks/useRetryExecution';
 import { useCountdownTimer } from '../../hooks/useCountdownTimer';
 import { transformExecutionsToQuestions } from './liveProgressHelpers';
 import FailureAlert from './progress/FailureAlert';
@@ -27,7 +26,6 @@ export default function LiveProgressTable({
 }) {
   // Custom hooks for state management
   const progress = useJobProgress(activeJob, selectedRegions, isCompleted);
-  const { handleRetryQuestion, isRetrying } = useRetryExecution(refetchActive);
   const { timeRemaining } = useCountdownTimer(
     !progress.overallCompleted && !progress.overallFailed,
     progress.jobCompleted,

@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { retryQuestion } from '../lib/api/runner/executions';
-import { showToast } from '../components/Toasts';
+import { useToast } from '../state/toast';
 
 /**
  * Custom hook for retrying failed question executions
@@ -14,6 +14,7 @@ import { showToast } from '../components/Toasts';
  */
 export function useRetryExecution(refetchActive) {
   const [retryingQuestions, setRetryingQuestions] = useState(new Set());
+  const { add: addToast } = useToast();
   
   /**
    * Handle retry for a specific question
@@ -33,7 +34,10 @@ export function useRetryExecution(refetchActive) {
     try {
       await retryQuestion(executionId, region, questionIndex);
       
-      showToast('Question retry queued successfully', 'success');
+      addToast({
+        message: 'Question retry queued successfully',
+        type: 'success'
+      });
       
       // Refetch active job to get updated status
       if (refetchActive) {
@@ -41,10 +45,10 @@ export function useRetryExecution(refetchActive) {
       }
     } catch (error) {
       console.error('Retry failed:', error);
-      showToast(
-        error.message || 'Failed to retry question. Please try again.',
-        'error'
-      );
+      addToast({
+        message: error.message || 'Failed to retry question. Please try again.',
+        type: 'error'
+      });
     } finally {
       setRetryingQuestions(prev => {
         const next = new Set(prev);
