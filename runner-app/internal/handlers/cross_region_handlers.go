@@ -150,8 +150,10 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 
 	// Start cross-region execution asynchronously
 	go func() {
+		fmt.Printf("[CROSS_REGION] Starting execution for job %s across %d regions\n", req.JobSpec.ID, len(req.TargetRegions))
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(c.Request.Context(), req.JobSpec)
 		if err != nil {
+			fmt.Printf("[CROSS_REGION] Execution failed for job %s: %v\n", req.JobSpec.ID, err)
 			// Update execution status to failed
 			h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
 				c.Request.Context(),
@@ -164,6 +166,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			)
 			return
 		}
+		fmt.Printf("[CROSS_REGION] Execution completed for job %s: %d successes, %d failures\n", req.JobSpec.ID, result.SuccessCount, result.FailureCount)
 
 		// Update execution status
 		completedAt := time.Now()
