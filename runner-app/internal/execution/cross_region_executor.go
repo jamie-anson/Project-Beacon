@@ -3,6 +3,7 @@ package execution
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -345,10 +346,31 @@ type Logger interface {
 	Error(msg string, keysAndValues ...interface{})
 }
 
-// Placeholder implementations (to be completed)
+// isProviderInRegion checks if a provider matches the requested region
+// Supports fuzzy matching: "US" matches "us-east", "EU" matches "eu-west", etc.
 func (cre *CrossRegionExecutor) isProviderInRegion(provider Provider, region string) bool {
-	// TODO: Implement region matching logic
-	return provider.Region == region
+	// Exact match (case-insensitive)
+	if strings.EqualFold(provider.Region, region) {
+		return true
+	}
+	
+	// Fuzzy matching for common region codes
+	regionLower := strings.ToLower(region)
+	providerRegionLower := strings.ToLower(provider.Region)
+	
+	// Check if provider region starts with requested region
+	// "US" matches "us-east", "us-west", etc.
+	if strings.HasPrefix(providerRegionLower, regionLower) {
+		return true
+	}
+	
+	// Check if requested region is contained in provider region
+	// "us" matches "us-east", "east" matches "us-east", etc.
+	if strings.Contains(providerRegionLower, regionLower) {
+		return true
+	}
+	
+	return false
 }
 
 func (cre *CrossRegionExecutor) applyProviderFilters(providers []string, region string, filters []models.ProviderFilter) []string {
