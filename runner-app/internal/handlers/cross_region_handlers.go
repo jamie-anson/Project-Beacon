@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
+	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
@@ -87,21 +88,22 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	}
 
 	// Verify JobSpec signature BEFORE validation (signature should verify the original payload)
+	logger := logging.FromContext(c.Request.Context())
 	if req.JobSpec.Signature != "" && req.JobSpec.PublicKey != "" {
 		if err := req.JobSpec.VerifySignature(); err != nil {
-			fmt.Printf("[SIGNATURE ERROR] Verification failed: %v\n", err)
+			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("signature verification failed")
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "Invalid JobSpec signature",
 				"details": err.Error(),
 			})
 			return
 		}
-		fmt.Printf("[SIGNATURE SUCCESS] Signature verified successfully\n")
+		logger.Info().Str("job_id", req.JobSpec.ID).Msg("signature verified successfully")
 	}
 
 	// Validate JobSpec AFTER signature verification
 	if err := req.JobSpec.Validate(); err != nil {
-		fmt.Printf("[VALIDATION ERROR] %v\n", err)
+		logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("jobspec validation failed")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid JobSpec",
 			"details": err.Error(),
@@ -134,7 +136,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	}
 
 	// Create cross-region execution record
-	fmt.Printf("[CROSS_REGION] Creating execution record for job %s\n", req.JobSpec.ID)
+	logger.Info().Str("job_id", req.JobSpec.ID).Int("regions", len(req.TargetRegions)).Msg("creating cross-region execution record")
 	crossRegionExec, err := h.crossRegionRepo.CreateCrossRegionExecution(
 		c.Request.Context(),
 		req.JobSpec.ID,
@@ -143,25 +145,25 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		req.MinSuccessRate,
 	)
 	if err != nil {
-		fmt.Printf("[CROSS_REGION] Failed to create execution record: %v\n", err)
+		logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("failed to create cross-region execution record")
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create cross-region execution",
 			"details": err.Error(),
 		})
 		return
 	}
-	fmt.Printf("[CROSS_REGION] Created execution record: %s\n", crossRegionExec.ID)
+	logger.Info().Str("execution_id", crossRegionExec.ID).Str("job_id", req.JobSpec.ID).Msg("cross-region execution record created")
 
 	// Start cross-region execution asynchronously
 	go func() {
-		fmt.Printf("[CROSS_REGION] Starting execution for job %s across %d regions\n", req.JobSpec.ID, len(req.TargetRegions))
+		logger.Info().Str("job_id", req.JobSpec.ID).Int("regions", len(req.TargetRegions)).Msg("starting cross-region execution")
 		
 		// Create a new context for the goroutine (parent context will be cancelled after HTTP response)
 		execCtx := context.Background()
 		
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
-			fmt.Printf("[CROSS_REGION] Execution failed for job %s: %v\n", req.JobSpec.ID, err)
+			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("cross-region execution failed")
 			// Update execution status to failed
 			h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
 				c.Request.Context(),
@@ -174,7 +176,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			)
 			return
 		}
-		fmt.Printf("[CROSS_REGION] Execution completed for job %s: %d successes, %d failures\n", req.JobSpec.ID, result.SuccessCount, result.FailureCount)
+		logger.Info().Str("job_id", req.JobSpec.ID).Int("successes", result.SuccessCount).Int("failures", result.FailureCount).Msg("cross-region execution completed")
 
 		// Update execution status
 		completedAt := time.Now()

@@ -5,19 +5,24 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// SentryHook is a zerolog hook that sends Error and Fatal logs to Sentry
+// SentryHook is a zerolog hook that sends ALL logs to Sentry
 type SentryHook struct{}
 
 // Run implements zerolog.Hook interface
 func (h SentryHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	// Only send Error, Fatal, and Panic level logs to Sentry
-	if level < zerolog.ErrorLevel {
+	// Send all log levels to Sentry (Info, Warn, Error, Fatal, Panic)
+	// Skip Debug and Trace to avoid noise
+	if level < zerolog.InfoLevel {
 		return
 	}
 
 	// Convert zerolog level to Sentry level
 	var sentryLevel sentry.Level
 	switch level {
+	case zerolog.InfoLevel:
+		sentryLevel = sentry.LevelInfo
+	case zerolog.WarnLevel:
+		sentryLevel = sentry.LevelWarning
 	case zerolog.ErrorLevel:
 		sentryLevel = sentry.LevelError
 	case zerolog.FatalLevel:
@@ -25,16 +30,15 @@ func (h SentryHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	case zerolog.PanicLevel:
 		sentryLevel = sentry.LevelFatal
 	default:
-		sentryLevel = sentry.LevelError
+		sentryLevel = sentry.LevelInfo
 	}
 
 	// Capture the message in Sentry
 	sentry.WithScope(func(scope *sentry.Scope) {
 		scope.SetLevel(sentryLevel)
 		
-		// Add any context from the log event
-		// Note: zerolog doesn't expose fields easily, so we just send the message
-		// For more context, use sentry.CaptureException() directly in code
+		// Add context tags
+		scope.SetTag("log_level", level.String())
 		
 		sentry.CaptureMessage(msg)
 	})

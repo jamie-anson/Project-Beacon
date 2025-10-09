@@ -29,7 +29,8 @@ func (js *JobSpec) VerifySignature() error {
 	}
 
 	// Debug: Log the canonical JSON being verified
-	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", string(canonicalBytes))
+	canonicalStr := string(canonicalBytes)
+	fmt.Printf("[SIGNATURE DEBUG] Server canonical JSON: %s\n", canonicalStr)
 	fmt.Printf("[SIGNATURE DEBUG] Server canonical length: %d\n", len(canonicalBytes))
 
 	// Decode signature from base64
@@ -40,7 +41,10 @@ func (js *JobSpec) VerifySignature() error {
 
 	// Verify signature directly (don't re-canonicalize)
 	if !ed25519.Verify(publicKey, canonicalBytes, signatureBytes) {
-		return fmt.Errorf("signature verification failed")
+		// On failure, provide detailed error with canonical JSON info
+		return fmt.Errorf("signature verification failed (canonical length: %d, first 200 chars: %s)", 
+			len(canonicalBytes), 
+			canonicalStr[:min(200, len(canonicalStr))])
 	}
 
 	return nil
