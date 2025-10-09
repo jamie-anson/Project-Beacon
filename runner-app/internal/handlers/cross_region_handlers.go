@@ -133,6 +133,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	}
 
 	// Create cross-region execution record
+	fmt.Printf("[CROSS_REGION] Creating execution record for job %s\n", req.JobSpec.ID)
 	crossRegionExec, err := h.crossRegionRepo.CreateCrossRegionExecution(
 		c.Request.Context(),
 		req.JobSpec.ID,
@@ -141,12 +142,14 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		req.MinSuccessRate,
 	)
 	if err != nil {
+		fmt.Printf("[CROSS_REGION] Failed to create execution record: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create cross-region execution",
 			"details": err.Error(),
 		})
 		return
 	}
+	fmt.Printf("[CROSS_REGION] Created execution record: %s\n", crossRegionExec.ID)
 
 	// Start cross-region execution asynchronously
 	go func() {
