@@ -87,8 +87,18 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		return
 	}
 
-	// Verify JobSpec signature BEFORE validation (signature should verify the original payload)
+	// DEBUG: Log what we received
 	logger := logging.FromContext(c.Request.Context())
+	if req.JobSpec != nil {
+		hasWalletAuth := req.JobSpec.WalletAuth != nil
+		logger.Info().
+			Bool("has_wallet_auth", hasWalletAuth).
+			Str("job_id", req.JobSpec.ID).
+			Int("target_regions", len(req.TargetRegions)).
+			Msg("received cross-region job request")
+	}
+
+	// Verify JobSpec signature BEFORE validation (signature should verify the original payload)
 	if req.JobSpec.Signature != "" && req.JobSpec.PublicKey != "" {
 		if err := req.JobSpec.VerifySignature(); err != nil {
 			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("signature verification failed")
