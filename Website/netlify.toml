@@ -4,7 +4,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   # Install flags to handle peer dependencies without overriding lock file
   # Removed --force to ensure package-lock.json is respected
   NPM_FLAGS = "--no-audit --fund=false --legacy-peer-deps"
