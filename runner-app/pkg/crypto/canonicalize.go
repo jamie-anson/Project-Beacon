@@ -31,6 +31,10 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 	delete(m, "id")
 	delete(m, "created_at")
 	
+	// Remove signature and public_key entirely (portal deletes them, not zeroes them)
+	delete(m, "signature")
+	delete(m, "public_key")
+	
 	// Remove null and empty values to match portal's JavaScript JSON.stringify behavior
 	// JavaScript doesn't include undefined/null fields, Go includes them
 	removeNullAndEmptyValues(m)
@@ -46,14 +50,8 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 
 // removeNullAndEmptyValues recursively removes null values and empty strings from a map
 // This matches JavaScript's JSON.stringify behavior where undefined fields are omitted
-// EXCEPT for signature and public_key which must be retained (zeroed) for deterministic structure
 func removeNullAndEmptyValues(m map[string]interface{}) {
 	for k, v := range m {
-		// Never remove signature or public_key fields (they must be present, even if empty)
-		if k == "signature" || k == "public_key" {
-			continue
-		}
-		
 		switch val := v.(type) {
 		case map[string]interface{}:
 			removeNullAndEmptyValues(val)

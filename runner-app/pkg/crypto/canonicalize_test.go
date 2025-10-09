@@ -35,7 +35,7 @@ func TestCanonicalizeGenericV1_SortsKeysAndIsDeterministic(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeJobSpecV1_RetainsZeroedSignatureAndPublicKey(t *testing.T) {
+func TestCanonicalizeJobSpecV1_RemovesSignatureAndPublicKey(t *testing.T) {
 	js := miniJobSpec{
 		ID:      "job-1",
 		Version: "1",
@@ -47,17 +47,16 @@ func TestCanonicalizeJobSpecV1_RetainsZeroedSignatureAndPublicKey(t *testing.T) 
 	}
 	b, err := CanonicalizeJobSpecV1(&js)
 	if err != nil { t.Fatalf("canon err: %v", err) }
-	// Ensure signature/public_key keys are present but zeroed in canonical bytes
+	// Ensure signature/public_key keys are REMOVED (not present) to match portal behavior
 	var m map[string]interface{}
 	if err := json.Unmarshal(b, &m); err != nil { t.Fatalf("unmarshal canon: %v", err) }
-	if v, ok := m["signature"]; !ok {
-		t.Fatalf("signature key should be retained (zeroed)")
-	} else if s, ok2 := v.(string); !ok2 || s != "" {
-		t.Fatalf("signature should be empty string, got: %#v", v)
+	if _, ok := m["signature"]; ok {
+		t.Fatalf("signature key should be removed, but found: %#v", m["signature"])
 	}
-	if v, ok := m["public_key"]; !ok {
-		t.Fatalf("public_key key should be retained (zeroed)")
-	} else if s, ok2 := v.(string); !ok2 || s != "" {
-		t.Fatalf("public_key should be empty string, got: %#v", v)
+	if _, ok := m["public_key"]; ok {
+		t.Fatalf("public_key key should be removed, but found: %#v", m["public_key"])
+	}
+	if _, ok := m["id"]; ok {
+		t.Fatalf("id key should be removed, but found: %#v", m["id"])
 	}
 }
