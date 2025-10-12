@@ -174,9 +174,9 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
 			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("cross-region execution failed")
-			// Update execution status to failed
+			// Update execution status to failed - use execCtx not c.Request.Context()
 			h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
-				c.Request.Context(),
+				execCtx,
 				crossRegionExec.ID,
 				"failed",
 				0,
@@ -188,12 +188,12 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		}
 		logger.Info().Str("job_id", req.JobSpec.ID).Int("successes", result.SuccessCount).Int("failures", result.FailureCount).Msg("cross-region execution completed")
 
-		// Update execution status
+		// Update execution status - use execCtx not c.Request.Context()
 		completedAt := time.Now()
 		durationMs := int64(result.Duration.Milliseconds())
 		
 		h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
-			c.Request.Context(),
+			execCtx,
 			crossRegionExec.ID,
 			result.Status,
 			result.SuccessCount,
@@ -202,10 +202,10 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			&durationMs,
 		)
 
-		// Store region results
+		// Store region results - use execCtx not c.Request.Context()
 		for region, regionResult := range result.RegionResults {
 			regionRecord, err := h.crossRegionRepo.CreateRegionResult(
-				c.Request.Context(),
+				execCtx,
 				crossRegionExec.ID,
 				region,
 				regionResult.StartedAt,
@@ -241,7 +241,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			}
 
 			h.crossRegionRepo.UpdateRegionResult(
-				c.Request.Context(),
+				execCtx,
 				regionRecord.ID,
 				regionResult.Status,
 				regionResult.CompletedAt,
