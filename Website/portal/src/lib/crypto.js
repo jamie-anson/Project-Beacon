@@ -5,6 +5,7 @@
  */
 
 import * as ed25519 from '@noble/ed25519';
+import stringify from 'json-stable-stringify';
 
 // Initialize SHA512 for ed25519 (required for v2.x)
 if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -37,47 +38,40 @@ export function exportPublicKey(publicKey) {
 }
 
 /**
- * Create signable JobSpec (removes signature, public_key, and id fields)
+ * Create signable JobSpec (removes signature, public_key, id, and created_at fields)
+ * Implements SoT contract from Website/docs/sot/portal-signing-contract.md
  * @param {Object} jobSpec 
  * @returns {Object}
  */
 export function createSignableJobSpec(jobSpec) {
-  const signable = { ...jobSpec };
+  const signable = JSON.parse(JSON.stringify(jobSpec)); // deep clone
   delete signable.signature;
   delete signable.public_key;
   delete signable.id;  // Remove ID to match server's signature verification expectations
   delete signable.created_at;  // Remove created_at - server may format timestamps differently
+  
+  // Special case: omit constraints.min_success_rate when it is 0 (per SoT)
+  if (signable.constraints?.min_success_rate === 0) {
+    delete signable.constraints.min_success_rate;
+  }
+  
   return signable;
 }
 
 /**
  * Canonicalize JobSpec to deterministic JSON (matches API canonicalization)
+ * Uses json-stable-stringify for deterministic key ordering at all levels
+ * Implements SoT contract from Website/docs/sot/portal-signing-contract.md
  * @param {Object} jobSpec 
  * @returns {string}
  */
 export function canonicalizeJobSpec(jobSpec) {
-  // Create signable version
+  // Create signable version (removes id, created_at, signature, public_key, and min_success_rate=0)
   const signable = createSignableJobSpec(jobSpec);
   
-  // Sort keys recursively for deterministic output
-  const sortKeys = (obj) => {
-    if (Array.isArray(obj)) {
-      return obj.map(sortKeys);
-    } else if (obj !== null && typeof obj === 'object') {
-      return Object.keys(obj)
-        .sort()
-        .reduce((result, key) => {
-          result[key] = sortKeys(obj[key]);
-          return result;
-        }, {});
-    }
-    return obj;
-  };
-  
-  const sorted = sortKeys(signable);
-  
-  // Use compact JSON with no extra whitespace
-  return JSON.stringify(sorted, null, 0);
+  // Use json-stable-stringify for deterministic key ordering (recursively sorted)
+  // space: 0 ensures no extra whitespace
+  return stringify(signable, { space: 0 });
 }
 
 /**
