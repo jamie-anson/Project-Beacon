@@ -192,7 +192,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		completedAt := time.Now()
 		durationMs := int64(result.Duration.Milliseconds())
 		
-		h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
+		if err := h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
 			execCtx,
 			crossRegionExec.ID,
 			result.Status,
@@ -200,7 +200,9 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			result.FailureCount,
 			&completedAt,
 			&durationMs,
-		)
+		); err != nil {
+			logger.Error().Err(err).Str("execution_id", crossRegionExec.ID).Msg("failed to update cross-region execution status")
+		}
 
 		// Store region results - use execCtx not c.Request.Context()
 		for region, regionResult := range result.RegionResults {
@@ -211,6 +213,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 				regionResult.StartedAt,
 			)
 			if err != nil {
+				logger.Error().Err(err).Str("region", region).Str("execution_id", crossRegionExec.ID).Msg("failed to create region result")
 				continue
 			}
 
@@ -240,7 +243,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 				}
 			}
 
-			h.crossRegionRepo.UpdateRegionResult(
+			if err := h.crossRegionRepo.UpdateRegionResult(
 				execCtx,
 				regionRecord.ID,
 				regionResult.Status,
@@ -251,7 +254,9 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 				&regionResult.Error,
 				scoring,
 				regionResult.Metadata,
-			)
+			); err != nil {
+				logger.Error().Err(err).Str("region", region).Str("region_record_id", regionRecord.ID).Msg("failed to update region result")
+			}
 		}
 
 		// Perform cross-region analysis if enabled and we have results
