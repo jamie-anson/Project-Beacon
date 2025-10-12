@@ -12,16 +12,31 @@
 export function calculateExpectedTotal(job, selectedRegions = []) {
   const jobSpec = job?.job || job;
   const specQuestions = jobSpec?.questions || [];
-  const specModels = jobSpec?.models || [];
+  // Models may be defined either at jobSpec.models or jobSpec.metadata.models
+  const rawModels = jobSpec?.models || jobSpec?.metadata?.models || [];
+  // Normalize model entries to unique identifiers (string id or object.id/name)
+  const normalizedModelIds = Array.isArray(rawModels)
+    ? rawModels.map((m) => {
+        if (typeof m === 'string') return m;
+        if (m && typeof m === 'object') {
+          return (
+            m.id || m.model_id || m.model || m.name || m.value || JSON.stringify(m)
+          );
+        }
+        return String(m ?? '');
+      })
+      .filter(Boolean)
+    : [];
+  const specModelsCount = new Set(normalizedModelIds).size;
   
   let expectedTotal = 0;
   
-  if (specQuestions.length > 0 && specModels.length > 0) {
+  if (specQuestions.length > 0 && specModelsCount > 0) {
     // Questions × Models × Selected Regions
-    expectedTotal = specQuestions.length * specModels.length * selectedRegions.length;
-  } else if (specModels.length > 0) {
+    expectedTotal = specQuestions.length * specModelsCount * selectedRegions.length;
+  } else if (specModelsCount > 0) {
     // No questions, just Models × Selected Regions
-    expectedTotal = specModels.length * selectedRegions.length;
+    expectedTotal = specModelsCount * selectedRegions.length;
   } else {
     // Fallback to selected regions
     expectedTotal = selectedRegions.length;

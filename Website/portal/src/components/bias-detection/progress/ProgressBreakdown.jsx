@@ -5,7 +5,6 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { calculateQuestionProgress } from '../../../lib/utils/progressUtils';
 
 export default function ProgressBreakdown({ 
   completed, 
@@ -40,36 +39,6 @@ export default function ProgressBreakdown({
           <span className="text-gray-300">Pending: {pending}</span>
         </div>
       </div>
-      
-      {/* Per-question breakdown (if applicable) */}
-      {hasQuestions && displayQuestions.length > 0 && (
-        <div className="bg-gray-800/50 border border-gray-600 rounded p-3 space-y-1">
-          <div className="text-xs font-medium text-gray-300 mb-2">Question Progress</div>
-          {displayQuestions.map(questionId => {
-            const progress = calculateQuestionProgress(
-              questionId, 
-              executions, 
-              specModels, 
-              selectedRegions, 
-              uniqueModels
-            );
-            
-            return (
-              <div key={questionId} className="flex items-center justify-between text-xs">
-                <span className="text-gray-300 font-mono">{questionId}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">{progress.completed}/{progress.expected}</span>
-                  {progress.refused > 0 && (
-                    <span className="px-2 py-0.5 bg-orange-900/20 text-orange-400 rounded-full text-xs">
-                      {progress.refused} refusals
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

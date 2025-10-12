@@ -105,12 +105,12 @@ describe('LiveProgressTable Integration Tests', () => {
       expect(screen.getByText('Pending: 5')).toBeInTheDocument();
     });
 
-    it('should display question progress breakdown', () => {
+    it('should not display the removed question progress breakdown', () => {
       renderWithRouter(<LiveProgressTable {...defaultProps} />);
 
-      expect(screen.getByText('Question Progress')).toBeInTheDocument();
-      expect(screen.getByText('q1')).toBeInTheDocument();
-      expect(screen.getByText('q2')).toBeInTheDocument();
+      expect(screen.queryByText('Question Progress')).not.toBeInTheDocument();
+      expect(screen.queryByText('q1')).not.toBeInTheDocument();
+      expect(screen.queryByText('q2')).not.toBeInTheDocument();
     });
   });
 

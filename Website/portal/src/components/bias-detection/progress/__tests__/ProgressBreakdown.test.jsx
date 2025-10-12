@@ -57,13 +57,13 @@ describe('ProgressBreakdown', () => {
     expect(runningDot).not.toHaveClass('animate-pulse');
   });
 
-  it('should not render question progress when hasQuestions is false', () => {
+  it('should not render question progress section (removed from UI)', () => {
     render(<ProgressBreakdown {...defaultProps} hasQuestions={false} />);
 
     expect(screen.queryByText('Question Progress')).not.toBeInTheDocument();
   });
 
-  it('should render question progress section when hasQuestions is true', () => {
+  it('should not render question progress section even when hasQuestions is true (section removed)', () => {
     const propsWithQuestions = {
       ...defaultProps,
       hasQuestions: true,
@@ -78,12 +78,12 @@ describe('ProgressBreakdown', () => {
 
     render(<ProgressBreakdown {...propsWithQuestions} />);
 
-    expect(screen.getByText('Question Progress')).toBeInTheDocument();
-    expect(screen.getByText('q1')).toBeInTheDocument();
-    expect(screen.getByText('q2')).toBeInTheDocument();
+    expect(screen.queryByText('Question Progress')).not.toBeInTheDocument();
+    expect(screen.queryByText('q1')).not.toBeInTheDocument();
+    expect(screen.queryByText('q2')).not.toBeInTheDocument();
   });
 
-  it('should display question completion counts', () => {
+  it('should not display question completion counts (section removed)', () => {
     const propsWithQuestions = {
       ...defaultProps,
       hasQuestions: true,
@@ -97,10 +97,10 @@ describe('ProgressBreakdown', () => {
 
     render(<ProgressBreakdown {...propsWithQuestions} />);
 
-    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.queryByText('1/2')).not.toBeInTheDocument();
   });
 
-  it('should display refusal badges when questions have refusals', () => {
+  it('should not display refusal badges (question progress section removed)', () => {
     const propsWithRefusals = {
       ...defaultProps,
       hasQuestions: true,
@@ -114,7 +114,7 @@ describe('ProgressBreakdown', () => {
 
     render(<ProgressBreakdown {...propsWithRefusals} />);
 
-    expect(screen.getByText('2 refusals')).toBeInTheDocument();
+    expect(screen.queryByText('2 refusals')).not.toBeInTheDocument();
   });
 
   it('should not display refusal badge when no refusals', () => {
@@ -133,7 +133,7 @@ describe('ProgressBreakdown', () => {
     expect(screen.queryByText(/refusals/)).not.toBeInTheDocument();
   });
 
-  it('should handle multiple questions with different progress', () => {
+  it('should not display multiple questions (section removed)', () => {
     const propsMultipleQuestions = {
       ...defaultProps,
       hasQuestions: true,
@@ -149,12 +149,12 @@ describe('ProgressBreakdown', () => {
 
     render(<ProgressBreakdown {...propsMultipleQuestions} />);
 
-    expect(screen.getByText('q1')).toBeInTheDocument();
-    expect(screen.getByText('q2')).toBeInTheDocument();
-    expect(screen.getByText('q3')).toBeInTheDocument();
+    expect(screen.queryByText('q1')).not.toBeInTheDocument();
+    expect(screen.queryByText('q2')).not.toBeInTheDocument();
+    expect(screen.queryByText('q3')).not.toBeInTheDocument();
   });
 
-  it('should render question IDs in monospace font', () => {
+  it('should not render question IDs (section removed)', () => {
     const propsWithQuestions = {
       ...defaultProps,
       hasQuestions: true,
@@ -165,8 +165,7 @@ describe('ProgressBreakdown', () => {
 
     render(<ProgressBreakdown {...propsWithQuestions} />);
 
-    const questionId = screen.getByText('q1');
-    expect(questionId).toHaveClass('font-mono');
+    expect(screen.queryByText('q1')).not.toBeInTheDocument();
   });
 
   it('should handle zero counts gracefully', () => {
@@ -186,7 +185,7 @@ describe('ProgressBreakdown', () => {
     expect(screen.getByText('Pending: 0')).toBeInTheDocument();
   });
 
-  it('should style question progress section correctly', () => {
+  it('should not render question progress section styling (section removed)', () => {
     const propsWithQuestions = {
       ...defaultProps,
       hasQuestions: true,
@@ -198,7 +197,6 @@ describe('ProgressBreakdown', () => {
     const { container } = render(<ProgressBreakdown {...propsWithQuestions} />);
 
     const questionSection = container.querySelector('.bg-gray-800\\/50');
-    expect(questionSection).toBeInTheDocument();
-    expect(questionSection).toHaveClass('border', 'border-gray-600', 'rounded');
+    expect(questionSection).not.toBeInTheDocument();
   });
 });
