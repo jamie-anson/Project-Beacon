@@ -9,7 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core import HybridRouter
-from .api import health_router, inference_router, providers_router, websocket_router, maps_router
+from .core.region_queue import queue_manager
+from .api import health_router, inference_router, providers_router, websocket_router, maps_router, queue_router
 from .config import CORS_ORIGINS, get_port, HOST
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,13 @@ async def lifespan(app: FastAPI):
     try:
         # Run provider checks in the background so startup does NOT block
         asyncio.create_task(router_instance.health_check_providers())
+        
+        # Start region queue workers for GPU resource management
+        logger.info("Starting region queue workers...")
+        asyncio.create_task(queue_manager.start_workers(router_instance.run_inference))
+        logger.info("Region queue workers started for US, EU, ASIA")
     except Exception as e:
-        logger.exception("Provider initialization during startup failed: %s", e)
+        logger.exception("Initialization during startup failed: %s", e)
 
     yield
 
@@ -57,6 +63,7 @@ app.include_router(health_router)
 app.include_router(inference_router)
 app.include_router(providers_router)
 app.include_router(websocket_router)
+app.include_router(queue_router)
 if maps_router is not None:
     app.include_router(maps_router)
 else:
