@@ -48,21 +48,32 @@ class RegionQueue:
     def __init__(self, region: str):
         self.region = region
         self.queue: asyncio.Queue = asyncio.Queue()
+        self.retry_queue: asyncio.Queue = asyncio.Queue()  # Priority queue for retries
         self.processing = False
         self.current_job: Optional[QueuedJob] = None
         self.completed_count = 0
         self.failed_count = 0
         
-    async def enqueue(self, job: QueuedJob):
-        """Add a job to the queue"""
-        await self.queue.put(job)
-        logger.info(f"[{self.region}] Enqueued job {job.job_id}, queue size: {self.queue.qsize()}")
+    async def enqueue(self, job: QueuedJob, is_retry: bool = False):
+        """Add a job to the queue
+        
+        Args:
+            job: The job to enqueue
+            is_retry: If True, add to priority retry queue (processed first)
+        """
+        if is_retry:
+            await self.retry_queue.put(job)
+            logger.info(f"[{self.region}] Enqueued RETRY job {job.job_id} (attempt {job.retry_count}), retry queue size: {self.retry_queue.qsize()}")
+        else:
+            await self.queue.put(job)
+            logger.info(f"[{self.region}] Enqueued job {job.job_id}, queue size: {self.queue.qsize()}")
         
     def get_status(self) -> Dict[str, Any]:
         """Get current queue status"""
         return {
             "region": self.region,
             "queue_size": self.queue.qsize(),
+            "retry_queue_size": self.retry_queue.qsize(),
             "processing": self.processing,
             "current_job": self.current_job.to_dict() if self.current_job else None,
             "completed": self.completed_count,
@@ -96,8 +107,13 @@ class RegionQueueManager:
         
         while True:
             try:
-                # Wait for next job
-                job: QueuedJob = await queue.queue.get()
+                # Check retry queue first (priority), then regular queue
+                if not queue.retry_queue.empty():
+                    job: QueuedJob = await queue.retry_queue.get()
+                    logger.info(f"[{region}] Processing RETRY job from priority queue")
+                else:
+                    job: QueuedJob = await queue.queue.get()
+                
                 queue.processing = True
                 queue.current_job = job
                 job.started_at = datetime.utcnow()
@@ -126,10 +142,10 @@ class RegionQueueManager:
                     
                     # Retry logic: re-queue if under max retries
                     if job.retry_count < job.max_retries:
-                        logger.warning(f"[{region}] Job {job.job_id} failed (attempt {job.retry_count}/{job.max_retries}), re-queuing: {e}")
-                        # Re-queue with exponential backoff
+                        logger.warning(f"[{region}] Job {job.job_id} failed (attempt {job.retry_count}/{job.max_retries}), re-queuing with priority: {e}")
+                        # Re-queue to PRIORITY queue with exponential backoff
                         await asyncio.sleep(min(2 ** job.retry_count, 60))  # Max 60s backoff
-                        await queue.enqueue(job)
+                        await queue.enqueue(job, is_retry=True)  # Add to priority queue
                     else:
                         # Max retries exhausted
                         job.completed_at = datetime.utcnow()
