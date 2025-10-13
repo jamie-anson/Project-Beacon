@@ -149,6 +149,15 @@ class RegionQueueManager:
                     duration = (job.completed_at - job.started_at).total_seconds()
                     logger.info(f"[{region}] Completed job {job.job_id} in {duration:.2f}s")
                     
+                    # Store result for status tracking
+                    job_results[job.job_id] = {
+                        "status": "completed",
+                        "result": result,
+                        "completed_at": job.completed_at.isoformat(),
+                        "duration": duration,
+                        "region": region,
+                    }
+                    
                 except Exception as e:
                     job.last_error = str(e)
                     job.retry_count += 1
@@ -165,6 +174,15 @@ class RegionQueueManager:
                         job.completed_at = datetime.utcnow()
                         queue.failed_count += 1
                         logger.error(f"[{region}] Job {job.job_id} failed permanently after {job.retry_count} attempts: {e}")
+                        
+                        # Store failure result
+                        job_results[job.job_id] = {
+                            "status": "failed",
+                            "error": str(e),
+                            "retry_count": job.retry_count,
+                            "completed_at": job.completed_at.isoformat(),
+                            "region": region,
+                        }
                     
                 finally:
                     queue.current_job = None
@@ -206,6 +224,10 @@ class RegionQueueManager:
     def get_queue_size(self, region: str) -> int:
         """Get current queue size for a region"""
         return self.queues[region.upper()].queue.qsize()
+
+
+# Job result storage (in-memory for now, should be Redis in production)
+job_results: Dict[str, Dict[str, Any]] = {}
 
 
 # Global queue manager instance
