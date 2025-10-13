@@ -78,9 +78,15 @@ func main() {
 	// Initialize hybrid router adapter
 	hybridRouterAdapter := execution.NewHybridRouterAdapter(hybridClient)
 	
+	// Initialize executions repo
+	var executionsRepo *store.ExecutionsRepo
+	if database.DB != nil {
+		executionsRepo = store.NewExecutionsRepo(database.DB)
+	}
+	
 	// Initialize cross-region executor with real dependencies
 	crossRegionExecutor := execution.NewCrossRegionExecutor(singleRegionExecutor, hybridRouterAdapter, logger)
-	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
+	crossRegionHandlers := handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo, executionsRepo)
 
 	// Health and admin endpoints
 	r.GET("/health", handlers.Health)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -15,8 +16,24 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/logging"
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	legacysecurity "github.com/jamie-anson/project-beacon-runner/internal/security"
 )
+
+// Helper functions for handling SQL null types
+func nullStringToValue(ns sql.NullString) interface{} {
+	if ns.Valid {
+		return ns.String
+	}
+	return nil
+}
+
+func nullBoolToValue(nb sql.NullBool) interface{} {
+	if nb.Valid {
+		return nb.Bool
+	}
+	return nil
+}
 
 // JobsHandler handles job-related requests
 type JobsHandler struct {
@@ -173,6 +190,13 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "persistence unavailable"})
 		return
 	}
+    // Initialize repos if missing (tests may construct JobsService partially)
+    if h.jobsService.JobsRepo == nil {
+        h.jobsService.JobsRepo = store.NewJobsRepo(h.jobsService.DB)
+    }
+    if h.jobsService.ExecutionsRepo == nil {
+        h.jobsService.ExecutionsRepo = store.NewExecutionsRepo(h.jobsService.DB)
+    }
 	spec, status, err := h.jobsService.GetJob(c.Request.Context(), jobID)
 	if err != nil {
 		// Map not-found to 404; keep other errors as 500
@@ -221,86 +245,115 @@ func (h *JobsHandler) GetJob(c *gin.Context) {
 				}
 			}
 
-			// Get execution summaries (not full receipts) for the job
+			// Get execution records with structured fields for portal
 			ctx := c.Request.Context()
 			rows, err := h.jobsService.ExecutionsRepo.DB.QueryContext(ctx, `
 				SELECT 
 					e.id,
-					e.status,
 					e.region,
 					e.provider_id,
+					e.status,
 					e.started_at,
 					e.completed_at,
-					e.created_at,
-					COALESCE(e.model_id, 'llama3.2-1b') AS model_id,
-					COALESCE(e.question_id, '') AS question_id
+					e.model_id,
+					e.question_id,
+					e.receipt_data,
+					e.response_classification,
+					e.is_substantive,
+					e.is_content_refusal
 				FROM executions e
 				JOIN jobs j ON e.job_id = j.id
 				WHERE j.jobspec_id = $1
 				ORDER BY e.created_at DESC
 				LIMIT $2 OFFSET $3
 			`, jobID, execLimit, execOffset)
-			
 			if err != nil {
-				l.Error().Err(err).Str("job_id", jobID).Msg("failed to query executions")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
-				return
+				// Fallback: non-paginated
+				rows, err = h.jobsService.ExecutionsRepo.DB.QueryContext(ctx, `
+					SELECT 
+						e.id,
+						e.region,
+						e.provider_id,
+						e.status,
+						e.started_at,
+						e.completed_at,
+						e.model_id,
+						e.question_id,
+						e.receipt_data,
+						e.response_classification,
+						e.is_substantive,
+						e.is_content_refusal
+					FROM executions e
+					JOIN jobs j ON e.job_id = j.id
+					WHERE j.jobspec_id = $1
+					ORDER BY e.created_at DESC
+				`, jobID)
+				if err != nil {
+					l.Error().Err(err).Str("job_id", jobID).Msg("failed to query executions")
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
+					return
+				}
 			}
 			defer rows.Close()
 
-			type ExecutionSummary struct {
-				ID          int64  `json:"id"`
-				Status      string `json:"status"`
-				Region      string `json:"region"`
-				ProviderID  string `json:"provider_id"`
-				StartedAt   string `json:"started_at"`
-				CompletedAt string `json:"completed_at"`
-				CreatedAt   string `json:"created_at"`
-				ModelID     string `json:"model_id"`
-				QuestionID  string `json:"question_id,omitempty"`
-			}
-
-			var executions []ExecutionSummary
+			var executions []map[string]interface{}
 			for rows.Next() {
-				var exec ExecutionSummary
-				var startedAt, completedAt, createdAt interface{}
-				
-				err := rows.Scan(
-					&exec.ID,
-					&exec.Status,
-					&exec.Region,
-					&exec.ProviderID,
-					&startedAt,
-					&completedAt,
-					&createdAt,
-					&exec.ModelID,
-					&exec.QuestionID,
+				var (
+					id                     int64
+					region                 sql.NullString
+					providerID             sql.NullString
+					status                 sql.NullString
+					startedAt              sql.NullTime
+					completedAt            sql.NullTime
+					modelID                sql.NullString
+					questionID             sql.NullString
+					receiptData            []byte
+					responseClassification sql.NullString
+					isSubstantive          sql.NullBool
+					isContentRefusal       sql.NullBool
 				)
-				if err != nil {
-					continue // Skip malformed rows
+				
+				if err := rows.Scan(
+					&id, &region, &providerID, &status,
+					&startedAt, &completedAt, &modelID, &questionID,
+					&receiptData, &responseClassification,
+					&isSubstantive, &isContentRefusal,
+				); err != nil {
+					l.Warn().Err(err).Msg("failed to scan execution row")
+					continue
 				}
-
-				// Format timestamps
-				if startedAt != nil {
-					if t, ok := startedAt.(time.Time); ok {
-						exec.StartedAt = t.Format(time.RFC3339)
+				
+				exec := map[string]interface{}{
+					"id":         id,
+					"region":     nullStringToValue(region),
+					"provider_id": nullStringToValue(providerID),
+					"status":     nullStringToValue(status),
+					"model_id":   nullStringToValue(modelID),
+					"question_id": nullStringToValue(questionID),
+					"response_classification": nullStringToValue(responseClassification),
+					"is_substantive": nullBoolToValue(isSubstantive),
+					"is_content_refusal": nullBoolToValue(isContentRefusal),
+				}
+				
+				if startedAt.Valid {
+					exec["started_at"] = startedAt.Time
+				}
+				if completedAt.Valid {
+					exec["completed_at"] = completedAt.Time
+				}
+				
+				// Include receipt data if available
+				if len(receiptData) > 0 {
+					var receipt map[string]interface{}
+					if err := json.Unmarshal(receiptData, &receipt); err == nil {
+						exec["receipt"] = receipt
 					}
 				}
-				if completedAt != nil {
-					if t, ok := completedAt.(time.Time); ok {
-						exec.CompletedAt = t.Format(time.RFC3339)
-					}
-				}
-				if createdAt != nil {
-					if t, ok := createdAt.(time.Time); ok {
-						exec.CreatedAt = t.Format(time.RFC3339)
-					}
-				}
-
+				
 				executions = append(executions, exec)
 			}
 
-			l.Info().Str("job_id", jobID).Int("count", len(executions)).Msg("returning execution summaries")
+			l.Info().Str("job_id", jobID).Int("count", len(executions)).Msg("returning execution records")
 			c.JSON(http.StatusOK, gin.H{"job": spec, "status": status, "executions": executions})
 			return
 		}

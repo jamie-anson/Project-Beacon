@@ -133,3 +133,32 @@ func extractModel(spec *models.JobSpec) string {
 	}
 	return "llama3.2-1b" // default
 }
+
+// extractModels extracts all models from jobspec metadata
+func extractModels(spec *models.JobSpec) []string {
+	if spec.Metadata == nil {
+		return []string{"llama3.2-1b"}
+	}
+	
+	// Try models array first (multi-model jobs)
+	if modelsInterface, ok := spec.Metadata["models"]; ok {
+		if modelsList, ok := modelsInterface.([]interface{}); ok {
+			var models []string
+			for _, m := range modelsList {
+				if modelStr, ok := m.(string); ok {
+					models = append(models, modelStr)
+				}
+			}
+			if len(models) > 0 {
+				return models
+			}
+		}
+	}
+	
+	// Fallback to single model
+	if model, ok := spec.Metadata["model"].(string); ok && model != "" {
+		return []string{model}
+	}
+	
+	return []string{"llama3.2-1b"}
+}

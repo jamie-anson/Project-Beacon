@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -21,6 +22,7 @@ type CrossRegionHandlers struct {
 	crossRegionRepo     *store.CrossRegionRepo
 	diffEngine          *analysis.CrossRegionDiffEngine
 	jobsRepo            *store.JobsRepo
+	executionsRepo      *store.ExecutionsRepo
 }
 
 // NewCrossRegionHandlers creates new cross-region handlers
@@ -29,12 +31,14 @@ func NewCrossRegionHandlers(
 	repo *store.CrossRegionRepo,
 	diffEngine *analysis.CrossRegionDiffEngine,
 	jobsRepo *store.JobsRepo,
+	executionsRepo *store.ExecutionsRepo,
 ) *CrossRegionHandlers {
 	return &CrossRegionHandlers{
 		crossRegionExecutor: executor,
 		crossRegionRepo:     repo,
 		diffEngine:          diffEngine,
 		jobsRepo:            jobsRepo,
+		executionsRepo:      executionsRepo,
 	}
 }
 
@@ -166,10 +170,18 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 
 	// Start cross-region execution asynchronously
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error().Interface("panic", r).Str("job_id", req.JobSpec.ID).Msg("PANIC in cross-region goroutine")
+			}
+			logger.Info().Str("job_id", req.JobSpec.ID).Msg("Cross-region goroutine completed")
+		}()
+		
 		logger.Info().Str("job_id", req.JobSpec.ID).Int("regions", len(req.TargetRegions)).Msg("starting cross-region execution")
 		
-		// Create a new context for the goroutine (parent context will be cancelled after HTTP response)
-		execCtx := context.Background()
+		ctxTimeout := 15 * time.Minute
+		execCtx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+		defer cancel()
 		
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
@@ -257,6 +269,107 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			); err != nil {
 				logger.Error().Err(err).Str("region", region).Str("region_record_id", regionRecord.ID).Msg("failed to update region result")
 			}
+		}
+
+		if h.jobsRepo != nil {
+			newStatus := "running"
+			if result.Status == "completed" {
+				newStatus = "completed"
+			} else if result.Status == "failed" {
+				newStatus = "failed"
+			}
+			
+			logger.Info().
+				Str("job_id", req.JobSpec.ID).
+				Str("old_status", "queued").
+				Str("new_status", newStatus).
+				Msg("Attempting to update job status")
+			
+			if err := h.jobsRepo.UpdateJobStatus(execCtx, req.JobSpec.ID, newStatus); err != nil {
+				logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Str("status", newStatus).Msg("FAILED to update job status")
+			} else {
+				logger.Info().Str("job_id", req.JobSpec.ID).Str("status", newStatus).Msg("Successfully updated job status")
+			}
+		} else {
+			logger.Warn().Str("job_id", req.JobSpec.ID).Msg("jobsRepo is nil, cannot update job status")
+		}
+
+		// Create execution records for portal compatibility from actual execution results
+		if h.executionsRepo != nil {
+			totalExecutions := 0
+			for _, regionResult := range result.RegionResults {
+				totalExecutions += len(regionResult.Executions)
+			}
+			
+			logger.Info().
+				Str("job_id", req.JobSpec.ID).
+				Int("region_count", len(result.RegionResults)).
+				Int("total_executions", totalExecutions).
+				Msg("Creating execution records from actual execution results")
+			
+			successCount := 0
+			failureCount := 0
+			
+			// Create execution record for each actual execution
+			for region, regionResult := range result.RegionResults {
+				for _, exec := range regionResult.Executions {
+					// Prepare output and receipt data
+					var outputJSON []byte
+					var receiptJSON []byte
+					
+					if exec.Receipt != nil {
+						if exec.Receipt.Output.Data != nil {
+							if data, err := json.Marshal(exec.Receipt.Output.Data); err == nil {
+								outputJSON = data
+							}
+						}
+						if data, err := json.Marshal(exec.Receipt); err == nil {
+							receiptJSON = data
+						}
+					}
+					
+					_, err := h.executionsRepo.InsertExecutionWithModelAndQuestion(
+						execCtx,
+						req.JobSpec.ID,
+						regionResult.ProviderID,
+						region,
+						exec.Status,
+						regionResult.StartedAt,
+						regionResult.CompletedAt,
+						outputJSON,
+						receiptJSON,
+						exec.ModelID,
+						exec.QuestionID,
+					)
+					
+					if err != nil {
+						logger.Error().Err(err).
+							Str("job_id", req.JobSpec.ID).
+							Str("region", region).
+							Str("model", exec.ModelID).
+							Str("question", exec.QuestionID).
+							Msg("Failed to create execution record")
+						failureCount++
+					} else {
+						logger.Info().
+							Str("job_id", req.JobSpec.ID).
+							Str("region", region).
+							Str("model", exec.ModelID).
+							Str("question", exec.QuestionID).
+							Str("status", exec.Status).
+							Msg("Created execution record")
+						successCount++
+					}
+				}
+			}
+			
+			logger.Info().
+				Str("job_id", req.JobSpec.ID).
+				Int("success", successCount).
+				Int("failed", failureCount).
+				Msg("Finished creating execution records")
+		} else {
+			logger.Warn().Str("job_id", req.JobSpec.ID).Msg("executionsRepo is nil, cannot create execution records")
 		}
 
 		// Perform cross-region analysis if enabled and we have results

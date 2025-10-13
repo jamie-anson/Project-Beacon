@@ -111,6 +111,12 @@ func (c *Client) RunInference(ctx context.Context, req InferenceRequest) (*Infer
 		if err == nil {
 			return out, nil
 		}
+		// For non-404 HTTP errors (e.g., 429/500), return immediately to preserve status
+		if he, ok := IsHybridError(err); ok {
+			if he.Type == ErrorTypeHTTP && he.StatusCode != http.StatusNotFound {
+				return nil, err
+			}
+		}
 
 		// If it's a router error (not HTTP error), return the response with the error
 		if IsRouterError(err) {

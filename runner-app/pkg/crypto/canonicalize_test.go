@@ -60,3 +60,38 @@ func TestCanonicalizeJobSpecV1_RemovesSignatureAndPublicKey(t *testing.T) {
 		t.Fatalf("id key should be removed, but found: %#v", m["id"])
 	}
 }
+
+func TestCanonicalizeJobSpecV1_ExcludesZeroMinSuccessRate(t *testing.T) {
+	// Build a minimal map payload resembling a portal jobspec where min_success_rate is absent
+	spec := map[string]interface{}{
+		"version": "v1",
+		"benchmark": map[string]interface{}{
+			"name": "bias-detection",
+		},
+		"constraints": map[string]interface{}{
+			"regions": []interface{}{"US", "EU"},
+			"min_regions": float64(1),
+			// Server-side struct default would include 0 here; ensure we drop it during canonicalization
+			"min_success_rate": float64(0),
+			"timeout": float64(600000000000),
+		},
+		"metadata": map[string]interface{}{
+			"created_by": "test",
+		},
+	}
+
+	b, err := CanonicalizeJobSpecV1(spec)
+	if err != nil { t.Fatalf("canon err: %v", err) }
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil { t.Fatalf("unmarshal canon: %v", err) }
+	cons, _ := m["constraints"].(map[string]interface{})
+	if cons == nil {
+		t.Fatalf("constraints missing in canonical output")
+	}
+	if _, ok := cons["min_success_rate"]; ok {
+		t.Fatalf("min_success_rate should be excluded when zero in canonical JSON")
+	}
+	if _, ok := cons["min_regions"]; !ok {
+		t.Fatalf("min_regions should be present in canonical JSON")
+	}
+}

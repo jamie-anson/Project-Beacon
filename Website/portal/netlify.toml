@@ -16,6 +16,7 @@ command = "npm run build"
 [build.environment]
 NODE_VERSION = "20"
 NPM_FLAGS = "--no-audit --fund=false"
+VITE_ENABLE_WS = "1"
 
 [build.processing]
 
@@ -44,7 +45,7 @@ X-Content-Type-Options = "nosniff"
 Referrer-Policy = "strict-origin-when-cross-origin"
 Permissions-Policy = "geolocation=(), microphone=(), camera=()"
 Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; frame-ancestors 'none'"
+Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; font-src 'self' https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: wss:; frame-ancestors 'none'"
 
 [[redirects]]
 from = "/docs/*"

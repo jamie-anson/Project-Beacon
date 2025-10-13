@@ -62,6 +62,11 @@ func (f *fakeExecRepo) InsertExecutionWithModel(ctx context.Context, jobID strin
     return f.execID, nil
 }
 
+// Implement method required by execRepoIface
+func (f *fakeExecRepo) InsertExecutionWithModelAndQuestion(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string, questionID string) (int64, error) {
+    return f.InsertExecutionWithModel(ctx, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
+}
+
 func (f *fakeExecRepo) UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error {
     if f.verifications != nil {
         f.verifications <- struct{

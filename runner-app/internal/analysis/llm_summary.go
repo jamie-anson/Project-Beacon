@@ -38,7 +38,7 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 	prompt := g.buildPrompt(analysis, regionResults)
 
 	requestBody := map[string]interface{}{
-		"model": "gpt-4o-mini", // Cost-effective, fast
+		"model": "gpt-5-nano", // Fastest, cheapest, sufficient quality for bias summaries
 		"messages": []map[string]string{
 			{
 				"role":    "system",

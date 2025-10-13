@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,12 +11,14 @@ import (
 // HealthHandler handles health check endpoints
 type HealthHandler struct {
 	healthChecker *external.HealthChecker
+	db            *sql.DB
 }
 
 // NewHealthHandler creates a new health handler
-func NewHealthHandler(yagnaURL, ipfsURL string) *HealthHandler {
+func NewHealthHandler(yagnaURL, ipfsURL string, db *sql.DB) *HealthHandler {
 	return &HealthHandler{
 		healthChecker: external.NewHealthChecker(yagnaURL, ipfsURL),
+		db:            db,
 	}
 }
 
@@ -81,6 +84,12 @@ func (h *HealthHandler) GetHealthReadiness(c *gin.Context) {
 		}
 		if !ready {
 			break
+		}
+	}
+	// DB ping for concrete readiness
+	if h.db != nil && ready {
+		if err := h.db.PingContext(ctx); err != nil {
+			ready = false
 		}
 	}
 	

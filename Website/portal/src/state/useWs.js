@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { resolveRunnerBase } from '../lib/api/config.js';
 
 export default function useWs(path = '/ws', opts = {}) {
   const onMessage = opts.onMessage; // function(eventObj)
@@ -45,7 +46,11 @@ export default function useWs(path = '/ws', opts = {}) {
       return;
     }
     
-    // Use environment variable for WebSocket base, allow runtime override, fallback to same-origin
+    // Use environment variable for WebSocket base, allow runtime override, fallback chain:
+    // 1) VITE_WS_BASE
+    // 2) localStorage override (beacon:ws_base)
+    // 3) Derive from runner base (resolveRunnerBase -> replace http(s) with ws(s))
+    // 4) Same-origin
     let wsBase = import.meta.env?.VITE_WS_BASE;
     try {
       const overrideBase = localStorage.getItem('beacon:ws_base');
@@ -53,6 +58,18 @@ export default function useWs(path = '/ws', opts = {}) {
         wsBase = overrideBase.trim();
       }
     } catch {}
+    // If not provided, derive from runner base
+    if (!wsBase || String(wsBase).trim() === '') {
+      try {
+        const runnerBase = resolveRunnerBase();
+        if (runnerBase && typeof runnerBase === 'string' && runnerBase.trim()) {
+          wsBase = runnerBase.replace(/^http/i, 'ws');
+        }
+      } catch (e) {
+        console.warn('[Beacon] Failed to derive WebSocket base from runner base:', e);
+      }
+    }
+
     // Normalize scheme if missing or using http(s)
     if (wsBase && !/^wss?:\/\//i.test(wsBase)) {
       if (/^https?:\/\//i.test(wsBase)) {

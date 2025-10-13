@@ -52,11 +52,19 @@ func (s *StatsCollector) GetQueueStats(ctx context.Context) (map[string]int64, e
 		return nil, fmt.Errorf("failed to get queue stats: %w", err)
 	}
 
-	// Get processing count from tracker
-	processingCount, err := s.processingTracker.GetProcessingCount(ctx)
-	if err != nil {
-		span.RecordError(err)
-		processingCount = 0 // fallback to 0 if we can't get the count
+
+	// Get processing count from tracker (nil-safe)
+	var processingCount int64
+	if s.processingTracker != nil {
+		pc, err := s.processingTracker.GetProcessingCount(ctx)
+		if err != nil {
+			span.RecordError(err)
+			processingCount = 0
+		} else {
+			processingCount = pc
+		}
+	} else {
+		processingCount = 0
 	}
 
 	stats := map[string]int64{

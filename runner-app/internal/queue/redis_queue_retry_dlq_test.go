@@ -49,7 +49,9 @@ func TestRetryAndDeadLetterFlow(t *testing.T) {
         t.Fatalf("fail1: %v", err)
     }
 
-    // Should be in retry set, ready now
+    // Should be in retry set, ready now (give it a moment for sorted set operations)
+    time.Sleep(10 * time.Millisecond)
+    
     // 2) Dequeue from retry and fail again
     msg2, err := q.Dequeue(ctx)
     if err != nil || msg2 == nil { t.Fatalf("dequeue2 err=%v msg=%v", err, msg2) }
@@ -58,6 +60,9 @@ func TestRetryAndDeadLetterFlow(t *testing.T) {
         t.Fatalf("fail2: %v", err)
     }
 
+    // Give it a moment for retry scheduling
+    time.Sleep(10 * time.Millisecond)
+    
     // 3) Dequeue from retry a second time and fail -> should dead-letter
     msg3, err := q.Dequeue(ctx)
     if err != nil || msg3 == nil { t.Fatalf("dequeue3 err=%v msg=%v", err, msg3) }

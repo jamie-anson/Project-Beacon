@@ -6,38 +6,31 @@ import (
 	"time"
 )
 
-// Validate validates the JobSpec and auto-generates ID if missing
+// Validate validates the JobSpec and enforces required fields
 func (js *JobSpec) Validate() error {
-	// Auto-generate ID if missing (for job creation)
-	if js.ID == "" && js.JobSpecID == "" {
-		// Generate ID from benchmark name and timestamp
-		timestamp := time.Now().Unix()
-		if js.Benchmark.Name != "" {
-			js.ID = fmt.Sprintf("%s-%d", js.Benchmark.Name, timestamp)
-		} else {
-			js.ID = fmt.Sprintf("job-%d", timestamp)
-		}
-	}
-	// Normalize: if JobSpecID is provided but ID is empty, copy it over
-	if js.ID == "" && js.JobSpecID != "" {
-		js.ID = js.JobSpecID
-	}
-	// Set default version if missing
-	if js.Version == "" {
-		js.Version = "1.0"
-	}
-	
-	// Handle portal compatibility: if benchmark.version exists but jobspec version doesn't, use it
-	if js.Benchmark.Version != "" && js.Version == "1.0" {
-		js.Version = js.Benchmark.Version
-	}
-	
-	if js.Version == "" {
-		return fmt.Errorf("jobspec version is required")
-	}
-	if js.Benchmark.Name == "" {
-		return fmt.Errorf("benchmark name is required")
-	}
+    // Normalize version from benchmark.version first (portal payloads)
+    if js.Version == "" && js.Benchmark.Version != "" {
+        js.Version = js.Benchmark.Version
+    }
+    // Default version if still missing after normalization
+    if js.Version == "" {
+        js.Version = "1.0"
+    }
+    // ID handling: map jobspec_id, else auto-generate
+    if js.ID == "" && js.JobSpecID != "" {
+        js.ID = js.JobSpecID
+    }
+    if js.ID == "" {
+        ts := time.Now().Unix()
+        name := js.Benchmark.Name
+        if name == "" {
+            name = "job"
+        }
+        js.ID = fmt.Sprintf("%s-%d", name, ts)
+    }
+    if js.Benchmark.Name == "" {
+        return fmt.Errorf("benchmark name is required")
+    }
 	
 	// Auto-populate missing benchmark fields for portal compatibility
 	if js.Benchmark.Description == "" {
@@ -56,21 +49,21 @@ func (js *JobSpec) Validate() error {
 	if js.Benchmark.Container.Image == "" {
 		return fmt.Errorf("container image is required")
 	}
-	if len(js.Constraints.Regions) == 0 {
-		return fmt.Errorf("at least one region constraint is required")
-	}
-	if js.Constraints.MinRegions < 1 {
-		js.Constraints.MinRegions = 1 // Default to 1 region for portal compatibility
-	}
-	if js.Constraints.MinSuccessRate == 0 {
-		js.Constraints.MinSuccessRate = 0.67 // Default to 67% success rate
-	}
-	if js.Constraints.Timeout == 0 {
-		js.Constraints.Timeout = 10 * time.Minute // Default timeout
-	}
-	if js.Constraints.ProviderTimeout == 0 {
-		js.Constraints.ProviderTimeout = 5 * time.Minute // Default provider timeout (increased for cold starts)
-	}
+    if len(js.Constraints.Regions) == 0 {
+        return fmt.Errorf("at least one region constraint is required")
+    }
+    if js.Constraints.MinRegions < 1 {
+        js.Constraints.MinRegions = 1 // Default to 1 region for portal compatibility
+    }
+    if js.Constraints.MinSuccessRate == 0 {
+        js.Constraints.MinSuccessRate = 0.67 // Default to 67% success rate
+    }
+    if js.Constraints.Timeout == 0 {
+        js.Constraints.Timeout = 10 * time.Minute // Default timeout
+    }
+    if js.Constraints.ProviderTimeout == 0 {
+        js.Constraints.ProviderTimeout = 5 * time.Minute // Default provider timeout (increased for cold starts)
+    }
 	if js.Benchmark.Input.Hash == "" {
 		return fmt.Errorf("input hash is required for integrity verification")
 	}

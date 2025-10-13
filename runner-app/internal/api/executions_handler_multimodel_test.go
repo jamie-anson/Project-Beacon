@@ -1,19 +1,13 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // MockDB for testing
@@ -46,22 +40,7 @@ func (db *MockDB) QueryRowContext(ctx context.Context, query string, args ...int
 }
 
 func TestExecutionsHandler_ListAllExecutionsForJob_WithModelID(t *testing.T) {
-	// Setup test database with sample data
-	testExecutions := []struct {
-		ID        int64
-		JobID     string
-		Status    string
-		Region    string
-		ModelID   string
-		OutputData string
-	}{
-		{1, "test-job-1", "completed", "us-east", "llama3.2-1b", `{"response": "Hello from Llama in US"}`},
-		{2, "test-job-1", "completed", "eu-west", "llama3.2-1b", `{"response": "Hello from Llama in EU"}`},
-		{3, "test-job-1", "completed", "us-east", "mistral-7b", `{"response": "Hello from Mistral in US"}`},
-		{4, "test-job-1", "completed", "eu-west", "mistral-7b", `{"response": "Hello from Mistral in EU"}`},
-		{5, "test-job-1", "completed", "us-east", "qwen2.5-1.5b", `{"response": "Hello from Qwen in US"}`},
-		{6, "test-job-1", "failed", "asia-pacific", "qwen2.5-1.5b", `{"error": "Execution failed"}`},
-	}
+	// Structure assertions only (no DB needed)
 
 	// This test would require a real database connection or a more sophisticated mock
 	// For now, let's test the JSON response structure
@@ -269,20 +248,20 @@ func TestExecutionsHandler_MultiModelJobAnalysis(t *testing.T) {
 func TestExecutionsHandler_CrossRegionAnalysis_WithModels(t *testing.T) {
 	// Test cross-region analysis with model-specific data
 	regionModelData := map[string]map[string]interface{}{
-		"us-east": {
-			"llama3.2-1b":  {"response": "US response from Llama", "political_sensitivity": 0.2},
-			"mistral-7b":   {"response": "US response from Mistral", "political_sensitivity": 0.3},
-			"qwen2.5-1.5b": {"response": "US response from Qwen", "political_sensitivity": 0.1},
+		"us-east": map[string]interface{}{
+			"llama3.2-1b":  map[string]interface{}{"response": "US response from Llama", "political_sensitivity": 0.2},
+			"mistral-7b":   map[string]interface{}{"response": "US response from Mistral", "political_sensitivity": 0.3},
+			"qwen2.5-1.5b": map[string]interface{}{"response": "US response from Qwen", "political_sensitivity": 0.1},
 		},
-		"eu-west": {
-			"llama3.2-1b":  {"response": "EU response from Llama", "political_sensitivity": 0.25},
-			"mistral-7b":   {"response": "EU response from Mistral", "political_sensitivity": 0.35},
-			"qwen2.5-1.5b": {"response": "EU response from Qwen", "political_sensitivity": 0.15},
+		"eu-west": map[string]interface{}{
+			"llama3.2-1b":  map[string]interface{}{"response": "EU response from Llama", "political_sensitivity": 0.25},
+			"mistral-7b":   map[string]interface{}{"response": "EU response from Mistral", "political_sensitivity": 0.35},
+			"qwen2.5-1.5b": map[string]interface{}{"response": "EU response from Qwen", "political_sensitivity": 0.15},
 		},
-		"asia-pacific": {
-			"llama3.2-1b":  {"response": "APAC response from Llama", "political_sensitivity": 0.4},
-			"mistral-7b":   {"response": "APAC response from Mistral", "political_sensitivity": 0.6},
-			"qwen2.5-1.5b": {"response": "APAC response from Qwen", "political_sensitivity": 0.8},
+		"asia-pacific": map[string]interface{}{
+			"llama3.2-1b":  map[string]interface{}{"response": "APAC response from Llama", "political_sensitivity": 0.4},
+			"mistral-7b":   map[string]interface{}{"response": "APAC response from Mistral", "political_sensitivity": 0.6},
+			"qwen2.5-1.5b": map[string]interface{}{"response": "APAC response from Qwen", "political_sensitivity": 0.8},
 		},
 	}
 

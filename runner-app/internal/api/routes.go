@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"time"
 	
@@ -72,6 +73,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		if jobsService.ExecutionsRepo != nil && jobsService.ExecutionsRepo.DB != nil {
 			crossRegionRepo := store.NewCrossRegionRepo(jobsService.ExecutionsRepo.DB)
 			jobsRepo := store.NewJobsRepo(jobsService.ExecutionsRepo.DB)
+			executionsRepo := jobsService.ExecutionsRepo
 			diffEngine := analysis.NewCrossRegionDiffEngine()
 			
 			// Initialize hybrid router client for cross-region execution
@@ -97,14 +99,18 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				crossRegionExecutor = execution.NewCrossRegionExecutor(nil, nil, nil)
 			}
 			
-			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo)
+			biasAnalysisHandler = handlers.NewCrossRegionHandlers(crossRegionExecutor, crossRegionRepo, diffEngine, jobsRepo, executionsRepo)
 		}
 	} else {
 		// For testing with nil service
 		adminHandler = NewAdminHandler(cfg)
 	}
 	
-	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL)
+	var dbForHealth *sql.DB
+	if jobsService != nil {
+		dbForHealth = jobsService.DB
+	}
+	healthHandler := NewHealthHandler(cfg.YagnaURL, cfg.IPFSURL, dbForHealth)
 	transparencyHandler := NewTransparencyHandler()
 
 	// Health endpoints (no auth required)
@@ -302,6 +308,8 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 		admin.GET("/stuck-jobs-stats", adminHandler.GetStuckJobsStats)
 		admin.GET("/outbox-stats", adminHandler.GetOutboxStats)
 		admin.GET("/queue-stats", adminHandler.GetQueueRuntimeStats)
+		admin.GET("/queue-dead", adminHandler.GetDeadLetterEntries)
+		admin.POST("/queue-dead/purge", adminHandler.PurgeDeadLetter)
 		admin.GET("/resource-stats", adminHandler.GetResourceStats)
 		admin.GET("/port", adminHandler.GetPortInfo)
 		admin.GET("/hints", adminHandler.GetHints)

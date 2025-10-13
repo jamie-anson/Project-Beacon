@@ -71,6 +71,20 @@ func (r *RetryHandler) zrem(ctx context.Context, key string, members ...interfac
 	return r.circuitClient.ZRem(ctx, key, members...)
 }
 
+func (r *RetryHandler) del(ctx context.Context, keys ...string) cmdErr {
+	if r.testAdapter != nil {
+		return r.testAdapter.Del(ctx, keys...)
+	}
+	if r.circuitClient != nil {
+		return r.circuitClient.Del(ctx, keys...)
+	}
+	// Fallback to raw client if available
+	if r.client != nil {
+		return r.client.Del(ctx, keys...)
+	}
+	return redis.NewIntResult(0, nil)
+}
+
 
 // DequeueRetry attempts to dequeue from the retry queue
 func (r *RetryHandler) DequeueRetry(ctx context.Context) (*JobMessage, error) {
@@ -84,11 +98,23 @@ func (r *RetryHandler) DequeueRetry(ctx context.Context) (*JobMessage, error) {
 	now := time.Now()
 	
 	// Get jobs from retry queue that are ready to be retried
-	results, err := r.circuitClient.ZRangeByScore(ctx, r.retryQueue, &redis.ZRangeBy{
-		Min:   "0",
-		Max:   fmt.Sprintf("%d", now.Unix()),
-		Count: 1,
-	}).Result()
+	var results []string
+	var err error
+	if r.circuitClient != nil {
+		results, err = r.circuitClient.ZRangeByScore(ctx, r.retryQueue, &redis.ZRangeBy{
+			Min:   "0",
+			Max:   fmt.Sprintf("%d", now.Unix()),
+			Count: 1,
+		}).Result()
+	} else if r.client != nil {
+		results, err = r.client.ZRangeByScore(ctx, r.retryQueue, &redis.ZRangeBy{
+			Min:   "0",
+			Max:   fmt.Sprintf("%d", now.Unix()),
+			Count: 1,
+		}).Result()
+	} else {
+		return nil, nil
+	}
 
 	if err != nil || len(results) == 0 {
 		if err != nil {

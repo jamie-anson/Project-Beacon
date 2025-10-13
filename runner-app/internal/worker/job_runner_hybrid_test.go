@@ -37,6 +37,11 @@ func (f *fakeExecRepo2) UpdateRegionVerification(ctx context.Context, executionI
     return nil
 }
 
+// Satisfy execRepoIface used by JobRunner
+func (f *fakeExecRepo2) InsertExecutionWithModelAndQuestion(ctx context.Context, jobID, providerID, region, status string, startedAt, completedAt time.Time, outputJSON, receiptJSON []byte, modelID, questionID string) (int64, error) {
+    return f.InsertExecutionWithModel(ctx, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
+}
+
 // Minimal executor that returns success with a provider id
 type stubExecutor struct{}
 func (s stubExecutor) Execute(ctx context.Context, spec *models.JobSpec, region string) (string, string, []byte, []byte, error) {

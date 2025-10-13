@@ -29,7 +29,19 @@ func (v *JobSpecValidator) ValidateAndVerify(jobSpec *JobSpec) error {
 		}
 	}
 
-	// Then validate (this may generate ID if missing)
+	// Populate ID if missing before validation to satisfy tests
+	if jobSpec.ID == "" {
+		if jobSpec.JobSpecID != "" {
+			jobSpec.ID = jobSpec.JobSpecID
+		} else {
+			name := jobSpec.Benchmark.Name
+			if name == "" {
+				name = "job"
+			}
+			jobSpec.ID = fmt.Sprintf("%s-%d", name, time.Now().Unix())
+		}
+	}
+	// Then validate
 	if err := jobSpec.Validate(); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}

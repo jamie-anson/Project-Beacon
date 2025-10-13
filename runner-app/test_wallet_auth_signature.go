@@ -1,10 +1,14 @@
+//go:build manual
+// +build manual
+
+// This file is a standalone demo utility. It is excluded from normal builds/tests.
+// Run explicitly with: go run -tags manual ./test_wallet_auth_signature.go
 package main
 
 import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/crypto"

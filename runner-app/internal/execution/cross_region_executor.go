@@ -40,13 +40,23 @@ type CrossRegionResult struct {
 type RegionResult struct {
 	Region       string                 `json:"region"`
 	ProviderID   string                 `json:"provider_id"`
-	Receipt      *models.Receipt        `json:"receipt,omitempty"`
+	Receipt      *models.Receipt        `json:"receipt,omitempty"` // Deprecated: use Executions
+	Executions   []ExecutionResult      `json:"executions,omitempty"` // Per model/question results
 	Error        string                 `json:"error,omitempty"`
 	StartedAt    time.Time              `json:"started_at"`
 	CompletedAt  time.Time              `json:"completed_at"`
 	Duration     time.Duration          `json:"duration"`
 	Status       string                 `json:"status"` // "success", "failed", "timeout"
 	Metadata     map[string]interface{} `json:"metadata"`
+}
+
+// ExecutionResult represents a single model/question execution
+type ExecutionResult struct {
+	ModelID    string          `json:"model_id"`
+	QuestionID string          `json:"question_id"`
+	Receipt    *models.Receipt `json:"receipt"`
+	Error      string          `json:"error,omitempty"`
+	Status     string          `json:"status"` // "completed", "failed"
 }
 
 // CrossRegionAnalysis contains analysis of differences across regions
@@ -260,49 +270,107 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 	startTime := time.Now()
 	
 	result := &RegionResult{
-		Region:    plan.Region,
-		StartedAt: startTime,
-		Status:    "running",
-		Metadata:  make(map[string]interface{}),
+		Region:     plan.Region,
+		StartedAt:  startTime,
+		Status:     "running",
+		Metadata:   make(map[string]interface{}),
+		Executions: []ExecutionResult{},
 	}
 
 	// Create region-specific context with timeout
 	regionCtx, cancel := context.WithTimeout(ctx, plan.Timeout)
 	defer cancel()
 
+	// Extract models and questions
+	models := extractModels(jobSpec)
+	questions := jobSpec.Questions
+	if len(questions) == 0 {
+		questions = []string{"default"}
+	}
+
+	cre.logger.Info("Executing region with multiple models and questions",
+		"region", plan.Region,
+		"models", len(models),
+		"questions", len(questions),
+		"total_executions", len(models)*len(questions))
+
 	// Try preferred providers first
 	providers := append(plan.PreferredProviders, plan.FallbackProviders...)
-	
-	for attempt := 0; attempt < plan.MaxRetries && result.Status == "running"; attempt++ {
-		for _, providerID := range providers {
+	if len(providers) == 0 {
+		result.Status = "failed"
+		result.Error = "no providers available"
+		result.CompletedAt = time.Now()
+		result.Duration = result.CompletedAt.Sub(result.StartedAt)
+		return result
+	}
+
+	// Use first available provider for all executions
+	providerID := providers[0]
+	result.ProviderID = providerID
+
+	successCount := 0
+	failureCount := 0
+
+	// Execute each model × question combination
+	for _, model := range models {
+		for _, question := range questions {
 			select {
 			case <-regionCtx.Done():
-				result.Status = "timeout"
-				result.Error = "execution timeout"
-				break
+				// Timeout - mark remaining as failed
+				result.Executions = append(result.Executions, ExecutionResult{
+					ModelID:    model,
+					QuestionID: question,
+					Status:     "failed",
+					Error:      "execution timeout",
+				})
+				failureCount++
+				continue
 			default:
 			}
 
-			cre.logger.Debug("Attempting execution",
+			cre.logger.Debug("Executing model/question combination",
 				"region", plan.Region,
-				"provider", providerID,
-				"attempt", attempt+1)
+				"model", model,
+				"question", question,
+				"provider", providerID)
 
-			// Execute on this provider
-			receipt, err := cre.singleRegionExecutor.ExecuteOnProvider(regionCtx, jobSpec, providerID, plan.Region)
-			if err != nil {
-				cre.logger.Warn("Provider execution failed",
-					"region", plan.Region,
-					"provider", providerID,
-					"error", err)
-				continue
+			// Create a modified jobspec for this specific execution
+			execSpec := *jobSpec // Shallow copy
+			execSpec.Metadata = make(map[string]interface{})
+			for k, v := range jobSpec.Metadata {
+				execSpec.Metadata[k] = v
+			}
+			execSpec.Metadata["model"] = model
+			execSpec.Questions = []string{question}
+
+			// Create execution-specific context with timeout (don't share region context)
+			execCtx, execCancel := context.WithTimeout(ctx, 2*time.Minute) // 2 min per execution
+			
+			// Execute on provider
+			receipt, err := cre.singleRegionExecutor.ExecuteOnProvider(execCtx, &execSpec, providerID, plan.Region)
+			execCancel() // Clean up
+			
+			execResult := ExecutionResult{
+				ModelID:    model,
+				QuestionID: question,
 			}
 
-			// Success!
-			result.ProviderID = providerID
-			result.Receipt = receipt
-			result.Status = "success"
-			break
+			if err != nil {
+				cre.logger.Warn("Execution failed",
+					"region", plan.Region,
+					"model", model,
+					"question", question,
+					"error", err)
+				execResult.Status = "failed"
+				execResult.Error = err.Error()
+				failureCount++
+			} else {
+				execResult.Receipt = receipt
+				execResult.Status = "completed"
+				successCount++
+			}
+
+			result.Executions = append(result.Executions, execResult)
 		}
 	}
 
@@ -310,13 +378,31 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 	result.CompletedAt = time.Now()
 	result.Duration = result.CompletedAt.Sub(result.StartedAt)
 	
-	if result.Status == "running" {
+	// Determine overall status
+	if successCount > 0 {
+		result.Status = "success"
+		// Keep first receipt for backward compatibility
+		for _, exec := range result.Executions {
+			if exec.Status == "completed" && exec.Receipt != nil {
+				result.Receipt = exec.Receipt
+				break
+			}
+		}
+	} else {
 		result.Status = "failed"
-		result.Error = "all providers failed"
+		result.Error = "all executions failed"
 	}
 
-	result.Metadata["attempt_count"] = len(providers)
+	result.Metadata["success_count"] = successCount
+	result.Metadata["failure_count"] = failureCount
+	result.Metadata["total_executions"] = len(result.Executions)
 	result.Metadata["plan_priority"] = plan.Priority
+
+	cre.logger.Info("Region execution completed",
+		"region", plan.Region,
+		"success", successCount,
+		"failed", failureCount,
+		"duration", result.Duration)
 
 	return result
 }

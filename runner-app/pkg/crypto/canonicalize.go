@@ -39,6 +39,18 @@ func CanonicalizeJobSpecV1(spec interface{}) ([]byte, error) {
 	// JavaScript doesn't include undefined/null fields, Go includes them
 	removeNullAndEmptyValues(m)
 	
+	// Special-case: Remove zero-value constraints that the portal omits when absent
+	// Portal does not include constraints.min_success_rate when it is effectively 0
+	if consRaw, ok := m["constraints"]; ok {
+		if cons, ok := consRaw.(map[string]interface{}); ok {
+			if v, ok := cons["min_success_rate"]; ok {
+				if num, ok := v.(float64); ok && num == 0 {
+					delete(cons, "min_success_rate")
+				}
+			}
+		}
+	}
+	
 	// Encode deterministically
 	b, err := CanonicalJSON(m)
 	if err != nil {

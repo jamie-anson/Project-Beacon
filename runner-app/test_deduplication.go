@@ -1,10 +1,14 @@
+//go:build manual
+// +build manual
+
+// This file is a standalone demo utility. It is excluded from normal builds/tests.
+// Run explicitly with: go run -tags manual ./test_deduplication.go
 package main
 
 import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/go-redis/redis/v8"
 )

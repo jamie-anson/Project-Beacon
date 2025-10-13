@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,10 @@ type CrossRegionRepo struct {
 // NewCrossRegionRepo creates a new cross-region repository
 func NewCrossRegionRepo(db *sql.DB) *CrossRegionRepo {
 	return &CrossRegionRepo{db: db}
+}
+
+func dbAuditEnabled() bool {
+	return os.Getenv("DB_AUDIT") == "1"
 }
 
 // CrossRegionExecution represents a cross-region execution record
@@ -76,6 +81,7 @@ type CrossRegionAnalysisRecord struct {
 // CreateCrossRegionExecution creates a new cross-region execution record
 func (r *CrossRegionRepo) CreateCrossRegionExecution(ctx context.Context, jobSpecID string, totalRegions, minRegions int, minSuccessRate float64) (*CrossRegionExecution, error) {
 	id := uuid.New().String()
+	start := time.Now()
 	
 	query := `
 		INSERT INTO cross_region_executions (
@@ -98,6 +104,10 @@ func (r *CrossRegionRepo) CreateCrossRegionExecution(ctx context.Context, jobSpe
 		return nil, fmt.Errorf("failed to create cross-region execution: %w", err)
 	}
 	
+	if dbAuditEnabled() {
+		fmt.Printf("DB_AUDIT create_cross_region_execution id=%s job=%s rows=1 elapsed_ms=%d\n", exec.ID, exec.JobSpecID, time.Since(start).Milliseconds())
+	}
+
 	if completedAt.Valid {
 		exec.CompletedAt = &completedAt.Time
 	}
@@ -111,6 +121,7 @@ func (r *CrossRegionRepo) CreateCrossRegionExecution(ctx context.Context, jobSpe
 // CreateRegionResult creates a new region result record
 func (r *CrossRegionRepo) CreateRegionResult(ctx context.Context, crossRegionExecID, region string, startedAt time.Time) (*RegionResultRecord, error) {
 	id := uuid.New().String()
+	start := time.Now()
 	
 	query := `
 		INSERT INTO region_results (
@@ -134,6 +145,10 @@ func (r *CrossRegionRepo) CreateRegionResult(ctx context.Context, crossRegionExe
 		return nil, fmt.Errorf("failed to create region result: %w", err)
 	}
 	
+	if dbAuditEnabled() {
+		fmt.Printf("DB_AUDIT create_region_result id=%s exec_id=%s region=%s rows=1 elapsed_ms=%d\n", result.ID, result.CrossRegionExecutionID, result.Region, time.Since(start).Milliseconds())
+	}
+
 	if providerID.Valid {
 		result.ProviderID = &providerID.String
 	}
@@ -154,6 +169,7 @@ func (r *CrossRegionRepo) CreateRegionResult(ctx context.Context, crossRegionExe
 func (r *CrossRegionRepo) UpdateRegionResult(ctx context.Context, id string, status string, completedAt time.Time, durationMs int64, providerID *string, output map[string]interface{}, errorMsg *string, scoring map[string]interface{}, metadata map[string]interface{}) error {
 	var outputJSON, scoringJSON, metadataJSON []byte
 	var err error
+	start := time.Now()
 	
 	if output != nil {
 		outputJSON, err = json.Marshal(output)
@@ -183,9 +199,15 @@ func (r *CrossRegionRepo) UpdateRegionResult(ctx context.Context, id string, sta
 		WHERE id = $1
 	`
 	
-	_, err = r.db.ExecContext(ctx, query, id, status, completedAt, durationMs, providerID, outputJSON, errorMsg, scoringJSON, metadataJSON)
+	res, err := r.db.ExecContext(ctx, query, id, status, completedAt, durationMs, providerID, outputJSON, errorMsg, scoringJSON, metadataJSON)
 	if err != nil {
 		return fmt.Errorf("failed to update region result: %w", err)
+	}
+	
+	if dbAuditEnabled() {
+		if rows, _ := res.RowsAffected(); rows >= 0 {
+			fmt.Printf("DB_AUDIT update_region_result id=%s rows=%d elapsed_ms=%d\n", id, rows, time.Since(start).Milliseconds())
+		}
 	}
 	
 	return nil
@@ -193,15 +215,22 @@ func (r *CrossRegionRepo) UpdateRegionResult(ctx context.Context, id string, sta
 
 // UpdateCrossRegionExecutionStatus updates the status and counts of a cross-region execution
 func (r *CrossRegionRepo) UpdateCrossRegionExecutionStatus(ctx context.Context, id string, status string, successCount, failureCount int, completedAt *time.Time, durationMs *int64) error {
+	start := time.Now()
 	query := `
 		UPDATE cross_region_executions 
 		SET status = $2, success_count = $3, failure_count = $4, completed_at = $5, duration_ms = $6
 		WHERE id = $1
 	`
 	
-	_, err := r.db.ExecContext(ctx, query, id, status, successCount, failureCount, completedAt, durationMs)
+	res, err := r.db.ExecContext(ctx, query, id, status, successCount, failureCount, completedAt, durationMs)
 	if err != nil {
 		return fmt.Errorf("failed to update cross-region execution status: %w", err)
+	}
+	
+	if dbAuditEnabled() {
+		if rows, _ := res.RowsAffected(); rows >= 0 {
+			fmt.Printf("DB_AUDIT update_cross_region_execution_status id=%s status=%s rows=%d elapsed_ms=%d\n", id, status, rows, time.Since(start).Milliseconds())
+		}
 	}
 	
 	return nil
@@ -210,6 +239,7 @@ func (r *CrossRegionRepo) UpdateCrossRegionExecutionStatus(ctx context.Context, 
 // CreateCrossRegionAnalysis creates a new cross-region analysis record
 func (r *CrossRegionRepo) CreateCrossRegionAnalysis(ctx context.Context, crossRegionExecID string, analysis *models.CrossRegionAnalysis) (*CrossRegionAnalysisRecord, error) {
 	id := uuid.New().String()
+	start := time.Now()
 	
 	keyDifferencesJSON, err := json.Marshal(analysis.KeyDifferences)
 	if err != nil {
@@ -242,6 +272,10 @@ func (r *CrossRegionRepo) CreateCrossRegionAnalysis(ctx context.Context, crossRe
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cross-region analysis: %w", err)
+	}
+	
+	if dbAuditEnabled() {
+		fmt.Printf("DB_AUDIT create_cross_region_analysis id=%s exec_id=%s rows=1 elapsed_ms=%d\n", record.ID, crossRegionExecID, time.Since(start).Milliseconds())
 	}
 	
 	if biasVariance.Valid {

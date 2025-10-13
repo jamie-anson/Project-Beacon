@@ -73,8 +73,21 @@ func NewRedisQueue(redisURL string, queueName string) (*RedisQueue, error) {
 
 // WithTestAdapter sets a testing adapter seam for unit tests.
 func (q *RedisQueue) WithTestAdapter(ad simpleAdapter) *RedisQueue {
-	q.retryHandler.WithTestAdapter(ad)
-	return q
+    if q.retryHandler == nil {
+        // Initialize a minimal retry handler for tests that construct RedisQueue via literal
+        rh := &RetryHandler{
+            queueName:  q.queueName,
+            retryQueue: q.retryQueue,
+            deadQueue:  q.deadQueue,
+            maxRetries: q.maxRetries,
+            retryDelay: q.retryDelay,
+            client:     q.client,
+            // circuitClient can be nil in tests; testAdapter path bypasses it
+        }
+        q.retryHandler = rh
+    }
+    q.retryHandler.WithTestAdapter(ad)
+    return q
 }
 
 
@@ -125,12 +138,24 @@ func (q *RedisQueue) Dequeue(ctx context.Context) (*JobMessage, error) {
 		attribute.String("queue.name", q.queueName),
 	))
 	defer span.End()
-	// Try main queue first using circuit breaker
-	result, err := q.circuitClient.BRPop(ctx, 1*time.Second, q.queueName).Result()
+	// Try main queue first using circuit breaker when available; fallback to raw client in tests
+	var result []string
+	var err error
+	if q.circuitClient != nil {
+		result, err = q.circuitClient.BRPop(ctx, 1*time.Second, q.queueName).Result()
+	} else {
+		result, err = q.client.BRPop(ctx, 1*time.Second, q.queueName).Result()
+	}
 	if err != nil {
 		if err == redis.Nil {
 			// Try retry queue
 			span.AddEvent("main_queue_empty_try_retry")
+			if q.retryHandler == nil {
+				if q.circuitClient == nil {
+					q.circuitClient = NewRedisCircuitBreaker(q.client, "redis-queue-"+q.queueName)
+				}
+				q.retryHandler = NewRetryHandler(q.queueName, q.client, q.circuitClient)
+			}
 			return q.retryHandler.DequeueRetry(ctx)
 		}
 		span.RecordError(err)
@@ -182,9 +207,14 @@ func (q *RedisQueue) Dequeue(ctx context.Context) (*JobMessage, error) {
 	message.Attempts++
 	message.LastAttempt = time.Now()
 
-	// Mark as processing using processing tracker
-	if err := q.processingTracker.MarkAsProcessing(ctx, &message); err != nil {
-		log.Printf("Warning: failed to mark job %s as processing: %v", message.ID, err)
+	// Mark as processing using processing tracker (nil-safe)
+	if q.processingTracker == nil {
+		q.processingTracker = NewProcessingTracker(q.queueName, q.client, q.retryHandler)
+	}
+	if q.processingTracker != nil {
+		if err := q.processingTracker.MarkAsProcessing(ctx, &message); err != nil {
+			log.Printf("Warning: failed to mark job %s as processing: %v", message.ID, err)
+		}
 	}
 
 	span.SetAttributes(
@@ -206,24 +236,67 @@ func (q *RedisQueue) Complete(ctx context.Context, message *JobMessage) error {
 	))
 	defer span.End()
 	
-	// Remove from processing set using processing tracker
-	return q.processingTracker.MarkAsCompleted(ctx, message)
+	// Remove from processing set using processing tracker (if available)
+	if q.processingTracker != nil {
+		return q.processingTracker.MarkAsCompleted(ctx, message)
+	}
+	// Fallback: best-effort direct DEL of processing key
+	if q.client != nil {
+		pkey := q.queueName + ":processing:" + message.ID
+		_ = q.client.Del(ctx, pkey).Err()
+	}
+	return nil
 }
 
 // Fail handles job failure with retry logic
 func (q *RedisQueue) Fail(ctx context.Context, message *JobMessage, jobError error) error {
-	// Remove from processing set first
-	if err := q.processingTracker.MarkAsFailed(ctx, message); err != nil {
-		log.Printf("Warning: failed to remove failed job %s from processing: %v", message.ID, err)
-	}
+    // Remove from processing set first
+    if q.processingTracker != nil {
+        if err := q.processingTracker.MarkAsFailed(ctx, message); err != nil {
+            log.Printf("Warning: failed to remove failed job %s from processing: %v", message.ID, err)
+        }
+    }
 
-	// Handle retry logic using retry handler
-	return q.retryHandler.HandleFailure(ctx, message, jobError)
+    // Handle retry logic using retry handler
+    if q.retryHandler == nil {
+        // Ensure circuit breaker exists for retry operations
+        if q.circuitClient == nil {
+            q.circuitClient = NewRedisCircuitBreaker(q.client, "redis-queue-"+q.queueName)
+        }
+        q.retryHandler = NewRetryHandler(q.queueName, q.client, q.circuitClient)
+        // Use queue's retry delay and max retries if set
+        if q.retryDelay > 0 {
+            q.retryHandler.retryDelay = q.retryDelay
+        }
+        if q.maxRetries > 0 {
+            q.retryHandler.maxRetries = q.maxRetries
+        }
+    }
+    
+    // Schedule retry or move to dead-letter queue
+    if err := q.retryHandler.HandleFailure(ctx, message, jobError); err != nil {
+        return err
+    }
+    
+    // Delete processing key after scheduling retry/dead-letter (matches Complete() behavior)
+    processingKey := fmt.Sprintf("%s:processing:%s", q.queueName, message.ID)
+    if delErr := q.retryHandler.del(ctx, processingKey).Err(); delErr != nil {
+        log.Printf("Warning: failed to delete processing key %s: %v", processingKey, delErr)
+    }
+    
+    return nil
 }
 
 // GetQueueStats returns statistics about the queue
 func (q *RedisQueue) GetQueueStats(ctx context.Context) (map[string]int64, error) {
-	return q.statsCollector.GetQueueStats(ctx)
+    if q.statsCollector == nil {
+        q.statsCollector = NewStatsCollector(q.queueName, q.client, q.processingTracker)
+    }
+    // Ensure processing tracker is available for stats even if queue was constructed without it
+    if q.statsCollector != nil && q.statsCollector.processingTracker == nil {
+        q.statsCollector.processingTracker = NewProcessingTracker(q.queueName, q.client, q.retryHandler)
+    }
+    return q.statsCollector.GetQueueStats(ctx)
 }
 
 // Close closes the Redis connection
@@ -233,6 +306,12 @@ func (q *RedisQueue) Close() error {
 
 // RecoverStaleJobs recovers jobs that have been processing too long
 func (q *RedisQueue) RecoverStaleJobs(ctx context.Context) error {
+	if q.processingTracker == nil {
+		q.processingTracker = NewProcessingTracker(q.queueName, q.client, q.retryHandler)
+	}
+	if q.processingTracker == nil {
+		return nil
+	}
 	return q.processingTracker.RecoverStaleJobs(ctx)
 }
 

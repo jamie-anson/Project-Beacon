@@ -1,18 +1,19 @@
 package api
 
 import (
-	"log"
-	"net/http"
-	"net"
-	"runtime"
-	"time"
-	"encoding/json"
+    "log"
+    "net/http"
+    "net"
+    "runtime"
+    "time"
+    "encoding/json"
+    "strconv"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jamie-anson/project-beacon-runner/internal/config"
-	"github.com/jamie-anson/project-beacon-runner/internal/flags"
-	"github.com/jamie-anson/project-beacon-runner/internal/service"
-	"github.com/jamie-anson/project-beacon-runner/internal/queue"
+    "github.com/gin-gonic/gin"
+    "github.com/jamie-anson/project-beacon-runner/internal/config"
+    "github.com/jamie-anson/project-beacon-runner/internal/flags"
+    "github.com/jamie-anson/project-beacon-runner/internal/service"
+    "github.com/jamie-anson/project-beacon-runner/internal/queue"
 )
 
 // AdminHandler bundles simple admin operations
@@ -22,6 +23,97 @@ type AdminHandler struct {
 	queueClient interface {
 		GetCircuitBreakerStats() string
 	}
+
+}
+
+// GetDeadLetterEntries returns paginated entries from the dead-letter queue
+func (h *AdminHandler) GetDeadLetterEntries(c *gin.Context) {
+    if h.queueClient == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue not available"})
+        return
+    }
+    qc, ok := h.queueClient.(*queue.Client)
+    if !ok || qc == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue client does not expose redis"})
+        return
+    }
+    rc := qc.GetRedisClient()
+    if rc == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "redis client not available"})
+        return
+    }
+
+    // Paging params
+    limit := 50
+    offset := 0
+    if v := c.Query("limit"); v != "" {
+        if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+            limit = n
+        }
+    }
+    if v := c.Query("offset"); v != "" {
+        if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+            offset = n
+        }
+    }
+
+    qname := h.cfg.JobsQueueName
+    key := qname + ":dead"
+    total := rc.LLen(c.Request.Context(), key).Val()
+    start := int64(offset)
+    end := int64(offset + limit - 1)
+    vals, err := rc.LRange(c.Request.Context(), key, start, end).Result()
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read dead-letter", "details": err.Error()})
+        return
+    }
+
+    // Try to JSON-decode entries; if not JSON, return raw string
+    items := make([]interface{}, 0, len(vals))
+    for _, v := range vals {
+        var decoded interface{}
+        if json.Unmarshal([]byte(v), &decoded) == nil {
+            items = append(items, decoded)
+        } else {
+            items = append(items, gin.H{"raw": v})
+        }
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "queue": qname,
+        "key": key,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "items": items,
+    })
+}
+
+// PurgeDeadLetter deletes the dead-letter queue list
+func (h *AdminHandler) PurgeDeadLetter(c *gin.Context) {
+    if h.queueClient == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue not available"})
+        return
+    }
+    qc, ok := h.queueClient.(*queue.Client)
+    if !ok || qc == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "queue client does not expose redis"})
+        return
+    }
+    rc := qc.GetRedisClient()
+    if rc == nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{"error": "redis client not available"})
+        return
+    }
+
+    qname := h.cfg.JobsQueueName
+    key := qname + ":dead"
+    // Use DEL to remove the list
+    if err := rc.Del(c.Request.Context(), key).Err(); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to purge dead-letter", "details": err.Error()})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"ok": true, "purged_key": key})
 }
 
 // GetOutboxStats returns DB outbox unpublished stats

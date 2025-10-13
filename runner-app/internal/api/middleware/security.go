@@ -10,38 +10,51 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CORS adds Cross-Origin Resource Sharing headers
-func CORS() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-		
-		// Allow specific origins or localhost for development
-		allowedOrigins := []string{
-			"http://localhost:3000",
-			"http://localhost:8080",
-			"http://127.0.0.1:3000",
-			"http://127.0.0.1:8080",
-			"https://projectbeacon.netlify.app",
-		}
-		
-		// Check if origin is allowed
-		allowed := false
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				allowed = true
-				break
-			}
-		}
-		
-		if allowed {
-			c.Header("Access-Control-Allow-Origin", origin)
-		}
-		
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Request-ID, Idempotency-Key")
-		c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-Response-Time")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Max-Age", "86400") // 24 hours
+  // CORS adds Cross-Origin Resource Sharing headers
+  func CORS() gin.HandlerFunc {
+      return func(c *gin.Context) {
+          origin := c.Request.Header.Get("Origin")
+          
+          // Allow specific origins or localhost for development
+          allowedOrigins := []string{
+              "http://localhost:3000",
+              "http://localhost:8080",
+              "http://127.0.0.1:3000",
+              "http://127.0.0.1:8080",
+              "https://projectbeacon.netlify.app",
+              "https://preview--projectbeacon.netlify.app",
+          }
+          // Also allow any Netlify subdomain (e.g., preview deploys)
+          allowedSuffixes := []string{
+              ".netlify.app",
+          }
+          
+          // Check if origin is allowed
+          allowed := false
+          for _, allowedOrigin := range allowedOrigins {
+              if origin == allowedOrigin {
+                  allowed = true
+                  break
+              }
+          }
+          if !allowed && origin != "" {
+              for _, sfx := range allowedSuffixes {
+                  if strings.HasSuffix(origin, sfx) {
+                      allowed = true
+                      break
+                  }
+              }
+          }
+          
+          if allowed {
+              c.Header("Access-Control-Allow-Origin", origin)
+          }
+          
+          c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+          c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Request-ID, Idempotency-Key")
+          c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-Response-Time")
+          c.Header("Access-Control-Allow-Credentials", "true")
+          c.Header("Access-Control-Max-Age", "86400") // 24 hours
 		
 		// Handle preflight requests
 		if c.Request.Method == "OPTIONS" {

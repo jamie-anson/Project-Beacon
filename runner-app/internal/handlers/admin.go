@@ -227,8 +227,7 @@ func EmergencyStopJob(c *gin.Context) {
 	_, err = database.DB.ExecContext(c.Request.Context(),
 		`UPDATE jobs 
 		SET status = 'failed', 
-		    updated_at = NOW(),
-		    metadata = COALESCE(metadata, '{}'::jsonb) || '{"emergency_stop": true, "stopped_at": "'||NOW()||'", "stopped_by": "admin"}'::jsonb
+		    updated_at = NOW()
 		WHERE id = $1`,
 		jobID)
 	if err != nil {
@@ -240,8 +239,7 @@ func EmergencyStopJob(c *gin.Context) {
 	result, err := database.DB.ExecContext(c.Request.Context(),
 		`UPDATE executions 
 		SET status = 'failed',
-		    completed_at = NOW(),
-		    output = COALESCE(output, '{}'::jsonb) || '{"error": "Emergency stop by admin", "emergency_stop": true}'::jsonb
+		    completed_at = NOW()
 		WHERE job_id = $1 
 		AND status IN ('pending', 'running', 'processing')`,
 		jobID)
@@ -253,7 +251,6 @@ func EmergencyStopJob(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"ok": true,
-		"message": "Job emergency stopped",
 		"job_id": jobID,
 		"previous_status": currentStatus,
 		"new_status": "failed",
