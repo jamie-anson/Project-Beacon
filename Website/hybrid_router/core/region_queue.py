@@ -27,6 +27,9 @@ class QueuedJob:
     queued_at: datetime = field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    retry_count: int = 0
+    max_retries: int = 3
+    last_error: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -118,9 +121,20 @@ class RegionQueueManager:
                     logger.info(f"[{region}] Completed job {job.job_id} in {duration:.2f}s")
                     
                 except Exception as e:
-                    job.completed_at = datetime.utcnow()
-                    queue.failed_count += 1
-                    logger.error(f"[{region}] Failed job {job.job_id}: {e}")
+                    job.last_error = str(e)
+                    job.retry_count += 1
+                    
+                    # Retry logic: re-queue if under max retries
+                    if job.retry_count < job.max_retries:
+                        logger.warning(f"[{region}] Job {job.job_id} failed (attempt {job.retry_count}/{job.max_retries}), re-queuing: {e}")
+                        # Re-queue with exponential backoff
+                        await asyncio.sleep(min(2 ** job.retry_count, 60))  # Max 60s backoff
+                        await queue.enqueue(job)
+                    else:
+                        # Max retries exhausted
+                        job.completed_at = datetime.utcnow()
+                        queue.failed_count += 1
+                        logger.error(f"[{region}] Job {job.job_id} failed permanently after {job.retry_count} attempts: {e}")
                     
                 finally:
                     queue.current_job = None
