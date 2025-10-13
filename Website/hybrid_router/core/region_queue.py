@@ -90,6 +90,8 @@ class RegionQueueManager:
             "EU": RegionQueue("EU"),
             "ASIA": RegionQueue("ASIA"),
         }
+        # Global retry queue with highest priority (cross-region retries)
+        self.global_retry_queue: asyncio.Queue = asyncio.Queue()
         self.workers_started = False
         
     async def enqueue_job(self, job: QueuedJob):
@@ -101,16 +103,27 @@ class RegionQueueManager:
         await self.queues[region].enqueue(job)
         
     async def process_queue(self, region: str, inference_func):
-        """Process jobs from a region queue sequentially"""
+        """Process jobs from a region queue sequentially
+        
+        Priority order:
+        1. Global retry queue (highest priority, cross-region)
+        2. Region-specific retry queue
+        3. Region-specific regular queue
+        """
         queue = self.queues[region]
         logger.info(f"[{region}] Queue worker started")
         
         while True:
             try:
-                # Check retry queue first (priority), then regular queue
-                if not queue.retry_queue.empty():
+                # Priority 1: Check GLOBAL retry queue first (cross-region retries)
+                if not self.global_retry_queue.empty():
+                    job: QueuedJob = await self.global_retry_queue.get()
+                    logger.info(f"[{region}] Processing GLOBAL RETRY job (cross-region priority)")
+                # Priority 2: Check region-specific retry queue
+                elif not queue.retry_queue.empty():
                     job: QueuedJob = await queue.retry_queue.get()
-                    logger.info(f"[{region}] Processing RETRY job from priority queue")
+                    logger.info(f"[{region}] Processing region retry job")
+                # Priority 3: Regular queue
                 else:
                     job: QueuedJob = await queue.queue.get()
                 
@@ -142,10 +155,11 @@ class RegionQueueManager:
                     
                     # Retry logic: re-queue if under max retries
                     if job.retry_count < job.max_retries:
-                        logger.warning(f"[{region}] Job {job.job_id} failed (attempt {job.retry_count}/{job.max_retries}), re-queuing with priority: {e}")
-                        # Re-queue to PRIORITY queue with exponential backoff
+                        logger.warning(f"[{region}] Job {job.job_id} failed (attempt {job.retry_count}/{job.max_retries}), re-queuing to GLOBAL retry queue: {e}")
+                        # Re-queue to GLOBAL retry queue with exponential backoff
+                        # This allows ANY region to pick up the retry (fastest recovery)
                         await asyncio.sleep(min(2 ** job.retry_count, 60))  # Max 60s backoff
-                        await queue.enqueue(job, is_retry=True)  # Add to priority queue
+                        await self.global_retry_queue.put(job)  # Global priority queue
                     else:
                         # Max retries exhausted
                         job.completed_at = datetime.utcnow()
@@ -182,8 +196,11 @@ class RegionQueueManager:
     def get_all_statuses(self) -> Dict[str, Any]:
         """Get status of all region queues"""
         return {
-            region: queue.get_status()
-            for region, queue in self.queues.items()
+            "global_retry_queue_size": self.global_retry_queue.qsize(),
+            "regions": {
+                region: queue.get_status()
+                for region, queue in self.queues.items()
+            }
         }
         
     def get_queue_size(self, region: str) -> int:
