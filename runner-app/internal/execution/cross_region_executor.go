@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
@@ -146,30 +145,28 @@ func (cre *CrossRegionExecutor) ExecuteAcrossRegions(ctx context.Context, jobSpe
 	execCtx, cancel := context.WithTimeout(ctx, jobSpec.Constraints.Timeout)
 	defer cancel()
 
-	// Execute regions in parallel
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	
+	// Execute regions SEQUENTIALLY to avoid Modal GPU limit (10 GPUs on free tier)
+	// Each region can use up to 3 GPUs (3 models), so parallel execution of 2 regions = 6 GPUs
+	// But with 2 jobs running simultaneously, we'd hit 12 GPUs and exceed the limit
+	// Sequential execution ensures we never exceed 3 GPUs at a time
 	for _, plan := range plans {
-		wg.Add(1)
-		go func(plan RegionExecutionPlan) {
-			defer wg.Done()
-			
-			regionResult := cre.executeRegion(execCtx, jobSpec, plan)
-			
-			mu.Lock()
-			result.RegionResults[plan.Region] = regionResult
-			if regionResult.Status == "success" {
-				result.SuccessCount++
-			} else {
-				result.FailureCount++
-			}
-			mu.Unlock()
-		}(plan)
+		cre.logger.Info("Starting region execution", "region", plan.Region, "job_id", jobSpec.ID)
+		
+		regionResult := cre.executeRegion(execCtx, jobSpec, plan)
+		
+		result.RegionResults[plan.Region] = regionResult
+		if regionResult.Status == "success" {
+			result.SuccessCount++
+		} else {
+			result.FailureCount++
+		}
+		
+		cre.logger.Info("Completed region execution", 
+			"region", plan.Region, 
+			"job_id", jobSpec.ID,
+			"status", regionResult.Status,
+			"executions", len(regionResult.Executions))
 	}
-
-	// Wait for all regions to complete
-	wg.Wait()
 
 	// Finalize result
 	result.CompletedAt = time.Now()
