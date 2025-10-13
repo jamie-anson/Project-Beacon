@@ -354,7 +354,8 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 			execSpec.Questions = []string{question}
 
 			// Create execution-specific context with timeout (don't share region context)
-			execCtx, execCancel := context.WithTimeout(ctx, 2*time.Minute) // 2 min per execution
+			// 5 minutes to allow for Modal cold starts (model download + GPU loading)
+			execCtx, execCancel := context.WithTimeout(ctx, 5*time.Minute)
 			
 			// Execute on provider
 			receipt, err := cre.singleRegionExecutor.ExecuteOnProvider(execCtx, &execSpec, providerID, plan.Region)

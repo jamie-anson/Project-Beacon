@@ -6,8 +6,8 @@ import { getStatusColor, getStatusText } from './liveProgressHelpers';
  * 
  * Displays:
  * - Region name (United States, Europe)
- * - Status (Complete/Processing/Cancelled/Failed)
- * - Answer link (opens execution in new tab)
+ * - Status (Complete/Processing/Cancelled/Failed) with retry count
+ * - Answer link (opens execution in new tab) OR Retry button for failed executions
  */
 const RegionRow = memo(function RegionRow({ region, execution }) {
   const regionNames = {
@@ -21,6 +21,36 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
   const executionId = execution?.id;
   const hasAnswer = status === 'completed' && executionId;
   
+  // Retry tracking
+  const retryCount = execution?.retry_count || 0;
+  const maxRetries = execution?.max_retries || 3;
+  const canRetry = ['failed', 'timeout', 'error'].includes(status) && retryCount < maxRetries;
+  const retriesExhausted = ['failed', 'timeout', 'error'].includes(status) && retryCount >= maxRetries;
+  
+  const handleRetry = async () => {
+    if (!executionId || !canRetry) return;
+    
+    try {
+      const response = await fetch(`/api/v1/executions/${executionId}/retry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        // Refresh the page to show updated status
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Retry failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Retry request failed:', err);
+      alert('Failed to retry execution. Please try again.');
+    }
+  };
+  
   return (
     <div className="grid grid-cols-3 gap-4 px-6 py-2 text-sm hover:bg-gray-800/30">
       {/* Region Name */}
@@ -28,14 +58,19 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
         {regionName}
       </div>
       
-      {/* Status */}
-      <div>
+      {/* Status with Retry Count */}
+      <div className="flex items-center gap-2">
         <span className={`inline-block px-2 py-0.5 rounded-full border text-xs ${getStatusColor(status)}`}>
           {getStatusText(status)}
         </span>
+        {retryCount > 0 && (
+          <span className="text-xs text-gray-500">
+            (Retry {retryCount}/{maxRetries})
+          </span>
+        )}
       </div>
       
-      {/* Answer Link */}
+      {/* Answer Link or Retry Button */}
       <div className="text-right">
         {hasAnswer ? (
           <a
@@ -46,6 +81,17 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
           >
             Answer
           </a>
+        ) : canRetry ? (
+          <button
+            onClick={handleRetry}
+            className="text-yellow-400 hover:text-yellow-300 underline decoration-dotted text-sm font-medium cursor-pointer"
+          >
+            Retry
+          </button>
+        ) : retriesExhausted ? (
+          <span className="text-red-400 text-xs">
+            Max retries reached
+          </span>
         ) : (
           <span className="text-gray-500 text-sm">
             Answer

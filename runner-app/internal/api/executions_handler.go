@@ -70,7 +70,12 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
             COALESCE(e.response_classification, 'unknown') AS response_classification,
             COALESCE(e.is_substantive, false) AS is_substantive,
             COALESCE(e.is_content_refusal, false) AS is_content_refusal,
-            COALESCE(e.response_length, 0) AS response_length
+            COALESCE(e.response_length, 0) AS response_length,
+            COALESCE(e.retry_count, 0) AS retry_count,
+            COALESCE(e.max_retries, 3) AS max_retries,
+            e.last_retry_at,
+            COALESCE(e.retry_history, '[]'::jsonb) AS retry_history,
+            e.original_error
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
         WHERE j.jobspec_id = $1
@@ -100,23 +105,44 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         IsSubstantive          bool            `json:"is_substantive"`
         IsContentRefusal       bool            `json:"is_content_refusal"`
         ResponseLength         int             `json:"response_length,omitempty"`
+        RetryCount             int             `json:"retry_count"`
+        MaxRetries             int             `json:"max_retries"`
+        LastRetryAt            *string         `json:"last_retry_at,omitempty"`
+        RetryHistory           json.RawMessage `json:"retry_history,omitempty"`
+        OriginalError          *string         `json:"original_error,omitempty"`
     }
 
     var list []Exec
     for rows.Next() {
         var e Exec
         var outputData []byte
-        var startedAt, completedAt, createdAt interface{}
-        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.QuestionID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength); err != nil {
+        var retryHistoryData []byte
+        var startedAt, completedAt, createdAt, lastRetryAt interface{}
+        var originalError sql.NullString
+        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.QuestionID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength, &e.RetryCount, &e.MaxRetries, &lastRetryAt, &retryHistoryData, &originalError); err != nil {
             continue
         }
         if t, ok := startedAt.(time.Time); ok { e.StartedAt = t.Format(time.RFC3339) }
         if t, ok := completedAt.(time.Time); ok { e.CompletedAt = t.Format(time.RFC3339) }
         if t, ok := createdAt.(time.Time); ok { e.CreatedAt = t.Format(time.RFC3339) }
+        if t, ok := lastRetryAt.(time.Time); ok {
+            formatted := t.Format(time.RFC3339)
+            e.LastRetryAt = &formatted
+        }
         
         // Include output data if available
         if len(outputData) > 0 {
             e.Output = json.RawMessage(outputData)
+        }
+        
+        // Include retry history if available
+        if len(retryHistoryData) > 0 {
+            e.RetryHistory = json.RawMessage(retryHistoryData)
+        }
+        
+        // Include original error if available
+        if originalError.Valid {
+            e.OriginalError = &originalError.String
         }
         
         list = append(list, e)

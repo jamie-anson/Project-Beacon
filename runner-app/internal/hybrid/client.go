@@ -25,8 +25,8 @@ func New(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "https://project-beacon-production.up.railway.app"
 	}
-	// Determine HTTP timeout: default 120s, overridable via env
-	timeoutSec := 120
+	// Determine HTTP timeout: default 300s (5 min) for Modal cold starts, overridable via env
+	timeoutSec := 300
 	envVarUsed := "default"
 	envVarValue := ""
 
