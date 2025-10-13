@@ -48,6 +48,13 @@ MODEL_REGISTRY = {
         "context_length": 128000,
         "description": "Fast 1B parameter model for quick inference"
     },
+    "mistral-7b": {
+        "hf_model": "mistralai/Mistral-7B-Instruct-v0.3",
+        "gpu": "T4",
+        "memory_gb": 12,
+        "context_length": 32768,
+        "description": "Mistral 7B instruction-tuned model"
+    },
     "qwen2.5-1.5b": {
         "hf_model": "Qwen/Qwen2.5-1.5B-Instruct",
         "gpu": "T4", 

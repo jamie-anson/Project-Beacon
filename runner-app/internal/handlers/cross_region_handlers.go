@@ -183,6 +183,60 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		execCtx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
 		defer cancel()
 		
+		// Set up callback to write execution records as they complete (real-time updates)
+		h.crossRegionExecutor.SetExecutionCallback(func(jobID string, region string, providerID string, result execution.ExecutionResult, startedAt time.Time, completedAt time.Time) {
+			if h.executionsRepo == nil {
+				return
+			}
+			
+			// Prepare output and receipt data
+			var outputJSON []byte
+			var receiptJSON []byte
+			
+			if result.Receipt != nil {
+				if result.Receipt.Output.Data != nil {
+					if data, err := json.Marshal(result.Receipt.Output.Data); err == nil {
+						outputJSON = data
+					}
+				}
+				if data, err := json.Marshal(result.Receipt); err == nil {
+					receiptJSON = data
+				}
+			}
+			
+			// Write execution record immediately
+			_, err := h.executionsRepo.InsertExecutionWithModelAndQuestion(
+				execCtx,
+				jobID,
+				providerID,
+				region,
+				result.Status,
+				startedAt,
+				completedAt,
+				outputJSON,
+				receiptJSON,
+				result.ModelID,
+				result.QuestionID,
+			)
+			
+			if err != nil {
+				logger.Error().Err(err).
+					Str("job_id", jobID).
+					Str("region", region).
+					Str("model", result.ModelID).
+					Str("question", result.QuestionID).
+					Msg("Failed to create execution record in real-time")
+			} else {
+				logger.Info().
+					Str("job_id", jobID).
+					Str("region", region).
+					Str("model", result.ModelID).
+					Str("question", result.QuestionID).
+					Str("status", result.Status).
+					Msg("Created execution record in real-time")
+			}
+		})
+		
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
 			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("cross-region execution failed")
@@ -294,83 +348,9 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			logger.Warn().Str("job_id", req.JobSpec.ID).Msg("jobsRepo is nil, cannot update job status")
 		}
 
-		// Create execution records for portal compatibility from actual execution results
-		if h.executionsRepo != nil {
-			totalExecutions := 0
-			for _, regionResult := range result.RegionResults {
-				totalExecutions += len(regionResult.Executions)
-			}
-			
-			logger.Info().
-				Str("job_id", req.JobSpec.ID).
-				Int("region_count", len(result.RegionResults)).
-				Int("total_executions", totalExecutions).
-				Msg("Creating execution records from actual execution results")
-			
-			successCount := 0
-			failureCount := 0
-			
-			// Create execution record for each actual execution
-			for region, regionResult := range result.RegionResults {
-				for _, exec := range regionResult.Executions {
-					// Prepare output and receipt data
-					var outputJSON []byte
-					var receiptJSON []byte
-					
-					if exec.Receipt != nil {
-						if exec.Receipt.Output.Data != nil {
-							if data, err := json.Marshal(exec.Receipt.Output.Data); err == nil {
-								outputJSON = data
-							}
-						}
-						if data, err := json.Marshal(exec.Receipt); err == nil {
-							receiptJSON = data
-						}
-					}
-					
-					_, err := h.executionsRepo.InsertExecutionWithModelAndQuestion(
-						execCtx,
-						req.JobSpec.ID,
-						regionResult.ProviderID,
-						region,
-						exec.Status,
-						regionResult.StartedAt,
-						regionResult.CompletedAt,
-						outputJSON,
-						receiptJSON,
-						exec.ModelID,
-						exec.QuestionID,
-					)
-					
-					if err != nil {
-						logger.Error().Err(err).
-							Str("job_id", req.JobSpec.ID).
-							Str("region", region).
-							Str("model", exec.ModelID).
-							Str("question", exec.QuestionID).
-							Msg("Failed to create execution record")
-						failureCount++
-					} else {
-						logger.Info().
-							Str("job_id", req.JobSpec.ID).
-							Str("region", region).
-							Str("model", exec.ModelID).
-							Str("question", exec.QuestionID).
-							Str("status", exec.Status).
-							Msg("Created execution record")
-						successCount++
-					}
-				}
-			}
-			
-			logger.Info().
-				Str("job_id", req.JobSpec.ID).
-				Int("success", successCount).
-				Int("failed", failureCount).
-				Msg("Finished creating execution records")
-		} else {
-			logger.Warn().Str("job_id", req.JobSpec.ID).Msg("executionsRepo is nil, cannot create execution records")
-		}
+		// Execution records are now written in real-time via callback (see SetExecutionCallback above)
+		// This ensures users see results streaming in as they complete, not in a batch at the end
+		logger.Info().Str("job_id", req.JobSpec.ID).Msg("All execution records written in real-time via callback")
 
 		// Perform cross-region analysis if enabled and we have results
 		// TODO: Fix type conversion between execution.CrossRegionAnalysis and models.CrossRegionAnalysis

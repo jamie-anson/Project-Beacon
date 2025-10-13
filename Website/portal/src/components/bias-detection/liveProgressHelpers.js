@@ -223,10 +223,11 @@ function calculateQuestionStatus(modelData) {
 }
 
 /**
- * Check if question is complete (all models completed)
+ * Check if question is complete (at least 2 models completed for bias detection)
  */
 function isQuestionComplete(modelData) {
-  return modelData.every(m => m.diffsEnabled);
+  const completedModels = modelData.filter(m => m.diffsEnabled);
+  return completedModels.length >= 2;
 }
 
 /**

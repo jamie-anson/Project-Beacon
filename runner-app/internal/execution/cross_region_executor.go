@@ -20,6 +20,7 @@ type CrossRegionExecutor struct {
 	singleRegionExecutor SingleRegionExecutor
 	hybridRouter         HybridRouterClient
 	logger               Logger
+	executionCallback    ExecutionCallback // Optional callback for real-time execution updates
 }
 
 // CrossRegionResult represents the result of a cross-region execution
@@ -58,6 +59,9 @@ type ExecutionResult struct {
 	Error      string          `json:"error,omitempty"`
 	Status     string          `json:"status"` // "completed", "failed"
 }
+
+// ExecutionCallback is called after each execution completes
+type ExecutionCallback func(jobID string, region string, providerID string, result ExecutionResult, startedAt time.Time, completedAt time.Time)
 
 // CrossRegionAnalysis contains analysis of differences across regions
 type CrossRegionAnalysis struct {
@@ -101,7 +105,13 @@ func NewCrossRegionExecutor(singleRegionExecutor SingleRegionExecutor, hybridRou
 		singleRegionExecutor: singleRegionExecutor,
 		hybridRouter:         hybridRouter,
 		logger:               logger,
+		executionCallback:    nil,
 	}
+}
+
+// SetExecutionCallback sets a callback to be invoked after each execution completes
+func (cre *CrossRegionExecutor) SetExecutionCallback(callback ExecutionCallback) {
+	cre.executionCallback = callback
 }
 
 // ExecuteAcrossRegions executes a JobSpec across multiple regions in parallel
@@ -355,6 +365,8 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 				QuestionID: question,
 			}
 
+			execCompletedAt := time.Now()
+			
 			if err != nil {
 				cre.logger.Warn("Execution failed",
 					"region", plan.Region,
@@ -371,6 +383,11 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 			}
 
 			result.Executions = append(result.Executions, execResult)
+			
+			// Invoke callback immediately after execution completes
+			if cre.executionCallback != nil {
+				go cre.executionCallback(jobSpec.ID, plan.Region, providerID, execResult, startTime, execCompletedAt)
+			}
 		}
 	}
 

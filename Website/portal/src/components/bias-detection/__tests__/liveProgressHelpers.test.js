@@ -102,6 +102,38 @@ describe('transformExecutionsToQuestions', () => {
     expect(result[0].models[1].diffsEnabled).toBe(true);
   });
 
+  test('enables bias detection when 2+ models are complete', () => {
+    const result = transformExecutionsToQuestions(mockActiveJob, selectedRegions);
+    
+    // Q1: Mistral complete, Llama processing, Qwen pending
+    // Should enable bias detection with 1 complete model (Mistral)
+    const q1CompletedModels = result[0].models.filter(m => m.diffsEnabled).length;
+    expect(q1CompletedModels).toBe(1);
+    
+    // Q1 should NOT enable bias detection yet (need 2+ models)
+    expect(result[0].diffsEnabled).toBe(false);
+    
+    // Add another complete model to test 2+ requirement
+    const jobWith2Complete = {
+      ...mockActiveJob,
+      executions: [
+        ...mockActiveJob.executions,
+        // Add Qwen complete for Q1
+        { id: 7, question_id: 'identity_basic', model_id: 'qwen2.5-1.5b', region: 'us-east', status: 'completed' },
+        { id: 8, question_id: 'identity_basic', model_id: 'qwen2.5-1.5b', region: 'eu-west', status: 'completed' },
+      ]
+    };
+    
+    const result2 = transformExecutionsToQuestions(jobWith2Complete, selectedRegions);
+    
+    // Q1: Now has Mistral + Qwen complete (2 models)
+    const q1CompletedModels2 = result2[0].models.filter(m => m.diffsEnabled).length;
+    expect(q1CompletedModels2).toBe(2);
+    
+    // Q1 should NOW enable bias detection (2+ models complete)
+    expect(result2[0].diffsEnabled).toBe(true);
+  });
+
   test('calculates question progress correctly', () => {
     const result = transformExecutionsToQuestions(mockActiveJob, selectedRegions);
     

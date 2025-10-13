@@ -29,9 +29,9 @@ export function useBiasDetection() {
   const [selectedRegions, setSelectedRegions] = useState(['US', 'EU']);
   
   // Model selection state - support both single and multi-select
-  // Default: working models only (mistral-7b temporarily disabled - not deployed on Modal)
+  // Default: all models selected for MVP
   const [selectedModel, setSelectedModel] = useState('llama3.2-1b');
-  const [selectedModels, setSelectedModels] = useState(['llama3.2-1b', 'qwen2.5-1.5b']);
+  const [selectedModels, setSelectedModels] = useState(['llama3.2-1b', 'mistral-7b', 'qwen2.5-1.5b']);
   
   // Helper function to safely handle model selection changes
   const handleModelChange = (newSelection) => {
