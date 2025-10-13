@@ -473,3 +473,38 @@ def inference(item: dict):
 def health():
     """HTTP health check endpoint"""
     return health_check.remote()
+
+@app.function(
+    image=image,
+    timeout=30,
+    secrets=SECRETS,
+)
+@modal.fastapi_endpoint(method="POST")
+def ping_model(item: dict):
+    """Ping a specific model to verify it's loaded and get metadata"""
+    model_name = item.get("model", "llama3.2-1b")
+    
+    if model_name not in MODEL_REGISTRY:
+        return {
+            "success": False,
+            "error": f"Unknown model: {model_name}",
+            "available_models": list(MODEL_REGISTRY.keys())
+        }
+    
+    # Check if model is in cache
+    is_cached = model_name in MODEL_CACHE and MODEL_CACHE[model_name].get("status") == "ready"
+    
+    config = MODEL_REGISTRY[model_name]
+    
+    return {
+        "success": True,
+        "model_id": model_name,
+        "hf_model": config["hf_model"],
+        "region": "eu-west",
+        "cached": is_cached,
+        "gpu": config["gpu"],
+        "memory_gb": config["memory_gb"],
+        "context_length": config["context_length"],
+        "description": config["description"],
+        "timestamp": time.time()
+    }
