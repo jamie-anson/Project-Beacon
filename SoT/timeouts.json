@@ -1,4 +1,50 @@
 {
+  "platform_limits": {
+    "description": "Maximum timeout limits enforced by each platform",
+    "modal": {
+      "platform": "Modal Labs",
+      "max_function_timeout": 3600,
+      "max_function_timeout_human": "60 minutes (1 hour)",
+      "our_setting": 120,
+      "our_setting_human": "2 minutes",
+      "reason": "Inference should complete quickly; 2 min is generous for LLM calls",
+      "documentation": "https://modal.com/docs/guide/timeouts"
+    },
+    "fly_io": {
+      "platform": "Fly.io",
+      "max_request_timeout": 300,
+      "max_request_timeout_human": "5 minutes (HTTP requests)",
+      "max_process_timeout": "unlimited",
+      "max_process_timeout_human": "No limit for background workers",
+      "our_setting": 3600,
+      "our_setting_human": "60 minutes (job timeout)",
+      "reason": "Job runner is a background worker, not HTTP handler",
+      "note": "HTTP requests timeout at 5 min, but job processing is async",
+      "documentation": "https://fly.io/docs/reference/configuration/#http_service"
+    },
+    "netlify": {
+      "platform": "Netlify",
+      "max_function_timeout": 26,
+      "max_function_timeout_human": "26 seconds (Pro plan)",
+      "max_function_timeout_free": 10,
+      "max_function_timeout_free_human": "10 seconds (Free plan)",
+      "our_usage": "Not applicable",
+      "reason": "Portal is static site, no serverless functions used",
+      "note": "All API calls go to Fly.io runner app, not Netlify functions",
+      "documentation": "https://docs.netlify.com/functions/overview/"
+    },
+    "browser": {
+      "platform": "Browser JavaScript",
+      "max_timeout": "unlimited",
+      "max_timeout_human": "No hard limit",
+      "practical_limit": 3600,
+      "practical_limit_human": "~60 minutes (before user closes tab)",
+      "our_setting": 3600,
+      "our_setting_human": "60 minutes (polling timeout)",
+      "reason": "Stop polling to save resources and prevent confusion",
+      "note": "User can keep tab open longer, but polling stops"
+    }
+  },
   "timeout_hierarchy": {
     "description": "Project Beacon has multiple timeout layers to handle different failure scenarios",
     "layers": [
@@ -216,5 +262,95 @@
       "Monitor retry rates",
       "Track timeout frequency"
     ]
+  },
+  "platform_comparison": {
+    "description": "How our timeouts compare to platform maximums",
+    "modal_function": {
+      "platform_max": "60 minutes",
+      "our_setting": "2 minutes",
+      "headroom": "58 minutes (97% under limit)",
+      "could_increase_to": "60 minutes",
+      "should_we": "No - inference should be fast",
+      "status": "✅ Well under limit"
+    },
+    "fly_http_requests": {
+      "platform_max": "5 minutes",
+      "our_setting": "N/A (async processing)",
+      "note": "Job processing happens in background worker, not HTTP handler",
+      "api_endpoints": "Return immediately with job ID",
+      "status": "✅ Not applicable"
+    },
+    "fly_background_worker": {
+      "platform_max": "Unlimited",
+      "our_setting": "60 minutes (self-imposed)",
+      "headroom": "Unlimited",
+      "could_increase_to": "Unlimited",
+      "should_we": "No - 60 min is reasonable",
+      "reason": "Prevents runaway jobs, saves resources",
+      "status": "✅ Self-imposed limit"
+    },
+    "netlify_functions": {
+      "platform_max": "26 seconds (Pro) / 10 seconds (Free)",
+      "our_usage": "Not used",
+      "note": "Portal is static site, all API calls go to Fly.io",
+      "status": "✅ Not applicable"
+    },
+    "browser_polling": {
+      "platform_max": "Unlimited",
+      "our_setting": "60 minutes (self-imposed)",
+      "headroom": "Unlimited",
+      "could_increase_to": "Unlimited",
+      "should_we": "No - stop polling to save resources",
+      "reason": "Prevents wasted API calls, improves UX",
+      "status": "✅ Self-imposed limit"
+    }
+  },
+  "timeout_safety_margins": {
+    "description": "Safety margins between our settings and platform limits",
+    "modal": {
+      "our_timeout": "2 minutes",
+      "platform_max": "60 minutes",
+      "safety_margin": "58 minutes",
+      "margin_percentage": "97%",
+      "risk_level": "Very Low ✅"
+    },
+    "fly_worker": {
+      "our_timeout": "60 minutes",
+      "platform_max": "Unlimited",
+      "safety_margin": "Unlimited",
+      "margin_percentage": "N/A",
+      "risk_level": "None ✅"
+    },
+    "execution_timeout": {
+      "our_timeout": "5 minutes",
+      "contains": "Modal (2 min) + network + processing",
+      "safety_margin": "3 minutes for overhead",
+      "margin_percentage": "60%",
+      "risk_level": "Low ✅"
+    }
+  },
+  "what_if_we_increased": {
+    "description": "What would happen if we increased timeouts",
+    "modal_to_5_minutes": {
+      "current": "2 minutes",
+      "proposed": "5 minutes",
+      "impact": "Would allow slower models, but most complete in <1 min",
+      "recommendation": "Not needed",
+      "reason": "Current timeout is generous for inference"
+    },
+    "execution_to_10_minutes": {
+      "current": "5 minutes",
+      "proposed": "10 minutes",
+      "impact": "Would allow more retries and slower cold starts",
+      "recommendation": "Not needed",
+      "reason": "5 minutes already handles worst-case cold starts"
+    },
+    "job_to_120_minutes": {
+      "current": "60 minutes",
+      "proposed": "120 minutes",
+      "impact": "Would allow more retries and longer jobs",
+      "recommendation": "Not needed",
+      "reason": "Jobs should complete in 10-20 minutes typically"
+    }
   }
 }
