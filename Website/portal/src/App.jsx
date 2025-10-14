@@ -162,8 +162,8 @@ export default function App() {
         <Route path="/questions" element={<Questions />} />
         <Route path="/bias-detection" element={<BiasDetection />} />
         <Route path="/bias-detection/:jobId" element={<BiasDetectionResults />} />
-        <Route path="/portal/results/:jobId/diffs" element={<CrossRegionDiffPage />} />
-        <Route path="/portal/results/:jobId/model/:modelId/question/:questionId" element={<ModelRegionDiffPage />} />
+        <Route path="/results/:jobId/diffs" element={<CrossRegionDiffPage />} />
+        <Route path="/results/:jobId/model/:modelId/question/:questionId" element={<ModelRegionDiffPage />} />
         <Route path="/world" element={<WorldView />} />
         <Route path="/ais" element={<AIs />} />
         <Route path="/executions" element={<Executions />} />
