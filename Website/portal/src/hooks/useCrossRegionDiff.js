@@ -36,12 +36,24 @@ export function useCrossRegionDiff(jobId, { pollInterval = 0, enableMock = false
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
+      console.log('🔍 useCrossRegionDiff: Fetching data for job:', jobId);
       const [job, diff] = await Promise.all([
         getJob({ id: jobId, include: 'executions' }),
         getCrossRegionDiff(jobId)
       ]);
 
+      console.log('✅ useCrossRegionDiff: Data fetched successfully', {
+        hasJob: !!job,
+        hasDiff: !!diff,
+        executionCount: job?.executions?.length
+      });
+
       const transformed = transformCrossRegionDiff(diff, job, AVAILABLE_MODELS);
+      console.log('✅ useCrossRegionDiff: Data transformed', {
+        hasModels: !!transformed?.models,
+        modelCount: transformed?.models?.length
+      });
+
       setState({
         loading: false,
         error: null,
@@ -50,6 +62,7 @@ export function useCrossRegionDiff(jobId, { pollInterval = 0, enableMock = false
         usingMock: false
       });
     } catch (error) {
+      console.error('❌ useCrossRegionDiff: Error fetching data:', error);
       if (mockToggle) {
         try {
           const job = await getJob({ id: jobId, include: 'executions' });

@@ -38,6 +38,16 @@ export default function CrossRegionDiffPage() {
     retry: retryDiff
   } = useCrossRegionDiff(jobId, availableModels);
 
+  // Debug: Log state to help diagnose blank page
+  console.log('🔍 CrossRegionDiffPage state:', {
+    jobId,
+    loading,
+    error: error?.message,
+    hasDiffAnalysis: !!diffAnalysis,
+    hasJob: !!job,
+    usingMock
+  });
+
   // Auto-select first available model when data loads
   React.useEffect(() => {
     if (diffAnalysis?.models?.length > 0 && !selectedModel) {
