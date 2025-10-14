@@ -649,11 +649,30 @@ Comprehensive investigation of the entire execution flow revealed:
 - EU executions are NOT being found ❌
 - This IS an EU-specific problem
 
-**New hypothesis:**
-- EU executions may not be completing
-- EU executions may not be writing to database  
-- EU goroutines may be stuck/cancelled
-- Need to check runner logs for EU-specific errors
+**CONFIRMED ROOT CAUSE:** ✅
+
+**Database Analysis Results (Job: bias-detection-1760458397970):**
+
+**Executions Found:**
+- US: 9 executions (3 models × 3 questions)
+- EU: 5 executions (MISSING 4!)
+
+**Missing EU Executions:**
+1. ❌ qwen2.5-1.5b + identity_basic + EU
+2. ❌ qwen2.5-1.5b + greatest_leader + EU  
+3. ❌ qwen2.5-1.5b + tiananmen_neutral + EU
+4. ❌ mistral-7b + tiananmen_neutral + EU
+
+**Region Name Discovery:**
+- Database stores: `"EU"` and `"US"` (uppercase)
+- NOT `"eu-west"` and `"us-east"` as expected
+- This means runner is storing uppercase, not the mapped lowercase
+
+**The Real Problem:**
+- Some EU executions ARE being written ✅ (5 found)
+- But NOT ALL EU executions are being written ❌ (4 missing)
+- Specifically: ALL qwen2.5-1.5b EU executions missing
+- This suggests model-specific or timing issue
 
 **Immediate Investigation Needed:**
 
