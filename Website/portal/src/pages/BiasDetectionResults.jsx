@@ -45,23 +45,58 @@ export default function BiasDetectionResults() {
   }
 
   if (error) {
+    // Check if this is a "not found" error (analysis not generated yet)
+    const isNotFound = error.includes('404') || error.includes('not found');
+    
     return (
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-red-300 mb-2">Error Loading Analysis</h2>
-          <p className="text-red-200 mb-4">{error}</p>
+        <div className={`border rounded-lg p-6 ${
+          isNotFound 
+            ? 'bg-yellow-900/20 border-yellow-500/50' 
+            : 'bg-red-900/20 border-red-500/50'
+        }`}>
+          <h2 className={`text-xl font-semibold mb-2 ${
+            isNotFound ? 'text-yellow-300' : 'text-red-300'
+          }`}>
+            {isNotFound ? 'Analysis Not Available' : 'Error Loading Analysis'}
+          </h2>
+          <p className={`mb-4 ${isNotFound ? 'text-yellow-200' : 'text-red-200'}`}>
+            {isNotFound ? (
+              <>
+                Bias analysis generation is not yet available for this job. 
+                The job executed successfully, but the analysis feature is still in development.
+                <br /><br />
+                <strong>You can still view:</strong>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Individual execution results in the Executions page</li>
+                  <li>Cross-region comparison using the "Compare" button</li>
+                  <li>Raw execution data and receipts</li>
+                </ul>
+              </>
+            ) : (
+              error
+            )}
+          </p>
           <div className="flex gap-4">
-            <button
-              onClick={loadAnalysis}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition"
-            >
-              Retry
-            </button>
+            {!isNotFound && (
+              <button
+                onClick={loadAnalysis}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition"
+              >
+                Retry
+              </button>
+            )}
             <Link
               to="/portal/executions"
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition"
             >
               Back to Executions
+            </Link>
+            <Link
+              to={`/results/${jobId}/diffs`}
+              className="px-4 py-2 bg-beacon-600 hover:bg-beacon-700 text-white rounded transition"
+            >
+              View Comparison
             </Link>
           </div>
         </div>
