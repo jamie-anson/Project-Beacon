@@ -69,7 +69,7 @@ export function calculateProgress(executions = [], total = 0) {
 }
 
 /**
- * Calculate time remaining for job (10 minute countdown)
+ * Calculate time remaining for job (60 minute countdown to match timeout)
  * @param {Object} jobStartTime - Object with jobId and startTime
  * @param {number} tick - Current tick for re-calculation
  * @param {boolean} jobCompleted - Whether job is completed
@@ -83,21 +83,23 @@ export function calculateTimeRemaining(jobStartTime, tick, jobCompleted, jobFail
   // Need start time to calculate countdown
   if (!jobStartTime) return null;
   
-  const estimatedDuration = 10 * 60; // 10 minutes in seconds
+  const estimatedDuration = 60 * 60; // 60 minutes in seconds (matches runner timeout)
   const now = Date.now();
   const elapsedMs = now - jobStartTime.startTime;
   const elapsedSeconds = Math.floor(elapsedMs / 1000);
   
-  // Calculate remaining time (ensure non-negative)
-  const remainingSeconds = Math.max(0, estimatedDuration - elapsedSeconds);
+  // Calculate remaining time (can go negative if job exceeds timeout)
+  const remainingSeconds = estimatedDuration - elapsedSeconds;
   
-  // Stop showing countdown when time expires
-  if (remainingSeconds <= 0) return null;
+  // Show countdown even if negative (indicates timeout exceeded)
+  const isNegative = remainingSeconds < 0;
+  const absSeconds = Math.abs(remainingSeconds);
   
-  const remainingMinutes = Math.floor(remainingSeconds / 60);
-  const remainingSecsDisplay = remainingSeconds % 60;
+  const remainingMinutes = Math.floor(absSeconds / 60);
+  const remainingSecsDisplay = absSeconds % 60;
   
-  return `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+  const timeStr = `${remainingMinutes}:${remainingSecsDisplay.toString().padStart(2, '0')}`;
+  return isNegative ? `-${timeStr}` : timeStr;
 }
 
 /**
