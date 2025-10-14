@@ -410,25 +410,11 @@ class HybridRouter:
             resp_text = data.get("response") or data.get("output") or data.get("text")
             error_msg = data.get("error")
 
-            # Treat empty text as failure for better upstream handling
-            if bool(success) and (resp_text is None or str(resp_text).strip() == ""):
-                failure = self._build_failure(
-                    code="EMPTY_MODEL_RESPONSE",
-                    stage="provider_execution",
-                    message="Provider returned empty response",
-                    provider=provider.name,
-                    provider_type=provider.type.value,
-                    region=provider.region,
-                    model=request.model,
-                    transient=True,
-                )
-                return {
-                    "success": False,
-                    "error": failure["message"],
-                    "error_code": failure["code"],
-                    "failure": failure,
-                    "modal_raw": data,
-                }
+            # Allow empty responses - some models may legitimately return empty strings
+            # for certain prompts (e.g., refusals, content filtering)
+            # Convert None to empty string for consistency
+            if resp_text is None:
+                resp_text = ""
 
             if not success:
                 failure_payload = data.get("failure") or {}
