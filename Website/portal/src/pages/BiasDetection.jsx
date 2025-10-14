@@ -74,10 +74,22 @@ export default function BiasDetection() {
       ['running', 'created', 'enqueued'].includes(e?.status || e?.state)
     );
     
+    // Check for job timeout (60 minutes for 2-region jobs)
+    const jobAge = job?.created_at ? (Date.now() - new Date(job.created_at)) / 1000 : 0;
+    const maxJobTime = 3600; // 60 minutes
+    
+    if (jobAge > maxJobTime && (status === 'running' || status === 'queued')) {
+      // Job exceeded timeout - stop polling
+      console.warn('[BiasDetection] Job exceeded timeout, stopping polling', {
+        jobId: job.id,
+        jobAge: Math.floor(jobAge / 60) + ' minutes',
+        status
+      });
+      return null; // Stop polling
+    }
+    
     // Fast polling for active jobs
     if (status === 'running' || hasRunningExecutions) {
-      const jobAge = job?.created_at ? (Date.now() - new Date(job.created_at)) / 1000 : 0;
-      
       if (jobAge < 30) return 2000;      // First 30 seconds: 2s interval
       if (jobAge < 300) return 3000;     // First 5 minutes: 3s interval  
       return 5000;                      // After 5 minutes: 5s interval

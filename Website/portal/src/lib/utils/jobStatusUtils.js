@@ -138,11 +138,20 @@ export function getFailureMessage(job, jobAge, jobFailed, jobStuckTimeout) {
   }
   
   if (jobStuckTimeout) {
-    return {
-      title: "Job Timeout",
-      message: `Job has been running for ${Math.round(jobAge)} minutes without creating any executions.`,
-      action: "The job may be stuck. Try submitting a new job."
-    };
+    // Differentiate between stuck (no executions) and timeout (exceeded 60 min)
+    if (jobAge > 60) {
+      return {
+        title: "Job Timeout",
+        message: `Job exceeded maximum execution time (60 minutes). Current runtime: ${Math.round(jobAge)} minutes.`,
+        action: "Job has been automatically terminated. Check partial results or submit a new job."
+      };
+    } else {
+      return {
+        title: "Job Timeout",
+        message: `Job has been running for ${Math.round(jobAge)} minutes without creating any executions.`,
+        action: "The job may be stuck. Try submitting a new job."
+      };
+    }
   }
   
   return null;

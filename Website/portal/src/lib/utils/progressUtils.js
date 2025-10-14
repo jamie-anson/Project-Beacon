@@ -127,7 +127,17 @@ export function calculateJobAge(jobStartTime, job = null) {
  * @returns {boolean} True if job is stuck
  */
 export function isJobStuck(jobAge, executions = [], jobCompleted, jobFailed) {
-  return jobAge > 15 && executions.length === 0 && !jobCompleted && !jobFailed;
+  // Job stuck: no executions after 15 minutes
+  if (jobAge > 15 && executions.length === 0 && !jobCompleted && !jobFailed) {
+    return true;
+  }
+  
+  // Job timeout: exceeded 60 minutes and still running
+  if (jobAge > 60 && !jobCompleted && !jobFailed) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**
