@@ -29,9 +29,9 @@ const ModelRow = memo(function ModelRow({
   
   const handleCompare = () => {
     if (diffsEnabled) {
-      // Navigate to Level 2: Job-level cross-region comparison page
+      // Navigate to Level 2: Model+Question specific cross-region comparison
       // Opens in new tab to prevent losing Live Progress context
-      window.open(`/portal/results/${jobId}/diffs`, '_blank', 'noopener,noreferrer');
+      window.open(`/portal/results/${jobId}/model/${modelId}/question/${questionId}`, '_blank', 'noopener,noreferrer');
     }
   };
   
