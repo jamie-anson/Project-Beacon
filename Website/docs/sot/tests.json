@@ -532,14 +532,135 @@
     "notes": "Critical regression tests for cross-region endpoint ensuring portal compatibility and optional signature verification. Prevents signature-related deployment failures."
   },
   {
+    "id": "test-suite-0015",
+    "name": "Bias Analysis Engine Tests (Phase 1)",
+    "type": "unit",
+    "runner": "go test",
+    "location": "runner-app/internal/execution/analysis_*_test.go",
+    "file_count": 2,
+    "test_count": 33,
+    "coverage_areas": [
+      "Response extraction and normalization",
+      "Bias variance calculation (0.0-1.0 scale)",
+      "Censorship rate detection",
+      "Factual consistency measurement",
+      "Narrative divergence analysis",
+      "Text similarity (Jaccard similarity)",
+      "Keyword extraction and tokenization",
+      "Multi-region response comparison",
+      "Edge case handling (nil receipts, empty responses, failed regions)"
+    ],
+    "test_files": [
+      "runner-app/internal/execution/analysis_extractor_test.go",
+      "runner-app/internal/execution/analysis_metrics_test.go"
+    ],
+    "test_breakdown": {
+      "analysis_extractor": {
+        "tests": 12,
+        "coverage": "~95%",
+        "areas": [
+          "Single region response extraction",
+          "Multi-region response extraction",
+          "Nil receipt handling",
+          "Empty response handling",
+          "Failed region filtering",
+          "Legacy receipt format support",
+          "Alternative response field detection (text, content, responses array)",
+          "Metadata extraction (excluding response/bias_score)",
+          "Response grouping by question ID",
+          "Response grouping by model ID",
+          "Bias score extraction from Output.Data",
+          "Censorship flag detection"
+        ]
+      },
+      "analysis_metrics": {
+        "tests": 21,
+        "coverage": "~90%",
+        "areas": [
+          "BiasVariance: identical responses → 0.0",
+          "BiasVariance: completely different → 1.0",
+          "BiasVariance: partial differences → 0.3-0.7",
+          "BiasVariance: single region → 0.0",
+          "BiasVariance: multiple questions averaging",
+          "CensorshipRate: no censorship → 0.0",
+          "CensorshipRate: all censored → 1.0",
+          "CensorshipRate: partial censorship → 0.5",
+          "Censorship phrase detection (20+ patterns)",
+          "FactualConsistency: same facts → high score",
+          "FactualConsistency: contradictory → low score",
+          "FactualConsistency: single region → 1.0",
+          "NarrativeDivergence: same narrative → low score",
+          "NarrativeDivergence: different narratives → high score",
+          "Text similarity: identical → 1.0",
+          "Text similarity: completely different → 0.0",
+          "Tokenization with punctuation removal",
+          "Short word filtering (<3 chars)",
+          "Mean calculation for metrics"
+        ]
+      }
+    },
+    "implementation_files": [
+      "runner-app/internal/execution/analysis_extractor.go",
+      "runner-app/internal/execution/analysis_metrics.go"
+    ],
+    "data_structures": {
+      "ResponseData": "Normalized response with region, model, question, text, bias score, censorship flag, keywords",
+      "MetricsCalculator": "Calculates 4 core metrics (bias variance, censorship rate, factual consistency, narrative divergence)"
+    },
+    "algorithms": {
+      "bias_variance": "Standard deviation of bias scores across regions, normalized to 0-1",
+      "censorship_rate": "Percentage of responses with censorship indicators",
+      "factual_consistency": "Jaccard similarity of tokenized responses",
+      "narrative_divergence": "Inverse of factual consistency",
+      "text_similarity": "Jaccard index on word sets (intersection/union)"
+    },
+    "censorship_patterns": [
+      "i cannot",
+      "i can't",
+      "i'm not able to",
+      "i am not able to",
+      "i'm unable to",
+      "i am unable to",
+      "i don't have information",
+      "i do not have information",
+      "i cannot provide",
+      "i can't provide",
+      "i'm not allowed",
+      "i am not allowed",
+      "this topic is sensitive",
+      "i cannot discuss",
+      "i can't discuss",
+      "i'm not permitted",
+      "i am not permitted",
+      "i decline to answer",
+      "i must decline",
+      "i cannot answer",
+      "i can't answer"
+    ],
+    "run_commands": {
+      "all_analysis_tests": "cd runner-app && go test ./internal/execution -v",
+      "extractor_only": "cd runner-app && go test ./internal/execution -v -run 'TestExtract|TestNewResponse|TestGetResponses'",
+      "metrics_only": "cd runner-app && go test ./internal/execution -v -run 'TestCalculate|TestDetect|TestTokenize|TestMean|TestNewMetrics'",
+      "with_coverage": "cd runner-app && go test ./internal/execution -cover"
+    },
+    "integration_status": {
+      "phase_1": "complete (response extraction, metrics)",
+      "phase_2": "complete (difference detection, risk assessment)",
+      "phase_3": "complete (summary generation)",
+      "phase_4": "complete (full pipeline integration)"
+    },
+    "effective_at": "2025-10-14T23:16:00+01:00",
+    "notes": "✅ ALL PHASES COMPLETE - Full bias analysis pipeline implemented with 70 passing tests (33 Phase 1 + 20 Phase 2 + 13 Phase 3 + 4 integration). Implements complete analysis engine: response extraction, metrics calculation (bias variance, censorship rate, factual consistency, narrative divergence), difference detection (political, censorship, factual, tone), risk assessment (5 types), and human-readable summary generation. Integrated into cross_region_executor.go with logger bridge. Production ready."
+  },
+  {
     "id": "test-coverage-summary",
     "type": "summary",
-    "total_test_suites": 14,
-    "total_test_files": "~77+",
-    "total_test_count": "~490+",
+    "total_test_suites": 15,
+    "total_test_files": "~81+",
+    "total_test_count": "~560+",
     "total_workflows": 18,
     "test_types": {
-      "unit": "~221+ tests (170 portal + 51 backend)",
+      "unit": "~291+ tests (170 portal + 51 backend + 70 bias analysis)",
       "integration": "~50+ tests",
       "e2e": "~28+ tests (20 existing + 8 bias detection)",
       "validation": "~100+ checks",
@@ -556,6 +677,8 @@
       "Cross-region analysis",
       "Multi-model support",
       "Bias detection backend (OpenAI integration, analysis persistence)",
+      "Bias analysis engine (response extraction, metrics calculation, text similarity)",
+      "Censorship detection (20+ phrase patterns)",
       "Wallet integration",
       "CORS and security",
       "Build artifacts and deployments",
@@ -570,7 +693,7 @@
       "scheduled": "Production monitoring + security scanning",
       "manual_triggers": "All workflows support manual dispatch"
     },
-    "effective_at": "2025-10-03T01:25:00+01:00",
-    "notes": "Comprehensive test infrastructure covering unit, integration, e2e, validation, regression, security, and monitoring. Recent additions: Layer 2 cross-region diff tests (questionId.integration.test.js with 17 tests, modelId.test.js with 16 tests) ensuring proper URL encoding/decoding and model ID validation for special characters (dots, hyphens)."
+    "effective_at": "2025-10-14T23:16:00+01:00",
+    "notes": "Comprehensive test infrastructure covering unit, integration, e2e, validation, regression, security, and monitoring. Recent additions: (1) Layer 2 cross-region diff tests (questionId.integration.test.js with 17 tests, modelId.test.js with 16 tests) ensuring proper URL encoding/decoding and model ID validation for special characters. (2) ✅ COMPLETE Bias Analysis Engine (70 tests total): Phase 1 response extraction & metrics (33 tests), Phase 2 difference detection & risk assessment (20 tests), Phase 3 summary generation (13 tests), Phase 4 end-to-end integration (4 tests). Full pipeline operational with ~90% code coverage. Total test count increased from ~490 to ~560 tests."
   }
 ]

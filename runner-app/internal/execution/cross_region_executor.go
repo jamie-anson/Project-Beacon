@@ -3,6 +3,7 @@ package execution
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -496,9 +497,141 @@ func (cre *CrossRegionExecutor) applyProviderFilters(providers []string, region 
 }
 
 func (cre *CrossRegionExecutor) analyzeCrossRegionDifferences(result *CrossRegionResult) (*CrossRegionAnalysis, error) {
-	// TODO: Implement cross-region diff analysis
-	// This will be implemented in Phase 2
+	// Create a slog.Logger that wraps our Logger interface
+	handler := &loggerHandler{logger: cre.logger}
+	slogLogger := slog.New(handler)
+	
+	// Phase 1: Extract responses
+	extractor := NewResponseExtractor(slogLogger)
+	responses, err := extractor.ExtractResponses(result.RegionResults)
+	if err != nil {
+		cre.logger.Warn("Failed to extract responses for analysis", "error", err)
+		return &CrossRegionAnalysis{
+			Summary: "Unable to extract responses for analysis",
+		}, nil
+	}
+
+	// Phase 2: Calculate metrics
+	calculator := NewMetricsCalculator(slogLogger)
+	biasVariance := calculator.CalculateBiasVariance(responses)
+	censorshipRate := calculator.CalculateCensorshipRate(responses)
+	factualConsistency := calculator.CalculateFactualConsistency(responses)
+	narrativeDivergence := calculator.CalculateNarrativeDivergence(responses)
+
+	cre.logger.Info("Metrics calculated",
+		"bias_variance", biasVariance,
+		"censorship_rate", censorshipRate,
+		"factual_consistency", factualConsistency,
+		"narrative_divergence", narrativeDivergence)
+
+	// Phase 3: Find key differences
+	simEngine := NewSimilarityEngine(slogLogger)
+	diffAnalyzer := NewDifferenceAnalyzer(slogLogger, simEngine)
+	keyDifferences := diffAnalyzer.FindKeyDifferences(responses)
+
+	// Phase 4: Generate risk assessments
+	riskAssessor := NewRiskAssessor(slogLogger)
+	riskAssessments := riskAssessor.GenerateRiskAssessments(
+		biasVariance,
+		censorshipRate,
+		keyDifferences,
+		responses,
+	)
+
+	// Phase 5: Generate summary with recommendation embedded
+	summaryGen := NewSummaryGenerator(slogLogger)
+	recommendation := summaryGen.GenerateRecommendation(
+		biasVariance,
+		censorshipRate,
+		riskAssessments,
+	)
+	
+	// Include recommendation in summary
+	summaryWithRec := fmt.Sprintf("**Risk Level: %s**\n\n", recommendation)
+	summaryWithRec += summaryGen.GenerateSummary(
+		biasVariance,
+		censorshipRate,
+		factualConsistency,
+		narrativeDivergence,
+		keyDifferences,
+		riskAssessments,
+	)
+
+	cre.logger.Info("Cross-region analysis completed",
+		"key_differences", len(keyDifferences),
+		"risk_assessments", len(riskAssessments),
+		"recommendation", recommendation)
+
 	return &CrossRegionAnalysis{
-		Summary: "Cross-region analysis not yet implemented",
+		BiasVariance:        biasVariance,
+		CensorshipRate:      censorshipRate,
+		FactualConsistency:  factualConsistency,
+		NarrativeDivergence: narrativeDivergence,
+		KeyDifferences:      keyDifferences,
+		RiskAssessment:      riskAssessments,
+		Summary:             summaryWithRec,
 	}, nil
+}
+
+// loggerHandler implements slog.Handler to bridge our Logger interface with slog
+type loggerHandler struct {
+	logger Logger
+	attrs  []slog.Attr
+	groups []string
+}
+
+func (h *loggerHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return true
+}
+
+func (h *loggerHandler) Handle(ctx context.Context, record slog.Record) error {
+	// Convert slog.Record to key-value pairs
+	keysAndValues := make([]interface{}, 0, record.NumAttrs()*2+len(h.attrs)*2)
+	
+	// Add handler attrs
+	for _, attr := range h.attrs {
+		keysAndValues = append(keysAndValues, attr.Key, attr.Value.Any())
+	}
+	
+	// Add record attrs
+	record.Attrs(func(attr slog.Attr) bool {
+		keysAndValues = append(keysAndValues, attr.Key, attr.Value.Any())
+		return true
+	})
+	
+	// Call appropriate logger method based on level
+	switch record.Level {
+	case slog.LevelDebug:
+		h.logger.Debug(record.Message, keysAndValues...)
+	case slog.LevelInfo:
+		h.logger.Info(record.Message, keysAndValues...)
+	case slog.LevelWarn:
+		h.logger.Warn(record.Message, keysAndValues...)
+	default:
+		h.logger.Warn(record.Message, keysAndValues...)
+	}
+	
+	return nil
+}
+
+func (h *loggerHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	newAttrs := make([]slog.Attr, len(h.attrs)+len(attrs))
+	copy(newAttrs, h.attrs)
+	copy(newAttrs[len(h.attrs):], attrs)
+	return &loggerHandler{
+		logger: h.logger,
+		attrs:  newAttrs,
+		groups: h.groups,
+	}
+}
+
+func (h *loggerHandler) WithGroup(name string) slog.Handler {
+	newGroups := make([]string, len(h.groups)+1)
+	copy(newGroups, h.groups)
+	newGroups[len(h.groups)] = name
+	return &loggerHandler{
+		logger: h.logger,
+		attrs:  h.attrs,
+		groups: newGroups,
+	}
 }
