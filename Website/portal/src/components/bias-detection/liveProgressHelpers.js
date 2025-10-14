@@ -140,13 +140,40 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
 /**
  * Normalize region name to match selected regions format
  * Maps database region names to UI region codes
+ * 
+ * Fixed 2025-01-14: Added explicit checks for all region name variants
+ * to handle database values like 'eu-west', 'us-east', etc.
  */
 function normalizeRegion(region) {
-  const r = String(region || '').toLowerCase();
-  if (r.includes('us') || r.includes('united') || r === 'us-east') return 'US';
-  if (r.includes('eu') || r.includes('europe') || r === 'eu-west') return 'EU';
-  if (r.includes('asia') || r.includes('apac') || r.includes('pacific') || r === 'asia-pacific') return 'ASIA';
-  return region;
+  if (!region) {
+    console.warn('[normalizeRegion] Received null/undefined region');
+    return null;
+  }
+  
+  const r = String(region).trim().toLowerCase();
+  
+  // US region variants
+  if (r === 'us' || r === 'us-east' || r === 'us-west' || r === 'us-central' || 
+      r === 'united states' || r.startsWith('us-')) {
+    return 'US';
+  }
+  
+  // EU region variants
+  if (r === 'eu' || r === 'eu-west' || r === 'eu-north' || r === 'eu-central' || 
+      r === 'europe' || r.startsWith('eu-')) {
+    return 'EU';
+  }
+  
+  // ASIA/APAC region variants
+  if (r === 'asia' || r === 'apac' || r === 'asia-pacific' || 
+      r === 'ap-southeast' || r === 'ap-northeast' ||
+      r.startsWith('asia-') || r.startsWith('ap-')) {
+    return 'ASIA';
+  }
+  
+  // Fallback: log unrecognized format and return uppercase
+  console.warn('[normalizeRegion] Unrecognized region format:', region, '- returning uppercase');
+  return String(region).toUpperCase();
 }
 
 /**
