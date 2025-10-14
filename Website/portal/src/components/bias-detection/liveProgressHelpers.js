@@ -90,12 +90,16 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
         if (!regionExec && modelExecs.length > 0) {
           console.warn(`[MISSING EXECUTION] Q:${questionId} M:${modelId} R:${region}`, {
             lookingFor: region,
+            lookingForType: typeof region,
             availableExecs: modelExecs.map(e => ({ 
               id: e.id, 
-              region: e.region, 
+              region: e.region,
+              regionType: typeof e.region,
               normalized: normalizeRegion(e.region),
+              normalizedType: typeof normalizeRegion(e.region),
               status: e.status,
-              matches: normalizeRegion(e.region) === region
+              strictMatch: normalizeRegion(e.region) === region,
+              looseMatch: String(normalizeRegion(e.region)).toLowerCase() === String(region).toLowerCase()
             }))
           });
         }
