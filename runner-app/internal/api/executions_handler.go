@@ -922,7 +922,7 @@ func (h *ExecutionsHandler) generateSummaryAndRecommendation(regionCount int, bi
 // RetryQuestionRequest represents a request to retry a failed question
 type RetryQuestionRequest struct {
 	Region        string `json:"region" binding:"required"`
-	QuestionIndex int    `json:"question_index" binding:"required"`
+	QuestionIndex *int   `json:"question_index" binding:"required"` // Pointer to distinguish 0 from missing
 }
 
 // RetryQuestionResponse represents the response from a retry attempt
@@ -1067,7 +1067,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		// Run re-execution asynchronously to avoid blocking the HTTP response
 		go func() {
 			retryCtx := context.Background()
-			if err := h.RetryService.RetryQuestionExecution(retryCtx, executionID, req.Region, req.QuestionIndex); err != nil {
+			if err := h.RetryService.RetryQuestionExecution(retryCtx, executionID, req.Region, *req.QuestionIndex); err != nil {
 				// Log error but don't fail the HTTP response
 				// The execution status will be updated in the database
 				log.Printf("[RETRY] Retry execution failed for execution %d: %v", executionID, err)
@@ -1080,7 +1080,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 	c.JSON(http.StatusOK, RetryQuestionResponse{
 		ExecutionID:   fmt.Sprintf("%d", executionID),
 		Region:        req.Region,
-		QuestionIndex: req.QuestionIndex,
+		QuestionIndex: *req.QuestionIndex,
 		Status:        "retrying",
 		RetryAttempt:  newRetryCount,
 		UpdatedAt:     time.Now().Format(time.RFC3339),
