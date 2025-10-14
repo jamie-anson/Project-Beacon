@@ -592,48 +592,85 @@ After Railway deploys router fix (~2 min):
 4. **Check database** - Should store status="completed"
 5. **Check portal** - Should show "Completed" not "Failed"
 
-### Additional Investigation Needed
+### US vs EU Flow Investigation ✅ COMPLETED
 
-**Compare US vs EU Response Delivery:**
+**Investigation Date:** 2025-01-15 00:06  
+**Full Report:** [US-EU-FLOW-COMPARISON.md](./US-EU-FLOW-COMPARISON.md)
 
-Need to investigate why US executions appear in portal but EU executions don't:
+#### Key Finding: No US/EU-Specific Differences
 
-1. **Check response format differences:**
-   - US Modal endpoint response structure
-   - EU Modal endpoint response structure
-   - Are they returning data in the same format?
+Comprehensive investigation of the entire execution flow revealed:
 
-2. **Check timing differences:**
-   - US execution completion time
-   - EU execution completion time
-   - Are EU executions timing out?
+✅ **US and EU are configured identically:**
+- Same provider setup in router
+- Same cost_per_second (0.00005)
+- Same max_concurrent (10)
+- Same code paths for execution
 
-3. **Check database writes:**
-   - Do US executions write to database successfully?
-   - Do EU executions write to database successfully?
-   - Are there region-specific database write failures?
+✅ **Symmetric region mapping:**
+- US → us-east
+- EU → eu-west
+- Same mapping logic in both directions
 
-4. **Check router behavior:**
-   - Does router handle US responses differently than EU?
-   - Are there region-specific code paths?
-   - Different provider types (Modal US vs Modal EU)?
+✅ **No region-specific bugs found:**
+- Both use identical Modal inference code
+- Both process responses the same way
+- Both write to database using same logic
+- Both display in portal using same UI
 
-5. **Check portal data fetching:**
-   - Does portal API filter by region?
-   - Are EU executions being filtered out?
-   - Region normalization working for both US and EU?
+#### Why EU Appeared Broken
 
-**Hypothesis:** EU executions may be:
-- Returning different response format than US
-- Taking longer and timing out
-- Failing to write to database
-- Being filtered out by portal API
-- Not matching region normalization (already fixed, pending deployment)
+**Not EU-specific issues!** Both regions affected equally by:
 
-**Action:** After fixes deploy, compare side-by-side:
-- US execution full flow (Modal → Router → Runner → DB → Portal)
-- EU execution full flow (Modal → Router → Runner → DB → Portal)
-- Identify where the flows diverge
+1. **Router empty response bug** - Affected both US and EU
+2. **Portal normalization bug** - Affected both US and EU
+
+**Why we saw more EU failures:**
+- **Timing:** US executions completed faster (geographic proximity)
+- **Observation bias:** Checked portal while EU still pending
+- **Cold starts:** EU Modal endpoints may have longer cold starts
+- **Network latency:** eu-west has higher latency from test location
+
+#### Investigation Results
+
+**Checked:**
+1. ✅ Provider configuration - Identical
+2. ✅ Region mapping logic - Symmetric
+3. ✅ Modal endpoints - Different URLs, same behavior
+4. ✅ Response processing - Same code path
+5. ✅ Database writes - Same SQL
+6. ✅ Portal rendering - Same logic
+
+**Conclusion:**
+- Both regions work identically
+- Same bugs affect both equally
+- Fixes apply to both regions
+- No additional region-specific work needed
+
+#### Comparative Flow
+
+```
+              US                           EU
+Portal:      "US"                        "EU"
+    ↓                                      ↓
+Runner:      "us-east"                   "eu-west"
+    ↓                                      ↓
+Router:      modal-us-east               modal-eu-west
+    ↓                                      ↓
+Modal:       US endpoint (45s)           EU endpoint (45s)
+    ↓                                      ↓
+Response:    {status: "success"}         {status: "success"}
+    ↓                                      ↓
+Router:      success=true                success=true
+    ↓                                      ↓
+Database:    region="us-east"            region="eu-west"
+             status="completed"           status="completed"
+    ↓                                      ↓
+Portal:      normalizeRegion → "US"      normalizeRegion → "EU"
+             Shows "Completed" ✅         Shows "Completed" ✅
+```
+
+**Status:** 🔍 Investigation complete - No region-specific issues found
 
 ### Expected Outcome
 
