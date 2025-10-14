@@ -2,7 +2,6 @@ import React, { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RegionRow from './RegionRow';
 import { getStatusColor, getStatusText, formatProgress } from './liveProgressHelpers';
-import { encodeQuestionId } from '../../lib/diffs/questionId';
 
 /**
  * ModelRow - Model level component with collapsible region details
@@ -30,9 +29,9 @@ const ModelRow = memo(function ModelRow({
   
   const handleCompare = () => {
     if (diffsEnabled) {
-      // Open in new tab to prevent losing Live Progress context
-      const encodedQuestion = encodeQuestionId(questionId);
-      window.open(`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`, '_blank', 'noopener,noreferrer');
+      // Navigate to Level 2: Job-level cross-region comparison page
+      // Opens in new tab to prevent losing Live Progress context
+      window.open(`/portal/results/${jobId}/diffs`, '_blank', 'noopener,noreferrer');
     }
   };
   
