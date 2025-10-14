@@ -1322,15 +1322,38 @@
     "data": {
       "base_url": "https://projectbeacon.netlify.app",
       "routes": {
-        "bias_detection_results": "/portal/results/{job-id}/diffs",
-        "cross_region_diff": "/portal/results/{job-id}/diffs",
-        "recent_diffs_list": "/portal/diffs/",
+        "level_1_executions": "/portal/executions",
+        "level_2_model_region_diff": "/portal/results/{job-id}/model/{model-id}/question/{question-id}",
+        "level_2_cross_region_overview": "/portal/results/{job-id}/diffs",
+        "level_3_bias_detection": "/portal/bias-detection/{job-id}",
         "bias_detection_form": "/portal/bias-detection",
-        "executions_list": "/portal/executions",
+        "recent_diffs_list": "/portal/diffs/",
         "world_map": "/portal/world"
+      },
+      "three_tier_architecture": {
+        "level_1": {
+          "name": "Executions",
+          "route": "/portal/executions",
+          "description": "Individual execution records, raw output data"
+        },
+        "level_2": {
+          "name": "Comparison",
+          "route": "/portal/results/{job-id}/model/{model-id}/question/{question-id}",
+          "component": "ModelRegionDiffPage",
+          "description": "Model+question specific cross-region comparison with side-by-side region diff, metrics (Bias Score, Factual Accuracy, Political Sensitivity), and response highlighting",
+          "accessed_via": "Compare button in Live Progress table"
+        },
+        "level_3": {
+          "name": "Bias Detection",
+          "route": "/portal/bias-detection/{job-id}",
+          "component": "BiasDetectionResults",
+          "description": "Highest-level analysis with WorldMapHeatMap, BiasScoresGrid, aggregated metrics, risk assessment",
+          "accessed_via": "Detect Bias button in Live Progress table"
+        }
       },
       "api_endpoints_used": {
         "cross_region_diff": "/api/v1/executions/{job-id}/cross-region-diff",
+        "bias_analysis": "/api/v2/jobs/{job-id}/bias-analysis",
         "recent_diffs": "/api/v1/diffs",
         "executions": "/api/v1/executions",
         "jobs": "/api/v1/jobs"
@@ -1341,8 +1364,8 @@
         "primary_data_source": "runner_api"
       }
     },
-    "effective_at": "2025-09-27T00:18:00+01:00",
-    "notes": "Portal UI routes for bias detection system. /portal/results/{job-id}/diffs is the main cross-region analysis page that shows real AI responses and bias metrics. Fixed to use runnerFetch first for reliable data retrieval."
+    "effective_at": "2025-10-14T21:25:00+01:00",
+    "notes": "Portal UI routes for 3-tier bias detection system. Level 2 (Compare button) navigates to /portal/results/{job-id}/model/{model-id}/question/{question-id} showing ModelRegionDiffPage with side-by-side region comparison. Level 3 (Detect Bias button) navigates to /portal/bias-detection/{job-id} showing BiasDetectionResults with aggregated analysis."
   },
   {
     "id": "api-0003",
