@@ -30,20 +30,24 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
   const handleRetry = async () => {
     if (!executionId || !canRetry) return;
     
-    // Debug logging
-    console.log('[RegionRow] Retry clicked:', {
+    // Comprehensive debug logging
+    console.group('🔄 [RegionRow] RETRY ATTEMPT');
+    console.log('Props received:', {
       executionId,
       region,
       questionIndex,
       questionIndexType: typeof questionIndex,
-      questionIndexValue: questionIndex
+      questionIndexValue: questionIndex,
+      questionIndexIsUndefined: questionIndex === undefined,
+      questionIndexIsNull: questionIndex === null,
+      execution: execution
     });
     
     // Ensure questionIndex is a number (default to 0 if undefined/null)
     // CRITICAL: Backend requires question_index to be present
     let qIndex = questionIndex;
     if (qIndex === undefined || qIndex === null || typeof qIndex !== 'number') {
-      console.warn('[RegionRow] questionIndex is invalid, defaulting to 0:', questionIndex);
+      console.warn('⚠️ questionIndex is invalid, defaulting to 0. Original value:', questionIndex);
       qIndex = 0;
     }
     
@@ -53,8 +57,11 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
         question_index: qIndex  // Always a valid number
       };
       
-      console.log('[RegionRow] Sending retry request:', payload);
-      console.log('[RegionRow] Payload stringified:', JSON.stringify(payload));
+      console.log('📤 Sending retry request to:', `/api/v1/executions/${executionId}/retry-question`);
+      console.log('📦 Payload object:', payload);
+      console.log('📄 Payload JSON:', JSON.stringify(payload));
+      console.log('🔍 question_index type in payload:', typeof payload.question_index);
+      console.log('🔍 question_index value in payload:', payload.question_index);
       
       const response = await fetch(`/api/v1/executions/${executionId}/retry-question`, {
         method: 'POST',
@@ -66,17 +73,21 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
       
       if (response.ok) {
         const result = await response.json();
-        console.log('[RegionRow] Retry successful:', result);
+        console.log('✅ Retry successful! Response:', result);
+        console.groupEnd();
         
         // Show success message without reloading
         // The Live Progress polling will pick up the updated status automatically
         alert(`✅ Retry queued successfully!\n\nThe execution will be retried shortly. Live Progress will update automatically.`);
       } else {
         const error = await response.json();
+        console.error('❌ Retry failed! Error:', error);
+        console.groupEnd();
         alert(`❌ Retry failed: ${error.error || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error('Retry request failed:', err);
+      console.error('💥 Retry request exception:', err);
+      console.groupEnd();
       alert('Failed to retry execution. Please try again.');
     }
   };
