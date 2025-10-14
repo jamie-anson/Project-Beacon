@@ -592,6 +592,49 @@ After Railway deploys router fix (~2 min):
 4. **Check database** - Should store status="completed"
 5. **Check portal** - Should show "Completed" not "Failed"
 
+### Additional Investigation Needed
+
+**Compare US vs EU Response Delivery:**
+
+Need to investigate why US executions appear in portal but EU executions don't:
+
+1. **Check response format differences:**
+   - US Modal endpoint response structure
+   - EU Modal endpoint response structure
+   - Are they returning data in the same format?
+
+2. **Check timing differences:**
+   - US execution completion time
+   - EU execution completion time
+   - Are EU executions timing out?
+
+3. **Check database writes:**
+   - Do US executions write to database successfully?
+   - Do EU executions write to database successfully?
+   - Are there region-specific database write failures?
+
+4. **Check router behavior:**
+   - Does router handle US responses differently than EU?
+   - Are there region-specific code paths?
+   - Different provider types (Modal US vs Modal EU)?
+
+5. **Check portal data fetching:**
+   - Does portal API filter by region?
+   - Are EU executions being filtered out?
+   - Region normalization working for both US and EU?
+
+**Hypothesis:** EU executions may be:
+- Returning different response format than US
+- Taking longer and timing out
+- Failing to write to database
+- Being filtered out by portal API
+- Not matching region normalization (already fixed, pending deployment)
+
+**Action:** After fixes deploy, compare side-by-side:
+- US execution full flow (Modal → Router → Runner → DB → Portal)
+- EU execution full flow (Modal → Router → Runner → DB → Portal)
+- Identify where the flows diverge
+
 ### Expected Outcome
 
 **Before fix:**
