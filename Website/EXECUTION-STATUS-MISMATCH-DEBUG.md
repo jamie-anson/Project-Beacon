@@ -641,11 +641,54 @@ Comprehensive investigation of the entire execution flow revealed:
 5. ✅ Database writes - Same SQL
 6. ✅ Portal rendering - Same logic
 
-**Conclusion:**
-- Both regions work identically
-- Same bugs affect both equally
-- Fixes apply to both regions
-- No additional region-specific work needed
+**Conclusion REVISED:**
+- ❌ **INCORRECT ANALYSIS** - EU is specifically affected
+- Console shows ONLY `R:EU` missing executions
+- NO `R:US` missing execution warnings  
+- US executions ARE being found ✅
+- EU executions are NOT being found ❌
+- This IS an EU-specific problem
+
+**New hypothesis:**
+- EU executions may not be completing
+- EU executions may not be writing to database  
+- EU goroutines may be stuck/cancelled
+- Need to check runner logs for EU-specific errors
+
+**Immediate Investigation Needed:**
+
+Check runner logs for:
+```bash
+# Look for EU execution completion
+grep -i "eu-west\|EU" runner.log | grep -i "execution\|completed\|failed"
+
+# Look for database write errors
+grep -i "failed to insert" runner.log
+
+# Look for EU-specific errors
+grep -i "eu" runner.log | grep -i "error\|failed"
+
+# Check if EU goroutines are being cancelled
+grep -i "execution cancelled" runner.log
+```
+
+**Possible root causes:**
+
+1. **Job-level timeout** - Parent context cancelled before EU completes
+   - US finishes in 45s ✅
+   - EU still running when job times out ❌
+   
+2. **Database connection issue** - EU writes failing silently
+   - Check for `"failed to insert execution record"` in logs
+   
+3. **Goroutine coordination bug** - EU goroutines not awaited properly
+   - Check if `regionWg.Wait()` is being called
+   
+4. **Empty response causing skip** - EU returning empty, runner skipping insert
+   - But Modal shows success, so this shouldn't happen
+   
+5. **Context propagation issue** - EU goroutines using cancelled context
+   - Check for `ctx.Err() != nil` before EU writes
 
 #### Comparative Flow
 
