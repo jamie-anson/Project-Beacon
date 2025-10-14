@@ -141,11 +141,18 @@ func (cre *CrossRegionExecutor) ExecuteAcrossRegions(ctx context.Context, jobSpe
 		Status:        "running",
 	}
 
-	// Don't use overall job timeout for sequential execution
-	// Reason: Job might wait in queue, and timeout would include wait time
-	// Instead, each individual execution gets its own timeout (5 min per execution)
-	// This allows jobs to wait in queue without timing out
-	execCtx := ctx
+	// Add reasonable per-job timeout to prevent infinite hangs
+	// Calculate based on number of regions and executions
+	// Each region: 3 models × 3 questions × 5 min = ~45 min worst case
+	// Add buffer for retries and cold starts
+	jobTimeout := time.Duration(len(plans)) * 30 * time.Minute
+	execCtx, cancel := context.WithTimeout(ctx, jobTimeout)
+	defer cancel()
+	
+	cre.logger.Info("Starting job execution with timeout",
+		"job_id", jobSpec.ID,
+		"regions", len(plans),
+		"timeout_minutes", jobTimeout.Minutes())
 
 	// Execute regions SEQUENTIALLY to avoid Modal GPU limit (10 GPUs on free tier)
 	// Each region can use up to 3 GPUs (3 models), so parallel execution of 2 regions = 6 GPUs
