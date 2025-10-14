@@ -141,15 +141,29 @@ export function createCrossRegionJob(payload) {
  */
 export async function cancelJob(jobId) {
   if (!jobId) {
+    console.error('[cancelJob] No job ID provided');
     throw new Error('Job ID is required');
   }
   
-  console.log('[cancelJob] Cancelling job:', jobId);
+  console.log('[cancelJob] Starting cancellation for job:', jobId);
+  console.log('[cancelJob] Encoded job ID:', encodeURIComponent(jobId));
+  console.log('[cancelJob] Request URL:', `/jobs/${encodeURIComponent(jobId)}/cancel`);
   
-  return runnerFetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, {
-    method: 'POST',
-  }).then(response => {
-    console.log('[cancelJob] Cancel response:', response);
+  try {
+    const response = await runnerFetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: 'POST',
+    });
+    console.log('[cancelJob] Success! Response:', response);
     return response;
-  });
+  } catch (error) {
+    console.error('[cancelJob] API call failed:', error);
+    console.error('[cancelJob] Error details:', {
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      user_message: error.user_message,
+      error_code: error.error_code,
+    });
+    throw error;
+  }
 }

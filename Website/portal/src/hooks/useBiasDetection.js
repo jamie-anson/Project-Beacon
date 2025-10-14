@@ -127,9 +127,13 @@ export function useBiasDetection() {
   const handleCancelJob = async (jobId) => {
     if (!jobId || isCancelling) return;
     
+    console.log('[handleCancelJob] Starting cancellation for job:', jobId);
+    
     setIsCancelling(true);
     try {
+      console.log('[handleCancelJob] Calling cancelJob API...');
       const result = await cancelJob(jobId);
+      console.log('[handleCancelJob] Cancel API response:', result);
       
       // Show success toast
       addToast(createSuccessToast(
@@ -137,15 +141,30 @@ export function useBiasDetection() {
       ));
       
       // Refresh job list to show cancelled status
+      console.log('[handleCancelJob] Refreshing job list...');
       await fetchBiasJobs();
       
       return result;
     } catch (error) {
-      console.error('[useBiasDetection] Cancel job failed:', error);
-      addToast(createErrorToast(
-        error.user_message || error.message || 'Failed to cancel job',
-        error
-      ));
+      console.error('[handleCancelJob] Cancel job failed - Full error:', error);
+      console.error('[handleCancelJob] Error type:', typeof error);
+      console.error('[handleCancelJob] Error keys:', Object.keys(error));
+      console.error('[handleCancelJob] Error message:', error.message);
+      console.error('[handleCancelJob] Error user_message:', error.user_message);
+      console.error('[handleCancelJob] Error stack:', error.stack);
+      
+      // Extract meaningful error message
+      let errorMessage = 'Failed to cancel job';
+      if (error.user_message) {
+        errorMessage = error.user_message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      console.error('[handleCancelJob] Showing error toast:', errorMessage);
+      addToast(createErrorToast(errorMessage, error));
       throw error;
     } finally {
       setIsCancelling(false);
