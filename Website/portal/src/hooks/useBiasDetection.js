@@ -148,23 +148,25 @@ export function useBiasDetection() {
     } catch (error) {
       console.error('[handleCancelJob] Cancel job failed - Full error:', error);
       console.error('[handleCancelJob] Error type:', typeof error);
-      console.error('[handleCancelJob] Error keys:', Object.keys(error));
-      console.error('[handleCancelJob] Error message:', error.message);
-      console.error('[handleCancelJob] Error user_message:', error.user_message);
-      console.error('[handleCancelJob] Error stack:', error.stack);
+      console.error('[handleCancelJob] Error keys:', error ? Object.keys(error) : 'null');
+      console.error('[handleCancelJob] Error message:', error?.message);
+      console.error('[handleCancelJob] Error data:', error?.data);
+      console.error('[handleCancelJob] Error status:', error?.status);
+      console.error('[handleCancelJob] Error stack:', error?.stack);
       
-      // Extract meaningful error message
-      let errorMessage = 'Failed to cancel job';
-      if (error.user_message) {
-        errorMessage = error.user_message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
+      // Create a custom error toast with specific message
+      const errorTitle = error?.data?.error || error?.message || 'Failed to cancel job';
+      const errorDetails = error?.data?.message || error?.data?.details || '';
       
-      console.error('[handleCancelJob] Showing error toast:', errorMessage);
-      addToast(createErrorToast(errorMessage, error));
+      console.error('[handleCancelJob] Showing error toast with title:', errorTitle);
+      
+      addToast({
+        title: 'Cancellation Failed',
+        message: errorTitle + (errorDetails ? `: ${errorDetails}` : ''),
+        timeout: 8000,
+        type: 'error'
+      });
+      
       throw error;
     } finally {
       setIsCancelling(false);
