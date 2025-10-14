@@ -22,7 +22,8 @@ export function useBiasDetection() {
   const resetLiveProgressState = () => {
     setActiveJobId('');
     try { 
-      sessionStorage.removeItem(SESSION_KEY); 
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem('beacon:job_start_time'); // Clear persisted timer
     } catch {}
   };
 
@@ -136,9 +137,12 @@ export function useBiasDetection() {
       console.log('[handleCancelJob] Cancel API response:', result);
       
       // Show success toast
-      addToast(createSuccessToast(
-        `Job ${jobId.substring(0, 8)}... cancelled successfully`
-      ));
+      addToast({
+        title: 'Job Cancelled',
+        message: 'Job cancelled. Feel free to try again.',
+        timeout: 5000,
+        type: 'success'
+      });
       
       // Refresh job list to show cancelled status
       console.log('[handleCancelJob] Refreshing job list...');

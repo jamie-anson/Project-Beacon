@@ -63,7 +63,10 @@ export default function BiasDetection() {
     }
     setActiveJobId('');
     setCompletedJob(null);
-    try { sessionStorage.removeItem('beacon:active_bias_job_id'); } catch {}
+    try { 
+      sessionStorage.removeItem('beacon:active_bias_job_id');
+      localStorage.removeItem('beacon:job_start_time'); // Clear persisted timer
+    } catch {}
   };
 
   // Dynamic polling interval based on job state

@@ -30,9 +30,9 @@ const ModelRow = memo(function ModelRow({
   
   const handleCompare = () => {
     if (diffsEnabled) {
-      // Navigate to Layer 2 model region diff page
+      // Open in new tab to prevent losing Live Progress context
       const encodedQuestion = encodeQuestionId(questionId);
-      navigate(`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`);
+      window.open(`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`, '_blank', 'noopener,noreferrer');
     }
   };
   

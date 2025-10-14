@@ -31,7 +31,8 @@ const QuestionRow = memo(function QuestionRow({ questionData, questionIndex, job
   
   const handleDetectBias = () => {
     if (diffsEnabled) {
-      navigate(`/bias-detection/${jobId}`);
+      // Open in new tab to prevent losing Live Progress context
+      window.open(`/bias-detection/${jobId}`, '_blank', 'noopener,noreferrer');
     }
   };
   

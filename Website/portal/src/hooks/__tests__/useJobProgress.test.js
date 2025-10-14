@@ -180,4 +180,62 @@ describe('useJobProgress', () => {
 
     expect(result.current.overallCompleted).toBe(true);
   });
+
+  it('should persist job start time to localStorage', () => {
+    // Clear localStorage before test
+    localStorage.removeItem('beacon:job_start_time');
+    
+    const { result } = renderHook(() => useJobProgress(mockJob, selectedRegions, false));
+
+    // Verify localStorage was updated
+    const stored = JSON.parse(localStorage.getItem('beacon:job_start_time'));
+    expect(stored).toBeTruthy();
+    expect(stored.jobId).toBe(mockJob.id);
+    expect(stored.startTime).toBeLessThanOrEqual(Date.now());
+    
+    // Cleanup
+    localStorage.removeItem('beacon:job_start_time');
+  });
+
+  it('should restore job start time from localStorage on mount', () => {
+    // Pre-populate localStorage with a start time
+    const mockStartTime = {
+      jobId: 'test-job-123',
+      startTime: Date.now() - 60000 // 1 minute ago
+    };
+    localStorage.setItem('beacon:job_start_time', JSON.stringify(mockStartTime));
+    
+    const { result } = renderHook(() => useJobProgress(mockJob, selectedRegions, false));
+
+    // Verify the hook restored the start time from localStorage
+    expect(result.current.jobStartTime).toBeTruthy();
+    expect(result.current.jobStartTime.jobId).toBe(mockStartTime.jobId);
+    expect(result.current.jobStartTime.startTime).toBe(mockStartTime.startTime);
+    
+    // Cleanup
+    localStorage.removeItem('beacon:job_start_time');
+  });
+
+  it('should update localStorage when job ID changes', () => {
+    localStorage.removeItem('beacon:job_start_time');
+    
+    const { result, rerender } = renderHook(
+      ({ job }) => useJobProgress(job, selectedRegions, false),
+      { initialProps: { job: mockJob } }
+    );
+
+    const firstStartTime = JSON.parse(localStorage.getItem('beacon:job_start_time'));
+    expect(firstStartTime.jobId).toBe('test-job-123');
+
+    // Change job ID
+    const newJob = { ...mockJob, id: 'test-job-456' };
+    rerender({ job: newJob });
+
+    const secondStartTime = JSON.parse(localStorage.getItem('beacon:job_start_time'));
+    expect(secondStartTime.jobId).toBe('test-job-456');
+    expect(secondStartTime.startTime).toBeGreaterThanOrEqual(firstStartTime.startTime);
+    
+    // Cleanup
+    localStorage.removeItem('beacon:job_start_time');
+  });
 });

@@ -22,19 +22,36 @@ import { getJobStage, getFailureMessage } from '../lib/utils/jobStatusUtils';
  * @returns {Object} Progress state and metrics
  */
 export function useJobProgress(activeJob, selectedRegions = [], isCompleted = false) {
-  const [jobStartTime, setJobStartTime] = useState(null);
+  const [jobStartTime, setJobStartTime] = useState(() => {
+    // Initialize from localStorage if available
+    try {
+      const stored = localStorage.getItem('beacon:job_start_time');
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.warn('[useJobProgress] Failed to load job start time from localStorage:', error);
+      return null;
+    }
+  });
   
   // Extract primitive values for stable dependencies
   const jobStatusValue = activeJob?.status || '';
   const currentJobId = activeJob?.id;
   
-  // Reset start time when job ID changes
+  // Reset start time when job ID changes and persist to localStorage
   useEffect(() => {
     if (currentJobId && currentJobId !== jobStartTime?.jobId) {
-      setJobStartTime({
+      const newStartTime = {
         jobId: currentJobId,
         startTime: Date.now()
-      });
+      };
+      setJobStartTime(newStartTime);
+      
+      // Persist to localStorage
+      try {
+        localStorage.setItem('beacon:job_start_time', JSON.stringify(newStartTime));
+      } catch (error) {
+        console.warn('[useJobProgress] Failed to save job start time to localStorage:', error);
+      }
     }
   }, [currentJobId, jobStartTime?.jobId]);
   

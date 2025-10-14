@@ -73,6 +73,8 @@ export default function ExecutionDetails({
                       ) : (
                         <Link
                           to={`/portal/executions/${exec.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="text-pink-400 hover:text-pink-300 underline decoration-dotted"
                         >
                           Answer
