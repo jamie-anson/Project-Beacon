@@ -435,25 +435,15 @@ func (h *JobsHandler) CancelJob(c *gin.Context) {
 		return
 	}
 
-	// Get wallet address from auth context (set by wallet auth middleware)
-	walletAddr, exists := c.Get("wallet_address")
-	if !exists {
-		l.Warn().Str("job_id", jobID).Msg("cancel job: no wallet authentication")
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":   "unauthorized",
-			"message": "wallet authentication required to cancel jobs",
-		})
-		return
-	}
-
-	walletAddrStr, ok := walletAddr.(string)
-	if !ok || walletAddrStr == "" {
-		l.Warn().Str("job_id", jobID).Msg("cancel job: invalid wallet address type")
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":   "unauthorized",
-			"message": "invalid wallet authentication",
-		})
-		return
+	// Optional wallet authentication (for future use)
+	// For MVP, allow cancellation without wallet auth
+	// TODO: Re-enable wallet auth when wallet integration is complete in portal
+	walletAddrStr := ""
+	if walletAddr, exists := c.Get("wallet_address"); exists {
+		if addr, ok := walletAddr.(string); ok && addr != "" {
+			walletAddrStr = addr
+			l.Info().Str("job_id", jobID).Str("wallet", walletAddrStr).Msg("cancel job: wallet authenticated")
+		}
 	}
 
 	// Get current job from database
@@ -470,23 +460,25 @@ func (h *JobsHandler) CancelJob(c *gin.Context) {
 		return
 	}
 
-	// Verify job ownership (check wallet_auth in jobspec)
-	jobWallet := ""
-	if spec.WalletAuth != nil {
-		jobWallet = spec.WalletAuth.Address
-	}
+	// Verify job ownership if wallet auth is provided
+	if walletAddrStr != "" {
+		jobWallet := ""
+		if spec.WalletAuth != nil {
+			jobWallet = spec.WalletAuth.Address
+		}
 
-	if jobWallet != walletAddrStr {
-		l.Warn().
-			Str("job_id", jobID).
-			Str("job_wallet", jobWallet).
-			Str("request_wallet", walletAddrStr).
-			Msg("cancel job: forbidden - wallet mismatch")
-		c.JSON(http.StatusForbidden, gin.H{
-			"error":   "forbidden",
-			"message": "can only cancel your own jobs",
-		})
-		return
+		if jobWallet != "" && jobWallet != walletAddrStr {
+			l.Warn().
+				Str("job_id", jobID).
+				Str("job_wallet", jobWallet).
+				Str("request_wallet", walletAddrStr).
+				Msg("cancel job: forbidden - wallet mismatch")
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":   "forbidden",
+				"message": "can only cancel your own jobs",
+			})
+			return
+		}
 	}
 
 	// Check if job is in cancellable state
