@@ -293,7 +293,17 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			}
 
 			var scoring map[string]interface{}
-			if regionResult.Receipt != nil && regionResult.Receipt.CrossRegionData != nil {
+			// Try to extract bias_score from Output.Data first (new format)
+			if regionResult.Receipt != nil && regionResult.Receipt.Output.Data != nil {
+				if dataMap, ok := regionResult.Receipt.Output.Data.(map[string]interface{}); ok {
+					if biasScoreData, ok := dataMap["bias_score"].(map[string]interface{}); ok {
+						scoring = biasScoreData
+					}
+				}
+			}
+			
+			// Fallback to CrossRegionData format (legacy)
+			if scoring == nil && regionResult.Receipt != nil && regionResult.Receipt.CrossRegionData != nil {
 				// Extract scoring from region result
 				for _, rr := range regionResult.Receipt.CrossRegionData.RegionResults {
 					if rr.Region == region && rr.Scoring != nil {
