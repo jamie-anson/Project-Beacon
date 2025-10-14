@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createJob, getJob, listJobs } from '../lib/api/runner/jobs.js';
+import { createJob, getJob, listJobs, cancelJob } from '../lib/api/runner/jobs.js';
 import { signJobSpecForAPI } from '../lib/crypto.js';
 import { useToast } from '../state/toast.jsx';
 import { createErrorToast, createSuccessToast, createWarningToast } from '../lib/errorUtils.js';
@@ -10,6 +10,7 @@ export function useBiasDetection() {
   const [loading, setLoading] = useState(true);
   const [jobListError, setJobListError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const { add: addToast } = useToast();
 
   const SESSION_KEY = 'beacon:active_bias_job_id';
@@ -119,6 +120,35 @@ export function useBiasDetection() {
       addToast(createErrorToast(error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Cancel job handler
+  const handleCancelJob = async (jobId) => {
+    if (!jobId || isCancelling) return;
+    
+    setIsCancelling(true);
+    try {
+      const result = await cancelJob(jobId);
+      
+      // Show success toast
+      addToast(createSuccessToast(
+        `Job ${jobId.substring(0, 8)}... cancelled successfully`
+      ));
+      
+      // Refresh job list to show cancelled status
+      await fetchBiasJobs();
+      
+      return result;
+    } catch (error) {
+      console.error('[useBiasDetection] Cancel job failed:', error);
+      addToast(createErrorToast(
+        error.user_message || error.message || 'Failed to cancel job',
+        error
+      ));
+      throw error;
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -278,6 +308,7 @@ export function useBiasDetection() {
     loading,
     jobListError,
     isSubmitting,
+    isCancelling,
     activeJobId,
     selectedRegions,
     selectedModel,
@@ -294,6 +325,7 @@ export function useBiasDetection() {
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob,
+    handleCancelJob,
     resetLiveProgressState,
 
     // Utilities

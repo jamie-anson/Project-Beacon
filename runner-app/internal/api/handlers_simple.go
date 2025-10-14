@@ -17,6 +17,7 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/internal/metrics"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 	legacysecurity "github.com/jamie-anson/project-beacon-runner/internal/security"
 )
 
@@ -35,12 +36,18 @@ func nullBoolToValue(nb sql.NullBool) interface{} {
 	return nil
 }
 
+// JobRunnerInterface defines the minimal interface needed for job cancellation
+type JobRunnerInterface interface {
+	GetContextManager() *worker.JobContextManager
+}
+
 // JobsHandler handles job-related requests
 type JobsHandler struct {
 	jobsService       *service.JobsService
 	cfg               *config.Config
 	jobSpecProcessor  *processors.JobSpecProcessor
 	securityPipeline  *security.SecurityPipeline
+	jobRunner         JobRunnerInterface // Optional: for job cancellation support
 }
 
 // NewJobsHandler creates a new jobs handler
@@ -411,4 +418,145 @@ func (h *JobsHandler) ListJobs(c *gin.Context) {
 
 	l.Info().Int("count", len(out)).Msg("returning recent jobs")
 	c.JSON(http.StatusOK, gin.H{"jobs": out})
+}
+
+// SetJobRunner sets the job runner for cancellation support
+func (h *JobsHandler) SetJobRunner(jr JobRunnerInterface) {
+	h.jobRunner = jr
+}
+
+// CancelJob allows users to cancel their own running job (wallet-authenticated)
+// POST /api/v1/jobs/:id/cancel
+func (h *JobsHandler) CancelJob(c *gin.Context) {
+	l := logging.FromContext(c.Request.Context())
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "job_id required"})
+		return
+	}
+
+	// Get wallet address from auth context (set by wallet auth middleware)
+	walletAddr, exists := c.Get("wallet_address")
+	if !exists {
+		l.Warn().Str("job_id", jobID).Msg("cancel job: no wallet authentication")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "unauthorized",
+			"message": "wallet authentication required to cancel jobs",
+		})
+		return
+	}
+
+	walletAddrStr, ok := walletAddr.(string)
+	if !ok || walletAddrStr == "" {
+		l.Warn().Str("job_id", jobID).Msg("cancel job: invalid wallet address type")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "unauthorized",
+			"message": "invalid wallet authentication",
+		})
+		return
+	}
+
+	// Get current job from database
+	if h.jobsService == nil || h.jobsService.JobsRepo == nil {
+		l.Error().Str("job_id", jobID).Msg("cancel job: service unavailable")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
+		return
+	}
+
+	spec, status, err := h.jobsService.JobsRepo.GetJobByID(c.Request.Context(), jobID)
+	if err != nil {
+		l.Error().Err(err).Str("job_id", jobID).Msg("cancel job: job not found")
+		c.JSON(http.StatusNotFound, gin.H{"error": "job not found", "job_id": jobID})
+		return
+	}
+
+	// Verify job ownership (check wallet_auth in jobspec)
+	jobWallet := ""
+	if spec.WalletAuth != nil {
+		jobWallet = spec.WalletAuth.Address
+	}
+
+	if jobWallet != walletAddrStr {
+		l.Warn().
+			Str("job_id", jobID).
+			Str("job_wallet", jobWallet).
+			Str("request_wallet", walletAddrStr).
+			Msg("cancel job: forbidden - wallet mismatch")
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "forbidden",
+			"message": "can only cancel your own jobs",
+		})
+		return
+	}
+
+	// Check if job is in cancellable state
+	if status == "completed" || status == "failed" || status == "cancelled" {
+		l.Info().Str("job_id", jobID).Str("status", status).Msg("cancel job: already in terminal state")
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"message": "job already in terminal state",
+			"job_id":  jobID,
+			"status":  status,
+		})
+		return
+	}
+
+	// Update job status to cancelled
+	err = h.jobsService.JobsRepo.UpdateJobStatus(c.Request.Context(), jobID, "cancelled")
+	if err != nil {
+		l.Error().Err(err).Str("job_id", jobID).Msg("cancel job: failed to update status")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel job", "details": err.Error()})
+		return
+	}
+
+	// CRITICAL: Cancel the running context to stop Modal/Golem executions immediately
+	contextCancelled := false
+	if h.jobRunner != nil {
+		ctxMgr := h.jobRunner.GetContextManager()
+		if ctxMgr != nil {
+			contextCancelled = ctxMgr.Cancel(jobID)
+			if contextCancelled {
+				l.Info().Str("job_id", jobID).Msg("cancel job: successfully cancelled running context")
+			} else {
+				l.Info().Str("job_id", jobID).Msg("cancel job: no active context found (job may have already finished)")
+			}
+		}
+	}
+
+	// Mark all running/pending executions as cancelled
+	var executionsCancelled int64
+	if h.jobsService.DB != nil {
+		result, err := h.jobsService.DB.ExecContext(c.Request.Context(),
+			`UPDATE executions 
+			SET status = 'cancelled',
+				completed_at = NOW()
+			WHERE job_id = $1 
+			AND status IN ('pending', 'running', 'processing', 'queued')`,
+			jobID)
+
+		if err == nil && result != nil {
+			executionsCancelled, _ = result.RowsAffected()
+		}
+	}
+
+	// Broadcast cancellation via WebSocket if hub is available
+	// Note: WSHub is not directly accessible here, but the context cancellation
+	// will trigger cleanup in the job runner which can broadcast
+
+	l.Info().
+		Str("job_id", jobID).
+		Str("previous_status", status).
+		Bool("context_cancelled", contextCancelled).
+		Int64("executions_cancelled", executionsCancelled).
+		Msg("cancel job: successfully cancelled")
+
+	c.JSON(http.StatusOK, gin.H{
+		"ok":                    true,
+		"job_id":                jobID,
+		"previous_status":       status,
+		"new_status":            "cancelled",
+		"context_cancelled":     contextCancelled,
+		"executions_cancelled":  executionsCancelled,
+		"cancelled_at":          time.Now().UTC().Format(time.RFC3339),
+	})
 }

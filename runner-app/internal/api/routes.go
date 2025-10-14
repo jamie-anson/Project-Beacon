@@ -17,8 +17,26 @@ import (
 	rbac "github.com/jamie-anson/project-beacon-runner/internal/middleware"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
+	"github.com/jamie-anson/project-beacon-runner/internal/worker"
 	"github.com/redis/go-redis/v9"
 )
+
+// WireJobRunner connects the JobRunner to the JobsHandler for job cancellation support
+// This must be called after both the router and JobRunner are created
+func WireJobRunner(r *gin.Engine, jr interface {
+	GetContextManager() *worker.JobContextManager
+}) {
+	// Extract the JobsHandler from the router's handlers
+	// We need to find the handler and call SetJobRunner on it
+	// Since we can't easily extract handlers from Gin, we'll use a global variable approach
+	if globalJobsHandler != nil {
+		globalJobsHandler.SetJobRunner(jr)
+	}
+}
+
+// Global variable to store the JobsHandler for wiring
+// This is set during SetupRoutes and used by WireJobRunner
+var globalJobsHandler *JobsHandler
 
 func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client, queueClient ...interface{ GetCircuitBreakerStats() string }) *gin.Engine {
 	// Guard against nil arguments (allow nil for testing)
@@ -46,6 +64,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 	
 	if jobsService != nil {
 		jobsHandler = NewJobsHandler(jobsService, cfg, redisClient)
+		globalJobsHandler = jobsHandler // Store for later wiring with JobRunner
 		if len(queueClient) > 0 && queueClient[0] != nil {
 			adminHandler = NewAdminHandlerWithQueue(cfg, jobsService, queueClient[0])
 		} else {
@@ -135,6 +154,7 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				jobs.POST("", middleware.ValidateJobSpec(), IdempotencyKeyMiddleware(), jobsHandler.CreateJob)
 				jobs.GET("/:id", jobsHandler.GetJob)
 				jobs.GET("", jobsHandler.ListJobs)
+				jobs.POST("/:id/cancel", jobsHandler.CancelJob) // User-initiated job cancellation
 				// Cross-region job submission endpoint
 				if biasAnalysisHandler != nil {
 					jobs.POST("/cross-region", biasAnalysisHandler.SubmitCrossRegionJob)

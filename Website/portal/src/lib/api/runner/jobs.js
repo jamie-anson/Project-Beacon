@@ -133,3 +133,23 @@ export function executeJob(jobId) {
 export function createCrossRegionJob(payload) {
   return runnerFetch('/jobs/cross-region', { method: 'POST', body: JSON.stringify(payload) });
 }
+
+/**
+ * Cancel a running job
+ * @param {string} jobId - Job ID to cancel
+ * @returns {Promise<Object>} Cancellation result
+ */
+export async function cancelJob(jobId) {
+  if (!jobId) {
+    throw new Error('Job ID is required');
+  }
+  
+  console.log('[cancelJob] Cancelling job:', jobId);
+  
+  return runnerFetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+  }).then(response => {
+    console.log('[cancelJob] Cancel response:', response);
+    return response;
+  });
+}

@@ -23,6 +23,8 @@ export default function LiveProgressTable({
   activeJobId,
   isCompleted = false,
   diffReady = false,
+  onCancelJob,
+  isCancelling,
 }) {
   // Custom hooks for state management
   const progress = useJobProgress(activeJob, selectedRegions, isCompleted);
@@ -94,8 +96,11 @@ export default function LiveProgressTable({
         jobId={progress.jobId}
         isCompleted={progress.overallCompleted}
         isFailed={progress.overallFailed || progress.jobStuckTimeout}
+        isCancelled={activeJob?.status === 'cancelled'}
         onRefresh={refetchActive}
         onRetryJob={() => window.location.reload()}
+        onCancelJob={onCancelJob}
+        isCancelling={isCancelling}
       />
     </div>
   );

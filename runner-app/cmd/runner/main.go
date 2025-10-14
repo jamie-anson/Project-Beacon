@@ -151,6 +151,8 @@ func main() {
 
 	// Setup routes with services and config
 	r = api.SetupRoutes(jobsService, cfg, redisClient, q)
+	
+	// Note: JobRunner will be wired to JobsHandler after it's created (see below)
 
 	// Enable Sentry middleware for error tracking and performance monitoring
 	if os.Getenv("SENTRY_DSN") != "" {
@@ -224,6 +226,12 @@ func main() {
 		// Start JobRunner (Redis -> execute -> Postgres -> IPFS bundling)
 		jr := worker.NewJobRunnerWithQueue(database.DB, q, gsvc, bundler, cfg.JobsQueueName)
 		jr.WSHub = hub // Wire WebSocket hub for failure events
+		
+		// Wire JobRunner to JobsHandler for job cancellation support
+		// This allows the API to trigger context cancellation for running jobs
+		api.WireJobRunner(r, jr)
+		logger.Info().Msg("JobRunner wired to JobsHandler for cancellation support")
+		
 		// Initialize Hybrid Router client if enabled
 		// Preferred env: HYBRID_BASE; Fallback: HYBRID_ROUTER_URL; or ENABLE_HYBRID_DEFAULT=1
 		if os.Getenv("HYBRID_ROUTER_DISABLE") != "true" {

@@ -32,6 +32,7 @@ export default function BiasDetection() {
     loading,
     jobListError,
     isSubmitting,
+    isCancelling,
     activeJobId,
     selectedRegions,
     selectedModel,
@@ -42,6 +43,7 @@ export default function BiasDetection() {
     handleRegionToggle,
     fetchBiasJobs,
     onSubmitJob: handleSubmitJob,
+    handleCancelJob,
     readSelectedQuestions,
     calculateEstimatedCost,
     resetLiveProgressState
@@ -393,6 +395,8 @@ export default function BiasDetection() {
             diffReady={diffReady}
             isCompleted={!!completedJob}
             onDismiss={dismissCompletedJob}
+            onCancelJob={handleCancelJob}
+            isCancelling={isCancelling}
           />
         </section>
       )}

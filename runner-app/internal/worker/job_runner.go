@@ -41,31 +41,33 @@ type execRepoIface interface {
 type ProbeFactory func() negotiation.PreflightProbe
 
 type JobRunner struct {
-	DB            *sql.DB
-	Queue         *queue.Client
-	QueueName     string
-	JobsRepo      jobsRepoIface
-	ExecRepo      execRepoIface
-	ExecutionSvc  *service.ExecutionService
-	Golem         *golem.Service
-	Hybrid        *hybrid.Client
-	Bundler       *ipfs.Bundler
-	ProbeFactory  ProbeFactory
-	Executor      Executor
-	WSHub         *websocket.Hub
-	maxConcurrent int // Maximum concurrent executions for bounded concurrency
+	DB             *sql.DB
+	Queue          *queue.Client
+	QueueName      string
+	JobsRepo       jobsRepoIface
+	ExecRepo       execRepoIface
+	ExecutionSvc   *service.ExecutionService
+	Golem          *golem.Service
+	Hybrid         *hybrid.Client
+	Bundler        *ipfs.Bundler
+	ProbeFactory   ProbeFactory
+	Executor       Executor
+	WSHub          *websocket.Hub
+	ContextManager *JobContextManager // Tracks cancellable contexts for running jobs
+	maxConcurrent  int                // Maximum concurrent executions for bounded concurrency
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
 	jr := &JobRunner{
-		DB:            db,
-		Queue:         q,
-		JobsRepo:      store.NewJobsRepo(db),
-		ExecRepo:      store.NewExecutionsRepo(db),
-		Golem:         gsvc,
-		Bundler:       bundler,
-		ExecutionSvc:  service.NewExecutionService(db),
-		maxConcurrent: 10, // Default bounded concurrency limit
+		DB:             db,
+		Queue:          q,
+		JobsRepo:       store.NewJobsRepo(db),
+		ExecRepo:       store.NewExecutionsRepo(db),
+		Golem:          gsvc,
+		Bundler:        bundler,
+		ExecutionSvc:   service.NewExecutionService(db),
+		ContextManager: NewJobContextManager(), // Initialize context manager for cancellation
+		maxConcurrent:  10,                     // Default bounded concurrency limit
 	}
 
 	// Set default executor to Golem
@@ -89,6 +91,11 @@ func (w *JobRunner) SetHybridClient(client *hybrid.Client) {
 	if client != nil {
 		w.Executor = NewHybridExecutor(client)
 	}
+}
+
+// GetContextManager returns the context manager for job cancellation
+func (w *JobRunner) GetContextManager() *JobContextManager {
+	return w.ContextManager
 }
 
 // Start begins consuming from the jobs queue and processing each job
@@ -189,6 +196,16 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	l.Info().Str("job_id", env.ID).Msg("✅ acquired processing lock")
 
+	// Create cancellable context for this job
+	jobCtx, jobCancel := context.WithCancel(ctx)
+	defer jobCancel() // Cleanup on function exit
+
+	// Register the cancel function so CancelJob endpoint can trigger it
+	w.ContextManager.Register(env.ID, jobCancel)
+	defer w.ContextManager.Unregister(env.ID)
+
+	l.Info().Str("job_id", env.ID).Msg("✅ registered cancellable context")
+
 	// Release lock when done (success or failure)
 	defer func() {
 		if delErr := redisClient.Del(ctx, lockKey).Err(); delErr != nil {
@@ -199,26 +216,26 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	}()
 
 	// Mark job as processing and fetch JobSpec
-	if err := w.JobsRepo.UpdateJobStatus(ctx, env.ID, "processing"); err != nil {
+	if err := w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "processing"); err != nil {
 		return fmt.Errorf("update job status to processing: %w", err)
 	}
 
-	_, _, jobspecJSON, _, _, err := w.JobsRepo.GetJob(ctx, env.ID)
+	_, _, jobspecJSON, _, _, err := w.JobsRepo.GetJob(jobCtx, env.ID)
 	if err != nil {
-		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("get job: %w", err), "unknown", nil)
+		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("get job: %w", err), "unknown", nil)
 		return fmt.Errorf("get job: %w", err)
 	}
 
 	spec, err := jobspec.NewValidator().ValidateJobSpec(jobspecJSON)
 	if err != nil {
-		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("jobspec validate: %w", err), "unknown", nil)
-		_ = w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed")
+		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("jobspec validate: %w", err), "unknown", nil)
+		_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
 		return fmt.Errorf("jobspec validate: %w", err)
 	}
 
 	if len(spec.Constraints.Regions) == 0 {
-		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("no regions in job constraints"), "unknown", nil)
-		_ = w.JobsRepo.UpdateJobStatus(ctx, env.ID, "failed")
+		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no regions in job constraints"), "unknown", nil)
+		_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
 		return fmt.Errorf("no regions in job constraints")
 	}
 
@@ -233,7 +250,7 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		executor = NewHybridExecutor(w.Hybrid)
 	}
 	if executor == nil {
-		w.ExecutionSvc.RecordEarlyFailure(ctx, env.ID, fmt.Errorf("no executor configured"), "unknown", nil)
+		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no executor configured"), "unknown", nil)
 		return fmt.Errorf("no executor configured")
 	}
 
@@ -242,18 +259,18 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 	// Check if this is a multi-model job
 	if len(spec.Models) > 0 {
 		l.Info().Str("job_id", env.ID).Int("model_count", len(spec.Models)).Msg("executing multi-model job")
-		results, err := w.executeMultiModelJob(ctx, env.ID, spec, executor)
+		results, err := w.executeMultiModelJob(jobCtx, env.ID, spec, executor)
 		if err != nil {
 			return err
 		}
-		return w.processExecutionResults(ctx, env.ID, spec, results)
+		return w.processExecutionResults(jobCtx, env.ID, spec, results)
 	} else {
 		// Single model execution (legacy)
-		results, err := w.executeAllRegions(ctx, env.ID, spec, spec.Constraints.Regions, executor)
+		results, err := w.executeAllRegions(jobCtx, env.ID, spec, spec.Constraints.Regions, executor)
 		if err != nil {
 			return err
 		}
-		return w.processExecutionResults(ctx, env.ID, spec, results)
+		return w.processExecutionResults(jobCtx, env.ID, spec, results)
 	}
 }
 
