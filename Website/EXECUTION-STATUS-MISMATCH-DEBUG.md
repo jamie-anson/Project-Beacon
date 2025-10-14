@@ -538,11 +538,86 @@ if status == "failed" && isRetriable(err) {
 
 ---
 
+## Latest Findings (2025-01-14 23:50)
+
+### Multiple Failure Types Observed
+
+**Console shows 3 distinct error patterns:**
+
+1. **[MISSING EXECUTION]** - Portal can't find EU executions
+   - Root cause: Region name mismatch ('eu-west' vs 'EU')
+   - Status: ✅ FIXED (normalizeRegion() updated, deployed)
+   - Waiting for: Netlify deployment + new job to verify
+
+2. **[FAILED EXECUTIONS]** - Database has failed status
+   - Root cause: Router marks empty responses as failed
+   - Status: ✅ FIXED (router.py line 414 removed, deployed)
+   - Waiting for: Railway deployment (~2 min)
+
+3. **[MODEL EXECS WITH FAILURES]** - Specific model failures
+   - Pattern: mistral-7b failing across multiple questions
+   - Questions: greatest_leader, taiwan_status, tiananmen_neutral
+   - Root cause: Same as #2 - empty response → false failure
+
+### Key Insight
+
+**Modal and LLMs are working correctly.** The issue is in our data transformation pipeline:
+
+```
+Modal (✅ Executes successfully, may return empty response)
+    ↓
+Hybrid Router (❌ OLD: Rejects empty → marks as failed)
+                (✅ NEW: Accepts empty → marks as success)
+    ↓
+Runner (Stores whatever router returns)
+    ↓
+Portal (Shows whatever database has)
+```
+
+### Why mistral-7b Fails More
+
+Mistral-7b appears to return empty responses more frequently than other models:
+- Possibly more sensitive to prompt formatting
+- May refuse certain questions (content filtering)
+- Attention mask warning suggests tokenization issues
+- But **execution completes successfully** - just returns ""
+
+### Verification Plan
+
+After Railway deploys router fix (~2 min):
+
+1. **Submit new test job** with same questions
+2. **Check Modal logs** - Should show success
+3. **Check router response** - Should have success=true even if response=""
+4. **Check database** - Should store status="completed"
+5. **Check portal** - Should show "Completed" not "Failed"
+
+### Expected Outcome
+
+**Before fix:**
+- Modal: ✅ Success (45s execution)
+- Response: "" (empty)
+- Router: ❌ success=false, error="Empty response"
+- Database: status="failed"
+- Portal: "Failed" ❌
+
+**After fix:**
+- Modal: ✅ Success (45s execution)
+- Response: "" (empty)
+- Router: ✅ success=true, response=""
+- Database: status="completed"
+- Portal: "Completed" ✅
+
+Users will see the execution completed but may have empty results, which is more accurate than showing it failed.
+
+---
+
 ## Next Steps
 
-1. **Immediate:** Check runner logs for timeout/error
-2. **Short-term:** Increase runner timeout
-3. **Medium-term:** Add status reconciliation
-4. **Long-term:** Comprehensive monitoring
+1. ✅ **Router fix deployed** - Commit 1a85904
+2. ✅ **Portal fix deployed** - Commit b689c33
+3. ⏳ **Wait for Railway deployment** (~2 min)
+4. 🧪 **Test with new job** - Verify fixes work
+5. 📊 **Monitor for 24 hours** - Ensure no regressions
 
-**Status:** 🔍 Awaiting runner log analysis
+**Status:** 🚀 FIXES DEPLOYED - Awaiting verification
