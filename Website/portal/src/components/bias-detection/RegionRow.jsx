@@ -9,7 +9,7 @@ import { getStatusColor, getStatusText } from './liveProgressHelpers';
  * - Status (Complete/Processing/Cancelled/Failed) with retry count
  * - Answer link (opens execution in new tab) OR Retry button for failed executions
  */
-const RegionRow = memo(function RegionRow({ region, execution }) {
+const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) {
   const regionNames = {
     'US': 'United States',
     'EU': 'Europe',
@@ -36,6 +36,10 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          region: region,
+          question_index: questionIndex || 0
+        })
       });
       
       if (response.ok) {

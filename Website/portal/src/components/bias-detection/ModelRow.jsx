@@ -105,6 +105,7 @@ const ModelRow = memo(function ModelRow({
                 key={regionData.region}
                 region={regionData.region}
                 execution={regionData.execution}
+                questionIndex={regionData.execution?.question_index}
               />
             ))}
         </div>
