@@ -27,9 +27,20 @@ func NewRetryService(db *sql.DB, hybridClient *hybrid.Client) *RetryService {
 func (s *RetryService) RetryQuestionExecution(ctx context.Context, executionID int64, region string, questionIndex int) error {
 	log.Printf("[RETRY] Starting retry for execution %d, region %s, question %d", executionID, region, questionIndex)
 	
+	// Check if execution was cancelled before starting retry
+	var currentStatus string
+	err := s.DB.QueryRowContext(ctx, `SELECT status FROM executions WHERE id = $1`, executionID).Scan(&currentStatus)
+	if err != nil {
+		return fmt.Errorf("failed to check execution status: %w", err)
+	}
+	if currentStatus == "cancelled" {
+		log.Printf("[RETRY] Execution %d was cancelled, aborting retry", executionID)
+		return fmt.Errorf("execution was cancelled")
+	}
+	
 	// 1. Fetch original job spec
 	var jobSpecData []byte
-	err := s.DB.QueryRowContext(ctx, `
+	err = s.DB.QueryRowContext(ctx, `
 		SELECT j.jobspec_data
 		FROM executions e
 		JOIN jobs j ON e.job_id = j.id

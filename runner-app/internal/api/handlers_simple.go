@@ -515,7 +515,7 @@ func (h *JobsHandler) CancelJob(c *gin.Context) {
 		}
 	}
 
-	// Mark all running/pending executions as cancelled
+	// Mark all running/pending executions as cancelled (including retrying executions)
 	var executionsCancelled int64
 	if h.jobsService.DB != nil {
 		result, err := h.jobsService.DB.ExecContext(c.Request.Context(),
@@ -523,7 +523,7 @@ func (h *JobsHandler) CancelJob(c *gin.Context) {
 			SET status = 'cancelled',
 				completed_at = NOW()
 			WHERE job_id = $1 
-			AND status IN ('pending', 'running', 'processing', 'queued')`,
+			AND status IN ('pending', 'running', 'processing', 'queued', 'retrying')`,
 			jobID)
 
 		if err == nil && result != nil {
