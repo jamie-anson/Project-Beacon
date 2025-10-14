@@ -78,10 +78,11 @@ export default function LiveProgressTable({
 
       {/* Question-Centric Progress Display: Question → Model → Region */}
       <div className="space-y-4">
-        {questionData.map(question => (
+        {questionData.map((question, questionIndex) => (
           <QuestionRow
             key={question.questionId}
             questionData={question}
+            questionIndex={questionIndex}
             jobId={activeJobId}
             selectedRegions={selectedRegions}
           />

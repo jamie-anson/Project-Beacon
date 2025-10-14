@@ -18,6 +18,7 @@ import { encodeQuestionId } from '../../lib/diffs/questionId';
  */
 const ModelRow = memo(function ModelRow({ 
   questionId,
+  questionIndex,
   jobId,
   modelData, 
   expanded, 
@@ -105,7 +106,7 @@ const ModelRow = memo(function ModelRow({
                 key={regionData.region}
                 region={regionData.region}
                 execution={regionData.execution}
-                questionIndex={regionData.execution?.question_index}
+                questionIndex={questionIndex}
               />
             ))}
         </div>

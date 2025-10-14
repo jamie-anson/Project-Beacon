@@ -13,7 +13,7 @@ import { getStatusColor, getStatusText, formatProgress } from './liveProgressHel
  * Always shows:
  * - All models for this question (not collapsible at question level)
  */
-const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedRegions }) {
+const QuestionRow = memo(function QuestionRow({ questionData, questionIndex, jobId, selectedRegions }) {
   const navigate = useNavigate();
   const [expandedModels, setExpandedModels] = useState(new Set());
   
@@ -69,6 +69,7 @@ const QuestionRow = memo(function QuestionRow({ questionData, jobId, selectedReg
           <ModelRow
             key={modelData.modelId}
             questionId={questionId}
+            questionIndex={questionIndex}
             jobId={jobId}
             modelData={modelData}
             expanded={expandedModels.has(modelData.modelId)}
