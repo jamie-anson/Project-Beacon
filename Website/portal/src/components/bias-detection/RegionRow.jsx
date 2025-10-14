@@ -30,16 +30,32 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
   const handleRetry = async () => {
     if (!executionId || !canRetry) return;
     
+    // Debug logging
+    console.log('[RegionRow] Retry clicked:', {
+      executionId,
+      region,
+      questionIndex,
+      questionIndexType: typeof questionIndex,
+      questionIndexValue: questionIndex
+    });
+    
+    // Ensure questionIndex is a number (default to 0 if undefined/null)
+    const qIndex = questionIndex !== undefined && questionIndex !== null ? questionIndex : 0;
+    
     try {
+      const payload = {
+        region: region,
+        question_index: qIndex
+      };
+      
+      console.log('[RegionRow] Sending retry request:', payload);
+      
       const response = await fetch(`/api/v1/executions/${executionId}/retry-question`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          region: region,
-          question_index: questionIndex || 0
-        })
+        body: JSON.stringify(payload)
       });
       
       if (response.ok) {
