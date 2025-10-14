@@ -65,11 +65,15 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
       });
       
       if (response.ok) {
-        // Refresh the page to show updated status
-        window.location.reload();
+        const result = await response.json();
+        console.log('[RegionRow] Retry successful:', result);
+        
+        // Show success message without reloading
+        // The Live Progress polling will pick up the updated status automatically
+        alert(`✅ Retry queued successfully!\n\nThe execution will be retried shortly. Live Progress will update automatically.`);
       } else {
         const error = await response.json();
-        alert(`Retry failed: ${error.error || 'Unknown error'}`);
+        alert(`❌ Retry failed: ${error.error || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Retry request failed:', err);

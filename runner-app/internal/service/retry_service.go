@@ -142,8 +142,7 @@ func (s *RetryService) updateExecutionSuccess(ctx context.Context, executionID i
 		SET 
 			status = 'completed',
 			output_data = $1,
-			completed_at = NOW(),
-			updated_at = NOW()
+			completed_at = NOW()
 		WHERE id = $2
 	`, resultJSON, executionID)
 	
@@ -155,8 +154,7 @@ func (s *RetryService) updateExecutionFailure(ctx context.Context, executionID i
 		UPDATE executions
 		SET 
 			status = 'failed',
-			original_error = $1,
-			updated_at = NOW()
+			original_error = $1
 		WHERE id = $2
 	`, errorMsg, executionID)
 	
