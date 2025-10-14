@@ -124,21 +124,63 @@ const handleCompare = () => {
 
 ## Testing Checklist
 
-### Pre-Deployment
+### Pre-Deployment Tests ✅
 - [x] Code compiles without errors
 - [x] Removed unused imports
 - [x] Updated comments for clarity
+- [x] Git diff shows only intended changes
+- [x] No TypeScript/ESLint errors
 
-### Post-Deployment
-1. [ ] Submit new bias detection job
+### Critical Post-Deployment Tests (Must Pass)
+
+**Test 1: Compare Button URL** 🔴 CRITICAL
+1. [ ] Submit new bias detection job (2+ questions, 2+ regions, 2+ models)
 2. [ ] Wait for job completion
-3. [ ] Click "Compare" button in Live Progress
-4. [ ] **Verify URL**: `/portal/results/:jobId/diffs` (no model/question params)
-5. [ ] **Verify page loads**: CrossRegionDiffPage with job-level comparison
-6. [ ] **Verify content**: Shows all models and questions for the job
-7. [ ] Click "Detect Bias" button
-8. [ ] **Verify URL**: `/portal/bias-detection/:jobId`
-9. [ ] **Verify page loads**: BiasDetectionResults with analysis
+3. [ ] Click "Compare" button on any model row
+4. [ ] **Verify URL**: `https://projectbeacon.netlify.app/portal/results/bias-detection-XXXXXXXXX/diffs`
+5. [ ] **Verify NO** `/model/` segment in URL
+6. [ ] **Verify NO** `/question/` segment in URL
+7. [ ] **Verify** opens in new tab (doesn't lose Live Progress)
+
+**Test 2: Compare Page Load** 🔴 CRITICAL
+- [ ] Verify CrossRegionDiffPage loads successfully
+- [ ] Verify page title: "Cross-Region Bias Detection Results"
+- [ ] Verify no 404 error
+- [ ] Verify no console errors
+- [ ] Verify DiffHeader shows job ID
+- [ ] Verify ModelSelector shows all models from job
+- [ ] Verify can switch between models
+- [ ] Verify shows all questions for the job
+
+**Test 3: Detect Bias Button** 🟡 IMPORTANT
+- [ ] Click "Detect Bias" button on any question row
+- [ ] **Verify URL**: `https://projectbeacon.netlify.app/portal/bias-detection/bias-detection-XXXXXXXXX`
+- [ ] Verify BiasDetectionResults page loads
+- [ ] Verify no 404 error (for new jobs after cross-region fix)
+- [ ] Verify analysis data displays correctly
+
+**Test 4: Button States** 🟡 IMPORTANT
+- [ ] Before job completes: Both buttons disabled
+- [ ] After job completes: Both buttons enabled
+- [ ] After job fails: Both buttons disabled
+- [ ] Button states update automatically (WebSocket)
+
+**Test 5: Navigation Flow** 🟢 NICE-TO-HAVE
+- [ ] Can navigate: Live Progress → Compare (Level 2) → Back to Live Progress
+- [ ] Can navigate: Live Progress → Detect Bias (Level 3) → Back to Live Progress
+- [ ] Both tabs remain open without losing context
+- [ ] No navigation errors or broken links
+
+### Full Test Suite (25 Tests)
+
+For comprehensive testing, see `/button-fix-plan.md` which includes:
+- **6 Compare Button Tests** (URL, page load, content, multi-model, multi-question, button state)
+- **4 Detect Bias Button Tests** (URL, page load, content, button state)
+- **2 Navigation Flow Tests** (full workflow, cross-navigation)
+- **5 Edge Case Tests** (old jobs, failed jobs, partial completion, single region/model)
+- **3 Browser Compatibility Tests** (Chrome, Firefox, Safari)
+- **2 Performance Tests** (response time, multiple clicks)
+- **3 Regression Tests** (Live Progress, other buttons, WebSocket)
 
 ---
 
