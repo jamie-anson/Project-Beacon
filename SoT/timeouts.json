@@ -1,0 +1,220 @@
+{
+  "timeout_hierarchy": {
+    "description": "Project Beacon has multiple timeout layers to handle different failure scenarios",
+    "layers": [
+      {
+        "level": 1,
+        "name": "Modal Function Timeout",
+        "duration_seconds": 120,
+        "duration_human": "2 minutes",
+        "scope": "Single inference call to Modal",
+        "enforced_by": "Modal Platform",
+        "configurable": false,
+        "location": "Modal function decorator",
+        "purpose": "Prevents individual inference calls from hanging",
+        "example": "@app.function(timeout=120)"
+      },
+      {
+        "level": 2,
+        "name": "Hybrid Router Inference Timeout",
+        "duration_seconds": 300,
+        "duration_human": "5 minutes",
+        "scope": "Single execution (includes network + Modal call)",
+        "enforced_by": "Runner App",
+        "configurable": true,
+        "location": "runner-app/internal/hybrid/client.go",
+        "purpose": "Accounts for network latency, cold starts, and Modal execution",
+        "includes": [
+          "Network request to hybrid router",
+          "Hybrid router processing",
+          "Modal cold start (if needed)",
+          "Modal inference execution",
+          "Response transmission"
+        ],
+        "code_reference": "ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)"
+      },
+      {
+        "level": 3,
+        "name": "Per-Job Timeout",
+        "duration_seconds": 3600,
+        "duration_human": "60 minutes (for 2-region jobs)",
+        "scope": "Entire job (all regions, all executions)",
+        "enforced_by": "Runner App",
+        "configurable": true,
+        "location": "runner-app/internal/execution/cross_region_executor.go",
+        "purpose": "Prevents jobs from hanging indefinitely",
+        "calculation": "30 minutes per region",
+        "examples": {
+          "1_region": "30 minutes",
+          "2_regions": "60 minutes",
+          "3_regions": "90 minutes"
+        },
+        "code_reference": "jobTimeout := time.Duration(len(plans)) * 30 * time.Minute"
+      },
+      {
+        "level": 4,
+        "name": "Portal Polling Timeout",
+        "duration_seconds": 3600,
+        "duration_human": "60 minutes",
+        "scope": "Portal stops polling for job updates",
+        "enforced_by": "Portal Frontend",
+        "configurable": true,
+        "location": "portal/src/pages/BiasDetection.jsx",
+        "purpose": "Prevents infinite polling, saves resources",
+        "behavior": "Returns null to stop polling interval",
+        "code_reference": "if (jobAge > maxJobTime) return null;"
+      }
+    ]
+  },
+  "typical_execution_times": {
+    "description": "Actual execution times under normal conditions",
+    "single_inference": {
+      "warm_start": "20-40 seconds",
+      "cold_start": "60-90 seconds",
+      "average": "30 seconds"
+    },
+    "full_job_2_regions": {
+      "executions_count": 18,
+      "calculation": "2 regions × 3 models × 3 questions",
+      "typical_time": "9-15 minutes",
+      "with_cold_starts": "15-20 minutes",
+      "worst_case": "27 minutes (all cold starts)",
+      "with_retries": "30-35 minutes"
+    }
+  },
+  "timeout_scenarios": {
+    "scenario_1_normal_execution": {
+      "description": "Job completes normally",
+      "timeline": [
+        { "time": "0 min", "event": "Job starts", "status": "running" },
+        { "time": "5 min", "event": "US region processing", "status": "running" },
+        { "time": "10 min", "event": "EU region processing", "status": "running" },
+        { "time": "15 min", "event": "Job completes", "status": "completed" }
+      ],
+      "timeouts_hit": "None",
+      "result": "Success ✅"
+    },
+    "scenario_2_modal_timeout": {
+      "description": "Single Modal call exceeds 2 minutes",
+      "timeline": [
+        { "time": "0 sec", "event": "Modal inference starts", "status": "running" },
+        { "time": "120 sec", "event": "Modal timeout", "status": "failed" },
+        { "time": "122 sec", "event": "Retry queued", "status": "retrying" },
+        { "time": "152 sec", "event": "Retry completes", "status": "completed" }
+      ],
+      "timeouts_hit": ["Modal Function Timeout"],
+      "result": "Retried and succeeded ✅"
+    },
+    "scenario_3_execution_timeout": {
+      "description": "Execution exceeds 5 minutes (network issues)",
+      "timeline": [
+        { "time": "0 min", "event": "Execution starts", "status": "running" },
+        { "time": "5 min", "event": "Execution timeout", "status": "failed" },
+        { "time": "5.5 min", "event": "Retry queued", "status": "retrying" },
+        { "time": "6 min", "event": "Retry completes", "status": "completed" }
+      ],
+      "timeouts_hit": ["Hybrid Router Inference Timeout"],
+      "result": "Retried and succeeded ✅"
+    },
+    "scenario_4_job_timeout": {
+      "description": "Entire job exceeds 60 minutes",
+      "timeline": [
+        { "time": "0 min", "event": "Job starts", "status": "running" },
+        { "time": "30 min", "event": "Still processing", "status": "running" },
+        { "time": "50 min", "event": "Approaching timeout", "status": "running" },
+        { "time": "60 min", "event": "Job timeout", "status": "timeout" },
+        { "time": "60 min", "event": "Portal stops polling", "status": "timeout" }
+      ],
+      "timeouts_hit": ["Per-Job Timeout", "Portal Polling Timeout"],
+      "result": "Job terminated, partial results available ⚠️"
+    },
+    "scenario_5_stuck_job": {
+      "description": "Job creates no executions after 15 minutes",
+      "timeline": [
+        { "time": "0 min", "event": "Job starts", "status": "queued" },
+        { "time": "15 min", "event": "No executions created", "status": "stuck" },
+        { "time": "15 min", "event": "Portal shows timeout alert", "status": "timeout" }
+      ],
+      "timeouts_hit": ["Stuck Detection (15 min)"],
+      "result": "Job marked as stuck ❌"
+    }
+  },
+  "timeout_detection": {
+    "portal_stuck_detection": {
+      "threshold_minutes": 15,
+      "condition": "No executions created after 15 minutes",
+      "location": "portal/src/lib/utils/progressUtils.js",
+      "function": "isJobStuck()",
+      "alert_shown": true
+    },
+    "portal_timeout_detection": {
+      "threshold_minutes": 60,
+      "condition": "Job still running after 60 minutes",
+      "location": "portal/src/lib/utils/progressUtils.js",
+      "function": "isJobStuck()",
+      "alert_shown": true,
+      "polling_stopped": true
+    }
+  },
+  "countdown_timer": {
+    "description": "Portal countdown timer shown to user",
+    "duration_seconds": 3600,
+    "duration_human": "60 minutes",
+    "starts_at": "60:00",
+    "behavior": {
+      "normal": "Counts down from 60:00 to 0:00",
+      "timeout": "Shows 0:00 and timeout alert",
+      "exceeded": "Can show negative time (e.g., -5:00) if somehow exceeds"
+    },
+    "location": "portal/src/lib/utils/progressUtils.js",
+    "function": "calculateTimeRemaining()"
+  },
+  "retry_behavior": {
+    "description": "How retries interact with timeouts",
+    "max_retries_per_execution": 3,
+    "retry_queue": "Global retry queue (cross-region)",
+    "retry_delay": "2-30 seconds (exponential backoff)",
+    "timeout_applies_to": "Each retry attempt (not cumulative)",
+    "example": {
+      "attempt_1": "Fails at 2 min (Modal timeout)",
+      "retry_1": "Gets fresh 5-min execution timeout",
+      "retry_2": "Gets fresh 5-min execution timeout",
+      "retry_3": "Gets fresh 5-min execution timeout",
+      "total_time": "Up to 20 minutes for single execution (4 attempts × 5 min)"
+    }
+  },
+  "configuration": {
+    "runner_app": {
+      "file": "runner-app/internal/hybrid/client.go",
+      "execution_timeout": "5 * time.Minute",
+      "changeable": true
+    },
+    "cross_region_executor": {
+      "file": "runner-app/internal/execution/cross_region_executor.go",
+      "job_timeout_per_region": "30 * time.Minute",
+      "changeable": true
+    },
+    "portal": {
+      "file": "portal/src/pages/BiasDetection.jsx",
+      "polling_timeout": "3600 seconds (60 minutes)",
+      "changeable": true
+    },
+    "portal_countdown": {
+      "file": "portal/src/lib/utils/progressUtils.js",
+      "countdown_duration": "60 * 60 seconds",
+      "changeable": true
+    }
+  },
+  "recommendations": {
+    "current_settings": "Appropriate for production",
+    "modal_timeout": "Cannot be changed (platform limit)",
+    "execution_timeout": "5 minutes is good for cold starts",
+    "job_timeout": "60 minutes handles worst-case scenarios",
+    "monitoring": [
+      "Track average job completion time",
+      "Alert if >80% of jobs approach timeout",
+      "Monitor retry rates",
+      "Track timeout frequency"
+    ]
+  }
+}
