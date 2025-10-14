@@ -237,7 +237,7 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Recent Comparisons</h3>
-              <Link to="/diffs" className="text-sm text-orange-400 underline decoration-dotted">See all Comparisons</Link>
+              <Link to="/portal/diffs" className="text-sm text-orange-400 underline decoration-dotted">See all Comparisons</Link>
             </div>
             {loadingDiffs ? (
               <div className="bg-gray-800 border border-gray-700 rounded overflow-hidden">

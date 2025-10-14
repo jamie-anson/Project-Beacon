@@ -136,7 +136,7 @@ export default function AIs() {
       <div className="flex flex-wrap gap-3">
         <Link to="/world" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">View World Map</Link>
         <Link to="/questions" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">Browse Questions</Link>
-        <Link to="/diffs" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">Compare Diffs</Link>
+        <Link to="/portal/diffs" className="px-3 py-2 border border-gray-600 text-gray-300 rounded-md text-sm hover:bg-gray-700">Compare Diffs</Link>
       </div>
     </div>
   );
