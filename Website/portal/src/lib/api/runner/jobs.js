@@ -45,7 +45,12 @@ export async function createJob(initialJobspec, opts = {}) {
   const isCrossRegionFormat = jobspec.jobspec && jobspec.target_regions;
   
   if (isCrossRegionFormat) {
-    console.log('[Beacon] Submitting pre-formatted cross-region job');
+    console.log('[Beacon] Submitting cross-region job to /jobs/cross-region endpoint:', {
+      jobId: jobspec.jobspec?.id,
+      regions: jobspec.target_regions,
+      minRegions: jobspec.min_regions,
+      enableAnalysis: jobspec.enable_analysis
+    });
     
     const headers = {};
     const enableIdem = opts.forceIdempotency === true || (opts.forceIdempotency !== false && shouldSendIdempotency());

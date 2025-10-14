@@ -197,28 +197,41 @@ export function useBiasDetection() {
       // Sign the jobspec
       const signedSpec = await signJobSpecForAPI(spec, { includeWalletAuth: true });
       
-      // For multi-region bias detection, wrap in cross-region format
-      const isMultiRegion = selectedRegions.length > 1;
-      let finalPayload;
-      if (isMultiRegion) {
-        finalPayload = {
-          jobspec: signedSpec,  // The signed jobspec
-          target_regions: selectedRegions,
-          min_regions: 1,
-          min_success_rate: 0.67,
-          enable_analysis: true
-        };
-      } else {
-        finalPayload = signedSpec;
-      }
+      // For bias detection, ALWAYS use cross-region format to enable Level 3 analysis
+      // This ensures the cross_region_executions table is populated for bias analysis endpoint
+      const finalPayload = {
+        jobspec: signedSpec,  // The signed jobspec
+        target_regions: selectedRegions,
+        min_regions: Math.max(1, Math.floor(selectedRegions.length * 0.67)), // 67% success rate
+        min_success_rate: 0.67,
+        enable_analysis: true  // Critical: enables bias analysis generation
+      };
+      
+      console.log('[BiasDetection] Submitting cross-region job:', {
+        jobId: spec.id,
+        regions: selectedRegions,
+        models: selectedModels,
+        questions: questions.length,
+        enableAnalysis: true
+      });
       
       const res = await createJob(finalPayload);
-      const id = res?.id || res?.job_id;
       
-      if (id) {
-        setActiveJobId(id);
-        try { sessionStorage.setItem(SESSION_KEY, id); } catch {}
-        addToast(createSuccessToast(id, 'submitted'));
+      // Cross-region endpoint returns: { id, job_id, cross_region_execution_id, status, ... }
+      const jobId = res?.id || res?.job_id || res?.jobspec_id;
+      const crossRegionExecId = res?.cross_region_execution_id;
+      
+      console.log('[BiasDetection] Cross-region job submitted:', {
+        jobId,
+        crossRegionExecId,
+        status: res?.status,
+        totalRegions: res?.total_regions
+      });
+      
+      if (jobId) {
+        setActiveJobId(jobId);
+        try { sessionStorage.setItem(SESSION_KEY, jobId); } catch {}
+        addToast(createSuccessToast(jobId, 'submitted'));
         fetchBiasJobs();
       } else {
         throw new Error('No job ID returned from server');
