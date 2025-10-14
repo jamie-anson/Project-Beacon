@@ -280,7 +280,7 @@ export default function ModelRegionDiffPage() {
                 return (
                   <Link
                     key={question}
-                    to={`/results/${jobId}/model/${modelId}/question/${encodedQuestion}`}
+                    to={`/portal/results/${jobId}/model/${modelId}/question/${encodedQuestion}`}
                     className="block p-4 bg-gray-900 hover:bg-gray-700 border border-gray-700 hover:border-blue-500 rounded-lg transition-colors group"
                   >
                     <div className="text-gray-100 group-hover:text-blue-300">
