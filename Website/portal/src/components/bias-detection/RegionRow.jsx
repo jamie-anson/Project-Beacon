@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { getStatusColor, getStatusText } from './liveProgressHelpers';
 
 /**
@@ -16,10 +16,15 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
     'ASIA': 'Asia Pacific'
   };
   
+  // Optimistic UI state for retry
+  const [isRetrying, setIsRetrying] = useState(false);
+  
   const regionName = regionNames[region] || region;
-  const status = execution?.status || 'pending';
+  const actualStatus = execution?.status || 'pending';
+  // Show 'retrying' status optimistically when retry is in progress
+  const status = isRetrying ? 'retrying' : actualStatus;
   const executionId = execution?.id;
-  const hasAnswer = status === 'completed' && executionId;
+  const hasAnswer = actualStatus === 'completed' && executionId;
   
   // Retry tracking
   const retryCount = execution?.retry_count || 0;
@@ -76,9 +81,15 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
         console.log('✅ Retry successful! Response:', result);
         console.groupEnd();
         
+        // Set optimistic UI state to show 'retrying' status
+        setIsRetrying(true);
+        
         // Show success message without reloading
         // The Live Progress polling will pick up the updated status automatically
         alert(`✅ Retry queued successfully!\n\nThe execution will be retried shortly. Live Progress will update automatically.`);
+        
+        // Clear optimistic state after 30 seconds (polling should have updated by then)
+        setTimeout(() => setIsRetrying(false), 30000);
       } else {
         const error = await response.json();
         console.error('❌ Retry failed! Error:', error);

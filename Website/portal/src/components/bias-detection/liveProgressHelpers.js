@@ -258,6 +258,7 @@ export function getStatusColor(status) {
       return 'bg-green-900/20 text-green-400 border-green-700';
     case 'processing':
     case 'running':
+    case 'retrying':
       return 'bg-yellow-900/20 text-yellow-400 border-yellow-700';
     case 'failed':
       return 'bg-red-900/20 text-red-400 border-red-700';
@@ -280,6 +281,8 @@ export function getStatusText(status) {
     case 'processing':
     case 'running':
       return 'Processing';
+    case 'retrying':
+      return 'Retrying';
     case 'failed':
       return 'Failed';
     case 'cancelled':
