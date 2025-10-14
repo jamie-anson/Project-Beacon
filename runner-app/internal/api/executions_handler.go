@@ -1038,23 +1038,30 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 	}
 	
 	// Update execution record with retry attempt
+	retryHistoryJSON := fmt.Sprintf("[%s]", mustMarshalJSON(retryHistoryEntry))
+	
+	log.Printf("[RETRY] Updating execution %d: retry_count=%d, retry_history=%s", executionID, newRetryCount, retryHistoryJSON)
+	
 	_, err = h.ExecutionsRepo.DB.ExecContext(ctx, `
 		UPDATE executions 
 		SET 
 			retry_count = $1,
 			last_retry_at = NOW(),
-			retry_history = retry_history || $2::jsonb,
+			retry_history = COALESCE(retry_history, '[]'::jsonb) || $2::jsonb,
 			status = 'retrying',
 			updated_at = NOW()
 		WHERE id = $3
-	`, newRetryCount, fmt.Sprintf("[%s]", mustMarshalJSON(retryHistoryEntry)), executionID)
+	`, newRetryCount, retryHistoryJSON, executionID)
 	
 	if err != nil {
+		log.Printf("[RETRY] Database update failed for execution %d: %v", executionID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update retry count",
+			"error": fmt.Sprintf("Failed to update retry count: %v", err),
 		})
 		return
 	}
+	
+	log.Printf("[RETRY] Successfully updated execution %d retry count to %d", executionID, newRetryCount)
 	
 	// Trigger actual re-execution of the question
 	if h.RetryService != nil {
