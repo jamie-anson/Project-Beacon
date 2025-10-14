@@ -31,7 +31,7 @@ const RegionRow = memo(function RegionRow({ region, execution }) {
     if (!executionId || !canRetry) return;
     
     try {
-      const response = await fetch(`/api/v1/executions/${executionId}/retry`, {
+      const response = await fetch(`/api/v1/executions/${executionId}/retry-question`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
