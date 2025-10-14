@@ -40,15 +40,21 @@ const RegionRow = memo(function RegionRow({ region, execution, questionIndex }) 
     });
     
     // Ensure questionIndex is a number (default to 0 if undefined/null)
-    const qIndex = questionIndex !== undefined && questionIndex !== null ? questionIndex : 0;
+    // CRITICAL: Backend requires question_index to be present
+    let qIndex = questionIndex;
+    if (qIndex === undefined || qIndex === null || typeof qIndex !== 'number') {
+      console.warn('[RegionRow] questionIndex is invalid, defaulting to 0:', questionIndex);
+      qIndex = 0;
+    }
     
     try {
       const payload = {
         region: region,
-        question_index: qIndex
+        question_index: qIndex  // Always a valid number
       };
       
       console.log('[RegionRow] Sending retry request:', payload);
+      console.log('[RegionRow] Payload stringified:', JSON.stringify(payload));
       
       const response = await fetch(`/api/v1/executions/${executionId}/retry-question`, {
         method: 'POST',
