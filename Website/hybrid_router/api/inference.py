@@ -1,6 +1,6 @@
 """Inference endpoints"""
 
-from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi import APIRouter, BackgroundTasks, Query, Request
 from typing import Optional
 import uuid
 
@@ -11,29 +11,31 @@ router = APIRouter()
 
 
 @router.post("/inference", response_model=InferenceResponse)
-async def inference_endpoint(request: InferenceRequest, background_tasks: BackgroundTasks):
+async def inference_endpoint(inference_request: InferenceRequest, background_tasks: BackgroundTasks, request: Request):
     """Main inference endpoint"""
-    from ..main import router_instance
+    # Get router_instance from app state instead of circular import
+    router_instance = request.app.state.router_instance
     
     # Run health checks in background
     background_tasks.add_task(router_instance.health_check_providers)
     
-    return await router_instance.run_inference(request)
+    return await router_instance.run_inference(inference_request)
 
 
 @router.post("/v1/inference", response_model=InferenceResponse)
-async def inference_endpoint_v1(request: InferenceRequest, background_tasks: BackgroundTasks):
+async def inference_endpoint_v1(inference_request: InferenceRequest, background_tasks: BackgroundTasks, request: Request):
     """Legacy v1 inference endpoint - alias for /inference"""
-    from ..main import router_instance
+    # Get router_instance from app state instead of circular import
+    router_instance = request.app.state.router_instance
     
     # Run health checks in background
     background_tasks.add_task(router_instance.health_check_providers)
     
-    return await router_instance.run_inference(request)
+    return await router_instance.run_inference(inference_request)
 
 
 @router.post("/inference/queued")
-async def inference_queued(request: InferenceRequest, use_queue: bool = Query(default=True)):
+async def inference_queued(inference_request: InferenceRequest, fastapi_request: Request, use_queue: bool = Query(default=True)):
     """Queue-based inference endpoint for GPU resource management
     
     This endpoint adds the inference request to a region queue instead of
@@ -44,22 +46,23 @@ async def inference_queued(request: InferenceRequest, use_queue: bool = Query(de
         queue_position: Position in queue
         estimated_wait: Estimated wait time in seconds
     """
-    from ..main import router_instance
+    # Get router_instance from app state instead of circular import
+    router_instance = fastapi_request.app.state.router_instance
     
     if not use_queue:
         # Fallback to direct execution
-        return await router_instance.run_inference(request)
+        return await router_instance.run_inference(inference_request)
     
     # Create queued job
     job_id = f"inference-{uuid.uuid4().hex[:12]}"
-    region = request.region_preference or "US"
+    region = inference_request.region_preference or "US"
     
     queued_job = QueuedJob(
         job_id=job_id,
-        model=request.model,
-        prompt=request.prompt,
-        temperature=request.temperature,
-        max_tokens=request.max_tokens,
+        model=inference_request.model,
+        prompt=inference_request.prompt,
+        temperature=inference_request.temperature,
+        max_tokens=inference_request.max_tokens,
         region=region,
     )
     

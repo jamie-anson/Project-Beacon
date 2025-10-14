@@ -49,6 +49,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Store router_instance in app state for dependency injection
+app.state.router_instance = router_instance
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
