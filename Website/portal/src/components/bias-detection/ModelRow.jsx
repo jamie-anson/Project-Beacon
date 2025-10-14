@@ -31,7 +31,7 @@ const ModelRow = memo(function ModelRow({
     if (diffsEnabled) {
       // Navigate to Level 2: Job-level cross-region comparison page
       // Opens in new tab to prevent losing Live Progress context
-      window.open(`/results/${jobId}/diffs`, '_blank', 'noopener,noreferrer');
+      window.open(`/portal/results/${jobId}/diffs`, '_blank', 'noopener,noreferrer');
     }
   };
   
