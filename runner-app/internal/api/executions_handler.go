@@ -1048,8 +1048,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 			retry_count = $1,
 			last_retry_at = NOW(),
 			retry_history = COALESCE(retry_history, '[]'::jsonb) || $2::jsonb,
-			status = 'retrying',
-			updated_at = NOW()
+			status = 'retrying'
 		WHERE id = $3
 	`, newRetryCount, retryHistoryJSON, executionID)
 	
