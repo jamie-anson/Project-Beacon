@@ -40,12 +40,40 @@
 - Function calls showing 0ms startup (warm container)
 - Execution times: 6.35s, 1m 1s, 59.80s, 1m 48s
 
-**TODO (Tomorrow):**
-- [ ] Check runner logs for region routing
-- [ ] Verify hybrid router provider discovery
-- [ ] Test EU Modal endpoint directly
-- [ ] Review `executeMultiRegion()` region assignment
-- [ ] Check if this affects bias detection results
+**UPDATE 02:49 - CRITICAL FINDING:**
+
+The issue is NOT that EU jobs are going to US Modal. Looking at the timestamps:
+
+- **Portal:** "Job completed successfully!" at 02:47
+- **EU Modal:** Executions ran at 02:47:43 and 02:47:45 (AFTER job marked complete)
+- **Portal:** Shows 4/4 executions complete
+
+**ACTUAL PROBLEM:** Job is marked as "completed" BEFORE all executions finish!
+
+This is a **goroutine coordination bug** in `executeMultiRegion()`:
+- US executions finish first (~6-10s)
+- Job marked as "completed" 
+- EU executions still running (finish 40-45s later)
+- EU executions write to DB after job already "completed"
+
+**Root Cause:**
+- `sync.WaitGroup` not waiting for all goroutines
+- OR job status updated before `wg.Wait()` completes
+- OR context cancelled before EU goroutines finish
+
+**Impact:**
+- Portal shows job "completed" while executions still running
+- EU executions appear as "late arrivals" in Modal
+- Database writes happen after job marked done
+- User sees incomplete data until EU finishes
+
+**TODO (Tomorrow - UPDATED):**
+- [ ] Review `executeMultiRegion()` goroutine coordination
+- [ ] Check if `wg.Wait()` is actually blocking
+- [ ] Verify job status update happens AFTER all goroutines complete
+- [ ] Check for context cancellation timing
+- [ ] Add logging to track goroutine completion order
+- [ ] Test with longer-running executions to reproduce
 
 ---
 
