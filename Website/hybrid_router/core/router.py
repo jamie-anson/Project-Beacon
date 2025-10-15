@@ -4,6 +4,7 @@ import os
 import time
 import asyncio
 import logging
+import uuid
 from typing import Dict, Any, List, Optional
 
 import httpx
@@ -18,7 +19,18 @@ logger = logging.getLogger(__name__)
 class HybridRouter:
     def __init__(self):
         self.providers: List[Provider] = []
-        self.client = httpx.AsyncClient(timeout=600.0)  # 10 minutes for Modal GPU queue + cold starts
+        # Configure granular timeouts for different stages
+        # connect: time to establish connection
+        # read: time to read response (includes Modal execution time)
+        # write: time to write request
+        # pool: time to acquire connection from pool
+        timeout = httpx.Timeout(
+            connect=10.0,   # 10s to connect
+            read=600.0,     # 10min for Modal GPU queue + cold starts + execution
+            write=10.0,     # 10s to send request
+            pool=10.0       # 10s to get connection from pool
+        )
+        self.client = httpx.AsyncClient(timeout=timeout)
         self.setup_providers()
 
     def _build_failure(
@@ -351,7 +363,11 @@ class HybridRouter:
         }
     
     async def _run_modal_inference(self, provider: Provider, request: InferenceRequest) -> Dict[str, Any]:
-        """Run inference on Modal provider"""
+        """Run inference on Modal provider with detailed timing and error tracking"""
+        
+        # Generate correlation ID for request tracking
+        request_id = str(uuid.uuid4())[:8]
+        
         payload = {
             "model": request.model,
             "prompt": request.prompt,
@@ -366,38 +382,175 @@ class HybridRouter:
         token = os.getenv("MODAL_API_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
+        # Log request initiation with timing
+        request_start = time.time()
+        logger.info(
+            f"[{request_id}] Sending request to Modal",
+            extra={
+                "request_id": request_id,
+                "provider": provider.name,
+                "region": provider.region,
+                "model": request.model,
+                "prompt_len": len(request.prompt or ""),
+                "endpoint": provider.endpoint
+            }
+        )
+
         response = None
-        # Debug log with safe prompt preview
-        try:
-            logger.info(
-                "Routing to Modal provider",
-                extra={
-                    "provider": provider.name,
-                    "region": provider.region,
-                    "model": request.model,
-                    "prompt_len": len(request.prompt or ""),
-                    "prompt_preview": (request.prompt or "")[:120]
-                },
-            )
-        except Exception:
-            pass
+        last_error = None
+        
         for attempt in range(3):
-            response = await self.client.post(provider.endpoint, json=payload, headers=headers)
-
-            if response.status_code == 404 and "app for invoked web endpoint is stopped" in response.text:
-                logger.warning(
-                    "Modal endpoint reported stopped app; retrying",
-                    extra={"provider": provider.name, "attempt": attempt + 1}
+            try:
+                attempt_start = time.time()
+                logger.debug(f"[{request_id}] Attempt {attempt + 1}/3 starting")
+                
+                # Make the POST request with explicit timeout handling
+                response = await self.client.post(
+                    provider.endpoint, 
+                    json=payload, 
+                    headers=headers
                 )
-                await asyncio.sleep(2 * (attempt + 1))
-                continue
-            break
+                
+                attempt_duration = time.time() - attempt_start
+                logger.info(
+                    f"[{request_id}] Modal responded in {attempt_duration:.2f}s",
+                    extra={
+                        "request_id": request_id,
+                        "attempt": attempt + 1,
+                        "status_code": response.status_code,
+                        "duration_seconds": attempt_duration
+                    }
+                )
 
-        # Normalize Modal response to router's expected schema
+                # Check for stopped app and retry
+                if response.status_code == 404 and "app for invoked web endpoint is stopped" in response.text:
+                    logger.warning(
+                        f"[{request_id}] Modal app stopped, retrying",
+                        extra={"request_id": request_id, "attempt": attempt + 1}
+                    )
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                    
+                # Success or non-retryable error
+                break
+                
+            except httpx.TimeoutException as e:
+                attempt_duration = time.time() - attempt_start
+                last_error = e
+                logger.error(
+                    f"[{request_id}] Modal request timed out after {attempt_duration:.2f}s",
+                    extra={
+                        "request_id": request_id,
+                        "attempt": attempt + 1,
+                        "timeout_type": type(e).__name__,
+                        "duration_seconds": attempt_duration
+                    }
+                )
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                # Final attempt failed, will handle below
+                
+            except httpx.RequestError as e:
+                attempt_duration = time.time() - attempt_start
+                last_error = e
+                logger.error(
+                    f"[{request_id}] Modal request failed: {e}",
+                    extra={
+                        "request_id": request_id,
+                        "attempt": attempt + 1,
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "duration_seconds": attempt_duration
+                    }
+                )
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                # Final attempt failed, will handle below
+                
+            except Exception as e:
+                attempt_duration = time.time() - attempt_start
+                last_error = e
+                logger.error(
+                    f"[{request_id}] Unexpected error calling Modal: {e}",
+                    extra={
+                        "request_id": request_id,
+                        "attempt": attempt + 1,
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "duration_seconds": attempt_duration
+                    },
+                    exc_info=True
+                )
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                # Final attempt failed, will handle below
+
+        # If all attempts failed, return error
+        if response is None:
+            total_duration = time.time() - request_start
+            logger.error(
+                f"[{request_id}] All Modal attempts failed after {total_duration:.2f}s",
+                extra={"request_id": request_id, "total_duration_seconds": total_duration}
+            )
+            failure = self._build_failure(
+                code="MODAL_REQUEST_FAILED",
+                stage="modal_request",
+                message=f"Failed to get response from Modal after 3 attempts: {last_error}",
+                provider=provider.name,
+                provider_type=provider.type.value,
+                region=provider.region,
+                model=request.model,
+                transient=True,
+            )
+            return {
+                "success": False,
+                "error": failure["message"],
+                "error_code": failure["code"],
+                "failure": failure,
+            }
+
+        # Parse response with proper error handling
+        data = None
         try:
-            data = response.json() if response is not None else None
-        except Exception:
-            data = None
+            parse_start = time.time()
+            data = response.json()
+            parse_duration = time.time() - parse_start
+            logger.debug(
+                f"[{request_id}] Response parsed in {parse_duration:.3f}s",
+                extra={"request_id": request_id, "parse_duration_seconds": parse_duration}
+            )
+        except Exception as e:
+            logger.error(
+                f"[{request_id}] Failed to parse Modal response as JSON: {e}",
+                extra={
+                    "request_id": request_id,
+                    "status_code": response.status_code,
+                    "content_type": response.headers.get("content-type"),
+                    "body_preview": response.text[:500] if response.text else None
+                },
+                exc_info=True
+            )
+            # Return parse error instead of silently continuing
+            failure = self._build_failure(
+                code="MODAL_RESPONSE_PARSE_ERROR",
+                stage="response_parsing",
+                message=f"Could not parse Modal response as JSON: {e}",
+                provider=provider.name,
+                provider_type=provider.type.value,
+                region=provider.region,
+                model=request.model,
+                http_status=response.status_code,
+                transient=False,
+            )
+            return {
+                "success": False,
+                "error": failure["message"],
+                "error_code": failure["code"],
+                "failure": failure,
+            }
 
         if response is not None and response.status_code == 200 and isinstance(data, dict):
             # Modal returns { status: "success" | "error", response?: str, error?: str, ... }
@@ -417,6 +570,15 @@ class HybridRouter:
                 resp_text = ""
 
             if not success:
+                total_duration = time.time() - request_start
+                logger.warning(
+                    f"[{request_id}] Modal reported execution failure after {total_duration:.2f}s",
+                    extra={
+                        "request_id": request_id,
+                        "total_duration_seconds": total_duration,
+                        "error_message": error_msg
+                    }
+                )
                 failure_payload = data.get("failure") or {}
                 failure = self._build_failure(
                     code=failure_payload.get("code", "PROVIDER_EXECUTION_FAILED"),
@@ -437,6 +599,18 @@ class HybridRouter:
                     "modal_raw": data,
                 }
 
+            # Success path
+            total_duration = time.time() - request_start
+            logger.info(
+                f"[{request_id}] Modal inference completed successfully in {total_duration:.2f}s",
+                extra={
+                    "request_id": request_id,
+                    "total_duration_seconds": total_duration,
+                    "response_length": len(resp_text) if resp_text else 0,
+                    "model": request.model,
+                    "region": provider.region
+                }
+            )
             return {
                 "success": bool(success),
                 "response": resp_text,
@@ -448,9 +622,18 @@ class HybridRouter:
         # Non-200 or invalid responses fall back to HTTP failure mapping
         status_code = response.status_code if response is not None else 500
         body_text = response.text if response is not None else ""
+        total_duration = time.time() - request_start
 
         if isinstance(data, dict) and status_code == 200:
             # Handle unexpected JSON without explicit HTTP status
+            logger.error(
+                f"[{request_id}] Modal returned 200 but unexpected JSON structure after {total_duration:.2f}s",
+                extra={
+                    "request_id": request_id,
+                    "total_duration_seconds": total_duration,
+                    "data_keys": list(data.keys()) if isinstance(data, dict) else None
+                }
+            )
             failure = self._build_failure(
                 code="PROVIDER_EXECUTION_FAILED",
                 stage="provider_execution",
@@ -470,6 +653,15 @@ class HybridRouter:
                 "modal_raw": data,
             }
 
+        logger.error(
+            f"[{request_id}] Modal returned HTTP {status_code} after {total_duration:.2f}s",
+            extra={
+                "request_id": request_id,
+                "status_code": status_code,
+                "total_duration_seconds": total_duration,
+                "body_preview": body_text[:200] if body_text else None
+            }
+        )
         failure = self._build_failure(
             code=f"PROVIDER_HTTP_{status_code}",
             stage="provider_execution",
