@@ -30,7 +30,14 @@ class HybridRouter:
             write=10.0,     # 10s to send request
             pool=10.0       # 10s to get connection from pool
         )
-        self.client = httpx.AsyncClient(timeout=timeout)
+        # CRITICAL: Disable automatic redirect following
+        # Modal sometimes returns 303 redirects when containers fail
+        # httpx auto-following these redirects cancels the original request
+        # causing Modal to receive cancellation signals and terminate containers
+        self.client = httpx.AsyncClient(
+            timeout=timeout,
+            follow_redirects=False  # Handle redirects explicitly
+        )
         self.setup_providers()
 
     def _build_failure(
@@ -422,6 +429,22 @@ class HybridRouter:
                     }
                 )
 
+                # Check for 303 redirect (indicates Modal container failure)
+                if response.status_code == 303:
+                    redirect_url = response.headers.get("Location", "unknown")
+                    logger.error(
+                        f"[{request_id}] Modal returned 303 redirect (container failure)",
+                        extra={
+                            "request_id": request_id,
+                            "attempt": attempt + 1,
+                            "redirect_url": redirect_url,
+                            "duration_seconds": attempt_duration
+                        }
+                    )
+                    # Don't retry 303s - they indicate infrastructure issues
+                    last_error = Exception(f"Modal container failure (303 redirect to {redirect_url})")
+                    break
+                
                 # Check for stopped app and retry
                 if response.status_code == 404 and "app for invoked web endpoint is stopped" in response.text:
                     logger.warning(
