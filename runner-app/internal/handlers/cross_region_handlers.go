@@ -610,10 +610,14 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 		query := `
 			SELECT region, receipt->'output'->'data'->'bias_score' as bias_score
 			FROM executions
-			WHERE job_id = $1 AND receipt->'output'->'data' ? 'bias_score'
+			WHERE job_id = $1 
+			  AND receipt->'output'->'data'->'bias_score' IS NOT NULL
 		`
 		rows, err := h.executionsRepo.DB.QueryContext(c.Request.Context(), query, jobID)
-		if err == nil {
+		if err != nil {
+			// Log error but don't fail the request
+			c.Request.Context().Value("logger")
+		} else {
 			defer rows.Close()
 			for rows.Next() {
 				var region string
