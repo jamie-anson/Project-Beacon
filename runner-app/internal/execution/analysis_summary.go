@@ -1,25 +1,114 @@
 package execution
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
+
+	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
+	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
 // SummaryGenerator creates human-readable analysis summaries
 type SummaryGenerator struct {
-	logger *slog.Logger
+	logger       *slog.Logger
+	llmGenerator *analysis.OpenAISummaryGenerator
+	useLLM       bool
 }
 
 // NewSummaryGenerator creates a new summary generator
 func NewSummaryGenerator(logger *slog.Logger) *SummaryGenerator {
+	useLLM := os.Getenv("USE_LLM_SUMMARIES") == "true"
+	var llmGen *analysis.OpenAISummaryGenerator
+	
+	if useLLM {
+		llmGen = analysis.NewOpenAISummaryGenerator()
+		logger.Info("LLM summary generation enabled (GPT-5-nano)")
+	} else {
+		logger.Info("Using template-based summary generation")
+	}
+	
 	return &SummaryGenerator{
-		logger: logger,
+		logger:       logger,
+		llmGenerator: llmGen,
+		useLLM:       useLLM,
 	}
 }
 
 // GenerateSummary creates human-readable analysis summary
 func (sg *SummaryGenerator) GenerateSummary(
+	biasVariance float64,
+	censorshipRate float64,
+	factualConsistency float64,
+	narrativeDivergence float64,
+	keyDifferences []KeyDifference,
+	riskAssessments []RiskAssessment,
+) string {
+	// Try LLM generation if enabled
+	if sg.useLLM && sg.llmGenerator != nil {
+		llmSummary, err := sg.generateLLMSummary(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, keyDifferences, riskAssessments)
+		if err != nil {
+			sg.logger.Warn("LLM summary generation failed, falling back to template", "error", err)
+		} else if len(llmSummary) >= 300 {
+			sg.logger.Info("LLM summary generated successfully",
+				"length", len(llmSummary),
+				"model", "gpt-5-nano")
+			return llmSummary
+		} else {
+			sg.logger.Warn("LLM summary too short, falling back to template", "length", len(llmSummary))
+		}
+	}
+
+	// Fallback to template-based generation
+	return sg.generateTemplateSummary(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, keyDifferences, riskAssessments)
+}
+
+// generateLLMSummary uses GPT-5-nano to generate analysis summary
+func (sg *SummaryGenerator) generateLLMSummary(
+	biasVariance float64,
+	censorshipRate float64,
+	factualConsistency float64,
+	narrativeDivergence float64,
+	keyDifferences []KeyDifference,
+	riskAssessments []RiskAssessment,
+) (string, error) {
+	// Convert execution types to models types for LLM generator
+	analysis := &models.CrossRegionAnalysis{
+		BiasVariance:        biasVariance,
+		CensorshipRate:      censorshipRate,
+		FactualConsistency:  factualConsistency,
+		NarrativeDivergence: narrativeDivergence,
+	}
+
+	// Convert key differences
+	for _, diff := range keyDifferences {
+		analysis.KeyDifferences = append(analysis.KeyDifferences, models.KeyDifference{
+			Dimension:   diff.Dimension,
+			Variations:  diff.Variations,
+			Severity:    diff.Severity,
+			Description: "", // Not available in execution type
+		})
+	}
+
+	// Convert risk assessments
+	for _, risk := range riskAssessments {
+		analysis.RiskAssessment = append(analysis.RiskAssessment, models.RiskAssessment{
+			Type:        risk.Type,
+			Severity:    risk.Severity,
+			Description: risk.Description,
+			Regions:     risk.Regions,
+			Confidence:  0.8, // Default confidence
+		})
+	}
+
+	ctx := context.Background()
+	return sg.llmGenerator.GenerateSummary(ctx, analysis, nil)
+}
+
+// generateTemplateSummary uses template-based generation (original logic)
+func (sg *SummaryGenerator) generateTemplateSummary(
 	biasVariance float64,
 	censorshipRate float64,
 	factualConsistency float64,
@@ -58,7 +147,7 @@ func (sg *SummaryGenerator) GenerateSummary(
 	// Conclusion
 	summary.WriteString(sg.generateConclusion(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, riskAssessments))
 
-	sg.logger.Info("Summary generated",
+	sg.logger.Info("Template summary generated",
 		"length", summary.Len(),
 		"key_differences", len(keyDifferences),
 		"risk_assessments", len(riskAssessments))
