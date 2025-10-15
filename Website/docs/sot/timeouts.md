@@ -15,21 +15,23 @@ Project Beacon has **multiple timeout layers** that can cause executions to fail
 
 ### Layer 1: Runner → Hybrid Router (HTTP Client)
 
-**Location**: `/runner-app/internal/hybrid/client.go` (lines 27-41)
+**Location**: `/runner-app/internal/hybrid/client.go` (lines 28-29)
 
 ```go
 // Default timeout
-timeoutSec := 120  // 120 seconds
+timeoutSec := 300  // 300 seconds (5 minutes)
 
 // Overridable via environment variables (checked in order):
 1. HYBRID_ROUTER_TIMEOUT  (primary)
 2. HYBRID_TIMEOUT         (fallback)
 ```
 
-**Current Configuration**:
-- **Code Default**: 120 seconds (2 minutes)
-- **Fly.io Secret**: `HYBRID_ROUTER_TIMEOUT` = ??? (digest: `70f17482d5716502`)
-- **Observed Behavior**: Timing out at ~151 seconds (not 120s, not 300s)
+**Current Configuration** (as of 2025-10-15):
+- **Code Default**: 300 seconds (5 minutes) ✅ Updated from 120s
+- **Fly.io Secret**: `HYBRID_ROUTER_TIMEOUT` = Not set (using code default)
+- **Observed Behavior**: 
+  - Historical: ~151 seconds (Railway timeout issue)
+  - Current: 300 seconds (working as expected)
 
 **Issue**: 
 - ❌ Secret value unknown (can only see digest)
@@ -491,4 +493,50 @@ Q2 Timeout:   00:14:27  (207 seconds)
 
 ---
 
-**Status**: 🔴 CRITICAL - Timeout configuration broken, needs investigation
+## 🎉 Recent Updates (2025-10-15)
+
+### Goroutine Coordination Bug - FIXED ✅
+
+**Issue**: Jobs were being marked "completed" before all executions finished, causing:
+- Portal showing "Job completed!" while executions still running
+- EU executions completing 30-80 seconds AFTER job marked done
+- Database writes happening after job status finalized
+
+**Root Cause**: 
+1. `StartedAt` timestamp captured BEFORE hybrid router execution (included queue time)
+2. Barrier query counted all execution rows, including in-progress retries
+
+**Fix Deployed**: `registry.fly.io/beacon-runner-production:deployment-01K7MAN7ZG53EGEPQ3JTJ2EMRY`
+- Moved `StartedAt` capture to immediately before `executor.Execute()` call
+- Updated barrier query to exclude `status IN ('retrying', 'pending', 'running')`
+- Only counts executions with `completed_at IS NOT NULL`
+
+**Validation**: Job `bias-detection-1760545271810` (job_id=434)
+- Job marked `completed` at 16:26:47
+- Last execution finished at 16:26:46
+- **Gap: 1 second** (vs 83 seconds before fix) ✅
+
+---
+
+### New Mystery: 238-Second Timeout (2025-10-15)
+
+**Observed**: Execution 2193 (qwen2.5-1.5b US) failed after 238 seconds
+- **Started**: 16:21:12
+- **Completed**: 16:25:11  
+- **Duration**: 238 seconds (~4 minutes)
+- **Modal logs**: Show successful execution in ~1m22s
+- **Output data**: `null` (no response received by runner)
+
+**Analysis**:
+- Not the 300s hybrid client timeout (would be longer)
+- Not the 151s Railway timeout (different value)
+- Modal succeeded, so failure happened in network layer
+- Runner waited 238s before giving up
+
+**Hypothesis**: Intermediate timeout layer (load balancer, proxy, or network) between runner and hybrid router
+
+**Status**: 🟡 Under investigation - does not affect barrier fix success
+
+---
+
+**Status**: 🟢 IMPROVED - Goroutine coordination fixed, timeout mysteries remain

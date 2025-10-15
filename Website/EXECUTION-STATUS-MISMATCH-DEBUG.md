@@ -35,6 +35,35 @@
 3. Check if EU Modal endpoint is healthy/reachable
 4. Review execution logs for region assignment
 
+---
+
+## 🔍 TIMING ISSUE DISCOVERED - Oct 15, 2025 17:15 UTC+01:00
+
+**Problem:** Execution `started_at` timestamps don't match actual Modal execution start times.
+
+**Evidence from job `bias-detection-1760543461929`:**
+- DB execution 2188 (llama US): `started_at = 15:51:02`, `completed_at = 15:56:42` (5m40s duration)
+- Modal US Run 54: Started at 15:54:58, completed at 15:56:42 (1m44s execution)
+- **Gap: 3 minutes 56 seconds** between DB "started" and Modal actual start
+
+**Root Cause:**
+- Runner captures `regionStart = time.Now()` at line 823 BEFORE calling executor
+- Hybrid router queues request, waits for Modal availability (3-4 minutes)
+- Modal executes (1 minute)
+- Runner uses pre-execution timestamp for DB `started_at`
+- Creates false impression execution is running when it's actually queued in router
+
+**Impact:**
+- Execution durations in DB are inflated (include queue time)
+- Strict completion barrier sees executions as "started" when they're only queued
+- Timing metrics are inaccurate
+- Hard to distinguish actual execution time from queue/routing delays
+
+**Fix Required:**
+- Move `regionStart` capture to after executor returns, OR
+- Have executor return actual provider start time from Modal metadata
+- Update barrier query to check execution status, not just row count
+
 **Screenshots:**
 - Modal Dashboard showing US endpoint handling both regions
 - Function calls showing 0ms startup (warm container)

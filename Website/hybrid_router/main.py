@@ -29,10 +29,14 @@ async def lifespan(app: FastAPI):
         # Run provider checks in the background so startup does NOT block
         asyncio.create_task(router_instance.health_check_providers())
         
-        # Start region queue workers for GPU resource management
-        logger.info("Starting region queue workers...")
-        asyncio.create_task(queue_manager.start_workers(router_instance.run_inference))
-        logger.info("Region queue workers started for US, EU, ASIA")
+        # DISABLED: Region queue workers causing asyncio event loop conflicts
+        # The main /inference endpoint doesn't use queues anyway
+        # Only /inference/queued uses queues, which is not used by runner
+        # TODO: Fix asyncio event loop issue before re-enabling
+        # logger.info("Starting region queue workers...")
+        # asyncio.create_task(queue_manager.start_workers(router_instance.run_inference))
+        # logger.info("Region queue workers started for US, EU, ASIA")
+        logger.info("Region queue workers DISABLED (asyncio event loop fix pending)")
     except Exception as e:
         logger.exception("Initialization during startup failed: %s", e)
 
