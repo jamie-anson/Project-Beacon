@@ -38,6 +38,15 @@ func WireJobRunner(r *gin.Engine, jr interface {
 // This is set during SetupRoutes and used by WireJobRunner
 var globalJobsHandler *JobsHandler
 
+// biasScorerAdapter adapts service.BiasScorer to execution.BiasScorer interface
+type biasScorerAdapter struct {
+	scorer *service.BiasScorer
+}
+
+func (a *biasScorerAdapter) CalculateBiasScore(response, question, model string) interface{} {
+	return a.scorer.CalculateBiasScore(response, question, model)
+}
+
 func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClient *redis.Client, queueClient ...interface{ GetCircuitBreakerStats() string }) *gin.Engine {
 	// Guard against nil arguments (allow nil for testing)
 	if cfg == nil {
@@ -113,6 +122,13 @@ func SetupRoutes(jobsService *service.JobsService, cfg *config.Config, redisClie
 				singleRegionExecutor := execution.NewHybridSingleRegionExecutor(hybridClient, logger)
 				hybridRouterAdapter := execution.NewHybridRouterAdapter(hybridClient)
 				crossRegionExecutor = execution.NewCrossRegionExecutor(singleRegionExecutor, hybridRouterAdapter, logger)
+				
+				// Add bias scoring to cross-region executor
+				if jobsService != nil && jobsService.ExecutionsRepo != nil && jobsService.ExecutionsRepo.DB != nil {
+					biasScorer := service.NewBiasScorer(jobsService.ExecutionsRepo.DB)
+					// Wrap BiasScorer to match interface
+					crossRegionExecutor.SetBiasScorer(&biasScorerAdapter{scorer: biasScorer})
+				}
 			} else {
 				// Fallback to nil executor (will return error for cross-region jobs)
 				crossRegionExecutor = execution.NewCrossRegionExecutor(nil, nil, nil)

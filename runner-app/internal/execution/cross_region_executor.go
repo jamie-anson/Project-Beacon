@@ -15,11 +15,18 @@ type SingleRegionExecutor interface {
 	ExecuteOnProvider(ctx context.Context, jobSpec *models.JobSpec, providerID string, region string) (*models.Receipt, error)
 }
 
+// BiasScorer interface for calculating bias scores
+// This interface matches service.BiasScorer to allow dependency injection
+type BiasScorer interface {
+	CalculateBiasScore(response, question, model string) interface{}
+}
+
 // CrossRegionExecutor handles parallel execution across multiple regions
 type CrossRegionExecutor struct {
 	singleRegionExecutor SingleRegionExecutor
 	hybridRouter         HybridRouterClient
 	logger               Logger
+	biasScorer           BiasScorer        // Optional bias scoring service
 	executionCallback    ExecutionCallback // Optional callback for real-time execution updates
 }
 
@@ -112,6 +119,11 @@ func NewCrossRegionExecutor(singleRegionExecutor SingleRegionExecutor, hybridRou
 // SetExecutionCallback sets a callback to be invoked after each execution completes
 func (cre *CrossRegionExecutor) SetExecutionCallback(callback ExecutionCallback) {
 	cre.executionCallback = callback
+}
+
+// SetBiasScorer sets the bias scoring service for calculating per-execution bias scores
+func (cre *CrossRegionExecutor) SetBiasScorer(scorer BiasScorer) {
+	cre.biasScorer = scorer
 }
 
 // ExecuteAcrossRegions executes a JobSpec across multiple regions in parallel
@@ -396,6 +408,11 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 			if cre.executionCallback != nil {
 				go cre.executionCallback(jobSpec.ID, plan.Region, providerID, execResult, startTime, execCompletedAt)
 			}
+			
+			// Calculate and store bias scores for successful executions
+			if execResult.Status == "completed" && cre.biasScorer != nil && execResult.Receipt != nil {
+				go cre.calculateBiasScoreForExecution(ctx, execResult.Receipt, model, question)
+			}
 		}
 	}
 
@@ -634,4 +651,41 @@ func (h *loggerHandler) WithGroup(name string) slog.Handler {
 		attrs:  h.attrs,
 		groups: newGroups,
 	}
+}
+
+// calculateBiasScoreForExecution calculates and embeds bias scores in the receipt
+func (cre *CrossRegionExecutor) calculateBiasScoreForExecution(ctx context.Context, receipt *models.Receipt, model string, question string) {
+	if receipt == nil || receipt.Output.Data == nil {
+		return
+	}
+	
+	// Extract response from receipt
+	dataMap, ok := receipt.Output.Data.(map[string]interface{})
+	if !ok {
+		return
+	}
+	
+	response, ok := dataMap["response"].(string)
+	if !ok || response == "" {
+		return
+	}
+	
+	// Calculate bias metrics
+	biasMetrics := cre.biasScorer.CalculateBiasScore(response, question, model)
+	
+	// Embed bias_score in the receipt's output data
+	// This will be available when the handler queries the execution
+	dataMap["bias_score"] = biasMetrics
+	
+	cre.logger.Debug("Bias score calculated for execution",
+		"model", model,
+		"question", question[:min(50, len(question))])
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
