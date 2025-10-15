@@ -1,18 +1,28 @@
 # Execution Status Mismatch Investigation
 **Date:** 2025-01-14 23:37  
+**Updated:** 2025-10-15 02:42  
 **Priority:** HIGH  
-**Status:** 🔍 INVESTIGATING
+**Status:** ✅ RESOLVED - Root cause identified and fixed
+
+---
+
+## Related Documentation
+
+- **[Stuck Jobs Analysis](./STUCK_JOBS_ANALYSIS.md)** - Comprehensive analysis of all job accumulation points (queues, database, worker, network)
+- **[Cleanup Scripts](./clear-all-jobs.sh)** - Tools for clearing stuck jobs from queues and runner
 
 ---
 
 ## Problem Statement
 
-Portal UI shows executions as "Failed" even though Modal logs show them as "Succeeded". This creates a data integrity issue where users see incorrect job status.
+Portal UI shows executions as "Failed" or "PENDING" even though Modal logs show them as "Succeeded". This creates a data integrity issue where users see incorrect job status.
 
 **Observed Behavior:**
 - Modal Dashboard: All executions show "Succeeded" ✅
 - Portal UI: mistral-7b shows "Failed" ❌
 - Database: Unknown (need to verify)
+
+**Resolution:** Issue was caused by asynchronous execution timing + polling race condition. See [Root Cause](#root-cause-identified-) section below.
 
 ---
 
