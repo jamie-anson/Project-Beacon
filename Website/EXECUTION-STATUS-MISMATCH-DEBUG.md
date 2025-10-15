@@ -778,58 +778,195 @@ Users will see the execution completed but may have empty results, which is more
 
 ---
 
-## What We've Learned
+## ROOT CAUSE IDENTIFIED ✅
+
+### **The Real Problem: Asynchronous Execution + Polling Race Condition**
+
+**What's Happening:**
+
+1. **Runner executes regions in parallel** (US, EU goroutines)
+2. **Each execution writes to DB immediately after completion**
+3. **US executions finish first** (~45s, closer geographically)
+4. **Portal polls every 15 seconds**
+5. **Portal receives incomplete execution data** during job execution
+6. **Transform shows `[MISSING EXECUTION]`** for executions that don't exist yet
+7. **EU executions complete later** (slower due to cold starts/latency)
+8. **Next poll shows all executions** ✅
+
+**Timeline Example (Job: bias-detection-1760486456215):**
+```
+00:03:06 - US mistral-7b completes → DB write
+00:03:XX - Portal polls → Gets 1 execution → Shows "MISSING" for EU ❌
+00:04:51 - US qwen2.5-1.5b completes → DB write
+00:05:XX - Portal polls → Gets 2 executions → Still shows "MISSING" for EU ❌
+00:06:14 - EU mistral-7b completes → DB write
+00:07:XX - Portal polls → Gets 3 executions → Still shows "MISSING" for EU qwen ❌
+00:08:17 - EU qwen2.5-1.5b completes → DB write
+00:08:XX - Portal polls → Gets 4 executions → No more warnings ✅
+```
+
+**Console Evidence:**
+```javascript
+totalExecutions: 1  // ❌ Should be 4, but only 1 written to DB so far
+selectedRegions: Array(2)  // US, EU
+models: Array(2)  // mistral-7b, qwen2.5-1.5b
+```
+
+**Why EU Shows Missing But Not US:**
+- US executions complete FIRST (faster)
+- By the time portal polls, US already in DB
+- EU still executing when portal checks
+- Portal sees: ✅ US exists, ❌ EU doesn't exist yet
+- This is **correct** - EU genuinely doesn't exist in DB yet!
 
 ### ✅ Confirmed Working:
-1. **EU executions CAN be written** - Completed job has all 6 EU executions
-2. **Router empty response fix** - Deployed, should prevent false failures
-3. **Portal region normalization** - Updated to handle all variants
-4. **Database stores uppercase regions** - "US" and "EU", not "us-east"/"eu-west"
+1. **EU executions ARE being written** - All 4 found in completed job
+2. **Region matching logic works** - `normalizeRegion("EU") === "EU"` ✅
+3. **Database writes work** - No silent failures
+4. **Router empty response fix** - Deployed
+5. **Portal region normalization** - Fixed and deployed
 
-### ❌ Still Unexplained:
-1. **Why portal shows `[MISSING EXECUTION] R:EU` in console**
-   - Is job still running when portal checks?
-   - Are EU executions slower than US?
-   - Is there a race condition in portal data fetching?
+### ❌ Actual Issues:
 
-2. **Region name inconsistency**
-   - Runner maps to "us-east"/"eu-west"
-   - Database stores "US"/"EU"
-   - Where is the conversion happening?
+1. **Portal shows alarming warnings for normal async behavior**
+   - `[MISSING EXECUTION]` is technically correct but misleading
+   - Should say `[EXECUTION PENDING]` during job execution
+   - Only show `[MISSING EXECUTION]` after job completes
 
-3. **Original issue from screenshot**
-   - Portal showed mistral-7b as "Failed" 
-   - Modal showed "Succeeded"
-   - Was this the empty response bug? (likely yes)
-   - Or something else?
+2. **Portal doesn't update fast enough**
+   - Polls every 15 seconds
+   - Executions complete every 1-2 minutes
+   - User sees stale data for 15+ seconds
+   - Need faster polling or WebSocket updates
 
-### 🔍 Need to Investigate:
+3. **No visual feedback that executions are in progress**
+   - User doesn't know EU is still running
+   - Looks like a failure when it's just pending
+   - Need "Running..." status in UI
 
-**Theory 1: Timing Issue**
-- US executions complete in ~45s
-- EU executions take longer (cold starts, latency)
-- Portal polls before EU finishes
-- Shows `[MISSING EXECUTION]` because they don't exist yet
+## Solutions
 
-**Theory 2: Region Name Mismatch (Still Possible)**
-- Portal expects "EU" 
-- Database has "EU"
-- Should match, but console shows missing
-- Maybe portal is filtering by wrong field?
+### **Fix 1: Improve Console Logging** (Quick Win)
 
-**Theory 3: Job Status Race Condition**
-- Job marked "completed" after US finishes
-- EU still running
-- Portal stops polling
-- EU executions never appear
+Change warning to be context-aware:
+
+```javascript
+// portal/src/components/bias-detection/liveProgressHelpers.js
+if (!regionExec && modelExecs.length > 0) {
+  const jobStatus = activeJob?.status;
+  const isJobRunning = jobStatus === 'processing' || jobStatus === 'queued' || jobStatus === 'running';
+  
+  if (isJobRunning) {
+    // Job still running - execution is pending, not missing
+    console.log(`[EXECUTION PENDING] Q:${questionId} M:${modelId} R:${region} - Job still executing`);
+  } else {
+    // Job completed - execution is genuinely missing
+    console.warn(`[MISSING EXECUTION] Q:${questionId} M:${modelId} R:${region}`, {
+      lookingFor: region,
+      availableExecs: modelExecs.map(e => ({ 
+        id: e.id, 
+        region: e.region,
+        status: e.status
+      }))
+    });
+  }
+}
+```
+
+**Benefits:**
+- ✅ Less alarming during normal execution
+- ✅ More informative (user knows it's pending)
+- ✅ Still warns if genuinely missing after completion
+
+### **Fix 2: Faster Polling During Execution** (Medium Effort)
+
+Adjust polling interval based on job status:
+
+```javascript
+// portal/src/pages/BiasDetection.jsx
+const pollMs = useMemo(() => {
+  if (!activeJob) return 15000; // Default: 15s
+  
+  const status = activeJob.status;
+  if (status === 'processing' || status === 'running') {
+    return 5000; // Active job: 5s (faster updates)
+  }
+  if (status === 'completed' || status === 'failed') {
+    return 0; // Terminal state: stop polling
+  }
+  return 15000; // Default
+}, [activeJob?.status]);
+```
+
+**Benefits:**
+- ✅ User sees updates every 5s during execution
+- ✅ Reduces perceived lag
+- ✅ Stops polling when job completes (saves API calls)
+
+### **Fix 3: WebSocket Real-Time Updates** (Long-Term)
+
+Replace polling with WebSocket for instant updates:
+
+```javascript
+// Runner sends WebSocket message when execution completes
+ws.send({
+  type: 'execution_completed',
+  job_id: 'bias-detection-123',
+  execution: { id: 123, region: 'EU', model_id: 'qwen2.5-1.5b', status: 'completed' }
+});
+
+// Portal receives and updates immediately
+ws.onmessage = (event) => {
+  const { type, execution } = JSON.parse(event.data);
+  if (type === 'execution_completed') {
+    // Update local state immediately
+    setActiveJob(prev => ({
+      ...prev,
+      executions: [...prev.executions, execution]
+    }));
+  }
+};
+```
+
+**Benefits:**
+- ✅ Instant updates (no 5-15s delay)
+- ✅ No polling overhead
+- ✅ Better UX
+
+### **Fix 4: Show "Running" Status in UI** (Quick Win)
+
+Update UI to show pending executions:
+
+```javascript
+// Show "Running..." for missing executions during job execution
+const getExecutionDisplay = (execution, jobStatus) => {
+  if (!execution && (jobStatus === 'processing' || jobStatus === 'running')) {
+    return { status: 'running', text: 'Running...', color: 'blue' };
+  }
+  if (!execution) {
+    return { status: 'missing', text: 'Missing', color: 'red' };
+  }
+  return { status: execution.status, text: execution.status, color: 'green' };
+};
+```
+
+**Benefits:**
+- ✅ User sees "Running..." instead of blank/error
+- ✅ Clear visual feedback
+- ✅ Reduces confusion
 
 ## Next Steps
 
-1. ✅ **Router fix deployed** - Commit 1a85904 (empty response handling)
-2. ✅ **Portal fix deployed** - Commit b689c33 (region normalization)
-3. 🧪 **CRITICAL: Submit NEW test job** - Watch it in real-time
-4. 👀 **Monitor portal console** - Check for `[MISSING EXECUTION]` warnings
-5. ⏱️ **Time EU vs US** - Measure completion times
-6. 🔍 **Check job status transitions** - When does it go from "running" to "completed"?
+### **Immediate (Today):**
+1. ✅ **Fix 1: Improve console logging** - Change MISSING to PENDING during execution
+2. ✅ **Fix 4: Show "Running" in UI** - Visual feedback for pending executions
 
-**Status:** 🤔 FIXES DEPLOYED - Root cause still unclear, need live test
+### **Short-Term (This Week):**
+3. 🔄 **Fix 2: Faster polling** - 5s during execution, stop when complete
+4. 🧪 **Test with new job** - Verify fixes work
+
+### **Long-Term (Next Sprint):**
+5. 🔌 **Fix 3: WebSocket updates** - Real-time execution updates
+6. 📊 **Monitoring** - Track execution completion times by region
+
+**Status:** 🎯 ROOT CAUSE FOUND - Async execution + polling lag, fixes identified
