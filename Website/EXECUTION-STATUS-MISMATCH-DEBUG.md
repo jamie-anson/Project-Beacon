@@ -669,10 +669,34 @@ Comprehensive investigation of the entire execution flow revealed:
 - This means runner is storing uppercase, not the mapped lowercase
 
 **The Real Problem:**
-- Some EU executions ARE being written ✅ (5 found)
-- But NOT ALL EU executions are being written ❌ (4 missing)
-- Specifically: ALL qwen2.5-1.5b EU executions missing
-- This suggests model-specific or timing issue
+- Some EU executions ARE being written ✅ (5 found in cancelled job)
+- But NOT ALL EU executions are being written ❌ (4 missing in cancelled job)
+- Specifically: ALL qwen2.5-1.5b EU executions missing in cancelled job
+- **BUT:** Completed job shows ALL EU executions present (including qwen2.5-1.5b)
+
+**Completed Job Analysis (bias-detection-1760476855858):**
+- Status: "completed" ✅
+- US: 6 executions (3 models × 2 questions) ✅
+- EU: 6 executions (3 models × 2 questions) ✅
+- All completed successfully ✅
+- qwen2.5-1.5b EU executions present ✅
+
+**Cancelled Job Analysis (bias-detection-1760458397970):**
+- Status: "cancelled" ❌
+- US: 9 executions (complete)
+- EU: 5 executions (missing 4)
+- Missing: qwen2.5-1.5b EU (all 3 questions) + mistral-7b tiananmen_neutral EU
+
+**Conclusion:**
+- System CAN write EU executions successfully ✅
+- Missing executions in cancelled job = job was cancelled mid-flight
+- US finished faster, EU still running when cancel hit
+
+**UNRESOLVED ISSUE:**
+- Why does portal show `[MISSING EXECUTION] R:EU` for CURRENT/RUNNING jobs?
+- Is it because executions haven't completed yet?
+- Or is there a real-time display bug?
+- Need to test with a NEW job to verify fixes work
 
 **Immediate Investigation Needed:**
 
@@ -754,12 +778,58 @@ Users will see the execution completed but may have empty results, which is more
 
 ---
 
+## What We've Learned
+
+### ✅ Confirmed Working:
+1. **EU executions CAN be written** - Completed job has all 6 EU executions
+2. **Router empty response fix** - Deployed, should prevent false failures
+3. **Portal region normalization** - Updated to handle all variants
+4. **Database stores uppercase regions** - "US" and "EU", not "us-east"/"eu-west"
+
+### ❌ Still Unexplained:
+1. **Why portal shows `[MISSING EXECUTION] R:EU` in console**
+   - Is job still running when portal checks?
+   - Are EU executions slower than US?
+   - Is there a race condition in portal data fetching?
+
+2. **Region name inconsistency**
+   - Runner maps to "us-east"/"eu-west"
+   - Database stores "US"/"EU"
+   - Where is the conversion happening?
+
+3. **Original issue from screenshot**
+   - Portal showed mistral-7b as "Failed" 
+   - Modal showed "Succeeded"
+   - Was this the empty response bug? (likely yes)
+   - Or something else?
+
+### 🔍 Need to Investigate:
+
+**Theory 1: Timing Issue**
+- US executions complete in ~45s
+- EU executions take longer (cold starts, latency)
+- Portal polls before EU finishes
+- Shows `[MISSING EXECUTION]` because they don't exist yet
+
+**Theory 2: Region Name Mismatch (Still Possible)**
+- Portal expects "EU" 
+- Database has "EU"
+- Should match, but console shows missing
+- Maybe portal is filtering by wrong field?
+
+**Theory 3: Job Status Race Condition**
+- Job marked "completed" after US finishes
+- EU still running
+- Portal stops polling
+- EU executions never appear
+
 ## Next Steps
 
-1. ✅ **Router fix deployed** - Commit 1a85904
-2. ✅ **Portal fix deployed** - Commit b689c33
-3. ⏳ **Wait for Railway deployment** (~2 min)
-4. 🧪 **Test with new job** - Verify fixes work
-5. 📊 **Monitor for 24 hours** - Ensure no regressions
+1. ✅ **Router fix deployed** - Commit 1a85904 (empty response handling)
+2. ✅ **Portal fix deployed** - Commit b689c33 (region normalization)
+3. 🧪 **CRITICAL: Submit NEW test job** - Watch it in real-time
+4. 👀 **Monitor portal console** - Check for `[MISSING EXECUTION]` warnings
+5. ⏱️ **Time EU vs US** - Measure completion times
+6. 🔍 **Check job status transitions** - When does it go from "running" to "completed"?
 
-**Status:** 🚀 FIXES DEPLOYED - Awaiting verification
+**Status:** 🤔 FIXES DEPLOYED - Root cause still unclear, need live test
