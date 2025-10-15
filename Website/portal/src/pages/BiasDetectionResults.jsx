@@ -140,7 +140,9 @@ export default function BiasDetectionResults() {
       </div>
 
       {/* Summary Section */}
-      {analysis.analysis && (
+      {loading ? (
+        <SummaryCard loading={true} />
+      ) : analysis.analysis && (
         <SummaryCard
           summary={analysis.analysis.summary}
           recommendation={analysis.analysis.recommendation}
