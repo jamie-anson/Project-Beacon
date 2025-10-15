@@ -602,11 +602,38 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 		return
 	}
 
-	// 4. Build region scores map
+	// 4. Build region scores map by querying bias scores from executions
 	regionScores := make(map[string]interface{})
-	for _, result := range regionResults {
-		if result.Scoring != nil {
-			regionScores[result.Region] = result.Scoring
+	
+	// Query executions for this job to get bias scores
+	if h.executionsRepo != nil && h.executionsRepo.DB != nil {
+		query := `
+			SELECT region, output_data->'bias_score' as bias_score
+			FROM executions
+			WHERE job_id = $1 AND output_data ? 'bias_score'
+		`
+		rows, err := h.executionsRepo.DB.QueryContext(c.Request.Context(), query, jobID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var region string
+				var biasScoreJSON []byte
+				if err := rows.Scan(&region, &biasScoreJSON); err == nil && len(biasScoreJSON) > 0 {
+					var biasScore map[string]interface{}
+					if json.Unmarshal(biasScoreJSON, &biasScore) == nil {
+						regionScores[region] = biasScore
+					}
+				}
+			}
+		}
+	}
+	
+	// Fallback: try to extract from region results if available
+	if len(regionScores) == 0 {
+		for _, result := range regionResults {
+			if result.Scoring != nil {
+				regionScores[result.Region] = result.Scoring
+			}
 		}
 	}
 
