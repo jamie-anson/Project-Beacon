@@ -402,16 +402,16 @@ func (cre *CrossRegionExecutor) executeRegion(ctx context.Context, jobSpec *mode
 				successCount++
 			}
 
-			result.Executions = append(result.Executions, execResult)
-			
-			// Invoke callback immediately after execution completes
-			if cre.executionCallback != nil {
-				go cre.executionCallback(jobSpec.ID, plan.Region, providerID, execResult, startTime, execCompletedAt)
+			// Calculate bias scores BEFORE saving to database (synchronous)
+			if execResult.Status == "completed" && cre.biasScorer != nil && execResult.Receipt != nil {
+				cre.calculateBiasScoreForExecution(ctx, execResult.Receipt, model, question)
 			}
 			
-			// Calculate and store bias scores for successful executions
-			if execResult.Status == "completed" && cre.biasScorer != nil && execResult.Receipt != nil {
-				go cre.calculateBiasScoreForExecution(ctx, execResult.Receipt, model, question)
+			result.Executions = append(result.Executions, execResult)
+			
+			// Invoke callback to save to database AFTER bias scores are calculated
+			if cre.executionCallback != nil {
+				go cre.executionCallback(jobSpec.ID, plan.Region, providerID, execResult, startTime, execCompletedAt)
 			}
 		}
 	}
