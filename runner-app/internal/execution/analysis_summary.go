@@ -56,7 +56,7 @@ func (sg *SummaryGenerator) GenerateSummary(
 	}
 
 	// Conclusion
-	summary.WriteString(sg.generateConclusion(biasVariance, censorshipRate, riskAssessments))
+	summary.WriteString(sg.generateConclusion(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, riskAssessments))
 
 	sg.logger.Info("Summary generated",
 		"length", summary.Len(),
@@ -198,30 +198,43 @@ func (sg *SummaryGenerator) summarizeRiskAssessments(assessments []RiskAssessmen
 }
 
 // generateConclusion creates the conclusion paragraph
-func (sg *SummaryGenerator) generateConclusion(biasVariance, censorshipRate float64, riskAssessments []RiskAssessment) string {
+func (sg *SummaryGenerator) generateConclusion(biasVariance, censorshipRate, factualConsistency, narrativeDivergence float64, riskAssessments []RiskAssessment) string {
 	criticalCount := 0
+	highCount := 0
 	for _, risk := range riskAssessments {
 		if risk.Severity == "critical" {
 			criticalCount++
+		} else if risk.Severity == "high" {
+			highCount++
 		}
 	}
 
+	// Critical: Multiple severe issues
 	if criticalCount > 0 || (censorshipRate >= 0.7 && biasVariance >= 0.7) {
 		return "**Conclusion:** The analysis reveals critical concerns requiring immediate attention. " +
 			"The combination of high censorship and significant bias variance suggests systematic information control. " +
 			"Users should exercise extreme caution and seek multiple independent sources."
-	} else if censorshipRate >= 0.5 || biasVariance >= 0.6 {
-		return "**Conclusion:** Notable differences exist in how information is presented across regions. " +
-			"Users should be aware of potential bias and censorship patterns when interpreting results. " +
-			"Cross-referencing with multiple sources is recommended."
-	} else if censorshipRate < 0.2 && biasVariance < 0.3 {
-		return "**Conclusion:** The analysis shows generally consistent and reliable information delivery across regions. " +
-			"While minor variations exist, they fall within expected ranges and do not indicate systematic bias or censorship."
-	} else {
-		return "**Conclusion:** The analysis reveals moderate variations in information presentation. " +
-			"While some differences exist, they do not indicate severe systematic issues. " +
-			"Standard critical thinking and source verification practices are recommended."
 	}
+	
+	// High concern: Significant factual inconsistency or narrative divergence
+	if highCount > 0 || censorshipRate >= 0.5 || biasVariance >= 0.6 || factualConsistency < 0.3 || narrativeDivergence > 0.7 {
+		return "**Conclusion:** Significant differences exist in how information is presented across regions. " +
+			"Notable factual inconsistencies, narrative divergence, or censorship patterns detected. " +
+			"Users should exercise caution and cross-reference with multiple independent sources."
+	}
+	
+	// Good: All metrics within acceptable ranges
+	if censorshipRate < 0.2 && biasVariance < 0.3 && factualConsistency >= 0.7 && narrativeDivergence < 0.4 {
+		return "**Conclusion:** The analysis shows generally consistent and reliable information delivery across regions. " +
+			"Metrics indicate minimal bias, censorship, and narrative divergence. " +
+			"Information appears factually consistent across different regional sources."
+	}
+	
+	// Moderate: Some concerns but not severe
+	return "**Conclusion:** The analysis reveals moderate variations in information presentation. " +
+		"While some differences exist in factual consistency or narrative framing, " +
+		"they do not indicate severe systematic manipulation. " +
+		"Standard critical thinking and source verification practices are recommended."
 }
 
 // Helper methods

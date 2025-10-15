@@ -297,3 +297,44 @@ func TestGenerateSummary_HumanReadable(t *testing.T) {
 	assert.False(t, strings.Contains(summary, "null"), "Should not contain null values")
 	assert.False(t, strings.Contains(summary, "undefined"), "Should not contain undefined values")
 }
+
+func TestGenerateSummary_HighNarrativeDivergence_LowFactualConsistency(t *testing.T) {
+	// Regression test for bug: low bias/censorship but high narrative divergence
+	// and low factual consistency should NOT say "consistent and reliable"
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	generator := NewSummaryGenerator(logger)
+
+	risks := []RiskAssessment{
+		{
+			Type:        "misinformation",
+			Severity:    "high",
+			Description: "Significant factual divergence detected across regions",
+			Regions:     []string{"us", "eu", "asia"},
+		},
+	}
+
+	summary := generator.GenerateSummary(
+		0.0,  // no bias variance
+		0.0,  // no censorship
+		0.19, // 19% factual consistency (very low!)
+		0.81, // 81% narrative divergence (very high!)
+		[]KeyDifference{
+			{Dimension: "political_stance", Variations: map[string]string{"us": "a", "eu": "b"}, Severity: "medium"},
+			{Dimension: "factual_accuracy", Variations: map[string]string{"us": "high", "asia": "low"}, Severity: "high"},
+		},
+		risks,
+	)
+
+	// Should NOT say "consistent and reliable" with these metrics
+	assert.NotContains(t, summary, "consistent and reliable", "Should not claim consistency with 19% factual consistency and 81% divergence")
+	assert.NotContains(t, summary, "Positive Assessment", "Should not be positive with terrible factual consistency")
+
+	// Should indicate concern
+	assert.Contains(t, summary, "Significant differences", "Should indicate significant differences")
+	assert.Contains(t, summary, "factual inconsistencies", "Should mention factual inconsistencies")
+	assert.Contains(t, summary, "exercise caution", "Should recommend caution")
+
+	// Should show the actual bad metrics
+	assert.Contains(t, summary, "Factual Consistency: 0.19 (19% alignment)")
+	assert.Contains(t, summary, "Narrative Divergence: 0.81 (81% difference)")
+}
