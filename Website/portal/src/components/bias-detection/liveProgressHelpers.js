@@ -87,21 +87,32 @@ export function transformExecutionsToQuestions(activeJob, selectedRegions) {
         });
         
         // Debug: Log when execution is not found
+        // Distinguish between "pending" (job still running) and "missing" (job completed but execution absent)
         if (!regionExec && modelExecs.length > 0) {
-          console.warn(`[MISSING EXECUTION] Q:${questionId} M:${modelId} R:${region}`, {
-            lookingFor: region,
-            lookingForType: typeof region,
-            availableExecs: modelExecs.map(e => ({ 
-              id: e.id, 
-              region: e.region,
-              regionType: typeof e.region,
-              normalized: normalizeRegion(e.region),
-              normalizedType: typeof normalizeRegion(e.region),
-              status: e.status,
-              strictMatch: normalizeRegion(e.region) === region,
-              looseMatch: String(normalizeRegion(e.region)).toLowerCase() === String(region).toLowerCase()
-            }))
-          });
+          const jobStatus = activeJob?.status;
+          const isJobRunning = jobStatus === 'processing' || jobStatus === 'queued' || jobStatus === 'running';
+          
+          if (isJobRunning) {
+            // Job still executing - execution is pending, not missing
+            console.log(`[EXECUTION PENDING] Q:${questionId} M:${modelId} R:${region} - Job still executing, execution will appear when complete`);
+          } else {
+            // Job completed/failed - execution is genuinely missing
+            console.warn(`[MISSING EXECUTION] Q:${questionId} M:${modelId} R:${region}`, {
+              jobStatus,
+              lookingFor: region,
+              lookingForType: typeof region,
+              availableExecs: modelExecs.map(e => ({ 
+                id: e.id, 
+                region: e.region,
+                regionType: typeof e.region,
+                normalized: normalizeRegion(e.region),
+                normalizedType: typeof normalizeRegion(e.region),
+                status: e.status,
+                strictMatch: normalizeRegion(e.region) === region,
+                looseMatch: String(normalizeRegion(e.region)).toLowerCase() === String(region).toLowerCase()
+              }))
+            });
+          }
         }
         
         return {
