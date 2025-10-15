@@ -2,7 +2,50 @@
 **Date:** 2025-01-14 23:37  
 **Updated:** 2025-10-15 02:42  
 **Priority:** HIGH  
-**Status:** ✅ RESOLVED - Root cause identified and fixed
+**Status:** ⚠️ PARTIALLY RESOLVED - New issue discovered (Oct 15, 2025)
+
+---
+
+## 🚨 NEW ISSUE DISCOVERED - Oct 15, 2025 02:48 UTC+01:00
+
+**Problem:** Both EU and US jobs are being executed by the US Modal endpoint instead of their respective regional endpoints.
+
+**Evidence:**
+- Modal Dashboard shows `project-beacon-hf-us` executing both US and EU requests
+- Both executions show 0ms startup time (warm container)
+- Execution times: ~6-10s (US), ~20s (EU)
+- All executions marked as "Succeeded" in Modal
+
+**Expected Behavior:**
+- US jobs → `project-beacon-hf-us` (us-east Modal)
+- EU jobs → `project-beacon-hf-eu` (eu-west Modal)
+
+**Actual Behavior:**
+- US jobs → `project-beacon-hf-us` ✅
+- EU jobs → `project-beacon-hf-us` ❌ (should be eu-west)
+
+**Impact:**
+- EU executions not using geographically closer endpoint
+- Potential latency issues
+- Regional bias detection may be compromised if all executions run from same region
+
+**Investigation Needed:**
+1. Check runner's region routing logic (`mapRegionToRouter()`)
+2. Verify hybrid router's provider selection
+3. Check if EU Modal endpoint is healthy/reachable
+4. Review execution logs for region assignment
+
+**Screenshots:**
+- Modal Dashboard showing US endpoint handling both regions
+- Function calls showing 0ms startup (warm container)
+- Execution times: 6.35s, 1m 1s, 59.80s, 1m 48s
+
+**TODO (Tomorrow):**
+- [ ] Check runner logs for region routing
+- [ ] Verify hybrid router provider discovery
+- [ ] Test EU Modal endpoint directly
+- [ ] Review `executeMultiRegion()` region assignment
+- [ ] Check if this affects bias detection results
 
 ---
 
