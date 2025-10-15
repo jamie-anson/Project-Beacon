@@ -1,0 +1,254 @@
+{
+  "metadata": {
+    "title": "Project Beacon Cleanup Tools Registry",
+    "description": "Registry of all cleanup scripts and tools for managing stuck jobs, queues, and services",
+    "created": "2025-10-15T02:43:00+01:00",
+    "version": "1.0.0"
+  },
+  "scripts": {
+    "queue_cleanup": {
+      "name": "clear-queues.sh",
+      "path": "Website/clear-queues.sh",
+      "type": "bash",
+      "purpose": "Clear all Redis queues (jobs, jobs:dead, jobs:processing)",
+      "safe_to_run": true,
+      "requires_confirmation": false,
+      "dependencies": ["redis-cli"],
+      "targets": [
+        "Redis queue: jobs",
+        "Redis queue: jobs:dead",
+        "Redis set: jobs:processing",
+        "Redis queue: jobs:retry"
+      ],
+      "usage": "./clear-queues.sh",
+      "environment_variables": {
+        "REDIS_HOST": "Redis host (default: localhost)",
+        "REDIS_PORT": "Redis port (default: 6379)",
+        "REDIS_URL": "Full Redis URL (overrides host/port)"
+      }
+    },
+    "runner_restart": {
+      "name": "stop-runner-jobs.sh",
+      "path": "Website/stop-runner-jobs.sh",
+      "type": "bash",
+      "purpose": "Restart Fly.io runner to stop all in-flight jobs",
+      "safe_to_run": true,
+      "requires_confirmation": false,
+      "dependencies": ["fly"],
+      "targets": [
+        "Fly.io app: beacon-runner-production"
+      ],
+      "usage": "./stop-runner-jobs.sh",
+      "environment_variables": {
+        "RUNNER_APP": "Fly.io app name (default: beacon-runner-production)"
+      }
+    },
+    "complete_cleanup": {
+      "name": "clear-all-jobs.sh",
+      "path": "Website/clear-all-jobs.sh",
+      "type": "bash",
+      "purpose": "Master script - clears queues and restarts runner",
+      "safe_to_run": true,
+      "requires_confirmation": true,
+      "dependencies": ["redis-cli", "fly"],
+      "targets": [
+        "All Redis queues",
+        "Fly.io runner app"
+      ],
+      "usage": "./clear-all-jobs.sh",
+      "runs": [
+        "clear-queues.sh",
+        "stop-runner-jobs.sh"
+      ]
+    },
+    "db_investigation": {
+      "name": "cleanup-stuck-jobs.sql",
+      "path": "Website/cleanup-stuck-jobs.sql",
+      "type": "sql",
+      "purpose": "Safe investigation queries to identify stuck jobs in database",
+      "safe_to_run": true,
+      "requires_confirmation": false,
+      "dependencies": ["psql"],
+      "targets": [
+        "Database table: jobs",
+        "Database table: executions"
+      ],
+      "usage": "psql <connection_string> -f cleanup-stuck-jobs.sql",
+      "queries": [
+        "Identify jobs stuck in 'created' status (>5 min)",
+        "Identify jobs stuck in 'processing' status (>10 min)",
+        "Identify jobs stuck in 'running' status (>30 min)",
+        "Identify jobs stuck in 'queued' status (>5 min)",
+        "Identify executions stuck in 'running' status (>15 min)",
+        "Count stuck jobs by type",
+        "Verify cleanup results"
+      ],
+      "note": "All UPDATE/DELETE commands are commented out by default for safety"
+    },
+    "db_force_cleanup": {
+      "name": "force-cleanup-stuck-jobs.sql",
+      "path": "Website/force-cleanup-stuck-jobs.sql",
+      "type": "sql",
+      "purpose": "Force cancel all stuck jobs in database (DESTRUCTIVE)",
+      "safe_to_run": false,
+      "requires_confirmation": true,
+      "dependencies": ["psql"],
+      "targets": [
+        "Database table: jobs",
+        "Database table: executions"
+      ],
+      "usage": "psql <connection_string> -f force-cleanup-stuck-jobs.sql",
+      "warning": "This will cancel jobs that may still be running. Use with caution!",
+      "actions": [
+        "Cancel all jobs stuck in 'created' (>5 min)",
+        "Cancel all jobs stuck in 'processing' (>10 min)",
+        "Cancel all jobs stuck in 'running' (>30 min)",
+        "Cancel all jobs stuck in 'queued' (>5 min)",
+        "Mark stuck executions as 'failed'"
+      ],
+      "note": "BEGIN/COMMIT block is commented out by default. Uncomment to execute."
+    }
+  },
+  "documentation": {
+    "stuck_jobs_analysis": {
+      "name": "STUCK_JOBS_ANALYSIS.md",
+      "path": "Website/STUCK_JOBS_ANALYSIS.md",
+      "type": "markdown",
+      "purpose": "Comprehensive analysis of all job accumulation points",
+      "sections": [
+        "Database Level - Job Status States",
+        "Queue Level - Redis Accumulation",
+        "Execution Level - Incomplete Executions",
+        "Worker Level - Process Failures",
+        "Portal Level - Display Issues",
+        "Network Level - External Service Failures"
+      ],
+      "detection_queries": true,
+      "mitigation_strategies": true
+    },
+    "execution_status_debug": {
+      "name": "EXECUTION-STATUS-MISMATCH-DEBUG.md",
+      "path": "Website/EXECUTION-STATUS-MISMATCH-DEBUG.md",
+      "type": "markdown",
+      "purpose": "Investigation and resolution of execution status mismatch issues",
+      "status": "RESOLVED",
+      "root_cause": "Asynchronous execution timing + polling race condition",
+      "fixes_deployed": [
+        "Improved console logging (MISSING → PENDING during execution)",
+        "Faster polling (2-5s during active jobs)",
+        "Context-aware warnings"
+      ]
+    }
+  },
+  "workflows": {
+    "routine_cleanup": {
+      "name": "Routine Cleanup",
+      "description": "Regular maintenance to clear stuck jobs",
+      "frequency": "As needed (when jobs appear stuck)",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Run investigation query",
+          "script": "cleanup-stuck-jobs.sql",
+          "purpose": "Identify what's stuck"
+        },
+        {
+          "step": 2,
+          "action": "Clear Redis queues",
+          "script": "clear-queues.sh",
+          "purpose": "Remove queued messages"
+        },
+        {
+          "step": 3,
+          "action": "Restart runner",
+          "script": "stop-runner-jobs.sh",
+          "purpose": "Stop in-flight jobs"
+        },
+        {
+          "step": 4,
+          "action": "Verify cleanup",
+          "script": "cleanup-stuck-jobs.sql",
+          "purpose": "Confirm queues and runner are clean"
+        }
+      ]
+    },
+    "emergency_cleanup": {
+      "name": "Emergency Cleanup",
+      "description": "Force cleanup when system is severely stuck",
+      "frequency": "Emergency only",
+      "warning": "This will cancel potentially running jobs",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Run complete cleanup",
+          "script": "clear-all-jobs.sh",
+          "purpose": "Clear queues and restart runner"
+        },
+        {
+          "step": 2,
+          "action": "Force database cleanup",
+          "script": "force-cleanup-stuck-jobs.sql",
+          "purpose": "Cancel stuck jobs in database",
+          "note": "Uncomment BEGIN/COMMIT block before running"
+        },
+        {
+          "step": 3,
+          "action": "Verify system status",
+          "manual": true,
+          "purpose": "Check portal, submit test job"
+        }
+      ]
+    }
+  },
+  "monitoring": {
+    "detection_queries": {
+      "stuck_created": "SELECT COUNT(*) FROM jobs WHERE status = 'created' AND created_at < NOW() - INTERVAL '5 minutes'",
+      "stuck_processing": "SELECT COUNT(*) FROM jobs WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '10 minutes'",
+      "stuck_running": "SELECT COUNT(*) FROM jobs WHERE status = 'running' AND started_at < NOW() - INTERVAL '30 minutes'",
+      "stuck_queued": "SELECT COUNT(*) FROM jobs WHERE status = 'queued' AND created_at < NOW() - INTERVAL '5 minutes'",
+      "queue_length": "redis-cli LLEN jobs",
+      "dead_letter_length": "redis-cli LLEN jobs:dead"
+    },
+    "alert_thresholds": {
+      "stuck_jobs": 5,
+      "queue_length": 100,
+      "dead_letter_length": 10
+    }
+  },
+  "services": {
+    "runner": {
+      "name": "beacon-runner-production",
+      "platform": "fly.io",
+      "url": "https://beacon-runner-production.fly.dev",
+      "region": "lhr",
+      "restart_command": "fly apps restart beacon-runner-production"
+    },
+    "router": {
+      "name": "Project-Beacon",
+      "platform": "railway",
+      "url": "https://project-beacon-production.up.railway.app",
+      "environment": "production",
+      "restart_command": "npx @railway/cli redeploy"
+    },
+    "redis": {
+      "queues": [
+        "jobs",
+        "jobs:dead",
+        "jobs:processing",
+        "jobs:retry"
+      ]
+    },
+    "database": {
+      "tables": [
+        "jobs",
+        "executions"
+      ],
+      "stuck_states": [
+        "created",
+        "processing",
+        "running",
+        "queued"
+      ]
+    }
+  }
+}
