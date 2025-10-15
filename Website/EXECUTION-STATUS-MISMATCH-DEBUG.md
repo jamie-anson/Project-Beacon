@@ -958,15 +958,29 @@ const getExecutionDisplay = (execution, jobStatus) => {
 ## Next Steps
 
 ### **Immediate (Today):**
-1. ✅ **Fix 1: Improve console logging** - Change MISSING to PENDING during execution
-2. ✅ **Fix 4: Show "Running" in UI** - Visual feedback for pending executions
+1. ✅ **Fix 1: Improve console logging** - DEPLOYED (Commit c89da0f)
+   - Changed `[MISSING EXECUTION]` to `[EXECUTION PENDING]` during job execution
+   - Only shows `[MISSING EXECUTION]` after job completes
+   - Less alarming, more informative
+   
+2. ✅ **Fix 2: Faster polling** - ALREADY IMPLEMENTED
+   - Portal already polls every 2-5s during execution
+   - Adaptive polling based on job age:
+     - First 30s: 2s interval
+     - First 5 min: 3s interval
+     - After 5 min: 5s interval
+   - Stops polling when job completes
+   
+3. 🔄 **Fix 4: Show "Running" in UI** - TODO
+   - Visual feedback for pending executions
+   - Show "Running..." instead of blank
 
 ### **Short-Term (This Week):**
-3. 🔄 **Fix 2: Faster polling** - 5s during execution, stop when complete
-4. 🧪 **Test with new job** - Verify fixes work
+4. 🧪 **Test with new job** - Verify Fix 1 works
+5. 📊 **Monitor execution times** - Track US vs EU completion times
 
 ### **Long-Term (Next Sprint):**
-5. 🔌 **Fix 3: WebSocket updates** - Real-time execution updates
-6. 📊 **Monitoring** - Track execution completion times by region
+6. 🔌 **Fix 3: WebSocket updates** - Real-time execution updates
+7. 📈 **Performance monitoring** - Dashboard for execution metrics
 
-**Status:** 🎯 ROOT CAUSE FOUND - Async execution + polling lag, fixes identified
+**Status:** ✅ FIXED - Console logging improved, polling already optimized, ready to test
