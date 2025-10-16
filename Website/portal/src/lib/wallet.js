@@ -7,14 +7,74 @@
 import { ethers } from 'ethers';
 import { exportPublicKey, generateNonce } from './crypto.js';
 
+const HAS_WINDOW = typeof window !== 'undefined';
+const TARGET_CHAIN_ID = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_WALLET_CHAIN_ID ? String(import.meta.env.VITE_WALLET_CHAIN_ID) : null;
+const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && Boolean(import.meta.env.DEV);
+
+function getInjectedEthereumProvider() {
+  if (!HAS_WINDOW) return null;
+  const { ethereum } = window;
+  if (!ethereum) return null;
+  const providers = Array.isArray(ethereum.providers) && ethereum.providers.length > 0 ? ethereum.providers : [ethereum];
+  const preferMetaMask = providers.find((provider) => provider && provider.isMetaMask);
+  if (preferMetaMask) {
+    if (IS_DEV) console.log('[Wallet] Using MetaMask provider');
+    return preferMetaMask;
+  }
+  const preferBrave = providers.find((provider) => provider && provider.isBraveWallet);
+  if (preferBrave) {
+    if (IS_DEV) console.log('[Wallet] Using Brave provider');
+    return preferBrave;
+  }
+  const fallback = providers[0] || null;
+  if (fallback && IS_DEV) console.log('[Wallet] Using fallback provider');
+  return fallback;
+}
+
+async function ensureTargetChain(browserProvider) {
+  if (!TARGET_CHAIN_ID || !browserProvider) return;
+  try {
+    const currentChainHex = await browserProvider.send('eth_chainId', []);
+    if (typeof currentChainHex === 'string' && currentChainHex.toLowerCase() !== TARGET_CHAIN_ID.toLowerCase()) {
+      await browserProvider.send('wallet_switchEthereumChain', [{ chainId: TARGET_CHAIN_ID }]);
+    }
+  } catch (error) {
+    if (IS_DEV) console.warn('[Wallet] Failed to switch chain', error);
+  }
+}
+
+async function performPersonalSign(browserProvider, address, message) {
+  const normalized = typeof message === 'string' ? message : String(message ?? '');
+  const utf8Bytes = ethers.toUtf8Bytes(normalized);
+  const hexMessage = ethers.hexlify(utf8Bytes);
+  const attempts = [
+    [normalized, address],
+    [address, normalized],
+    [hexMessage, address],
+    [address, hexMessage]
+  ];
+  let lastError = null;
+  for (const params of attempts) {
+    try {
+      const signature = await browserProvider.send('personal_sign', params);
+      if (typeof signature === 'string' && signature.length > 0) {
+        return signature;
+      }
+    } catch (error) {
+      if (error && error.code === 4001) throw error;
+      lastError = error;
+    }
+  }
+  if (lastError) throw lastError;
+  throw new Error('Failed to sign message with personal_sign');
+}
+
 /**
  * Check if MetaMask is installed
  * @returns {boolean}
  */
 export function isMetaMaskInstalled() {
-  return typeof window !== 'undefined' && 
-         typeof window.ethereum !== 'undefined' && 
-         window.ethereum.isMetaMask;
+  return Boolean(getInjectedEthereumProvider());
 }
 
 /**
@@ -22,16 +82,15 @@ export function isMetaMaskInstalled() {
  * @returns {Promise<{address: string, provider: ethers.BrowserProvider}>}
  */
 export async function connectWallet() {
-  if (!isMetaMaskInstalled()) {
-    throw new Error('MetaMask is not installed. Please install MetaMask from https://metamask.io to continue.');
+  const ethereumProvider = getInjectedEthereumProvider();
+  if (!ethereumProvider) {
+    throw new Error('No compatible wallet detected. Please install MetaMask or Brave Wallet to continue.');
   }
 
   try {
-    // Check if MetaMask is locked
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    const accounts = await ethereumProvider.request({ method: 'eth_accounts' });
     if (accounts.length === 0) {
-      // Request account access if no accounts are available
-      const requestedAccounts = await window.ethereum.request({
+      const requestedAccounts = await ethereumProvider.request({
         method: 'eth_requestAccounts'
       });
       
@@ -40,27 +99,27 @@ export async function connectWallet() {
       }
     }
 
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const currentAccounts = await window.ethereum.request({ method: 'eth_accounts' });
+    const provider = new ethers.BrowserProvider(ethereumProvider);
+    await ensureTargetChain(provider);
+    const currentAccounts = await ethereumProvider.request({ method: 'eth_accounts' });
     const address = currentAccounts[0];
 
-    // Verify we can create a signer
     try {
       await provider.getSigner();
     } catch (signerError) {
-      throw new Error('Unable to access wallet signer. Please ensure MetaMask is unlocked.');
+      throw new Error('Unable to access wallet signer. Please ensure your wallet is unlocked.');
     }
 
     return { address, provider };
   } catch (error) {
     if (error.code === 4001) {
-      throw new Error('Connection request was rejected. Please approve the connection in MetaMask to continue.');
+      throw new Error('Connection request was rejected. Please approve the connection in your wallet to continue.');
     }
     if (error.code === -32002) {
-      throw new Error('Connection request is already pending. Please check MetaMask and approve the request.');
+      throw new Error('Connection request is already pending. Please check your wallet and approve the request.');
     }
     if (error.code === -32603) {
-      throw new Error('MetaMask internal error. Please try refreshing the page and connecting again.');
+      throw new Error('Wallet internal error. Please try refreshing the page and connecting again.');
     }
     throw new Error(`Failed to connect wallet: ${error.message}`);
   }
@@ -75,17 +134,18 @@ export async function connectWallet() {
 export async function signMessage(provider, message) {
   try {
     const signer = await provider.getSigner();
-    const signature = await signer.signMessage(message);
+    const address = await signer.getAddress();
+    const signature = await performPersonalSign(provider, address, message);
     return signature;
   } catch (error) {
     if (error.code === 4001) {
-      throw new Error('Signing request was rejected. Please approve the signature in MetaMask to authorize your Ed25519 key.');
+      throw new Error('Signing request was rejected. Please approve the signature in your wallet to authorize your Ed25519 key.');
     }
     if (error.code === -32603) {
-      throw new Error('MetaMask internal error during signing. Please try again.');
+      throw new Error('Wallet internal error during signing. Please try again.');
     }
     if (error.code === -32000) {
-      throw new Error('MetaMask is locked. Please unlock your wallet and try again.');
+      throw new Error('Wallet is locked. Please unlock your wallet and try again.');
     }
     throw new Error(`Failed to sign message: ${error.message}`);
   }
@@ -131,14 +191,12 @@ export async function getOrCreateWalletAuth(ed25519PublicKey) {
 
   // Create new authorization
   const { address, provider } = await connectWallet();
-  // Resolve chainId from provider/ethereum (prefer direct RPC for reliability)
   let chainIdHex = '0x0';
   try {
-    chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+    chainIdHex = await provider.send('eth_chainId', []);
   } catch (e) {
     try {
       const net = await provider.getNetwork();
-      // ethers v6 returns bigint
       chainIdHex = '0x' + (Number(net?.chainId || 0)).toString(16);
     } catch {}
   }
@@ -226,7 +284,8 @@ export function clearWalletAuth() {
  * @returns {function} Cleanup function
  */
 export function onAccountsChanged(callback) {
-  if (!isMetaMaskInstalled()) {
+  const provider = getInjectedEthereumProvider();
+  if (!provider) {
     return () => {};
   }
 
@@ -242,10 +301,14 @@ export function onAccountsChanged(callback) {
     }
   };
 
-  window.ethereum.on('accountsChanged', handleAccountsChanged);
+  if (typeof provider.on === 'function') {
+    provider.on('accountsChanged', handleAccountsChanged);
+  }
 
   return () => {
-    window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+    if (typeof provider.removeListener === 'function') {
+      provider.removeListener('accountsChanged', handleAccountsChanged);
+    }
   };
 }
 
