@@ -113,6 +113,14 @@ async function performPersonalSign(rawProvider, address, message) {
       }
     } catch (error) {
       if (error && error.code === 4001) throw error;
+      if (IS_DEV || lastDetectedProvider?.isBrave) {
+        console.error('[Wallet] personal_sign attempt failed', {
+          params,
+          code: error?.code,
+          message: error?.message,
+          data: error?.data
+        });
+      }
       lastError = error;
     }
   }
@@ -212,6 +220,13 @@ export async function signMessage(provider, rawProvider, address, message) {
     }
     throw new Error('No wallet provider available for signing');
   } catch (error) {
+    if (IS_DEV || lastDetectedProvider?.isBrave) {
+      console.error('[Wallet] signMessage error', {
+        code: error?.code,
+        message: error?.message,
+        data: error?.data
+      });
+    }
     if (error.code === 4001) {
       throw new Error('Signing request was rejected. Please approve the signature in your wallet to authorize your Ed25519 key.');
     }

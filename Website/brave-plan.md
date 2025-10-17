@@ -56,6 +56,7 @@
 - Brave iOS SIWE: signature sheet loops; console repeats `JsonRpcProvider failed to detect network`, `eth_chainId` resolves to `undefined`.
 - `portal/src/lib/wallet.js` now skips chain sync for Brave and signs using raw `window.ethereum.request({ method: 'personal_sign' })` fallback.
 - `localStorage` flags `beacon:disable_chain_sync` and `beacon:wallet_auth` cleared during tests; issue persists.
+- Manual console `personal_sign` succeeds when wallet connected; in-app SIWE still errors "Failed to sign message with personal_sign" on Brave v1.82.1 (174).
 
 ## Next Steps
 - Run direct console call `window.ethereum.request({ method: 'personal_sign', params: ['test', address] })` and record result/error.
