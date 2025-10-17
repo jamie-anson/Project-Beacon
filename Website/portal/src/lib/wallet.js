@@ -108,6 +108,9 @@ async function performPersonalSign(rawProvider, address, message) {
         throw new Error('No EIP-1193 provider available for personal_sign');
       }
       const signature = await target.request({ method: 'personal_sign', params });
+      if ((IS_DEV || lastDetectedProvider?.isBrave) && (!signature || signature.length === 0)) {
+        console.warn('[Wallet] personal_sign returned empty signature', { params, signature });
+      }
       if (typeof signature === 'string' && signature.length > 0) {
         return signature;
       }
