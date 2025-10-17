@@ -11,6 +11,34 @@ const HAS_WINDOW = typeof window !== 'undefined';
 const TARGET_CHAIN_ID = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_WALLET_CHAIN_ID ? String(import.meta.env.VITE_WALLET_CHAIN_ID) : null;
 const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && Boolean(import.meta.env.DEV);
 
+function reportWalletEvent(event, details = {}, level = 'warning') {
+  if (!HAS_WINDOW) return;
+  const sentry = window?.Sentry;
+  if (!sentry) return;
+  try {
+    const message = `[Wallet] ${event}`;
+    if (typeof sentry.captureEvent === 'function') {
+      sentry.captureEvent({ message, level, extra: details });
+      return;
+    }
+    if (typeof sentry.withScope === 'function' && typeof sentry.captureMessage === 'function') {
+      sentry.withScope((scope) => {
+        scope.setLevel(level);
+        Object.entries(details || {}).forEach(([key, value]) => {
+          scope.setExtra(key, value);
+        });
+        sentry.captureMessage(message);
+      });
+      return;
+    }
+    if (typeof sentry.captureMessage === 'function') {
+      sentry.captureMessage(message, level);
+    }
+  } catch (telemetryError) {
+    if (IS_DEV) console.warn('[Wallet] Failed to report Sentry event', telemetryError);
+  }
+}
+
 /**
  * Tracks the last detected provider so downstream helpers can adjust behavior (e.g., Brave quirks).
  * @type {{ raw: any, isMetaMask: boolean, isBrave: boolean } | null}
@@ -113,6 +141,14 @@ async function performPersonalSign(rawProvider, address, message) {
       const signature = await target.request({ method: 'personal_sign', params });
       if ((IS_DEV || lastDetectedProvider?.isBrave) && (!signature || signature.length === 0)) {
         console.warn('[Wallet] personal_sign returned empty signature', { params, signature });
+        reportWalletEvent('personal_sign empty response', {
+          params,
+          signature,
+          provider: {
+            isBrave: lastDetectedProvider?.isBrave,
+            isMetaMask: lastDetectedProvider?.isMetaMask
+          }
+        }, 'warning');
       }
       if (typeof signature === 'string' && signature.length > 0) {
         return signature;
@@ -129,6 +165,13 @@ async function performPersonalSign(rawProvider, address, message) {
           stack: error?.stack
         });
       }
+      reportWalletEvent('personal_sign error', {
+        params,
+        code: error?.code,
+        message: error?.message,
+        data: error?.data,
+        stack: error?.stack
+      }, 'error');
       lastError = error;
     }
   }
@@ -236,6 +279,12 @@ export async function signMessage(provider, rawProvider, address, message) {
         data: error?.data
       });
     }
+    reportWalletEvent('signMessage error', {
+      code: error?.code,
+      message: error?.message,
+      data: error?.data,
+      stack: error?.stack
+    }, 'error');
     if (error.code === 4001) {
       throw new Error('Signing request was rejected. Please approve the signature in your wallet to authorize your Ed25519 key.');
     }
