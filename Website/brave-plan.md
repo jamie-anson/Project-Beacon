@@ -57,8 +57,12 @@
 - `portal/src/lib/wallet.js` now skips chain sync for Brave and signs using raw `window.ethereum.request({ method: 'personal_sign' })` fallback.
 - `localStorage` flags `beacon:disable_chain_sync` and `beacon:wallet_auth` cleared during tests; issue persists.
 - Manual console `personal_sign` succeeds when wallet connected; in-app SIWE still errors "Failed to sign message with personal_sign" on Brave v1.82.1 (174).
+- Manual test with exact SIWE message returns a valid signature; portal flow still logs empty signature/error despite using same payload.
+- Latest deploy logs show Brave returning `[]` (empty signature) for both `[message,address]` and `[address,message]` attempts within the app; no provider error details provided.
+- Added Sentry telemetry hooks in `portal/src/lib/wallet.js` to capture signing anomalies (empty responses, errors) for remote debugging.
 
 ## Next Steps
 - Run direct console call `window.ethereum.request({ method: 'personal_sign', params: ['test', address] })` and record result/error.
 - Capture Brave wallet version and browser build for bug report.
 - Draft outreach message to Brave Wallet team with logs and reproduction steps.
+- Test MetaMask mobile SIWE to ensure regression-free behavior.
