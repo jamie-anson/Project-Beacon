@@ -54,8 +54,25 @@ function getInjectedEthereumProvider() {
 
 async function ensureTargetChain(rawProvider) {
   if (!TARGET_CHAIN_ID || !rawProvider || typeof rawProvider.request !== 'function') return;
+  if (lastDetectedProvider?.isBrave) {
+    if (IS_DEV) console.warn('[Wallet] Skipping chain sync for Brave provider');
+    return;
+  }
+  if (HAS_WINDOW) {
+    try {
+      if (window.localStorage?.getItem('beacon:disable_chain_sync') === '1') {
+        if (IS_DEV) console.warn('[Wallet] Chain sync disabled via beacon:disable_chain_sync flag.');
+        return;
+      }
+    } catch {}
+  }
   try {
+    await new Promise((resolve) => setTimeout(resolve, 250));
     const currentChainHex = await rawProvider.request({ method: 'eth_chainId' });
+    if (!currentChainHex) {
+      if (IS_DEV) console.warn('[Wallet] eth_chainId returned falsy value, skipping chain sync.');
+      return;
+    }
     if (typeof currentChainHex === 'string' && currentChainHex.toLowerCase() !== TARGET_CHAIN_ID.toLowerCase()) {
       await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: TARGET_CHAIN_ID }] });
     }
@@ -64,33 +81,33 @@ async function ensureTargetChain(rawProvider) {
   }
 }
 
-async function performPersonalSign(browserProvider, address, message) {
+async function performPersonalSign(rawProvider, address, message) {
   const normalized = typeof message === 'string' ? message : String(message ?? '');
   const utf8Bytes = ethers.toUtf8Bytes(normalized);
   const hexMessage = ethers.hexlify(utf8Bytes);
   const providerMeta = lastDetectedProvider;
-  const target = providerMeta?.raw && typeof providerMeta.raw.request === 'function' ? providerMeta.raw : null;
+  const target = rawProvider && typeof rawProvider.request === 'function' ? rawProvider : providerMeta?.raw;
 
   const braveAttempts = [
-    [hexMessage, address],
-    [address, hexMessage],
     [normalized, address],
-    [address, normalized]
+    [hexMessage, address],
+    [address, normalized],
+    [address, hexMessage]
   ];
   const defaultAttempts = [
     [normalized, address],
     [address, normalized],
-    [hexMessage, address],
-    [address, hexMessage]
+    [hexMessage, address]
   ];
   const attempts = providerMeta?.isBrave ? braveAttempts : defaultAttempts;
 
   let lastError = null;
   for (const params of attempts) {
     try {
-      const signature = target
-        ? await target.request({ method: 'personal_sign', params })
-        : await browserProvider.send('personal_sign', params);
+      if (!target) {
+        throw new Error('No EIP-1193 provider available for personal_sign');
+      }
+      const signature = await target.request({ method: 'personal_sign', params });
       if (typeof signature === 'string' && signature.length > 0) {
         return signature;
       }
@@ -134,17 +151,22 @@ export async function connectWallet() {
     }
 
     await ensureTargetChain(ethereumProvider);
-    const provider = new ethers.BrowserProvider(ethereumProvider);
+    let provider = null;
+    if (!lastDetectedProvider?.isBrave) {
+      provider = new ethers.BrowserProvider(ethereumProvider);
+    }
     const currentAccounts = await ethereumProvider.request({ method: 'eth_accounts' });
     const address = currentAccounts[0];
 
-    try {
-      await provider.getSigner();
-    } catch (signerError) {
-      throw new Error('Unable to access wallet signer. Please ensure your wallet is unlocked.');
+    if (provider) {
+      try {
+        await provider.getSigner();
+      } catch (signerError) {
+        throw new Error('Unable to access wallet signer. Please ensure your wallet is unlocked.');
+      }
     }
 
-    return { address, provider };
+    return { address, provider, rawProvider: ethereumProvider };
   } catch (error) {
     if (error.code === 4001) {
       throw new Error('Connection request was rejected. Please approve the connection in your wallet to continue.');
@@ -165,12 +187,30 @@ export async function connectWallet() {
  * @param {string} message 
  * @returns {Promise<string>} Signature
  */
-export async function signMessage(provider, message) {
+export async function signMessage(provider, rawProvider, address, message) {
   try {
-    const signer = await provider.getSigner();
-    const address = await signer.getAddress();
-    const signature = await performPersonalSign(provider, address, message);
-    return signature;
+    if (provider) {
+      const signer = await provider.getSigner();
+      try {
+        return await signer.signMessage(message);
+      } catch (primaryError) {
+        const signerAddress = await signer.getAddress();
+        if (IS_DEV) console.warn('[Wallet] signer.signMessage failed, falling back to personal_sign', primaryError);
+        const signature = await performPersonalSign(rawProvider, signerAddress, message);
+        return signature;
+      }
+    }
+    if (rawProvider) {
+      if (!address) {
+        const accounts = await rawProvider.request({ method: 'eth_accounts' });
+        address = accounts?.[0];
+      }
+      if (!address) {
+        throw new Error('Wallet address unavailable for signing');
+      }
+      return await performPersonalSign(rawProvider, address, message);
+    }
+    throw new Error('No wallet provider available for signing');
   } catch (error) {
     if (error.code === 4001) {
       throw new Error('Signing request was rejected. Please approve the signature in your wallet to authorize your Ed25519 key.');
@@ -224,14 +264,20 @@ export async function getOrCreateWalletAuth(ed25519PublicKey) {
   }
 
   // Create new authorization
-  const { address, provider } = await connectWallet();
+  const { address, provider, rawProvider } = await connectWallet();
   let chainIdHex = '0x0';
   try {
-    chainIdHex = await provider.send('eth_chainId', []);
+    if (provider && typeof provider.send === 'function') {
+      chainIdHex = await provider.send('eth_chainId', []);
+    } else if (rawProvider && typeof rawProvider.request === 'function') {
+      chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
+    }
   } catch (e) {
     try {
-      const net = await provider.getNetwork();
-      chainIdHex = '0x' + (Number(net?.chainId || 0)).toString(16);
+      if (provider) {
+        const net = await provider.getNetwork();
+        chainIdHex = '0x' + (Number(net?.chainId || 0)).toString(16);
+      }
     } catch {}
   }
   const chainId = (() => {
@@ -240,7 +286,7 @@ export async function getOrCreateWalletAuth(ed25519PublicKey) {
     } catch { return 0; }
   })();
   const message = createAuthMessage(ed25519KeyB64);
-  const signature = await signMessage(provider, message);
+  const signature = await signMessage(provider, rawProvider, address, message);
   const nonce = generateNonce();
   const nowMs = Date.now();
   const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
