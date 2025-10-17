@@ -368,6 +368,22 @@
     "notes": "Portal build and runtime configuration flags"
   },
   {
+    "id": "auth-0004",
+    "action": "add",
+    "type": "wallet_support",
+    "subject": "portal",
+    "env": "prod",
+    "data": {
+      "supported_wallets": ["MetaMask", "Brave Wallet"],
+      "detection_order": "window.ethereum.providers -> isMetaMask -> isBraveWallet -> fallback",
+      "personal_sign_strategy": "Normalize UTF-8, attempt [message,address] and [address,message], hex fallback",
+      "chain_sync": "Optional VITE_WALLET_CHAIN_ID env enforced via wallet_switchEthereumChain",
+      "dev_logging": "[Wallet] prefixed logs enabled when import.meta.env.DEV is true"
+    },
+    "effective_at": "2025-10-16T16:05:51+01:00",
+    "notes": "Brave wallet support landed with portal/src/lib/wallet.js refactor."
+  },
+  {
     "id": "flg-0003",
     "action": "add",
     "type": "flags",

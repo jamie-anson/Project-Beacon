@@ -11,6 +11,24 @@ const HAS_WINDOW = typeof window !== 'undefined';
 const TARGET_CHAIN_ID = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_WALLET_CHAIN_ID ? String(import.meta.env.VITE_WALLET_CHAIN_ID) : null;
 const IS_DEV = typeof import.meta !== 'undefined' && import.meta.env && Boolean(import.meta.env.DEV);
 
+/**
+ * Tracks the last detected provider so downstream helpers can adjust behavior (e.g., Brave quirks).
+ * @type {{ raw: any, isMetaMask: boolean, isBrave: boolean } | null}
+ */
+let lastDetectedProvider = null;
+
+function setLastDetectedProvider(provider) {
+  if (!provider) {
+    lastDetectedProvider = null;
+    return;
+  }
+  lastDetectedProvider = {
+    raw: provider,
+    isMetaMask: Boolean(provider.isMetaMask),
+    isBrave: Boolean(provider.isBraveWallet)
+  };
+}
+
 function getInjectedEthereumProvider() {
   if (!HAS_WINDOW) return null;
   const { ethereum } = window;
@@ -19,24 +37,27 @@ function getInjectedEthereumProvider() {
   const preferMetaMask = providers.find((provider) => provider && provider.isMetaMask);
   if (preferMetaMask) {
     if (IS_DEV) console.log('[Wallet] Using MetaMask provider');
+    setLastDetectedProvider(preferMetaMask);
     return preferMetaMask;
   }
   const preferBrave = providers.find((provider) => provider && provider.isBraveWallet);
   if (preferBrave) {
     if (IS_DEV) console.log('[Wallet] Using Brave provider');
+    setLastDetectedProvider(preferBrave);
     return preferBrave;
   }
   const fallback = providers[0] || null;
   if (fallback && IS_DEV) console.log('[Wallet] Using fallback provider');
+  setLastDetectedProvider(fallback);
   return fallback;
 }
 
-async function ensureTargetChain(browserProvider) {
-  if (!TARGET_CHAIN_ID || !browserProvider) return;
+async function ensureTargetChain(rawProvider) {
+  if (!TARGET_CHAIN_ID || !rawProvider || typeof rawProvider.request !== 'function') return;
   try {
-    const currentChainHex = await browserProvider.send('eth_chainId', []);
+    const currentChainHex = await rawProvider.request({ method: 'eth_chainId' });
     if (typeof currentChainHex === 'string' && currentChainHex.toLowerCase() !== TARGET_CHAIN_ID.toLowerCase()) {
-      await browserProvider.send('wallet_switchEthereumChain', [{ chainId: TARGET_CHAIN_ID }]);
+      await rawProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: TARGET_CHAIN_ID }] });
     }
   } catch (error) {
     if (IS_DEV) console.warn('[Wallet] Failed to switch chain', error);
@@ -47,16 +68,29 @@ async function performPersonalSign(browserProvider, address, message) {
   const normalized = typeof message === 'string' ? message : String(message ?? '');
   const utf8Bytes = ethers.toUtf8Bytes(normalized);
   const hexMessage = ethers.hexlify(utf8Bytes);
-  const attempts = [
+  const providerMeta = lastDetectedProvider;
+  const target = providerMeta?.raw && typeof providerMeta.raw.request === 'function' ? providerMeta.raw : null;
+
+  const braveAttempts = [
+    [hexMessage, address],
+    [address, hexMessage],
+    [normalized, address],
+    [address, normalized]
+  ];
+  const defaultAttempts = [
     [normalized, address],
     [address, normalized],
     [hexMessage, address],
     [address, hexMessage]
   ];
+  const attempts = providerMeta?.isBrave ? braveAttempts : defaultAttempts;
+
   let lastError = null;
   for (const params of attempts) {
     try {
-      const signature = await browserProvider.send('personal_sign', params);
+      const signature = target
+        ? await target.request({ method: 'personal_sign', params })
+        : await browserProvider.send('personal_sign', params);
       if (typeof signature === 'string' && signature.length > 0) {
         return signature;
       }
@@ -99,8 +133,8 @@ export async function connectWallet() {
       }
     }
 
+    await ensureTargetChain(ethereumProvider);
     const provider = new ethers.BrowserProvider(ethereumProvider);
-    await ensureTargetChain(provider);
     const currentAccounts = await ethereumProvider.request({ method: 'eth_accounts' });
     const address = currentAccounts[0];
 
