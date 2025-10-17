@@ -107,6 +107,9 @@ async function performPersonalSign(rawProvider, address, message) {
       if (!target) {
         throw new Error('No EIP-1193 provider available for personal_sign');
       }
+      if (IS_DEV || lastDetectedProvider?.isBrave) {
+        console.info('[Wallet] personal_sign attempt', { params });
+      }
       const signature = await target.request({ method: 'personal_sign', params });
       if ((IS_DEV || lastDetectedProvider?.isBrave) && (!signature || signature.length === 0)) {
         console.warn('[Wallet] personal_sign returned empty signature', { params, signature });
@@ -122,7 +125,8 @@ async function performPersonalSign(rawProvider, address, message) {
           params,
           code: error?.code,
           message: error?.message,
-          data: error?.data
+          data: error?.data,
+          stack: error?.stack
         });
       }
       lastError = error;
