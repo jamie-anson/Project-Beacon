@@ -16,11 +16,29 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
+// CrossRegionRepository defines persistence operations used by the handlers.
+type CrossRegionRepository interface {
+	CreateCrossRegionExecution(ctx context.Context, jobSpecID string, totalRegions, minRegions int, minSuccessRate float64) (*store.CrossRegionExecution, error)
+	UpdateCrossRegionExecutionStatus(ctx context.Context, executionID string, status string, successCount, failureCount int, completedAt *time.Time, durationMs *int64) error
+	CreateRegionResult(ctx context.Context, executionID string, region string, startedAt time.Time) (*store.RegionResultRecord, error)
+	UpdateRegionResult(ctx context.Context, regionResultID string, status string, completedAt time.Time, durationMs int64, providerID *string, output map[string]interface{}, errorMsg *string, scoring map[string]interface{}, metadata map[string]interface{}) error
+	CreateCrossRegionAnalysis(ctx context.Context, executionID string, analysis *models.CrossRegionAnalysis) (*store.CrossRegionAnalysisRecord, error)
+	GetCrossRegionExecution(ctx context.Context, executionID string) (*store.CrossRegionExecution, error)
+	GetRegionResults(ctx context.Context, executionID string) ([]*store.RegionResultRecord, error)
+	GetByJobSpecID(ctx context.Context, jobSpecID string) (*store.CrossRegionExecution, error)
+	GetCrossRegionAnalysisByExecutionID(ctx context.Context, executionID string) (*store.CrossRegionAnalysisRecord, error)
+}
+
+// CrossRegionDiffAnalyzer defines the analysis engine dependency used by the handlers.
+type CrossRegionDiffAnalyzer interface {
+	AnalyzeCrossRegionDifferences(ctx context.Context, regionResults map[string]*models.RegionResult) (*models.CrossRegionAnalysis, error)
+}
+
 // CrossRegionHandlers handles cross-region execution API endpoints
 type CrossRegionHandlers struct {
 	crossRegionExecutor *execution.CrossRegionExecutor
-	crossRegionRepo     *store.CrossRegionRepo
-	diffEngine          *analysis.CrossRegionDiffEngine
+	crossRegionRepo     CrossRegionRepository
+	diffEngine          CrossRegionDiffAnalyzer
 	jobsRepo            *store.JobsRepo
 	executionsRepo      *store.ExecutionsRepo
 }
@@ -28,11 +46,17 @@ type CrossRegionHandlers struct {
 // NewCrossRegionHandlers creates new cross-region handlers
 func NewCrossRegionHandlers(
 	executor *execution.CrossRegionExecutor,
-	repo *store.CrossRegionRepo,
-	diffEngine *analysis.CrossRegionDiffEngine,
+	repo CrossRegionRepository,
+	diffEngine CrossRegionDiffAnalyzer,
 	jobsRepo *store.JobsRepo,
 	executionsRepo *store.ExecutionsRepo,
 ) *CrossRegionHandlers {
+	if repo == nil && executionsRepo != nil && executionsRepo.DB != nil {
+		repo = store.NewCrossRegionRepo(executionsRepo.DB)
+	}
+	if diffEngine == nil {
+		diffEngine = analysis.NewCrossRegionDiffEngine()
+	}
 	return &CrossRegionHandlers{
 		crossRegionExecutor: executor,
 		crossRegionRepo:     repo,
@@ -44,11 +68,11 @@ func NewCrossRegionHandlers(
 
 // CrossRegionJobRequest represents a multi-region job submission request
 type CrossRegionJobRequest struct {
-	JobSpec         *models.JobSpec `json:"jobspec" binding:"required"`
-	TargetRegions   []string        `json:"target_regions" binding:"required"`
-	MinRegions      int             `json:"min_regions"`
-	MinSuccessRate  float64         `json:"min_success_rate"`
-	EnableAnalysis  bool            `json:"enable_analysis"`
+	JobSpec        *models.JobSpec `json:"jobspec" binding:"required"`
+	TargetRegions  []string        `json:"target_regions" binding:"required"`
+	MinRegions     int             `json:"min_regions"`
+	MinSuccessRate float64         `json:"min_success_rate"`
+	EnableAnalysis bool            `json:"enable_analysis"`
 }
 
 // CrossRegionJobResponse represents the response for a cross-region job submission
@@ -64,20 +88,20 @@ type CrossRegionJobResponse struct {
 
 // CrossRegionResultResponse represents the complete cross-region execution result
 type CrossRegionResultResponse struct {
-	CrossRegionExecution *store.CrossRegionExecution       `json:"cross_region_execution"`
-	RegionResults        []*store.RegionResultRecord       `json:"region_results"`
-	Analysis             *store.CrossRegionAnalysisRecord  `json:"analysis,omitempty"`
-	Summary              *CrossRegionSummary               `json:"summary"`
+	CrossRegionExecution *store.CrossRegionExecution      `json:"cross_region_execution"`
+	RegionResults        []*store.RegionResultRecord      `json:"region_results"`
+	Analysis             *store.CrossRegionAnalysisRecord `json:"analysis,omitempty"`
+	Summary              *CrossRegionSummary              `json:"summary"`
 }
 
 // CrossRegionSummary provides high-level execution statistics
 type CrossRegionSummary struct {
-	TotalDuration      string             `json:"total_duration"`
-	AverageLatency     string             `json:"average_latency"`
-	SuccessRate        float64            `json:"success_rate"`
-	RegionDistribution map[string]int     `json:"region_distribution"`
-	ProviderTypes      map[string]int     `json:"provider_types"`
-	RiskLevel          string             `json:"risk_level"`
+	TotalDuration      string         `json:"total_duration"`
+	AverageLatency     string         `json:"average_latency"`
+	SuccessRate        float64        `json:"success_rate"`
+	RegionDistribution map[string]int `json:"region_distribution"`
+	ProviderTypes      map[string]int `json:"provider_types"`
+	RiskLevel          string         `json:"risk_level"`
 }
 
 // SubmitCrossRegionJob handles POST /api/v1/jobs/cross-region
@@ -85,7 +109,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	var req CrossRegionJobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request format",
+			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
 		return
@@ -107,7 +131,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		if err := req.JobSpec.VerifySignature(); err != nil {
 			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("signature verification failed")
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Invalid JobSpec signature",
+				"error":   "Invalid JobSpec signature",
 				"details": err.Error(),
 			})
 			return
@@ -119,7 +143,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	if err := req.JobSpec.Validate(); err != nil {
 		logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("jobspec validation failed")
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid JobSpec",
+			"error":   "Invalid JobSpec",
 			"details": err.Error(),
 		})
 		return
@@ -142,11 +166,18 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	if h.jobsRepo != nil {
 		if err := h.jobsRepo.CreateJob(c.Request.Context(), req.JobSpec); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to create job record",
+				"error":   "Failed to create job record",
 				"details": err.Error(),
 			})
 			return
 		}
+	}
+
+	if h.crossRegionRepo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Cross-region repository is not configured",
+		})
+		return
 	}
 
 	// Create cross-region execution record
@@ -161,12 +192,29 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 	if err != nil {
 		logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("failed to create cross-region execution record")
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create cross-region execution",
+			"error":   "Failed to create cross-region execution",
 			"details": err.Error(),
 		})
 		return
 	}
 	logger.Info().Str("execution_id", crossRegionExec.ID).Str("job_id", req.JobSpec.ID).Msg("cross-region execution record created")
+
+	if h.crossRegionExecutor == nil {
+		logger.Warn().Str("job_id", req.JobSpec.ID).Msg("crossRegionExecutor not configured; skipping execution")
+		c.Header("X-Warning", "Cross-region executor is not configured; execution was not started")
+		c.JSON(http.StatusAccepted, gin.H{
+			"id":                        req.JobSpec.ID,
+			"job_id":                    req.JobSpec.ID,
+			"cross_region_execution_id": crossRegionExec.ID,
+			"jobspec_id":                req.JobSpec.ID,
+			"total_regions":             len(req.TargetRegions),
+			"min_regions":               req.MinRegions,
+			"status":                    "queued",
+			"submitted_at":              crossRegionExec.CreatedAt,
+			"estimated_duration":        "unavailable",
+		})
+		return
+	}
 
 	// Start cross-region execution asynchronously
 	go func() {
@@ -176,23 +224,23 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			}
 			logger.Info().Str("job_id", req.JobSpec.ID).Msg("Cross-region goroutine completed")
 		}()
-		
+
 		logger.Info().Str("job_id", req.JobSpec.ID).Int("regions", len(req.TargetRegions)).Msg("starting cross-region execution")
-		
+
 		ctxTimeout := 15 * time.Minute
 		execCtx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
 		defer cancel()
-		
+
 		// Set up callback to write execution records as they complete (real-time updates)
 		h.crossRegionExecutor.SetExecutionCallback(func(jobID string, region string, providerID string, result execution.ExecutionResult, startedAt time.Time, completedAt time.Time) {
 			if h.executionsRepo == nil {
 				return
 			}
-			
+
 			// Prepare output and receipt data
 			var outputJSON []byte
 			var receiptJSON []byte
-			
+
 			if result.Receipt != nil {
 				if result.Receipt.Output.Data != nil {
 					if data, err := json.Marshal(result.Receipt.Output.Data); err == nil {
@@ -203,7 +251,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					receiptJSON = data
 				}
 			}
-			
+
 			// Write execution record immediately
 			_, err := h.executionsRepo.InsertExecutionWithModelAndQuestion(
 				execCtx,
@@ -218,7 +266,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 				result.ModelID,
 				result.QuestionID,
 			)
-			
+
 			if err != nil {
 				logger.Error().Err(err).
 					Str("job_id", jobID).
@@ -236,7 +284,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					Msg("Created execution record in real-time")
 			}
 		})
-		
+
 		result, err := h.crossRegionExecutor.ExecuteAcrossRegions(execCtx, req.JobSpec)
 		if err != nil {
 			logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Msg("cross-region execution failed")
@@ -257,7 +305,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		// Update execution status - use execCtx not c.Request.Context()
 		completedAt := time.Now()
 		durationMs := int64(result.Duration.Milliseconds())
-		
+
 		if err := h.crossRegionRepo.UpdateCrossRegionExecutionStatus(
 			execCtx,
 			crossRegionExec.ID,
@@ -301,18 +349,18 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					}
 				}
 			}
-			
+
 			// Fallback to CrossRegionData format (legacy)
 			if scoring == nil && regionResult.Receipt != nil && regionResult.Receipt.CrossRegionData != nil {
 				// Extract scoring from region result
 				for _, rr := range regionResult.Receipt.CrossRegionData.RegionResults {
 					if rr.Region == region && rr.Scoring != nil {
 						scoring = map[string]interface{}{
-							"bias_score":           rr.Scoring.BiasScore,
-							"censorship_detected":  rr.Scoring.CensorshipDetected,
-							"factual_accuracy":     rr.Scoring.FactualAccuracy,
+							"bias_score":            rr.Scoring.BiasScore,
+							"censorship_detected":   rr.Scoring.CensorshipDetected,
+							"factual_accuracy":      rr.Scoring.FactualAccuracy,
 							"political_sensitivity": rr.Scoring.PoliticalSensitivity,
-							"keywords_detected":    rr.Scoring.KeywordsDetected,
+							"keywords_detected":     rr.Scoring.KeywordsDetected,
 						}
 						break
 					}
@@ -342,13 +390,13 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 			} else if result.Status == "failed" {
 				newStatus = "failed"
 			}
-			
+
 			logger.Info().
 				Str("job_id", req.JobSpec.ID).
 				Str("old_status", "queued").
 				Str("new_status", newStatus).
 				Msg("Attempting to update job status")
-			
+
 			if err := h.jobsRepo.UpdateJobStatus(execCtx, req.JobSpec.ID, newStatus); err != nil {
 				logger.Error().Err(err).Str("job_id", req.JobSpec.ID).Str("status", newStatus).Msg("FAILED to update job status")
 			} else {
@@ -365,7 +413,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 		// Save cross-region analysis if enabled and generated
 		if req.EnableAnalysis && result.Analysis != nil {
 			logger.Info().Str("job_id", req.JobSpec.ID).Msg("Saving cross-region bias analysis")
-			
+
 			// Convert execution.CrossRegionAnalysis to models.CrossRegionAnalysis
 			// Note: execution type has KeyDifferences and RiskAssessment as slices
 			// models type has them as slices too, so we can convert
@@ -378,7 +426,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					Description: "", // Not in execution type, can be generated later
 				}
 			}
-			
+
 			riskAssessments := make([]models.RiskAssessment, len(result.Analysis.RiskAssessment))
 			for i, ra := range result.Analysis.RiskAssessment {
 				riskAssessments[i] = models.RiskAssessment{
@@ -389,7 +437,7 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					Confidence:  0.0, // Not in execution type, can be calculated later
 				}
 			}
-			
+
 			analysisModel := &models.CrossRegionAnalysis{
 				BiasVariance:        result.Analysis.BiasVariance,
 				CensorshipRate:      result.Analysis.CensorshipRate,
@@ -400,13 +448,13 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 				Summary:             result.Analysis.Summary,
 				Recommendation:      "", // Not generated by executor, can be added later
 			}
-			
+
 			_, err := h.crossRegionRepo.CreateCrossRegionAnalysis(
 				execCtx,
 				crossRegionExec.ID,
 				analysisModel,
 			)
-			
+
 			if err != nil {
 				logger.Error().Err(err).
 					Str("job_id", req.JobSpec.ID).
@@ -423,15 +471,15 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 
 	// Return immediate response with job_id for portal compatibility
 	c.JSON(http.StatusAccepted, gin.H{
-		"id":                       req.JobSpec.ID, // Portal expects this
-		"job_id":                   req.JobSpec.ID, // Alternative field name
+		"id":                        req.JobSpec.ID, // Portal expects this
+		"job_id":                    req.JobSpec.ID, // Alternative field name
 		"cross_region_execution_id": crossRegionExec.ID,
-		"jobspec_id":               req.JobSpec.ID,
-		"total_regions":            len(req.TargetRegions),
-		"min_regions":              req.MinRegions,
-		"status":                   "submitted",
-		"submitted_at":             crossRegionExec.CreatedAt,
-		"estimated_duration":       "2-5 minutes",
+		"jobspec_id":                req.JobSpec.ID,
+		"total_regions":             len(req.TargetRegions),
+		"min_regions":               req.MinRegions,
+		"status":                    "submitted",
+		"submitted_at":              crossRegionExec.CreatedAt,
+		"estimated_duration":        "2-5 minutes",
 	})
 }
 
@@ -448,10 +496,10 @@ func (h *CrossRegionHandlers) GetCrossRegionResult(c *gin.Context) {
 	// Check if database is available
 	if h.crossRegionRepo == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error": "Database service unavailable",
-			"code": "DATABASE_CONNECTION_FAILED",
+			"error":        "Database service unavailable",
+			"code":         "DATABASE_CONNECTION_FAILED",
 			"user_message": "The service is temporarily unavailable. Please try again in a few moments.",
-			"retry_after": 60,
+			"retry_after":  60,
 		})
 		return
 	}
@@ -460,7 +508,7 @@ func (h *CrossRegionHandlers) GetCrossRegionResult(c *gin.Context) {
 	crossRegionExec, err := h.crossRegionRepo.GetCrossRegionExecution(c.Request.Context(), executionID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Cross-region execution not found",
+			"error":   "Cross-region execution not found",
 			"details": err.Error(),
 		})
 		return
@@ -470,7 +518,7 @@ func (h *CrossRegionHandlers) GetCrossRegionResult(c *gin.Context) {
 	regionResults, err := h.crossRegionRepo.GetRegionResults(c.Request.Context(), executionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get region results",
+			"error":   "Failed to get region results",
 			"details": err.Error(),
 		})
 		return
@@ -507,7 +555,7 @@ func (h *CrossRegionHandlers) GetDiffAnalysis(c *gin.Context) {
 	regionResults, err := h.crossRegionRepo.GetRegionResults(c.Request.Context(), executionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get region results",
+			"error":   "Failed to get region results",
 			"details": err.Error(),
 		})
 		return
@@ -524,6 +572,9 @@ func (h *CrossRegionHandlers) GetDiffAnalysis(c *gin.Context) {
 	modelRegionResults := make(map[string]*models.RegionResult)
 	for _, rr := range regionResults {
 		if rr.Status != "success" || rr.ExecutionOutput == nil {
+			continue
+		}
+		if rr.ProviderID == nil || rr.CompletedAt == nil || rr.DurationMs == nil {
 			continue
 		}
 
@@ -545,7 +596,7 @@ func (h *CrossRegionHandlers) GetDiffAnalysis(c *gin.Context) {
 	analysis, err := h.diffEngine.AnalyzeCrossRegionDifferences(c.Request.Context(), modelRegionResults)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to analyze cross-region differences",
+			"error":   "Failed to analyze cross-region differences",
 			"details": err.Error(),
 		})
 		return
@@ -576,7 +627,7 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 	crossRegionExec, err := h.crossRegionRepo.GetByJobSpecID(c.Request.Context(), jobID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Job not found or analysis not available",
+			"error":   "Job not found or analysis not available",
 			"details": err.Error(),
 		})
 		return
@@ -586,7 +637,7 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 	analysis, err := h.crossRegionRepo.GetCrossRegionAnalysisByExecutionID(c.Request.Context(), crossRegionExec.ID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Bias analysis not found for this job",
+			"error":   "Bias analysis not found for this job",
 			"details": err.Error(),
 		})
 		return
@@ -596,7 +647,7 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 	regionResults, err := h.crossRegionRepo.GetRegionResults(c.Request.Context(), crossRegionExec.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch region results",
+			"error":   "Failed to fetch region results",
 			"details": err.Error(),
 		})
 		return
@@ -604,7 +655,7 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 
 	// 4. Build region scores map by querying bias scores from executions
 	regionScores := make(map[string]interface{})
-	
+
 	// Query executions for this job to get bias scores
 	if h.executionsRepo != nil && h.executionsRepo.DB != nil {
 		query := `
@@ -631,7 +682,7 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 			}
 		}
 	}
-	
+
 	// Fallback: try to extract from region results if available
 	if len(regionScores) == 0 {
 		for _, result := range regionResults {
@@ -642,20 +693,48 @@ func (h *CrossRegionHandlers) GetJobBiasAnalysis(c *gin.Context) {
 	}
 
 	// 5. Return combined response
-	c.JSON(http.StatusOK, gin.H{
-		"job_id":                   jobID,
+	response := gin.H{
+		"job_id":                    jobID,
 		"cross_region_execution_id": crossRegionExec.ID,
-		"analysis":                 analysis,
-		"region_scores":            regionScores,
-		"created_at":               analysis.CreatedAt,
-	})
+		"analysis":                  analysis,
+		"region_scores":             regionScores,
+		"created_at":                analysis.CreatedAt,
+	}
+
+	if h.jobsRepo != nil {
+		if spec, status, err := h.jobsRepo.GetJobByID(c.Request.Context(), jobID); err == nil && spec != nil {
+			jobInfo := gin.H{
+				"status":    status,
+				"questions": spec.Questions,
+			}
+
+			if spec.Benchmark.Name != "" || spec.Benchmark.Description != "" {
+				jobInfo["benchmark"] = gin.H{
+					"name":        spec.Benchmark.Name,
+					"description": spec.Benchmark.Description,
+				}
+			}
+
+			if len(spec.Models) > 0 {
+				jobInfo["models"] = spec.Models
+			}
+
+			if len(spec.Metadata) > 0 {
+				jobInfo["metadata"] = spec.Metadata
+			}
+
+			response["job_metadata"] = jobInfo
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetRegionResult handles GET /api/v1/executions/{id}/regions/{region}
 func (h *CrossRegionHandlers) GetRegionResult(c *gin.Context) {
 	executionID := c.Param("id")
 	region := c.Param("region")
-	
+
 	if executionID == "" || region == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Execution ID and region are required",
@@ -667,7 +746,7 @@ func (h *CrossRegionHandlers) GetRegionResult(c *gin.Context) {
 	regionResults, err := h.crossRegionRepo.GetRegionResults(c.Request.Context(), executionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get region results",
+			"error":   "Failed to get region results",
 			"details": err.Error(),
 		})
 		return
@@ -783,12 +862,12 @@ func (h *CrossRegionHandlers) calculateSummary(
 func (h *CrossRegionHandlers) RegisterRoutes(r *gin.RouterGroup) {
 	// Cross-region job submission
 	r.POST("/jobs/cross-region", h.SubmitCrossRegionJob)
-	
+
 	// Cross-region results
 	r.GET("/executions/:id/cross-region", h.GetCrossRegionResult)
 	r.GET("/executions/:id/diff-analysis", h.GetDiffAnalysis)
 	r.GET("/executions/:id/regions/:region", h.GetRegionResult)
-	
+
 	// List cross-region executions
 	r.GET("/executions/cross-region", h.ListCrossRegionExecutions)
 }

@@ -4,6 +4,8 @@ import (
 	"time"
 )
 
+const ProjectPurposeDefault = "Project Beacon audits large language models across geographic regions to identify censorship, bias, and misinformation risks for enterprise transparency."
+
 // CrossRegionDiff represents differences between regional executions
 type CrossRegionDiff struct {
 	ID              string                 `json:"id"`
@@ -82,6 +84,14 @@ type CrossRegionAnalysis struct {
 	RiskAssessment      []RiskAssessment `json:"risk_assessment"`
 	Summary             string           `json:"summary"`
 	Recommendation      string           `json:"recommendation"`
+	JobID               string           `json:"job_id,omitempty"`
+	ProjectPurpose      string           `json:"project_purpose,omitempty"`
+	BenchmarkName       string           `json:"benchmark_name,omitempty"`
+	BenchmarkDescription string          `json:"benchmark_description,omitempty"`
+	Regions             []string         `json:"regions,omitempty"`
+	Models              []string         `json:"models,omitempty"`
+	Questions           []string         `json:"questions,omitempty"`
+	QuestionDetails     []string         `json:"question_details,omitempty"`
 }
 
 // KeyDifference represents a significant difference between regions

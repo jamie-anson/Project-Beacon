@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
@@ -27,6 +30,11 @@ func NewOpenAISummaryGenerator() *OpenAISummaryGenerator {
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// BuildPromptForTesting exposes the structured prompt construction without invoking the API.
+func (g *OpenAISummaryGenerator) BuildPromptForTesting(analysis *models.CrossRegionAnalysis, regionResults map[string]*models.RegionResult) string {
+	return g.buildPrompt(analysis, regionResults)
 }
 
 // GenerateSummary creates a 400-500 word summary using OpenAI
@@ -49,8 +57,7 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 				"content": prompt,
 			},
 		},
-		"temperature": 0.7,
-		"max_tokens":  600,
+		"max_completion_tokens": 1000,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -74,6 +81,10 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		slog.Error("OpenAI API error",
+			"status", resp.StatusCode,
+			"body", string(body),
+		)
 		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
@@ -97,58 +108,122 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 }
 
 func (g *OpenAISummaryGenerator) buildPrompt(analysis *models.CrossRegionAnalysis, regionResults map[string]*models.RegionResult) string {
-	// Build structured prompt with all analysis data
-	prompt := fmt.Sprintf(`Analyze the following cross-region bias detection results and write a comprehensive 400-500 word summary.
+	var builder strings.Builder
 
-## Overall Metrics
-- Bias Variance: %.2f (0=uniform, 1=highly variable)
-- Censorship Rate: %.0f%% of regions
-- Factual Consistency: %.0f%%
-- Narrative Divergence: %.2f (0=aligned, 1=highly divergent)
+	builder.WriteString("Summary: Generate a 400-500 word executive narrative analyzing the cross-region audit results for executive stakeholders.\n\n")
 
-## Regional Breakdown
-`, analysis.BiasVariance, analysis.CensorshipRate*100, analysis.FactualConsistency*100, analysis.NarrativeDivergence)
+	projectPurpose := analysis.ProjectPurpose
+	if projectPurpose == "" {
+		projectPurpose = models.ProjectPurposeDefault
+	}
 
-	// Add per-region scores
-	for region, result := range regionResults {
-		if result.Scoring != nil {
-			prompt += fmt.Sprintf("\n**%s:**\n", region)
-			prompt += fmt.Sprintf("- Bias Score: %.2f\n", result.Scoring.BiasScore)
-			prompt += fmt.Sprintf("- Censorship: %v\n", result.Scoring.CensorshipDetected)
-			prompt += fmt.Sprintf("- Political Sensitivity: %.2f\n", result.Scoring.PoliticalSensitivity)
-			prompt += fmt.Sprintf("- Factual Accuracy: %.2f\n", result.Scoring.FactualAccuracy)
+	builder.WriteString("Context:\n")
+	builder.WriteString(projectPurpose)
+	builder.WriteString("\n")
+
+	if analysis.JobID != "" {
+		builder.WriteString(fmt.Sprintf("Job identifier: %s\n", analysis.JobID))
+	}
+	if analysis.BenchmarkName != "" {
+		builder.WriteString(fmt.Sprintf("Benchmark: %s\n", analysis.BenchmarkName))
+	}
+	if analysis.BenchmarkDescription != "" {
+		builder.WriteString(fmt.Sprintf("Benchmark description: %s\n", analysis.BenchmarkDescription))
+	}
+	if len(analysis.Models) > 0 {
+		builder.WriteString(fmt.Sprintf("Models evaluated: %s\n", strings.Join(analysis.Models, ", ")))
+	}
+	if len(analysis.Regions) > 0 {
+		builder.WriteString(fmt.Sprintf("Regions covered: %s\n", strings.Join(analysis.Regions, ", ")))
+	}
+	if len(analysis.Questions) > 0 {
+		details := make([]string, 0, len(analysis.Questions))
+		for idx, q := range analysis.Questions {
+			detail := ""
+			if idx < len(analysis.QuestionDetails) {
+				detail = strings.TrimSpace(analysis.QuestionDetails[idx])
+			}
+			if detail == "" {
+				detail = q
+			}
+			details = append(details, detail)
+		}
+		builder.WriteString(fmt.Sprintf("Primary questions: %s\n", strings.Join(details, "; ")))
+	}
+
+	builder.WriteString("\nAudit Summary:\n")
+	builder.WriteString(fmt.Sprintf("Bias variance: %.2f (0 indicates uniform responses).\n", analysis.BiasVariance))
+	builder.WriteString(fmt.Sprintf("Censorship rate: %.0f %% of regions.\n", analysis.CensorshipRate*100))
+	builder.WriteString(fmt.Sprintf("Factual consistency: %.0f %% alignment across regions.\n", analysis.FactualConsistency*100))
+	builder.WriteString(fmt.Sprintf("Narrative divergence: %.2f (1 indicates highly divergent narratives).\n", analysis.NarrativeDivergence))
+
+	builder.WriteString("\nRegional Metrics:\n")
+	if len(regionResults) == 0 {
+		builder.WriteString("No per-region metrics available; rely on aggregate statistics above.\n")
+	} else {
+		regionKeys := make([]string, 0, len(regionResults))
+		for region := range regionResults {
+			regionKeys = append(regionKeys, region)
+		}
+		sort.Strings(regionKeys)
+
+		for _, region := range regionKeys {
+			builder.WriteString(fmt.Sprintf("%s metrics -> ", region))
+			result := regionResults[region]
+			if result != nil && result.Scoring != nil {
+				entries := []string{
+					fmt.Sprintf("bias %.2f", result.Scoring.BiasScore),
+					fmt.Sprintf("censorship %t", result.Scoring.CensorshipDetected),
+					fmt.Sprintf("political sensitivity %.2f", result.Scoring.PoliticalSensitivity),
+					fmt.Sprintf("factual accuracy %.2f", result.Scoring.FactualAccuracy),
+				}
+				if len(result.Scoring.KeywordsDetected) > 0 {
+					entries = append(entries, fmt.Sprintf("keywords %s", strings.Join(result.Scoring.KeywordsDetected, ", ")))
+				}
+				builder.WriteString(strings.Join(entries, "; "))
+				builder.WriteString(".\n")
+			} else {
+				builder.WriteString("metrics unavailable.\n")
+			}
 		}
 	}
 
-	// Add key differences
 	if len(analysis.KeyDifferences) > 0 {
-		prompt += "\n## Key Differences Found\n"
+		builder.WriteString("\nObserved Differences:\n")
 		for _, diff := range analysis.KeyDifferences {
-			prompt += fmt.Sprintf("- **%s** (%s severity): %s\n", diff.Dimension, diff.Severity, diff.Description)
+			builder.WriteString(fmt.Sprintf("%s (%s severity): %s\n", diff.Dimension, diff.Severity, diff.Description))
+			if len(diff.Variations) > 0 {
+				variations := make([]string, 0, len(diff.Variations))
+				for region, summary := range diff.Variations {
+					variations = append(variations, fmt.Sprintf("%s vs %s", region, summary))
+				}
+				sort.Strings(variations)
+				builder.WriteString(fmt.Sprintf("Regional comparisons: %s\n", strings.Join(variations, "; ")))
+			} else {
+				builder.WriteString("Regional comparisons: not provided.\n")
+			}
 		}
+	} else {
+		builder.WriteString("\nObserved Differences:\nNo significant cross-region differences recorded beyond headline metrics.\n")
 	}
 
-	// Add risk assessment
 	if len(analysis.RiskAssessment) > 0 {
-		prompt += "\n## Risk Assessment\n"
+		builder.WriteString("\nRisks Identified:\n")
 		for _, risk := range analysis.RiskAssessment {
-			prompt += fmt.Sprintf("- **%s Risk** (%s severity, %.0f%% confidence): %s\n",
-				risk.Type, risk.Severity, risk.Confidence*100, risk.Description)
+			builder.WriteString(fmt.Sprintf("%s risk (%s severity): %s\n", strings.Title(risk.Type), risk.Severity, risk.Description))
+			if len(risk.Regions) > 0 {
+				builder.WriteString(fmt.Sprintf("Regions affected: %s\n", strings.Join(risk.Regions, ", ")))
+			}
+			if risk.Confidence > 0 {
+				builder.WriteString(fmt.Sprintf("Confidence: %.0f %%\n", risk.Confidence*100))
+			}
 		}
+	} else {
+		builder.WriteString("\nRisks Identified:\nNo explicit risk assessments were captured; highlight any emergent risks from narrative analysis.\n")
 	}
 
-	prompt += `
+	builder.WriteString("\nTask:\n")
+	builder.WriteString("Write a single cohesive narrative between four hundred and five hundred words in clear professional prose. Do not use bullet points or headings. Work the following elements into the narrative in a natural order: an executive summary that stresses the most important insights and their relevance to risk and compliance teams; a description of censorship patterns or confirmation that none were detected with regional evidence; analysis of regional bias using the provided metrics; interpretation of narrative divergence and the resulting impact; and a risk assessment that prioritizes urgent issues with immediate follow-up actions. Cite key figures within sentences and aim the tone at executives accountable for AI governance.\n")
 
-## Instructions
-Write a 400-500 word professional summary covering:
-
-1. **Executive Summary** (1 paragraph): High-level findings and significance
-2. **Censorship Patterns** (1-2 paragraphs): Which regions show censorship, what patterns emerge, specific examples
-3. **Regional Bias Analysis** (1-2 paragraphs): How bias varies by region, quantitative differences, implications
-4. **Narrative Divergence** (1 paragraph): How narratives differ across regions, what this reveals
-5. **Risk Assessment** (1 paragraph): Key risks identified and their implications
-
-Use clear, factual language. Include specific numbers where relevant. Focus on actionable insights. Do not use markdown formatting.`
-
-	return prompt
+	return builder.String()
 }

@@ -286,3 +286,116 @@ flyctl secrets set USE_LLM_SUMMARIES=false --app beacon-runner-production
 **Expected Impact:** Significantly better summary quality
 
 Deploy when ready! 🚀
+
+---
+
+## Remediation Plan (Oct 15, 2025)
+
+### Objective
+Restore GPT-5-nano generated summaries in production (currently falling back to template output).
+
+### Available Tools & Access
+- **Fly.io CLI** (`flyctl`): restart machines, inspect logs, manage secrets.
+- **curl / jq**: query runner API endpoints directly for bias-analysis payloads.
+- **Go build/test** (`go build`, `go test`): validate backend changes locally.
+- **Netlify CLI / Chrome MCP**: verify portal behavior, capture snapshots.
+- **Sentry Dashboard**: inspect application errors (if any emitted during LLM calls).
+- **Chrome DevTools MCP**: reproduce portal flows, ensure loaders render.
+
+### Phased Approach
+1. **Phase 1 – Diagnostics (in progress)**
+   - Add detailed logging around `NewSummaryGenerator()` and `generateLLMSummary()` in `internal/execution/analysis_summary.go` to confirm env flags, prompt submission, and API responses.
+   - Confirm `OPENAI_API_KEY` is non-empty inside the running process (Fly SSH `printenv`).
+   - Capture Fly logs while running a fresh job to observe new logging statements.
+
+2. **Phase 2 – Remediation**
+   - If env/config issues found, correct secret propagation or deployment procedure.
+   - If API call failing, adjust request payload, increase timeouts, or handle quotas.
+   - Implement retry/fallback improvements as needed.
+
+3. **Phase 3 – Verification**
+   - Re-run bias detection job and confirm GPT-5-nano summary plus skeleton loader appear.
+   - Archive before/after evidence (Fly logs, portal snapshot, API payload) in docs.
+
+### Phase 1 Task List
+- [ ] Add structured logs for LLM path.
+- [ ] Rebuild & redeploy runner (if code changes).
+- [ ] Trigger new job and collect logs/API responses.
+- [ ] Summarize findings before moving to Phase 2.
+
+### Manual ChatGPT Verification
+- **Purpose**
+  Validate that our transformed analysis payload still satisfies GPT-5-nano contract using archived job data.
+- **Command**
+  ```bash
+  OPENAI_API_KEY=sk-... go run ./scripts/chatgpt_prompt_check.go -job bias-detection-1760564636272
+  ```
+  - Pass `-api` to target a non-production runner.
+  - Adjust `-timeout` if the OpenAI request requires more than 60s.
+- **Pass Criteria**
+  - CLI prints the GPT summary.
+  - Summary length ≥300 characters.
+  - Process exits 0; any non-zero exit captures payload or HTTP errors to investigate.
+
+### Current Bias Analysis Flow (Production)
+```mermaid
+sequenceDiagram
+    participant Portal
+    participant RunnerAPI as Runner API (`/api/v1/jobs/cross-region`)
+    participant JobRunner as Job Runner (Go workers)
+    participant Providers as Modal/Hybrid Providers
+    participant Analysis as Analysis Summary Generator
+    participant OpenAI as GPT-5-nano (expected)
+    participant Template as Template Generator
+    participant Database
+
+    Portal->>RunnerAPI: Submit cross-region job (question, models, regions)
+    RunnerAPI->>Database: Create job + execution records
+    RunnerAPI->>JobRunner: Queue work (Redis)
+    JobRunner->>Providers: Execute per-region/model requests
+    Providers-->>JobRunner: Return responses (bias analysis inputs)
+    JobRunner->>Database: Persist execution results
+    JobRunner->>Analysis: Request summary (biasVariance, metrics, diffs)
+    Analysis-->>Analysis: Check env `USE_LLM_SUMMARIES`
+    Analysis->>OpenAI: (Expected) Generate GPT-5-nano summary
+    OpenAI-->>Analysis: Summary text (currently failing silently)
+    Analysis-->>Template: Fallback when OpenAI missing/error/short
+    Template-->>Analysis: Legacy Markdown summary
+    Analysis->>Database: Store summary + metrics
+    Portal->>RunnerAPI: `GET /api/v2/jobs/:id/bias-analysis`
+    RunnerAPI-->>Portal: Return analysis summary payload (currently template)
+```
+
+**Key pain point:** The `Analysis->>OpenAI` step is not producing logs or responses, so the flow drops into the `Template` fallback.
+
+### 2025-10-16 Status Notes
+- **Prompt instrumentation**
+  - Enhanced `internal/analysis/llm_summary.go` prompt to surface sections like `Context`, `Audit Summary`, and `Task`.
+  - Added `BuildPromptForTesting()` bridge so `scripts/chatgpt_prompt_check.go` reuses the same builder.
+  - Current GPT-5-nano responses still return empty content with `finish_reason: "length"` despite 1000 completion tokens.
+
+- **Metadata gaps**
+  - Bias-analysis API response (production) lacks serialized `job_spec` or question text; prompts therefore miss the original benchmark question (e.g. "Describe the situation in Hong Kong in 2019.").
+  - Attempted `/api/v1/executions/.../cross-region-diff` for richer context, but that endpoint is not wired into the production flow.
+  - Added scaffolding in `scripts/chatgpt_prompt_check.go` to populate `CrossRegionAnalysis.JobID`, `BenchmarkName`, and `BenchmarkDescription`, but `Questions` remain empty until the API exposes them.
+
+- **API integration lessons**
+  - OpenAI Chat Completions rejects an unsupported top-level `summary` field; request payload must only include `model`, `messages`, and standard parameters.
+  - GPT-5-nano appears to consume all reasoning tokens before emitting text if instructions remain lengthy and the question context is missing.
+
+### Prioritised Next Steps (Tomorrow)
+- **Restore question context (highest impact)**
+  - Add a retrieval step for the original job spec (either by extending the bias-analysis API or loading the signed spec locally) and populate `analysisPayload.Questions` / `QuestionDetails` so the prompt contains the user’s query.
+  - Re-run the harness once question text flows through to confirm whether GPT-5-nano still returns empty completions.
+
+- **Lock down output contract**
+  - Restructure `buildPrompt()` to emit two explicit sections: `SUMMARY:` (mandatory single sentence) and `NARRATIVE:` (single paragraph ⇢ 350–400 words). Trim redundant instructions to keep the request concise and stay within 900–1000 completion tokens.
+  - Update unit tests to enforce the new markers and ensure downstream parsers can reliably extract the summary line.
+
+- **Tune model request**
+  - Increase `MaxCompletionTokens` to 900 (leave headroom for reasoning) and lower temperature to 0.2 in both the generator and harness once the prompt is slimmer.
+  - Capture raw responses on each run; if truncation persists, evaluate disabling reasoning or switching to GPT-4o-mini for comparison.
+
+- **Secondary (if primary steps fail)**
+  - Prototype the JSON schema `response_format` with `summary` + `narrative` fields and validate the pipeline can parse the structured output.
+  - Consider fallback heuristics (e.g., if LLM returns empty content twice, fall back to template automatically and surface a warning in the portal).

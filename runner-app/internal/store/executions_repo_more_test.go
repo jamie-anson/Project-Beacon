@@ -39,12 +39,16 @@ func TestInsertExecution_QueryError(t *testing.T) {
 
     repo := &ExecutionsRepo{DB: db}
 
+    mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM jobs WHERE jobspec_id = $1")).
+        WithArgs("job-1").
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(42)))
+
     mock.ExpectQuery(regexp.QuoteMeta(`
-        INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data)
-        VALUES ((SELECT id FROM jobs WHERE jobspec_id = $1), $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
     `)).
-        WithArgs("job-1", "prov", "us", "completed", sqlmock.AnyArg(), sqlmock.AnyArg(), []byte("{}"), []byte("{}")).
+        WithArgs(int64(42), "prov", "us", "completed", sqlmock.AnyArg(), sqlmock.AnyArg(), []byte("{}"), []byte("{}"), "llama3.2-1b", nil).
         WillReturnError(sql.ErrConnDone)
 
     // Directly call legacy InsertExecution to avoid JSON marshal variability
@@ -62,13 +66,17 @@ func TestInsertExecution_ScanIDError(t *testing.T) {
 
     repo := &ExecutionsRepo{DB: db}
 
+    mock.ExpectQuery(regexp.QuoteMeta("SELECT id FROM jobs WHERE jobspec_id = $1")).
+        WithArgs("job-1").
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(42)))
+
     rows := sqlmock.NewRows([]string{"id"}).AddRow("not-an-int64")
     mock.ExpectQuery(regexp.QuoteMeta(`
-        INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data)
-        VALUES ((SELECT id FROM jobs WHERE jobspec_id = $1), $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
     `)).
-        WithArgs("job-1", "prov", "us", "completed", sqlmock.AnyArg(), sqlmock.AnyArg(), []byte("{}"), []byte("{}")).
+        WithArgs(int64(42), "prov", "us", "completed", sqlmock.AnyArg(), sqlmock.AnyArg(), []byte("{}"), []byte("{}"), "llama3.2-1b", nil).
         WillReturnRows(rows)
 
     _, err = repo.InsertExecution(context.Background(), "job-1", "prov", "us", "completed", time.Now(), time.Now(), []byte("{}"), []byte("{}"))

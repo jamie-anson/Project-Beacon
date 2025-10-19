@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
@@ -222,20 +224,27 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 
 	_, _, jobspecJSON, _, _, err := w.JobsRepo.GetJob(jobCtx, env.ID)
 	if err != nil {
-		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("get job: %w", err), "unknown", nil)
+		if w.ExecutionSvc != nil {
+			w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("get job: %w", err), "unknown", nil)
+		}
 		return fmt.Errorf("get job: %w", err)
 	}
 
 	spec, err := jobspec.NewValidator().ValidateJobSpec(jobspecJSON)
 	if err != nil {
-		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("jobspec validate: %w", err), "unknown", nil)
-		_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
+		if w.ExecutionSvc != nil {
+			if err := w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("jobspec validate: %w", err), "unknown", nil); err == nil {
+				_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
+			}
+		}
 		return fmt.Errorf("jobspec validate: %w", err)
 	}
 
 	if len(spec.Constraints.Regions) == 0 {
-		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no regions in job constraints"), "unknown", nil)
-		_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
+		if w.ExecutionSvc != nil {
+			w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no regions in job constraints"), "unknown", nil)
+			_ = w.JobsRepo.UpdateJobStatus(jobCtx, env.ID, "failed")
+		}
 		return fmt.Errorf("no regions in job constraints")
 	}
 
@@ -250,7 +259,9 @@ func (w *JobRunner) handleEnvelope(ctx context.Context, payload []byte) error {
 		executor = NewHybridExecutor(w.Hybrid)
 	}
 	if executor == nil {
-		w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no executor configured"), "unknown", nil)
+		if w.ExecutionSvc != nil {
+			w.ExecutionSvc.RecordEarlyFailure(jobCtx, env.ID, fmt.Errorf("no executor configured"), "unknown", nil)
+		}
 		return fmt.Errorf("no executor configured")
 	}
 
@@ -339,19 +350,35 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 		}
 	}
 
-	totalExecutions := len(spec.Models) * len(selectedRegions) * len(spec.Questions)
+	// Compute accurate expected executions (only models that support each selected region)
+	expectedExecutions := 0
+	for _, r := range selectedRegions {
+		for range spec.Questions {
+			for _, m := range spec.Models {
+				for _, mr := range m.Regions {
+					if mr == r {
+						expectedExecutions++
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Instrumentation counters for started/completed execution units
+	var started atomic.Int64
+	var finished atomic.Int64
 
 	l.Info().
 		Str("job_id", jobID).
 		Int("model_count", len(spec.Models)).
 		Int("question_count", len(spec.Questions)).
 		Int("selected_region_count", len(selectedRegions)).
-		Int("total_executions", totalExecutions).
+		Int("expected_executions", expectedExecutions).
 		Int("max_concurrent", w.maxConcurrent).
-		Msg("starting multi-model per-region question queue execution")
+		Msg("starting multi-model per-region question queue execution [INSTR]")
 
 	// Create per-region goroutines that process questions sequentially
-	// This allows US to move to Q2 while EU/ASIA are still on Q1
 	var regionWg sync.WaitGroup
 
 	l.Info().
@@ -435,31 +462,15 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 						defer questionWg.Done()
 						defer func() { <-sem }()
 
-						// Check if context is already cancelled before executing
-						select {
-						case <-ctx.Done():
-							l.Warn().
-								Str("job_id", jobID).
-								Str("region", r).
-								Str("model_id", m.ID).
-								Str("question", q).
-								Msg("execution cancelled before start - context deadline exceeded")
-
-							resultsMu.Lock()
-							results = append(results, ExecutionResult{
-								Region:      r,
-								Status:      "cancelled",
-								ModelID:     m.ID,
-								QuestionID:  q,
-								Error:       ctx.Err(),
-								StartedAt:   time.Now(),
-								CompletedAt: time.Now(),
-							})
-							resultsMu.Unlock()
-							return
-						default:
-							// Continue with execution
-						}
+						// Instrument: mark start of one execution unit
+						curStarted := started.Add(1)
+						l.Debug().
+							Str("job_id", jobID).
+							Str("region", r).
+							Str("model_id", m.ID).
+							Str("question", q).
+							Int64("started_count", curStarted).
+							Msg("execution unit started [INSTR]")
 
 						// Create modified spec with single question
 						modelSpec := *spec
@@ -492,12 +503,23 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 								Str("model_id", m.ID).
 								Str("question", q).
 								Err(ctx.Err()).
-								Msg("execution cancelled - Modal should auto-cleanup on connection close")
+								Msg("execution cancelled - provider should auto-cleanup on connection close")
 						}
 
 						resultsMu.Lock()
 						results = append(results, result)
 						resultsMu.Unlock()
+
+						// Instrument: mark completion of one execution unit
+						curFinished := finished.Add(1)
+						l.Debug().
+							Str("job_id", jobID).
+							Str("region", r).
+							Str("model_id", m.ID).
+							Str("question", q).
+							Str("status", result.Status).
+							Int64("finished_count", curFinished).
+							Msg("execution unit finished [INSTR]")
 
 						l.Debug().
 							Str("job_id", jobID).
@@ -529,11 +551,22 @@ func (w *JobRunner) executeMultiModelJob(ctx context.Context, jobID string, spec
 	// Wait for all regions to complete their question queues
 	regionWg.Wait()
 
+	// Instrument: cross-check persisted executions in DB vs expected
+	persistedCount := -1
+	if w.DB != nil {
+		checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		_ = w.DB.QueryRowContext(checkCtx, `SELECT COUNT(*) FROM executions WHERE job_id = $1`, spec.ID).Scan(&persistedCount)
+	}
+
 	l.Info().
 		Str("job_id", jobID).
 		Int("results_count", len(results)).
-		Int("expected_executions", totalExecutions).
-		Msg("all region question queues completed - ready for status calculation")
+		Int("expected_executions", expectedExecutions).
+		Int("persisted_executions", persistedCount).
+		Int64("started_count", started.Load()).
+		Int64("finished_count", finished.Load()).
+		Msg("all region question queues completed - ready for status calculation [INSTR]")
 
 	// Return results for processing
 	return results, nil
@@ -576,6 +609,21 @@ func (w *JobRunner) executeAllRegions(ctx context.Context, jobID string, spec *m
 func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, spec *models.JobSpec, results []ExecutionResult) error {
 	l := logging.FromContext(ctx)
 
+	// Instrument: compute timing boundaries across results
+	var minStart, maxEnd time.Time
+	if len(results) > 0 {
+		minStart = results[0].StartedAt
+		maxEnd = results[0].CompletedAt
+		for _, r := range results {
+			if r.StartedAt.Before(minStart) {
+				minStart = r.StartedAt
+			}
+			if r.CompletedAt.After(maxEnd) {
+				maxEnd = r.CompletedAt
+			}
+		}
+	}
+
 	// Count successes and failures
 	successCount, failureCount, firstError := 0, 0, error(nil)
 	for _, result := range results {
@@ -591,6 +639,13 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 
 	// Determine job status
 	totalExecutions := len(results)
+	if totalExecutions == 0 {
+		l.Warn().Str("job_id", jobID).Msg("no execution results; marking job as failed")
+		_ = w.JobsRepo.UpdateJobStatus(ctx, jobID, "failed")
+		metrics.JobsFailedTotal.Inc()
+		return fmt.Errorf("no execution results")
+	}
+
 	successRate := float64(successCount) / float64(totalExecutions)
 	minSuccessRate := spec.Constraints.MinSuccessRate
 	if minSuccessRate == 0 {
@@ -610,7 +665,88 @@ func (w *JobRunner) processExecutionResults(ctx context.Context, jobID string, s
 		Float64("success_rate", successRate).
 		Float64("min_success_rate", minSuccessRate).
 		Str("final_status", jobStatus).
-		Msg("calculating final job status after all executions")
+		Time("first_started_at", minStart).
+		Time("last_completed_at", maxEnd).
+		Msg("calculating final job status after all executions [INSTR]")
+
+	// Strict Completion Barrier: Ensure all executions are persisted before marking job complete
+	if os.Getenv("STRICT_COMPLETION_BARRIER") == "1" && jobStatus == "completed" {
+		// Compute expected executions (same logic as executeMultiModelJob)
+		selectedRegions := spec.Constraints.Regions
+		if len(selectedRegions) == 0 {
+			regionMap := make(map[string]bool)
+			for _, model := range spec.Models {
+				for _, region := range model.Regions {
+					regionMap[region] = true
+				}
+			}
+			for region := range regionMap {
+				selectedRegions = append(selectedRegions, region)
+			}
+		}
+
+		expectedExecutions := 0
+		for _, r := range selectedRegions {
+			for range spec.Questions {
+				for _, m := range spec.Models {
+					for _, mr := range m.Regions {
+						if mr == r {
+							expectedExecutions++
+							break
+						}
+					}
+				}
+			}
+		}
+
+		// Query persisted execution count - ONLY count truly finished executions
+		// Exclude retrying/pending/running executions that aren't actually complete yet
+		persistedCount := 0
+		if w.DB != nil {
+			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			err := w.DB.QueryRowContext(checkCtx, `
+				SELECT COUNT(*) FROM executions 
+				WHERE job_id = $1 
+				AND status NOT IN ('retrying', 'pending', 'running')
+				AND completed_at IS NOT NULL
+			`, spec.ID).Scan(&persistedCount)
+			if err != nil {
+				l.Error().Err(err).Str("job_id", jobID).Msg("failed to query persisted execution count")
+			}
+		}
+
+		l.Info().
+			Str("job_id", jobID).
+			Int("expected_executions", expectedExecutions).
+			Int("persisted_executions", persistedCount).
+			Int("results_count", len(results)).
+			Msg("strict completion barrier check [INSTR]")
+
+		// If not all executions persisted yet, defer completion
+		if persistedCount < expectedExecutions {
+			l.Warn().
+				Str("job_id", jobID).
+				Int("expected", expectedExecutions).
+				Int("persisted", persistedCount).
+				Int("gap", expectedExecutions-persistedCount).
+				Msg("strict barrier: not all executions persisted yet - deferring completion")
+
+			// Set interim status to signal UI that job is finalizing
+			if err := w.JobsRepo.UpdateJobStatus(ctx, jobID, "finalizing"); err != nil {
+				return fmt.Errorf("failed to update job status to finalizing: %w", err)
+			}
+
+			// Return without error - a background watcher or retry will check again
+			return nil
+		}
+
+		l.Info().
+			Str("job_id", jobID).
+			Int("expected", expectedExecutions).
+			Int("persisted", persistedCount).
+			Msg("strict barrier: all executions persisted - proceeding to completion")
+	}
 
 	// Update job status and metrics
 	if err := w.JobsRepo.UpdateJobStatus(ctx, jobID, jobStatus); err != nil {
@@ -758,10 +894,13 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		singleQuestionSpec.Questions = []string{questionID}
 	}
 
+	// Capture actual execution start time (not queue time)
+	executionStart := time.Now()
+
 	// Execute job in this region
 	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, &singleQuestionSpec, region)
 
-	regionEnd := time.Now()
+	executionEnd := time.Now()
 	result := ExecutionResult{
 		Region:      region,
 		ProviderID:  providerID,
@@ -771,8 +910,8 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		OutputJSON:  outputJSON,
 		ReceiptJSON: receiptJSON,
 		Error:       err,
-		StartedAt:   regionStart.UTC(),
-		CompletedAt: regionEnd.UTC(),
+		StartedAt:   executionStart.UTC(),
+		CompletedAt: executionEnd.UTC(),
 	}
 
 	// Handle execution result logging and metrics
@@ -837,8 +976,8 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		}
 	}
 
-	// Update metrics
-	metrics.ExecutionDurationSeconds.WithLabelValues(region, result.Status).Observe(time.Since(regionStart).Seconds())
+	// Update metrics - use actual execution duration, not including duplicate check time
+	metrics.ExecutionDurationSeconds.WithLabelValues(region, result.Status).Observe(time.Since(executionStart).Seconds())
 
 	// Best-effort: region verification
 	if execID > 0 {

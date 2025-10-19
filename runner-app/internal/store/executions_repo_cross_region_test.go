@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -154,11 +153,11 @@ func TestGetCrossRegionExecutions_HandlesNullFields(t *testing.T) {
 			job_id, region, status, provider_id, model_id, question_id,
 			output_data, started_at, created_at
 		)
-		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', 'identity_basic', ?, datetime('now'), datetime('now'))
+		VALUES (1, 'us-east', 'completed', 'modal-us-001', 'llama3.2-1b', NULL, ?, datetime('now'), datetime('now'))
 	`, outputJSON)
 	require.NoError(t, err)
 
-	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-789", "llama3.2-1b", "identity_basic")
+	executions, err := repo.GetCrossRegionExecutions(ctx, "test-job-789", "llama3.2-1b", "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(executions))
 

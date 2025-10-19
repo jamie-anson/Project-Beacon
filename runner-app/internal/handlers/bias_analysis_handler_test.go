@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
@@ -33,15 +34,15 @@ func TestGetJobBiasAnalysis(t *testing.T) {
 				biasVariance := 0.68
 				censorshipRate := 0.67
 				summary := "Cross-region analysis completed with significant findings..."
-				
+
 				return &store.CrossRegionAnalysisRecord{
-					ID:                      "analysis-456",
-					CrossRegionExecutionID:  execID,
-					BiasVariance:            &biasVariance,
-					CensorshipRate:          &censorshipRate,
-					Summary:                 &summary,
-					KeyDifferences:          []models.KeyDifference{},
-					RiskAssessment:          []models.RiskAssessment{},
+					ID:                     "analysis-456",
+					CrossRegionExecutionID: execID,
+					BiasVariance:           &biasVariance,
+					CensorshipRate:         &censorshipRate,
+					Summary:                &summary,
+					KeyDifferences:         []models.KeyDifference{},
+					RiskAssessment:         []models.RiskAssessment{},
 				}, nil
 			},
 			GetRegionResultsFunc: func(ctx context.Context, execID string) ([]*store.RegionResultRecord, error) {
@@ -91,7 +92,7 @@ func TestGetJobBiasAnalysis(t *testing.T) {
 
 		assert.Equal(t, "test-job-123", response["job_id"])
 		assert.Equal(t, "exec-123", response["cross_region_execution_id"])
-		
+
 		// Verify analysis
 		analysis, ok := response["analysis"].(map[string]interface{})
 		require.True(t, ok)
@@ -202,7 +203,7 @@ func TestGetJobBiasAnalysis(t *testing.T) {
 	t.Run("handles regions without scoring data", func(t *testing.T) {
 		biasVariance := 0.5
 		summary := "test"
-		
+
 		mockRepo := &MockCrossRegionRepo{
 			GetByJobSpecIDFunc: func(ctx context.Context, jobSpecID string) (*store.CrossRegionExecution, error) {
 				return &store.CrossRegionExecution{
@@ -254,7 +255,7 @@ func TestGetJobBiasAnalysis(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &response)
 
 		regionScores := response["region_scores"].(map[string]interface{})
-		
+
 		// Should only include region with scoring
 		assert.Contains(t, regionScores, "eu_west")
 		assert.NotContains(t, regionScores, "us_east")
@@ -282,7 +283,7 @@ func TestGetDiffAnalysis_SavesPersistence(t *testing.T) {
 
 	t.Run("saves analysis to database after generation", func(t *testing.T) {
 		analysisSaved := false
-		
+
 		mockRepo := &MockCrossRegionRepo{
 			GetRegionResultsFunc: func(ctx context.Context, execID string) ([]*store.RegionResultRecord, error) {
 				return []*store.RegionResultRecord{
@@ -372,7 +373,7 @@ func TestGetDiffAnalysis_SavesPersistence(t *testing.T) {
 
 		// Should still return 200 with analysis
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		// Should have warning header
 		assert.Contains(t, w.Header().Get("X-Warning"), "Failed to persist analysis")
 	})
@@ -381,15 +382,55 @@ func TestGetDiffAnalysis_SavesPersistence(t *testing.T) {
 // Mock types for testing
 
 type MockCrossRegionRepo struct {
+	CreateCrossRegionExecutionFunc          func(ctx context.Context, jobSpecID string, totalRegions, minRegions int, minSuccessRate float64) (*store.CrossRegionExecution, error)
+	UpdateCrossRegionExecutionStatusFunc    func(ctx context.Context, executionID string, status string, successCount, failureCount int, completedAt *time.Time, durationMs *int64) error
+	CreateRegionResultFunc                  func(ctx context.Context, executionID string, region string, startedAt time.Time) (*store.RegionResultRecord, error)
+	UpdateRegionResultFunc                  func(ctx context.Context, regionResultID string, status string, completedAt time.Time, durationMs int64, providerID *string, output map[string]interface{}, errorMsg *string, scoring map[string]interface{}, metadata map[string]interface{}) error
+	CreateCrossRegionAnalysisFunc           func(ctx context.Context, execID string, analysis *models.CrossRegionAnalysis) (*store.CrossRegionAnalysisRecord, error)
+	GetCrossRegionExecutionFunc             func(ctx context.Context, executionID string) (*store.CrossRegionExecution, error)
+	GetRegionResultsFunc                    func(ctx context.Context, execID string) ([]*store.RegionResultRecord, error)
 	GetByJobSpecIDFunc                      func(ctx context.Context, jobSpecID string) (*store.CrossRegionExecution, error)
 	GetCrossRegionAnalysisByExecutionIDFunc func(ctx context.Context, execID string) (*store.CrossRegionAnalysisRecord, error)
-	GetRegionResultsFunc                    func(ctx context.Context, execID string) ([]*store.RegionResultRecord, error)
-	CreateCrossRegionAnalysisFunc           func(ctx context.Context, execID string, analysis *models.CrossRegionAnalysis) (*store.CrossRegionAnalysisRecord, error)
+}
+
+func (m *MockCrossRegionRepo) CreateCrossRegionExecution(ctx context.Context, jobSpecID string, totalRegions, minRegions int, minSuccessRate float64) (*store.CrossRegionExecution, error) {
+	if m.CreateCrossRegionExecutionFunc != nil {
+		return m.CreateCrossRegionExecutionFunc(ctx, jobSpecID, totalRegions, minRegions, minSuccessRate)
+	}
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockCrossRegionRepo) UpdateCrossRegionExecutionStatus(ctx context.Context, executionID string, status string, successCount, failureCount int, completedAt *time.Time, durationMs *int64) error {
+	if m.UpdateCrossRegionExecutionStatusFunc != nil {
+		return m.UpdateCrossRegionExecutionStatusFunc(ctx, executionID, status, successCount, failureCount, completedAt, durationMs)
+	}
+	return nil
+}
+
+func (m *MockCrossRegionRepo) CreateRegionResult(ctx context.Context, executionID string, region string, startedAt time.Time) (*store.RegionResultRecord, error) {
+	if m.CreateRegionResultFunc != nil {
+		return m.CreateRegionResultFunc(ctx, executionID, region, startedAt)
+	}
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockCrossRegionRepo) UpdateRegionResult(ctx context.Context, regionResultID string, status string, completedAt time.Time, durationMs int64, providerID *string, output map[string]interface{}, errorMsg *string, scoring map[string]interface{}, metadata map[string]interface{}) error {
+	if m.UpdateRegionResultFunc != nil {
+		return m.UpdateRegionResultFunc(ctx, regionResultID, status, completedAt, durationMs, providerID, output, errorMsg, scoring, metadata)
+	}
+	return nil
 }
 
 func (m *MockCrossRegionRepo) GetByJobSpecID(ctx context.Context, jobSpecID string) (*store.CrossRegionExecution, error) {
 	if m.GetByJobSpecIDFunc != nil {
 		return m.GetByJobSpecIDFunc(ctx, jobSpecID)
+	}
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockCrossRegionRepo) GetCrossRegionExecution(ctx context.Context, executionID string) (*store.CrossRegionExecution, error) {
+	if m.GetCrossRegionExecutionFunc != nil {
+		return m.GetCrossRegionExecutionFunc(ctx, executionID)
 	}
 	return nil, fmt.Errorf("not implemented")
 }
@@ -423,5 +464,5 @@ func (m *MockDiffEngine) AnalyzeCrossRegionDifferences(ctx context.Context, regi
 	if m.AnalyzeCrossRegionDifferencesFunc != nil {
 		return m.AnalyzeCrossRegionDifferencesFunc(ctx, regionResults)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, nil
 }

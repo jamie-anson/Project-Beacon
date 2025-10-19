@@ -105,6 +105,7 @@ func TestJobSpecValidationRules(t *testing.T) {
 		modifySpec  func(*models.JobSpec)
 		expectError bool
 		errorMsg    string
+		postCheck   func(*models.JobSpec)
 	}{
 		{
 			name: "Valid JobSpec",
@@ -118,16 +119,24 @@ func TestJobSpecValidationRules(t *testing.T) {
 			modifySpec: func(js *models.JobSpec) {
 				js.ID = ""
 			},
-			expectError: true,
-			errorMsg:    "jobspec ID is required",
+			expectError: false,
+			postCheck: func(js *models.JobSpec) {
+				if js.ID == "" {
+					t.Errorf("expected ID to be auto-populated")
+				}
+			},
 		},
 		{
 			name: "Missing Version",
 			modifySpec: func(js *models.JobSpec) {
 				js.Version = ""
 			},
-			expectError: true,
-			errorMsg:    "jobspec version is required",
+			expectError: false,
+			postCheck: func(js *models.JobSpec) {
+				if js.Version == "" {
+					t.Errorf("expected version to be defaulted")
+				}
+			},
 		},
 		{
 			name: "Missing Benchmark Name",
@@ -173,7 +182,7 @@ func TestJobSpecValidationRules(t *testing.T) {
 
 			// Test validation
 			err := jobspec.Validate()
-			
+		
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected validation error but got none")
@@ -183,6 +192,10 @@ func TestJobSpecValidationRules(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected validation error: %v", err)
+				}
+				if tt.postCheck != nil {
+					tt := tt // capture range variable
+					tt.postCheck(jobspec)
 				}
 			}
 		})

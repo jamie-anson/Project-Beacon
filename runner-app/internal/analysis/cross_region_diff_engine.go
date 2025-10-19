@@ -143,6 +143,7 @@ func (engine *CrossRegionDiffEngine) AnalyzeCrossRegionDifferences(ctx context.C
 		KeyDifferences:      engine.extractKeyDifferences(regionResults),
 		RiskAssessment:      engine.assessRisks(regionAnalyses),
 	}
+	analysis.ProjectPurpose = models.ProjectPurposeDefault
 
 	// Generate summary using OpenAI (with fallback)
 	summary, err := engine.summaryGenerator.GenerateSummary(ctx, analysis, regionResults)

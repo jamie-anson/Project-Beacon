@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
@@ -21,15 +23,29 @@ type SummaryGenerator struct {
 // NewSummaryGenerator creates a new summary generator
 func NewSummaryGenerator(logger *slog.Logger) *SummaryGenerator {
 	useLLM := os.Getenv("USE_LLM_SUMMARIES") == "true"
+	hasAPIKey := os.Getenv("OPENAI_API_KEY") != ""
+	rawFlag := os.Getenv("USE_LLM_SUMMARIES")
+	rawLevel := os.Getenv("LOG_LEVEL")
 	var llmGen *analysis.OpenAISummaryGenerator
-	
-	if useLLM {
+
+	if useLLM && hasAPIKey {
 		llmGen = analysis.NewOpenAISummaryGenerator()
 		logger.Info("LLM summary generation enabled (GPT-5-nano)")
+	} else if useLLM {
+		logger.Warn("USE_LLM_SUMMARIES enabled but OPENAI_API_KEY missing; using template fallback")
+		sentry.CaptureMessage("USE_LLM_SUMMARIES true but OPENAI_API_KEY missing")
+		useLLM = false
 	} else {
 		logger.Info("Using template-based summary generation")
 	}
-	
+
+	logger.Info("Summary generator initialized",
+		"use_llm", useLLM,
+		"api_key_configured", hasAPIKey,
+		"use_llm_raw", rawFlag,
+		"log_level", rawLevel,
+	)
+
 	return &SummaryGenerator{
 		logger:       logger,
 		llmGenerator: llmGen,
@@ -48,17 +64,49 @@ func (sg *SummaryGenerator) GenerateSummary(
 ) string {
 	// Try LLM generation if enabled
 	if sg.useLLM && sg.llmGenerator != nil {
+		sg.logger.Info("Attempting GPT-5-nano summary generation",
+			"bias_variance", biasVariance,
+			"censorship_rate", censorshipRate,
+			"factual_consistency", factualConsistency,
+			"narrative_divergence", narrativeDivergence,
+			"key_difference_count", len(keyDifferences),
+			"risk_count", len(riskAssessments),
+		)
+
+		start := time.Now()
 		llmSummary, err := sg.generateLLMSummary(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, keyDifferences, riskAssessments)
 		if err != nil {
-			sg.logger.Warn("LLM summary generation failed, falling back to template", "error", err)
+			sg.logger.Error("LLM summary generation failed, falling back to template",
+				"error", err,
+				"elapsed_ms", time.Since(start).Milliseconds(),
+			)
+			sentry.CaptureException(err)
 		} else if len(llmSummary) >= 300 {
 			sg.logger.Info("LLM summary generated successfully",
 				"length", len(llmSummary),
-				"model", "gpt-5-nano")
+				"model", "gpt-5-nano",
+				"elapsed_ms", time.Since(start).Milliseconds(),
+			)
 			return llmSummary
 		} else {
-			sg.logger.Warn("LLM summary too short, falling back to template", "length", len(llmSummary))
+			sg.logger.Warn("LLM summary too short, falling back to template",
+				"length", len(llmSummary),
+				"elapsed_ms", time.Since(start).Milliseconds(),
+			)
+			sentry.WithScope(func(scope *sentry.Scope) {
+				scope.SetTag("fallback_reason", "summary_too_short")
+				scope.SetExtra("length", len(llmSummary))
+				scope.SetExtra("elapsed_ms", time.Since(start).Milliseconds())
+				sentry.CaptureMessage("LLM summary too short; using template fallback")
+			})
 		}
+	}
+
+	if !sg.useLLM || sg.llmGenerator == nil {
+		sg.logger.Warn("LLM summary generator unavailable; using template fallback",
+			"use_llm", sg.useLLM,
+			"generator_nil", sg.llmGenerator == nil,
+		)
 	}
 
 	// Fallback to template-based generation
@@ -103,8 +151,29 @@ func (sg *SummaryGenerator) generateLLMSummary(
 		})
 	}
 
+	sg.logger.Info("Submitting GPT-5-nano request",
+		"key_difference_count", len(analysis.KeyDifferences),
+		"risk_count", len(analysis.RiskAssessment),
+	)
+
+	sg.logger.Debug("Prepared GPT-5-nano payload",
+		"bias_variance", analysis.BiasVariance,
+		"censorship_rate", analysis.CensorshipRate,
+		"factual_consistency", analysis.FactualConsistency,
+		"narrative_divergence", analysis.NarrativeDivergence,
+		"key_difference_count", len(analysis.KeyDifferences),
+		"risk_count", len(analysis.RiskAssessment),
+	)
+
 	ctx := context.Background()
-	return sg.llmGenerator.GenerateSummary(ctx, analysis, nil)
+	summary, err := sg.llmGenerator.GenerateSummary(ctx, analysis, nil)
+	if err != nil {
+		sentry.CaptureException(err)
+		return "", err
+	}
+
+	sg.logger.Debug("Received GPT-5-nano response", "length", len(summary))
+	return summary, nil
 }
 
 // generateTemplateSummary uses template-based generation (original logic)
@@ -304,21 +373,21 @@ func (sg *SummaryGenerator) generateConclusion(biasVariance, censorshipRate, fac
 			"The combination of high censorship and significant bias variance suggests systematic information control. " +
 			"Users should exercise extreme caution and seek multiple independent sources."
 	}
-	
+
 	// High concern: Significant factual inconsistency or narrative divergence
 	if highCount > 0 || censorshipRate >= 0.5 || biasVariance >= 0.6 || factualConsistency < 0.3 || narrativeDivergence > 0.7 {
 		return "**Conclusion:** Significant differences exist in how information is presented across regions. " +
 			"Notable factual inconsistencies, narrative divergence, or censorship patterns detected. " +
 			"Users should exercise caution and cross-reference with multiple independent sources."
 	}
-	
+
 	// Good: All metrics within acceptable ranges
 	if censorshipRate < 0.2 && biasVariance < 0.3 && factualConsistency >= 0.7 && narrativeDivergence < 0.4 {
 		return "**Conclusion:** The analysis shows generally consistent and reliable information delivery across regions. " +
 			"Metrics indicate minimal bias, censorship, and narrative divergence. " +
 			"Information appears factually consistent across different regional sources."
 	}
-	
+
 	// Moderate: Some concerns but not severe
 	return "**Conclusion:** The analysis reveals moderate variations in information presentation. " +
 		"While some differences exist in factual consistency or narrative framing, " +

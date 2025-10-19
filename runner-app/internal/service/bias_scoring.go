@@ -341,6 +341,9 @@ func (bs *BiasScorer) extractKeywordFlags(response string) []string {
 
 // StoreBiasScore stores bias metrics in the database
 func (bs *BiasScorer) StoreBiasScore(ctx context.Context, executionID int64, metrics BiasMetrics) error {
+    if bs == nil || bs.db == nil {
+        return nil
+    }
 	scoringJSON, err := json.Marshal(metrics)
 	if err != nil {
 		return err

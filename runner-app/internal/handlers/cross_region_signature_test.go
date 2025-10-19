@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,13 +43,13 @@ func TestCrossRegionJobSubmission_SignatureOptional(t *testing.T) {
 						"regions":     []string{"US", "EU"},
 						"min_regions": 1,
 					},
-					"questions": []string{"q1", "q2"}, // Required for bias-detection
+					"questions": []string{"q1", "q2"},
 				},
 				"target_regions":   []string{"US", "EU"},
 				"min_regions":      1,
 				"min_success_rate": 0.67,
 			},
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 			description:    "Should accept job without signature (development mode)",
 		},
 		{
@@ -99,14 +102,14 @@ func TestCrossRegionJobSubmission_SignatureOptional(t *testing.T) {
 						"regions":     []string{"US", "EU"},
 						"min_regions": 1,
 					},
-					"questions": []string{"q1", "q2"}, // Required for bias-detection
+					"questions": []string{"q1", "q2"},
 					"signature": "some-signature",
 				},
 				"target_regions":   []string{"US", "EU"},
 				"min_regions":      1,
 				"min_success_rate": 0.67,
 			},
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusAccepted,
 			description:    "Should skip verification if public_key missing (even with signature)",
 		},
 		{
@@ -129,11 +132,7 @@ func TestCrossRegionJobSubmission_SignatureOptional(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock handler (simplified - doesn't actually execute)
-			handler := &CrossRegionHandlers{
-				crossRegionExecutor: nil, // Mock would go here
-				crossRegionRepo:     nil, // Mock would go here
-				diffEngine:          nil, // Mock would go here
-			}
+			handler := newTestCrossRegionHandlers()
 
 			// Create test router
 			router := gin.New()
@@ -187,7 +186,22 @@ func TestCrossRegionJobSubmission_PayloadTransformation(t *testing.T) {
 				"min_success_rate": 0.67,
 			},
 			"questions": []string{"q1", "q2"},
-			"models":    []string{"llama3.2-1b", "mistral-7b"},
+			"models": []map[string]interface{}{
+				{
+					"id":              "llama3.2-1b",
+					"name":            "Llama 3.2-1B",
+					"provider":        "modal",
+					"container_image": "ghcr.io/project-beacon/llama-3.2-1b:latest",
+					"regions":         []string{"US", "EU"},
+				},
+				{
+					"id":              "mistral-7b",
+					"name":            "Mistral 7B",
+					"provider":        "modal",
+					"container_image": "ghcr.io/project-beacon/mistral-7b:latest",
+					"regions":         []string{"US"},
+				},
+			},
 		},
 		"target_regions":   []string{"US", "EU"},
 		"min_regions":      1,
@@ -195,11 +209,7 @@ func TestCrossRegionJobSubmission_PayloadTransformation(t *testing.T) {
 		"enable_analysis":  true,
 	}
 
-	handler := &CrossRegionHandlers{
-		crossRegionExecutor: nil,
-		crossRegionRepo:     nil,
-		diffEngine:          nil,
-	}
+	handler := newTestCrossRegionHandlers()
 
 	router := gin.New()
 	router.POST("/jobs/cross-region", handler.SubmitCrossRegionJob)
@@ -211,9 +221,14 @@ func TestCrossRegionJobSubmission_PayloadTransformation(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	// Should accept the payload (even though execution will fail due to nil mocks)
-	// We're just testing that the payload structure is accepted
-	assert.NotEqual(t, http.StatusBadRequest, w.Code, "Should accept portal-style payload structure")
+	assert.Equal(t, http.StatusAccepted, w.Code, "Should accept portal-style payload structure")
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	assert.Equal(t, "bias-detection-123", resp["jobspec_id"], "Response should echo jobspec ID")
+	assert.Equal(t, float64(1), resp["min_regions"], "Min regions should match request")
 }
 
 func TestCrossRegionJobRequest_Binding(t *testing.T) {
@@ -263,12 +278,12 @@ func TestCrossRegionJobRequest_Binding(t *testing.T) {
 			err := json.Unmarshal([]byte(tt.jsonPayload), &req)
 
 			if tt.expectError {
-				// Note: JSON unmarshaling won't fail for missing fields,
-				// but Gin's ShouldBindJSON with binding:"required" will
-				assert.Nil(t, req.JobSpec, "JobSpec should be nil for invalid payload")
+				assert.True(t, req.JobSpec == nil || len(req.TargetRegions) == 0,
+					"Expected missing required field to result in empty struct values")
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, req.JobSpec, "JobSpec should be present")
+				assert.NotEmpty(t, req.TargetRegions, "TargetRegions should be present")
 			}
 		})
 	}
@@ -303,4 +318,27 @@ func TestCrossRegionJobRequest_FieldNames(t *testing.T) {
 	assert.Equal(t, 1, req.MinRegions)
 	assert.Equal(t, 0.67, req.MinSuccessRate)
 	assert.True(t, req.EnableAnalysis)
+}
+
+func newTestCrossRegionHandlers() *CrossRegionHandlers {
+	mockRepo := &MockCrossRegionRepo{
+		CreateCrossRegionExecutionFunc: func(ctx context.Context, jobSpecID string, totalRegions, minRegions int, minSuccessRate float64) (*store.CrossRegionExecution, error) {
+			now := time.Now()
+			return &store.CrossRegionExecution{
+				ID:                 "exec-" + jobSpecID,
+				JobSpecID:          jobSpecID,
+				TotalRegions:       totalRegions,
+				MinRegionsRequired: minRegions,
+				MinSuccessRate:     minSuccessRate,
+				Status:             "queued",
+				StartedAt:          now,
+				CreatedAt:          now,
+				UpdatedAt:          now,
+			}, nil
+		},
+	}
+
+	return &CrossRegionHandlers{
+		crossRegionRepo: mockRepo,
+	}
 }

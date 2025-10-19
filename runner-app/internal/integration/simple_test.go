@@ -79,6 +79,7 @@ func TestJobSpecValidation(t *testing.T) {
 		jobSpec   *models.JobSpec
 		expectErr bool
 		errMsg    string
+		postCheck func(*testing.T, *models.JobSpec)
 	}{
 		{
 			name: "valid jobspec",
@@ -117,8 +118,10 @@ func TestJobSpecValidation(t *testing.T) {
 					Regions: []string{"us-east-1"},
 				},
 			},
-			expectErr: true,
-			errMsg:    "jobspec ID is required",
+			expectErr: false,
+			postCheck: func(t *testing.T, js *models.JobSpec) {
+				assert.NotEmpty(t, js.ID, "expected ID to be generated")
+			},
 		},
 		{
 			name: "missing version",
@@ -137,8 +140,10 @@ func TestJobSpecValidation(t *testing.T) {
 					Regions: []string{"us-east-1"},
 				},
 			},
-			expectErr: true,
-			errMsg:    "jobspec version is required",
+			expectErr: false,
+			postCheck: func(t *testing.T, js *models.JobSpec) {
+				assert.NotEmpty(t, js.Version, "expected version to be defaulted")
+			},
 		},
 		{
 			name: "missing benchmark name",
@@ -229,6 +234,9 @@ func TestJobSpecValidation(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				require.NoError(t, err, "Expected no validation error")
+				if tt.postCheck != nil {
+					tt.postCheck(t, tt.jobSpec)
+				}
 			}
 		})
 	}

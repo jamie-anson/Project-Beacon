@@ -362,8 +362,12 @@ func TestExecuteMultiModelJob_SequentialQuestions(t *testing.T) {
 			Return("test-provider", "completed", []byte(`{"response":"test"}`), []byte(`{"id":"test-receipt"}`), nil)
 
 		// Setup repo expectations
-		mockExecRepo.On("InsertExecutionWithModel", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
+		mockExecRepo.On(
+			"InsertExecutionWithModelAndQuestion",
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything,
+		).Return(int64(1), nil)
 
 		// Create JobRunner
 		runner := &JobRunner{
@@ -400,7 +404,7 @@ func TestExecuteMultiModelJob_SequentialQuestions(t *testing.T) {
 
 		// Verify executions were called correct number of times
 		mockExecutor.AssertNumberOfCalls(t, "Execute", 12)
-		mockExecRepo.AssertNumberOfCalls(t, "InsertExecutionWithModel", 12)
+		mockExecRepo.AssertNumberOfCalls(t, "InsertExecutionWithModelAndQuestion", 12)
 	})
 }
 
@@ -434,8 +438,12 @@ func TestExecuteMultiModelJob_QuestionBatchTiming(t *testing.T) {
 			}).
 			Return("test-provider", "completed", []byte(`{}`), []byte(`{}`), nil)
 
-		mockExecRepo.On("InsertExecutionWithModel", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
+		mockExecRepo.On(
+			"InsertExecutionWithModelAndQuestion",
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			mock.Anything,
+		).Return(int64(1), nil)
 
 		runner := &JobRunner{
 			ExecRepo:      mockExecRepo,
