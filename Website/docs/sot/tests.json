@@ -662,11 +662,53 @@
     "notes": "✅ ALL PHASES COMPLETE - Full bias analysis pipeline implemented with 70 passing tests (33 Phase 1 + 20 Phase 2 + 13 Phase 3 + 4 integration). Implements complete analysis engine: response extraction, metrics calculation (bias variance, censorship rate, factual consistency, narrative divergence), difference detection (political, censorship, factual, tone), risk assessment (5 types), and human-readable summary generation. Integrated into cross_region_executor.go with logger bridge. Production ready."
   },
   {
+    "id": "test-suite-0016",
+    "name": "Router Health Diagnostic Tests",
+    "type": "diagnostic",
+    "runner": "bash/curl",
+    "location": "scripts/diagnose-router-health.sh",
+    "file_count": 1,
+    "test_count": "8 comprehensive tests",
+    "coverage_areas": [
+      "Basic connectivity (router reachability)",
+      "Startup health check status (provider initialization)",
+      "Provider detailed status (health, timing, endpoints)",
+      "Health check history (last check timing)",
+      "Force health check (manual trigger)",
+      "Individual provider testing (isolated health checks)",
+      "Inference testing (end-to-end diagnostics)",
+      "Direct Modal endpoint testing (external validation)"
+    ],
+    "debug_endpoints": [
+      "GET /debug/providers - Detailed provider status with timing",
+      "POST /debug/force-health-check - Manually trigger health checks",
+      "POST /debug/test-provider/{name} - Test specific provider",
+      "POST /debug/test-inference - Test inference with diagnostics",
+      "GET /debug/health-check-history - Show health check timing",
+      "GET /debug/startup-status - Check if startup checks completed"
+    ],
+    "run_command": "./scripts/diagnose-router-health.sh",
+    "implementation_files": [
+      "hybrid_router/api/debug.py",
+      "scripts/diagnose-router-health.sh"
+    ],
+    "use_cases": [
+      "Diagnose 'No healthy providers available' errors",
+      "Verify health checks are running",
+      "Test provider connectivity individually",
+      "Validate startup health check completion",
+      "Debug race conditions in provider selection",
+      "Monitor health check timing and performance"
+    ],
+    "effective_at": "2025-10-22T17:12:00+01:00",
+    "notes": "Comprehensive diagnostic tooling for router health issues. Includes 6 debug API endpoints and automated testing script with 8 tests. Provides real-time provider status, health check timing, manual health check triggering, and detailed inference diagnostics. Makes it easy to spot health check failures, timing issues, and provider connectivity problems."
+  },
+  {
     "id": "test-coverage-summary",
     "type": "summary",
-    "total_test_suites": 15,
-    "total_test_files": "~81+",
-    "total_test_count": "~560+",
+    "total_test_suites": 16,
+    "total_test_files": "~82+",
+    "total_test_count": "~568+",
     "total_workflows": 18,
     "test_types": {
       "unit": "~291+ tests (170 portal + 51 backend + 70 bias analysis)",
@@ -674,6 +716,7 @@
       "e2e": "~28+ tests (20 existing + 8 bias detection)",
       "validation": "~100+ checks",
       "regression": "~40+ tests",
+      "diagnostic": "~8 tests (router health diagnostics)",
       "security": "continuous scanning",
       "monitoring": "continuous checks"
     },
@@ -692,6 +735,7 @@
       "CORS and security",
       "Build artifacts and deployments",
       "Infrastructure health",
+      "Router health diagnostics (provider status, health checks, inference testing)",
       "Regression prevention"
     ],
     "ci_cd_integration": {
@@ -702,7 +746,7 @@
       "scheduled": "Production monitoring + security scanning",
       "manual_triggers": "All workflows support manual dispatch"
     },
-    "effective_at": "2025-10-14T23:16:00+01:00",
-    "notes": "Comprehensive test infrastructure covering unit, integration, e2e, validation, regression, security, and monitoring. Recent additions: (1) Layer 2 cross-region diff tests (questionId.integration.test.js with 17 tests, modelId.test.js with 16 tests) ensuring proper URL encoding/decoding and model ID validation for special characters. (2) ✅ COMPLETE Bias Analysis Engine (70 tests total): Phase 1 response extraction & metrics (33 tests), Phase 2 difference detection & risk assessment (20 tests), Phase 3 summary generation (13 tests), Phase 4 end-to-end integration (4 tests). Full pipeline operational with ~90% code coverage. Total test count increased from ~490 to ~560 tests."
+    "effective_at": "2025-10-22T17:12:00+01:00",
+    "notes": "Comprehensive test infrastructure covering unit, integration, e2e, validation, regression, security, monitoring, and diagnostics. Recent additions: (1) Layer 2 cross-region diff tests (questionId.integration.test.js with 17 tests, modelId.test.js with 16 tests) ensuring proper URL encoding/decoding and model ID validation for special characters. (2) ✅ COMPLETE Bias Analysis Engine (70 tests total): Phase 1 response extraction & metrics (33 tests), Phase 2 difference detection & risk assessment (20 tests), Phase 3 summary generation (13 tests), Phase 4 end-to-end integration (4 tests). Full pipeline operational with ~90% code coverage. (3) Router Health Diagnostic Tools (test-suite-0016): 6 debug API endpoints and automated testing script with 8 comprehensive tests for diagnosing provider health, health check timing, and inference failures. Makes router issues easy to spot and debug. Total test count increased from ~490 to ~568 tests."
   }
 ]
