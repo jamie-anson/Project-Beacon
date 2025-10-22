@@ -187,24 +187,28 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check - use per-region override or fallback
-                health_defaults = {
-                    "us-east": os.getenv("MODAL_US_HEALTH_URL"),
-                    "eu-west": os.getenv("MODAL_EU_HEALTH_URL"),
-                    # TEMPORARILY DISABLED: APAC
-                    # "asia-pacific": os.getenv("MODAL_APAC_HEALTH_URL")
-                }
-                fallback_health = os.getenv("MODAL_HEALTH_ENDPOINT", "https://jamie-anson--health.modal.run")
-                # Use per-region health endpoint when set; otherwise fall back
-                # Note: dict.get(key, default) would return None if the key exists with a None value,
-                # which would skip the desired fallback. Hence the explicit "or" usage.
-                health_endpoint = health_defaults.get(provider.region) or fallback_health
-
-                response = await self.client.get(health_endpoint, timeout=5.0)
-                if response.status_code == 200:
-                    health_data = response.json()
-                    provider.healthy = health_data.get("status") == "healthy"
-                else:
+                # Modal health check - use actual inference endpoint
+                # Send a minimal test request to verify the endpoint is responsive
+                try:
+                    test_payload = {
+                        "model": "llama3.2-1b",
+                        "prompt": "test",
+                        "temperature": 0.1,
+                        "max_tokens": 5
+                    }
+                    response = await self.client.post(
+                        provider.endpoint,
+                        json=test_payload,
+                        timeout=10.0  # Longer timeout for cold starts
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        # Check if response has success field
+                        provider.healthy = data.get("success", False)
+                    else:
+                        provider.healthy = False
+                except Exception as health_err:
+                    logger.warning(f"Modal health check failed for {provider.name}: {health_err}")
                     provider.healthy = False
             
             # elif provider.type == ProviderType.RUNPOD:
