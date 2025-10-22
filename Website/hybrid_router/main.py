@@ -9,10 +9,16 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Sentry for error tracking
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.logging import LoggingIntegration
+# Sentry for error tracking (optional)
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("sentry_sdk not available - error tracking disabled")
 
 from .core import HybridRouter
 from .core.region_queue import queue_manager
@@ -24,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Sentry
 sentry_dsn = os.getenv("SENTRY_DSN")
-if sentry_dsn:
+if sentry_dsn and SENTRY_AVAILABLE:
     sentry_sdk.init(
         dsn=sentry_dsn,
         environment=os.getenv("RAILWAY_ENVIRONMENT", "development"),
