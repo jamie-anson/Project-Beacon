@@ -33,9 +33,9 @@ func (s *JobRecoveryService) RecoverStaleJobs(ctx context.Context, staleThreshol
 		SELECT jobspec_id, updated_at 
 		FROM jobs 
 		WHERE status = 'processing' 
-		AND updated_at < NOW() - INTERVAL '%d seconds'
+		AND updated_at < NOW() - $1::INTERVAL
 		ORDER BY updated_at ASC
-	`, int(staleThreshold.Seconds()))
+	`, staleThreshold)
 	
 	if err != nil {
 		return err
@@ -84,8 +84,8 @@ func (s *JobRecoveryService) GetStaleJobsCount(ctx context.Context, staleThresho
 		SELECT COUNT(*) 
 		FROM jobs 
 		WHERE status = 'processing' 
-		AND updated_at < NOW() - INTERVAL '%d seconds'
-	`, int(staleThreshold.Seconds())).Scan(&count)
+		AND updated_at < NOW() - $1::INTERVAL
+	`, staleThreshold).Scan(&count)
 	
 	return count, err
 }

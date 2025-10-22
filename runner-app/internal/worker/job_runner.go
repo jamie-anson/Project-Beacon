@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/jamie-anson/project-beacon-runner/internal/golem"
 	"github.com/jamie-anson/project-beacon-runner/internal/hybrid"
 	"github.com/jamie-anson/project-beacon-runner/internal/ipfs"
@@ -57,6 +58,7 @@ type JobRunner struct {
 	WSHub          *websocket.Hub
 	ContextManager *JobContextManager // Tracks cancellable contexts for running jobs
 	maxConcurrent  int                // Maximum concurrent executions for bounded concurrency
+	DBTracer       *logging.DBTracer  // Distributed tracing to database
 }
 
 func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipfs.Bundler) *JobRunner {
@@ -70,6 +72,7 @@ func NewJobRunner(db *sql.DB, q *queue.Client, gsvc *golem.Service, bundler *ipf
 		ExecutionSvc:   service.NewExecutionService(db),
 		ContextManager: NewJobContextManager(), // Initialize context manager for cancellation
 		maxConcurrent:  10,                     // Default bounded concurrency limit
+		DBTracer:       logging.NewDBTracer(db), // Initialize distributed tracing
 	}
 
 	// Set default executor to Golem
@@ -837,6 +840,38 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 
 	regionStart := time.Now()
 
+	// 🔍 SENTRY: Start transaction for performance monitoring
+	sentrySpan := sentry.StartSpan(ctx, "execute_question")
+	sentrySpan.SetTag("job_id", jobID)
+	sentrySpan.SetTag("model_id", modelID)
+	sentrySpan.SetTag("region", region)
+	sentrySpan.SetTag("question_id", questionID)
+	defer sentrySpan.Finish()
+	
+	// 🔍 SENTRY: Add breadcrumb for execution start
+	sentry.AddBreadcrumb(&sentry.Breadcrumb{
+		Category: "execution",
+		Message:  "Starting question execution",
+		Level:    sentry.LevelInfo,
+		Data: map[string]interface{}{
+			"job_id":      jobID,
+			"model_id":    modelID,
+			"region":      region,
+			"question_id": questionID,
+		},
+	})
+
+	// 🔍 TRACING: Generate trace ID for this execution
+	traceID := logging.GenerateTraceID()
+	
+	// 🔍 TRACING: Start execution span
+	executionSpan, _ := w.DBTracer.StartSpan(ctx, traceID, nil, "runner", "execute_question", map[string]interface{}{
+		"job_id":      jobID,
+		"model_id":    modelID,
+		"region":      region,
+		"question_id": questionID,
+	})
+
 	// 🛑 AUTO-STOP: Check if execution already exists BEFORE executing
 	// Now includes question_id for per-question deduplication
 	if w.DB != nil {
@@ -897,10 +932,36 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 	// Capture actual execution start time (not queue time)
 	executionStart := time.Now()
 
+	// 🔍 SENTRY: Add breadcrumb before executor call
+	sentry.AddBreadcrumb(&sentry.Breadcrumb{
+		Category: "execution",
+		Message:  "Calling executor",
+		Level:    sentry.LevelInfo,
+		Data: map[string]interface{}{
+			"executor_type": fmt.Sprintf("%T", executor),
+			"region":        region,
+		},
+	})
+
 	// Execute job in this region
 	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, &singleQuestionSpec, region)
 
 	executionEnd := time.Now()
+	executionDuration := executionEnd.Sub(executionStart)
+	
+	// 🔍 SENTRY: Add breadcrumb after executor call
+	sentry.AddBreadcrumb(&sentry.Breadcrumb{
+		Category: "execution",
+		Message:  "Executor returned",
+		Level:    sentry.LevelInfo,
+		Data: map[string]interface{}{
+			"provider_id": providerID,
+			"status":      status,
+			"duration_ms": executionDuration.Milliseconds(),
+			"has_error":   err != nil,
+		},
+	})
+	
 	result := ExecutionResult{
 		Region:      region,
 		ProviderID:  providerID,
@@ -918,6 +979,30 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 	if err != nil {
 		questionLog.Error().Err(err).Msg("question execution failed")
 		result.Status = "failed"
+		
+		// 🔍 SENTRY: Capture execution failure with rich context
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetContext("execution", map[string]interface{}{
+				"job_id":       jobID,
+				"region":       region,
+				"model_id":     modelID,
+				"question_id":  questionID,
+				"provider_id":  providerID,
+				"status":       status,
+				"duration_ms":  executionDuration.Milliseconds(),
+				"has_output":   outputJSON != nil,
+				"has_receipt":  receiptJSON != nil,
+			})
+			scope.SetTag("execution_region", region)
+			scope.SetTag("execution_model", modelID)
+			scope.SetTag("execution_provider", providerID)
+			scope.SetLevel(sentry.LevelError)
+			
+			// Set transaction status
+			sentrySpan.Status = sentry.SpanStatusInternalError
+			
+			sentry.CaptureException(err)
+		})
 
 		// Increment failure metrics
 		errorType := "unknown"
@@ -958,22 +1043,59 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		}
 	} else {
 		questionLog.Info().Str("provider", providerID).Str("status", status).Msg("question execution successful")
+		
+		// 🔍 SENTRY: Mark transaction as successful
+		sentrySpan.Status = sentry.SpanStatusOK
+		
+		// 🔍 SENTRY: Add success breadcrumb
+		sentry.AddBreadcrumb(&sentry.Breadcrumb{
+			Category: "execution",
+			Message:  "Execution completed successfully",
+			Level:    sentry.LevelInfo,
+			Data: map[string]interface{}{
+				"provider_id": providerID,
+				"status":      status,
+				"duration_ms": executionDuration.Milliseconds(),
+			},
+		})
 	}
 
 	// Insert execution record in database with model ID and question ID
 	execID, insErr := w.ExecRepo.InsertExecutionWithModelAndQuestion(ctx, spec.ID, providerID, region, result.Status, result.StartedAt, result.CompletedAt, outputJSON, receiptJSON, modelID, questionID)
 	if insErr != nil {
 		questionLog.Error().Err(insErr).Msg("failed to insert execution record")
+		
+		// 🔍 SENTRY: Capture database insertion failure
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetContext("database", map[string]interface{}{
+				"operation":   "insert_execution",
+				"job_id":      spec.ID,
+				"provider_id": providerID,
+				"region":      region,
+			})
+			scope.SetTag("error_type", "database_insert")
+			sentry.CaptureException(insErr)
+		})
 	} else {
 		result.ExecutionID = execID
 		result.ModelID = modelID
 		result.QuestionID = questionID
 		questionLog.Info().Int64("execution_id", execID).Msg("execution record created")
 
+		// 🔍 TRACING: Link span to execution record
+		executionSpan.SetExecutionContext(jobID, execID, modelID, region)
+
 		// Calculate and store bias scores for successful executions
 		if result.Status == "completed" && w.ExecutionSvc != nil && w.ExecutionSvc.BiasScorer != nil {
 			go w.calculateBiasScoreAsync(ctx, execID, spec, outputJSON, providerID)
 		}
+	}
+
+	// 🔍 TRACING: Complete span based on result
+	if err != nil {
+		w.DBTracer.CompleteSpanWithError(ctx, executionSpan, err, "execution_failure")
+	} else {
+		w.DBTracer.CompleteSpan(ctx, executionSpan, "completed")
 	}
 
 	// Update metrics - use actual execution duration, not including duplicate check time

@@ -206,8 +206,9 @@ class HybridRouter:
                     if response.status_code == 200:
                         data = response.json()
                         # Check if response has success field
-                        provider.healthy = data.get("success", False)
-                        logger.info(f"✅ [HEALTH_CHECK] {provider.name} is HEALTHY (success={data.get('success')})")
+                        has_success = data.get("success", False)
+                        provider.healthy = has_success
+                        logger.info(f"✅ [HEALTH_CHECK] {provider.name} response: status={response.status_code}, success={has_success}, data_keys={list(data.keys())}")
                     else:
                         provider.healthy = False
                         logger.warning(f"❌ [HEALTH_CHECK] {provider.name} returned status {response.status_code}")

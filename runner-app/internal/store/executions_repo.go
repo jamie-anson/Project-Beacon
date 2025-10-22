@@ -323,10 +323,10 @@ func (r *ExecutionsRepo) InsertExecutionWithModelAndQuestion(
 	}
 	
 	row := r.DB.QueryRowContext(ctx, `
-		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO executions (job_id, provider_id, region, status, started_at, completed_at, output_data, receipt_data, model_id, question_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
-	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionIDPtr)
+	`, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionIDPtr, startedAt)
 	
 	var id int64
 	if err := row.Scan(&id); err != nil {

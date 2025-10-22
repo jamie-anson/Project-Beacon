@@ -6,6 +6,7 @@ import modal
 import os
 import time
 from typing import Dict, Any
+from uuid import uuid4
 
 # Create Modal app
 app = modal.App("project-beacon-hf")
@@ -266,9 +267,14 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
     
     start_time = time.time()
     
+    # 🔍 TRACING: Generate span ID for this inference
+    span_id = str(uuid4())[:8]
+    print(f"🔍 TRACE[{span_id}]: Modal inference started - model={model_name}, region={region}")
+    
     try:
         # Validate model
         if model_name not in MODEL_REGISTRY:
+            print(f"🔍 TRACE[{span_id}]: FAILED - Unknown model: {model_name}")
             return {"status": "error", "error": f"Unknown model: {model_name}", "region": region}
         
         # Use preloaded model from cache
@@ -381,6 +387,9 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         
         inference_time = time.time() - start_time
         
+        # 🔍 TRACING: Log successful completion
+        print(f"🔍 TRACE[{span_id}]: SUCCESS - duration={inference_time:.2f}s, tokens={len(tokenizer.encode(response))}")
+        
         return {
             "status": "success",
             "response": response,
@@ -392,6 +401,8 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
         }
         
     except Exception as e:
+        # 🔍 TRACING: Log failure
+        print(f"🔍 TRACE[{span_id}]: FAILED - error={type(e).__name__}: {str(e)}")
         return {
             "status": "error",
             "error": str(e),
