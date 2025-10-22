@@ -369,6 +369,8 @@ def run_inference_logic(model_name: str, prompt: str, region: str, temperature: 
     volumes={"/models": models_volume},
     timeout=900,
     container_idle_timeout=120,  # Stay warm for 2 min between requests (enough for job)
+    max_concurrent_inputs=1,     # Force single GPU per region (cost control)
+    allow_concurrent_inputs=10,  # Queue up to 10 requests
     region=["eu-west", "eu-north"],
     memory=12288,  # 12GB for Mistral
     secrets=SECRETS,

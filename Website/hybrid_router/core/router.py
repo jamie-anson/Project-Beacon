@@ -228,11 +228,27 @@ class HybridRouter:
         if not healthy_providers:
             return None
         
-        # Filter by region preference
+        # STRICT region matching when region is specified
         if request.region_preference:
             region_providers = [p for p in healthy_providers if p.region == request.region_preference]
-            if region_providers:
-                healthy_providers = region_providers
+            
+            if not region_providers:
+                # NO FALLBACK - return None to trigger error
+                logger.error(
+                    f"No healthy providers available for region {request.region_preference}",
+                    extra={
+                        "requested_region": request.region_preference,
+                        "healthy_providers": [p.region for p in healthy_providers],
+                        "available_regions": list(set(p.region for p in healthy_providers))
+                    }
+                )
+                return None
+            
+            healthy_providers = region_providers
+            logger.info(
+                f"Region-locked provider selection: {request.region_preference}",
+                extra={"provider_count": len(region_providers)}
+            )
         
         # Sort by cost priority or performance priority
         if request.cost_priority:
@@ -246,9 +262,32 @@ class HybridRouter:
         for provider in healthy_providers:
             # Simple capacity check (in real implementation, track active requests)
             if provider.max_concurrent > 0:  # Simplified capacity check
+                logger.info(
+                    f"Provider selected",
+                    extra={
+                        "provider": provider.name,
+                        "region": provider.region,
+                        "endpoint_type": provider.endpoint_type,
+                        "requested_region": request.region_preference,
+                        "region_locked": bool(request.region_preference)
+                    }
+                )
                 return provider
         
-        return healthy_providers[0] if healthy_providers else None
+        # Fallback to first provider if none have capacity
+        selected = healthy_providers[0] if healthy_providers else None
+        if selected:
+            logger.info(
+                f"Provider selected (fallback)",
+                extra={
+                    "provider": selected.name,
+                    "region": selected.region,
+                    "endpoint_type": selected.endpoint_type,
+                    "requested_region": request.region_preference,
+                    "region_locked": bool(request.region_preference)
+                }
+            )
+        return selected
     
     async def run_inference(self, request: InferenceRequest) -> InferenceResponse:
         """Execute inference request on selected provider"""
