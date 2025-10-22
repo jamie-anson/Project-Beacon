@@ -200,7 +200,7 @@ class HybridRouter:
                     response = await self.client.post(
                         provider.endpoint,
                         json=test_payload,
-                        timeout=10.0  # Longer timeout for cold starts
+                        timeout=30.0  # Longer timeout for cold starts and network latency
                     )
                     if response.status_code == 200:
                         data = response.json()
@@ -211,7 +211,10 @@ class HybridRouter:
                         provider.healthy = False
                         logger.warning(f"❌ [HEALTH_CHECK] {provider.name} returned status {response.status_code}")
                 except Exception as health_err:
-                    logger.error(f"❌ [HEALTH_CHECK] {provider.name} failed: {health_err}")
+                    logger.error(
+                        f"❌ [HEALTH_CHECK] {provider.name} failed: {type(health_err).__name__}: {str(health_err)}",
+                        exc_info=True
+                    )
                     provider.healthy = False
             
             # elif provider.type == ProviderType.RUNPOD:
