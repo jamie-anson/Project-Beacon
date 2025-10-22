@@ -240,10 +240,10 @@ func main() {
 				base = os.Getenv("HYBRID_ROUTER_URL")
 			}
 			if base != "" {
-				jr.Hybrid = hybrid.New(base)
+				jr.SetHybridClient(hybrid.New(base))
 				logger.Info().Str("hybrid_base", base).Msg("Hybrid Router enabled")
 			} else if os.Getenv("ENABLE_HYBRID_DEFAULT") == "1" {
-				jr.Hybrid = hybrid.New("")
+				jr.SetHybridClient(hybrid.New(""))
 				logger.Info().Str("hybrid_base", "<default>").Msg("Hybrid Router enabled (default)")
 			} else {
 				logger.Info().Msg("Hybrid Router disabled (no HYBRID_BASE/HYBRID_ROUTER_URL and default not enabled)")
