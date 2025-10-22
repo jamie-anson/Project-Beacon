@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI):
     logger.info("Binding to %s:%s", HOST, port)
 
     # Initialize database tracing (if available)
+    db_pool = None
     if TRACING_AVAILABLE:
         db_pool = await create_db_pool()
         db_tracer = DBTracer(db_pool)
