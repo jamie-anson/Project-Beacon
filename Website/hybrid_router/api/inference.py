@@ -3,23 +3,101 @@
 from fastapi import APIRouter, BackgroundTasks, Query, Request
 from typing import Optional
 import uuid
+import logging
+
+# Sentry SDK (optional)
+try:
+    import sentry_sdk
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    sentry_sdk = None
 
 from ..models import InferenceRequest, InferenceResponse
 from ..core.region_queue import QueuedJob, queue_manager
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/inference", response_model=InferenceResponse)
 async def inference_endpoint(inference_request: InferenceRequest, background_tasks: BackgroundTasks, request: Request):
     """Main inference endpoint"""
-    # Get router_instance from app state instead of circular import
+    # Get router_instance and tracer from app state
     router_instance = request.app.state.router_instance
+    db_tracer = getattr(request.app.state, 'db_tracer', None)
+    
+    # 🔍 SENTRY: Start transaction (if available)
+    transaction = None
+    if SENTRY_AVAILABLE:
+        transaction = sentry_sdk.start_transaction(op="inference", name="router.inference")
+        transaction.__enter__()
+        transaction.set_tag("model", inference_request.model)
+        transaction.set_tag("region", inference_request.region_preference or "auto")
+        
+        # 🔍 SENTRY: Add breadcrumb
+        sentry_sdk.add_breadcrumb(
+            category="inference",
+            message="Inference request received",
+            level="info",
+            data={
+                "model": inference_request.model,
+                "region": inference_request.region_preference,
+                "has_prompt": bool(inference_request.prompt),
+            }
+        )
+    
+    # 🔍 TRACING: Start span
+    trace_id = str(uuid.uuid4())
+    span_id = None
+    if db_tracer:
+        span_id = await db_tracer.start_span(
+            trace_id=trace_id,
+            parent_span_id=None,
+            service="router",
+            operation="inference_request",
+            metadata={
+                "model": inference_request.model,
+                "region": inference_request.region_preference,
+            }
+        )
     
     # Run health checks in background
     background_tasks.add_task(router_instance.health_check_providers)
     
-    return await router_instance.run_inference(inference_request)
+    try:
+        result = await router_instance.run_inference(inference_request)
+        
+        # 🔍 TRACING: Complete span
+        if db_tracer and span_id:
+            await db_tracer.complete_span(span_id, "completed")
+        
+        # 🔍 SENTRY: Mark success (if available)
+        if SENTRY_AVAILABLE and transaction:
+            transaction.set_status("ok")
+        
+        return result
+        
+    except Exception as e:
+        # 🔍 TRACING: Complete span with error
+        if db_tracer and span_id:
+            await db_tracer.complete_span(
+                span_id, 
+                "failed",
+                error_message=str(e),
+                error_type=type(e).__name__
+            )
+        
+        # 🔍 SENTRY: Capture error with context (if available)
+        if SENTRY_AVAILABLE:
+            sentry_sdk.capture_exception(e)
+            if transaction:
+                transaction.set_status("internal_error")
+        raise
+    finally:
+        # Close sentry transaction if it was started
+        if SENTRY_AVAILABLE and transaction:
+            transaction.__exit__(None, None, None)
 
 
 @router.post("/v1/inference", response_model=InferenceResponse)
