@@ -30,7 +30,7 @@ func NewSummaryGenerator(logger *slog.Logger) *SummaryGenerator {
 
 	if useLLM && hasAPIKey {
 		llmGen = analysis.NewOpenAISummaryGenerator()
-		logger.Info("LLM summary generation enabled (GPT-5-nano)")
+		logger.Info("LLM summary generation enabled (gpt-5-nano-2025-08-07)")
 	} else if useLLM {
 		logger.Warn("USE_LLM_SUMMARIES enabled but OPENAI_API_KEY missing; using template fallback")
 		sentry.CaptureMessage("USE_LLM_SUMMARIES true but OPENAI_API_KEY missing")
@@ -45,6 +45,17 @@ func NewSummaryGenerator(logger *slog.Logger) *SummaryGenerator {
 		"use_llm_raw", rawFlag,
 		"log_level", rawLevel,
 	)
+
+	// Send to Sentry with context for debugging
+	sentry.WithScope(func(scope *sentry.Scope) {
+		scope.SetContext("summary_generator_init", map[string]interface{}{
+			"use_llm":            useLLM,
+			"api_key_configured": hasAPIKey,
+			"use_llm_raw":        rawFlag,
+			"generator_created":  llmGen != nil,
+		})
+		sentry.CaptureMessage("Summary generator initialized with config")
+	})
 
 	return &SummaryGenerator{
 		logger:       logger,
@@ -61,10 +72,12 @@ func (sg *SummaryGenerator) GenerateSummary(
 	narrativeDivergence float64,
 	keyDifferences []KeyDifference,
 	riskAssessments []RiskAssessment,
-) string {
+) (string, string) {
+	const templateSource = "template"
+	const llmSource = "gpt-5-nano"
 	// Try LLM generation if enabled
 	if sg.useLLM && sg.llmGenerator != nil {
-		sg.logger.Info("Attempting GPT-5-nano summary generation",
+		sg.logger.Info("Attempting gpt-5-nano-2025-08-07 summary generation",
 			"bias_variance", biasVariance,
 			"censorship_rate", censorshipRate,
 			"factual_consistency", factualConsistency,
@@ -84,10 +97,14 @@ func (sg *SummaryGenerator) GenerateSummary(
 		} else if len(llmSummary) >= 300 {
 			sg.logger.Info("LLM summary generated successfully",
 				"length", len(llmSummary),
-				"model", "gpt-5-nano",
+				"model", "gpt-5-nano-2025-08-07",
 				"elapsed_ms", time.Since(start).Milliseconds(),
 			)
-			return llmSummary
+			sg.logger.Info("Summary source selected",
+				"source", llmSource,
+				"length", len(llmSummary),
+			)
+			return llmSummary, llmSource
 		} else {
 			sg.logger.Warn("LLM summary too short, falling back to template",
 				"length", len(llmSummary),
@@ -96,6 +113,7 @@ func (sg *SummaryGenerator) GenerateSummary(
 			sentry.WithScope(func(scope *sentry.Scope) {
 				scope.SetTag("fallback_reason", "summary_too_short")
 				scope.SetExtra("length", len(llmSummary))
+				scope.SetExtra("response_content", llmSummary)
 				scope.SetExtra("elapsed_ms", time.Since(start).Milliseconds())
 				sentry.CaptureMessage("LLM summary too short; using template fallback")
 			})
@@ -110,7 +128,12 @@ func (sg *SummaryGenerator) GenerateSummary(
 	}
 
 	// Fallback to template-based generation
-	return sg.generateTemplateSummary(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, keyDifferences, riskAssessments)
+	templateSummary := sg.generateTemplateSummary(biasVariance, censorshipRate, factualConsistency, narrativeDivergence, keyDifferences, riskAssessments)
+	sg.logger.Info("Summary source selected",
+		"source", templateSource,
+		"length", len(templateSummary),
+	)
+	return templateSummary, templateSource
 }
 
 // generateLLMSummary uses GPT-5-nano to generate analysis summary
@@ -154,25 +177,29 @@ func (sg *SummaryGenerator) generateLLMSummary(
 	sg.logger.Info("Submitting GPT-5-nano request",
 		"key_difference_count", len(analysis.KeyDifferences),
 		"risk_count", len(analysis.RiskAssessment),
-	)
-
-	sg.logger.Debug("Prepared GPT-5-nano payload",
 		"bias_variance", analysis.BiasVariance,
 		"censorship_rate", analysis.CensorshipRate,
 		"factual_consistency", analysis.FactualConsistency,
 		"narrative_divergence", analysis.NarrativeDivergence,
-		"key_difference_count", len(analysis.KeyDifferences),
-		"risk_count", len(analysis.RiskAssessment),
 	)
 
 	ctx := context.Background()
 	summary, err := sg.llmGenerator.GenerateSummary(ctx, analysis, nil)
 	if err != nil {
+		sg.logger.Error("GPT-5-nano API call failed", "error", err)
 		sentry.CaptureException(err)
 		return "", err
 	}
 
-	sg.logger.Debug("Received GPT-5-nano response", "length", len(summary))
+	sg.logger.Info("Received GPT-5-nano response", 
+		"length", len(summary),
+		"preview", func() string {
+			if len(summary) > 100 {
+				return summary[:100] + "..."
+			}
+			return summary
+		}(),
+	)
 	return summary, nil
 }
 

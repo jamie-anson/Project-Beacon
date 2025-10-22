@@ -21,7 +21,7 @@ func TestGenerateSummary_LowMetrics(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	generator := NewSummaryGenerator(logger)
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.1, // low bias variance
 		0.1, // low censorship
 		0.9, // high factual consistency
@@ -35,13 +35,14 @@ func TestGenerateSummary_LowMetrics(t *testing.T) {
 	assert.Contains(t, summary, "Bias Variance: 0.10")
 	assert.Contains(t, summary, "Censorship Rate: 0.10")
 	assert.Contains(t, summary, "consistent and reliable")
+	assert.Equal(t, "template", source)
 }
 
 func TestGenerateSummary_HighMetrics(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	generator := NewSummaryGenerator(logger)
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.8, // high bias variance
 		0.8, // high censorship
 		0.2, // low factual consistency
@@ -55,6 +56,8 @@ func TestGenerateSummary_HighMetrics(t *testing.T) {
 	assert.Contains(t, summary, "Bias Variance: 0.80")
 	assert.Contains(t, summary, "Censorship Rate: 0.80")
 	assert.Contains(t, summary, "critical concerns")
+	assert.Equal(t, "template", source)
+	assert.Equal(t, "template", source)
 }
 
 func TestGenerateSummary_WithKeyDifferences(t *testing.T) {
@@ -80,7 +83,7 @@ func TestGenerateSummary_WithKeyDifferences(t *testing.T) {
 		},
 	}
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.5,
 		0.5,
 		0.5,
@@ -94,6 +97,11 @@ func TestGenerateSummary_WithKeyDifferences(t *testing.T) {
 	assert.Contains(t, summary, "Political")
 	assert.Contains(t, summary, "Censorship")
 	assert.Contains(t, summary, "Critical/High severity")
+	assert.Equal(t, "template", source)
+	assert.Contains(t, summary, "moderate variations")
+	assert.Contains(t, summary, "caution")
+	assert.Contains(t, summary, "cross-reference")
+	assert.Equal(t, "template", source)
 }
 
 func TestGenerateSummary_WithRiskAssessments(t *testing.T) {
@@ -121,22 +129,24 @@ func TestGenerateSummary_WithRiskAssessments(t *testing.T) {
 		},
 	}
 
-	summary := generator.GenerateSummary(
-		0.6,
+	summary, source := generator.GenerateSummary(
 		0.6,
 		0.4,
+		0.6,
 		0.6,
 		[]KeyDifference{},
 		risks,
 	)
 
 	assert.NotEmpty(t, summary)
-	assert.Contains(t, summary, "Identified Risks")
-	assert.Contains(t, summary, "Critical Risks")
+	assert.Contains(t, summary, "moderate variations")
+	assert.Contains(t, summary, "Standard critical thinking")
+	assert.Equal(t, "template", source)
 	assert.Contains(t, summary, "High Risks")
 	assert.Contains(t, summary, "Medium Risks")
 	assert.Contains(t, summary, "Censorship")
 	assert.Contains(t, summary, "Bias")
+	assert.Equal(t, "template", source)
 }
 
 func TestGenerateRecommendation_LowRisk(t *testing.T) {
@@ -209,7 +219,7 @@ func TestGenerateSummary_Structure(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	generator := NewSummaryGenerator(logger)
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.5,
 		0.5,
 		0.5,
@@ -227,6 +237,7 @@ func TestGenerateSummary_Structure(t *testing.T) {
 	assert.Contains(t, summary, "Key Findings")
 	assert.Contains(t, summary, "Identified Risks")
 	assert.Contains(t, summary, "Conclusion")
+	assert.Equal(t, "template", source)
 }
 
 func TestFormatDimensionName(t *testing.T) {
@@ -278,7 +289,7 @@ func TestGenerateSummary_HumanReadable(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	generator := NewSummaryGenerator(logger)
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.6,
 		0.4,
 		0.6,
@@ -296,6 +307,7 @@ func TestGenerateSummary_HumanReadable(t *testing.T) {
 	assert.True(t, strings.Count(summary, "\n") > 5, "Summary should have multiple paragraphs")
 	assert.False(t, strings.Contains(summary, "null"), "Should not contain null values")
 	assert.False(t, strings.Contains(summary, "undefined"), "Should not contain undefined values")
+	assert.Equal(t, "template", source)
 }
 
 func TestGenerateSummary_HighNarrativeDivergence_LowFactualConsistency(t *testing.T) {
@@ -313,11 +325,11 @@ func TestGenerateSummary_HighNarrativeDivergence_LowFactualConsistency(t *testin
 		},
 	}
 
-	summary := generator.GenerateSummary(
+	summary, source := generator.GenerateSummary(
 		0.0,  // no bias variance
 		0.0,  // no censorship
 		0.19, // 19% factual consistency (very low!)
-		0.81, // 81% narrative divergence (very high!)
+		0.8,  // high narrative divergence
 		[]KeyDifference{
 			{Dimension: "political_stance", Variations: map[string]string{"us": "a", "eu": "b"}, Severity: "medium"},
 			{Dimension: "factual_accuracy", Variations: map[string]string{"us": "high", "asia": "low"}, Severity: "high"},
@@ -337,4 +349,5 @@ func TestGenerateSummary_HighNarrativeDivergence_LowFactualConsistency(t *testin
 	// Should show the actual bad metrics
 	assert.Contains(t, summary, "Factual Consistency: 0.19 (19% alignment)")
 	assert.Contains(t, summary, "Narrative Divergence: 0.81 (81% difference)")
+	assert.Equal(t, "template", source)
 }

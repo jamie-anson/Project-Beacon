@@ -20,15 +20,50 @@ import (
 type OpenAISummaryGenerator struct {
 	apiKey     string
 	httpClient *http.Client
+	baseURL    string
 }
 
+// Option configures an `OpenAISummaryGenerator`.
+type Option func(*OpenAISummaryGenerator)
+
 // NewOpenAISummaryGenerator creates a new summary generator
-func NewOpenAISummaryGenerator() *OpenAISummaryGenerator {
-	return &OpenAISummaryGenerator{
+func NewOpenAISummaryGenerator(opts ...Option) *OpenAISummaryGenerator {
+	baseURL := os.Getenv("OPENAI_API_BASE_URL")
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
+
+	gen := &OpenAISummaryGenerator{
 		apiKey: os.Getenv("OPENAI_API_KEY"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		baseURL: strings.TrimRight(baseURL, "/"),
+	}
+
+	for _, opt := range opts {
+		opt(gen)
+	}
+
+	return gen
+}
+
+// WithHTTPClient overrides the default HTTP client used for API calls.
+func WithHTTPClient(client *http.Client) Option {
+	return func(g *OpenAISummaryGenerator) {
+		if client != nil {
+			g.httpClient = client
+		}
+	}
+}
+
+// WithBaseURL overrides the default API base URL.
+func WithBaseURL(baseURL string) Option {
+	return func(g *OpenAISummaryGenerator) {
+		trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+		if trimmed != "" {
+			g.baseURL = trimmed
+		}
 	}
 }
 
@@ -44,20 +79,69 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 	}
 
 	prompt := g.buildPrompt(analysis, regionResults)
+	
+	slog.Info("Built prompt for GPT-5-nano",
+		"prompt_length", len(prompt),
+		"prompt_preview", func() string {
+			if len(prompt) > 200 {
+				return prompt[:200] + "..."
+			}
+			return prompt
+		}(),
+	)
 
 	requestBody := map[string]interface{}{
-		"model": "gpt-5-nano", // Fastest, cheapest, sufficient quality for bias summaries
+		"model": "gpt-5-nano-2025-08-07", // Fastest, most cost-effective model for bias summaries
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": "You are an expert analyst specializing in AI bias detection and cross-regional content analysis. Write clear, factual, professional summaries for technical audiences.",
+				"content": `You are an expert analyst for Project Beacon. Write clear, scannable executive summaries about AI bias and censorship patterns.
+
+FORMATTING RULES:
+- Write short, clear sentences (under 20 words when possible)
+- Use paragraph breaks frequently (every 2-3 sentences)
+- Start each major section with a bold heading: **Section Name**
+- Use active voice and direct language
+- Be specific with numbers and metrics
+
+REQUIRED STRUCTURE:
+
+**Risk Level: [HIGH RISK/MEDIUM RISK/LOW RISK]**
+
+[2-3 sentence opening paragraph stating the main finding]
+
+**Censorship Patterns**
+
+[Short paragraph about censorship findings]
+[Include specific percentages and confidence levels]
+
+**Bias and Consistency**
+
+[Short paragraph about bias variance]
+[Short paragraph about factual consistency]
+[Short paragraph about narrative divergence]
+
+**Risk Assessment**
+
+[What this means for the business]
+[Specific risks identified]
+
+**Recommended Actions**
+
+[List of concrete next steps - use bullets only if items are short]
+
+**Bottom Line**
+
+[1-2 sentence conclusion with clear next steps]
+
+TONE: Professional, neutral, evidence-based. No moral judgments.`,
 			},
 			{
 				"role":    "user",
 				"content": prompt,
 			},
 		},
-		"max_completion_tokens": 1000,
+		"max_completion_tokens": 4000, // GPT-5-nano uses reasoning tokens, need higher limit for actual output
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -65,7 +149,12 @@ func (g *OpenAISummaryGenerator) GenerateSummary(ctx context.Context, analysis *
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
+	baseEndpoint := g.baseURL
+	if baseEndpoint == "" {
+		baseEndpoint = "https://api.openai.com"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", baseEndpoint+"/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}

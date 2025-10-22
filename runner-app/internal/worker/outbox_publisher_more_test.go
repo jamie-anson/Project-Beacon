@@ -94,6 +94,8 @@ func TestOutboxPublisher_EnqueueFailure_DoesNotMarkPublished(t *testing.T) {
     mr.Close()
     defer qc.Close()
 
+    // Metrics query is optional: publisher only calls stats after entering idle loop, which may not occur before context cancel.
+
     p := NewOutboxPublisher(db, qc)
     ctx, cancel := context.WithCancel(context.Background())
 

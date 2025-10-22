@@ -36,6 +36,7 @@ func TestGenerateSummary(t *testing.T) {
 		generator := &OpenAISummaryGenerator{
 			apiKey:     "",
 			httpClient: &http.Client{},
+			baseURL:    "https://example.com",
 		}
 
 		analysis := &models.CrossRegionAnalysis{
@@ -51,81 +52,90 @@ func TestGenerateSummary(t *testing.T) {
 	})
 
 	t.Run("successfully generates summary with valid API response", func(t *testing.T) {
-		// Mock OpenAI API server
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "POST", r.Method)
 			assert.Equal(t, "/v1/chat/completions", r.URL.Path)
 			assert.Equal(t, "Bearer sk-test-key", r.Header.Get("Authorization"))
 
-			// Verify request body
 			var reqBody map[string]interface{}
-			err := json.NewDecoder(r.Body).Decode(&reqBody)
-			require.NoError(t, err)
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&reqBody))
+			assert.Equal(t, "gpt-5-nano", reqBody["model"])
+			assert.Equal(t, float64(1000), reqBody["max_completion_tokens"])
 
-			assert.Equal(t, "gpt-4o-mini", reqBody["model"])
-			assert.Equal(t, float64(0.7), reqBody["temperature"])
-			assert.Equal(t, float64(600), reqBody["max_tokens"])
-
-			// Return mock response
-			response := map[string]interface{}{
+			w.Header().Set("Content-Type", "application/json")
+			require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
 				"choices": []map[string]interface{}{
 					{
 						"message": map[string]string{
-							"content": "Cross-region analysis completed with significant findings. High censorship detected in 67% of regions. Bias variance of 0.68 indicates systematic regional differences. Asia-Pacific region shows elevated political sensitivity at 0.92 with confirmed censorship. US and EU regions maintain factual consistency above 80%. The analysis reveals coordinated narrative manipulation across multiple dimensions including casualty reporting and event characterization. Risk assessment identifies high-severity censorship patterns requiring immediate attention.",
+							"content": "Cross-region analysis completed with significant findings.",
 						},
 					},
 				},
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			}))
 		}))
 		defer mockServer.Close()
 
-		generator := &OpenAISummaryGenerator{
-			apiKey:     "sk-test-key",
-			httpClient: &http.Client{},
-		}
+		t.Setenv("OPENAI_API_KEY", "sk-test-key")
 
-		analysis := &models.CrossRegionAnalysis{
-			BiasVariance:        0.68,
-			CensorshipRate:      0.67,
-			FactualConsistency:  0.75,
-			NarrativeDivergence: 0.82,
-		}
+		generator := NewOpenAISummaryGenerator(
+			WithBaseURL(mockServer.URL),
+			WithHTTPClient(mockServer.Client()),
+		)
 
-		regionResults := map[string]*models.RegionResult{
-			"us_east": {
-				Region: "us_east",
-				Scoring: &models.RegionScoring{
-					BiasScore:            0.15,
-					CensorshipDetected:   false,
-					PoliticalSensitivity: 0.3,
-					FactualAccuracy:      0.85,
-				},
-			},
-		}
+		analysis := &models.CrossRegionAnalysis{}
+		regionResults := make(map[string]*models.RegionResult)
 
-		// Note: This test requires modifying the generator to accept custom URL
-		// For now, we'll test the error case and validate the prompt building
-		prompt := generator.buildPrompt(analysis, regionResults)
-
-		assert.Contains(t, prompt, "Summary: Generate a 400-500 word executive narrative analyzing the cross-region audit results for executive stakeholders.")
-		assert.Contains(t, prompt, "Bias variance: 0.68 (0 indicates uniform responses).")
-		assert.Contains(t, prompt, "Censorship rate: 67 % of regions.")
-		assert.Contains(t, prompt, "us_east metrics -> bias 0.15; censorship false; political sensitivity 0.30; factual accuracy 0.85.")
-		assert.Contains(t, prompt, "Write a single cohesive narrative between four hundred and five hundred words")
+		result, err := generator.GenerateSummary(context.Background(), analysis, regionResults)
+		require.NoError(t, err)
+		assert.Equal(t, "Cross-region analysis completed with significant findings.", result)
 	})
 
 	t.Run("handles API error response", func(t *testing.T) {
-		// Note: This test would require URL override capability in the generator
-		// For now, we validate the error handling structure is correct
-		t.Skip("Requires generator URL override for testing")
+		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"rate limited"}`))
+		}))
+		defer mockServer.Close()
+
+		t.Setenv("OPENAI_API_KEY", "sk-test-key")
+
+		generator := NewOpenAISummaryGenerator(
+			WithBaseURL(mockServer.URL),
+			WithHTTPClient(mockServer.Client()),
+		)
+
+		analysis := &models.CrossRegionAnalysis{}
+		regionResults := make(map[string]*models.RegionResult)
+
+		result, err := generator.GenerateSummary(context.Background(), analysis, regionResults)
+		assert.Error(t, err)
+		assert.Empty(t, result)
+		assert.Contains(t, err.Error(), "OpenAI API error")
 	})
 
 	t.Run("handles empty choices in response", func(t *testing.T) {
-		// Note: This test would require URL override capability in the generator
-		t.Skip("Requires generator URL override for testing")
+		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			require.NoError(t, json.NewEncoder(w).Encode(map[string]interface{}{
+				"choices": []interface{}{},
+			}))
+		}))
+		defer mockServer.Close()
+
+		t.Setenv("OPENAI_API_KEY", "sk-test-key")
+
+		generator := NewOpenAISummaryGenerator(
+			WithBaseURL(mockServer.URL),
+			WithHTTPClient(mockServer.Client()),
+		)
+
+		analysis := &models.CrossRegionAnalysis{}
+		regionResults := make(map[string]*models.RegionResult)
+
+		result, err := generator.GenerateSummary(context.Background(), analysis, regionResults)
+		assert.Error(t, err)
+		assert.Empty(t, result)
+		assert.Contains(t, err.Error(), "no response from OpenAI")
 	})
 }
 

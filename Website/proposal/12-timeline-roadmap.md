@@ -11,19 +11,25 @@ title: Timeline & Roadmap
 
 ### Milestone 1: Vertical Slice (Months 0-2)
 **Deliverables:**
-- Single-region execution fully operational on Golem
+- **vLLM APAC Deployment**: Fix APAC region reliability (target >95% success rate)
+- **3-Region Proof of Concept**: Demonstrate cross-region bias detection (US + EU + APAC)
+- **CPU Provider Template**: Standardized vLLM deployment for Golem providers (CPU-first strategy)
 - IPFS bundles and Merkle root publishing
 - Portal UI showing proofs and live activity
 - Public demo and comprehensive documentation
 - Academic outreach and initial university partnerships
 
 **Key Dependencies:**
-- Golem provider onboarding and configuration
+- **vLLM Integration**: APAC warmup time reduction (<500ms target) - CRITICAL PATH
+- **Provider Onboarding**: CPU-capable Golem providers (GPU optional for premium tier)
 - IPFS integration and CID publishing workflow
 - Academic calendar alignment (September-October engagement window)
 
 ### Milestone 2: Multi-Region + Diff Engine (Months 2-4)
 **Deliverables:**
+- **vLLM Scale-Out**: Deploy vLLM to all regions (US + EU + APAC)
+- **Golem Provider Network**: 5-10 CPU providers operational across regions
+- **GPU Upgrade Path**: 2-3 providers upgraded to GPU vLLM (premium tier)
 - ≥3 regions orchestrated with retries/backoff
 - Cross-region output comparison and diff visualizations
 - Result aggregator and monitoring dashboards
@@ -31,6 +37,7 @@ title: Timeline & Roadmap
 - Provider deployment pattern documentation
 
 **Key Dependencies:**
+- **vLLM Production Stability**: All regions on vLLM with <500ms latency
 - Regional provider availability and reliability
 - Cross-region networking and coordination
 - Diff engine algorithm validation
@@ -79,15 +86,19 @@ gantt
     MVP Completion           :done, mvp, 2025-01-01, 2025-08-01
     Academic Outreach        :active, outreach, 2025-09-01, 2025-10-31
     section Milestone 1
-    Golem Integration        :m1-golem, 2025-09-01, 2025-10-15
+    vLLM APAC Deploy         :crit, m1-vllm, 2025-10-20, 3w
+    3-Region PoC             :crit, m1-poc, 2025-11-01, 2w
+    CPU Provider Template    :m1-template, 2025-11-10, 3w
     IPFS Publishing          :m1-ipfs, 2025-09-15, 2025-10-31
     Portal UI                :m1-portal, 2025-10-01, 2025-10-31
-    Public Demo              :milestone, m1-demo, 2025-10-31, 1d
+    Public Demo              :milestone, m1-demo, 2025-11-15, 1d
     section Milestone 2
-    Multi-Region Setup       :m2-regions, 2025-11-01, 2025-12-15
+    vLLM Scale-Out           :m2-vllm, 2025-12-01, 4w
+    Golem CPU Providers      :m2-golem, 2025-12-01, 6w
+    GPU Upgrade Path         :m2-gpu, 2025-12-15, 4w
     Diff Engine              :m2-diff, 2025-11-15, 2025-12-31
     Dashboards               :m2-dash, 2025-12-01, 2025-12-31
-    Attester Tools           :m2-attest, 2025-12-15, 2025-01-15
+    Attester Tools           :m2-attest, 2025-12-15, 2026-01-15
     section Milestone 3
     Public Pilot             :m3-pilot, 2026-01-01, 2026-02-15
     Researcher APIs          :m3-api, 2026-01-15, 2026-02-28
@@ -96,9 +107,28 @@ gantt
 ```
 
 ## Risk Mitigation Timeline
-- **Month 1**: Academic calendar alignment and university partnership establishment
-- **Month 2**: Provider reliability assessment and backup infrastructure
-- **Month 3**: Community feedback integration and feature prioritization
-- **Month 4**: Government stakeholder identification and engagement planning
+- **Month 1**: vLLM APAC deployment and 3-region proof of concept validation (CRITICAL PATH)
+- **Month 2**: CPU provider onboarding and template standardization; backup Modal/RunPod infrastructure
+- **Month 3**: GPU upgrade path validation; community feedback integration
+- **Month 4**: Multi-provider orchestration stability; government stakeholder engagement planning
 - **Month 5**: International scaling preparation and conference submissions
 - **Month 6**: Sustainability model validation and transition planning
+
+## Technical Priorities
+
+### Immediate (Weeks 1-3)
+1. **vLLM APAC Deployment**: Fix region reliability to enable 3-region demos
+2. **Proof of Concept Validation**: Demonstrate cross-region bias detection working end-to-end
+3. **Performance Benchmarking**: Document latency, cost, and success rate improvements
+
+### Short-term (Months 1-2)
+1. **CPU Provider Template**: Standardize vLLM deployment for Golem providers
+2. **Provider Onboarding**: Recruit and deploy 3-5 CPU providers across regions
+3. **Documentation**: Create comprehensive provider deployment guides
+
+### Medium-term (Months 2-4)
+1. **vLLM Scale-Out**: Migrate all regions to vLLM infrastructure
+2. **GPU Upgrade Path**: Enable premium tier for providers with GPU capacity
+3. **Multi-Provider Orchestration**: Validate hybrid CPU/GPU routing and failover
+
+See `vllm-plan.md` for detailed technical implementation plan.

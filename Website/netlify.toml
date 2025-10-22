@@ -14,8 +14,8 @@
   VITE_IPFS_GATEWAY = "https://ipfs.io"
   # WebSocket client disabled by default (no WS server running)
   VITE_ENABLE_WS = "0"
-  # Use same-origin for API base; portal code appends /api/v1
-  VITE_API_BASE = "https://projectbeacon.netlify.app"
+  # Runner API hosted on Fly.io; portal client handles /api/v1 prefixing
+  VITE_API_BASE = "https://beacon-runner-production.fly.dev"
   # Route diffs via site-relative proxy (managed in dist/_redirects)
   VITE_DIFFS_BASE = "/backend-diffs"
   # If needed, set these in Netlify UI instead of hardcoding:

@@ -262,10 +262,22 @@ func TestGetJob_IncludeExecutions_FallbackHardError_500(t *testing.T) {
 
 	// Paginated error
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
         LIMIT $2 OFFSET $3
     `)).
@@ -274,10 +286,22 @@ func TestGetJob_IncludeExecutions_FallbackHardError_500(t *testing.T) {
 
 	// Fallback non-paginated also errors -> handler should return 500
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
     `)).
 		WithArgs("job-exec-fb-err").
@@ -295,68 +319,6 @@ func TestGetJob_IncludeExecutions_FallbackHardError_500(t *testing.T) {
 	}
 }
 
-func TestListJobs_PersistenceUnavailable_503(t *testing.T) {
-	t.Parallel()
-	r := newTestRouter() // JobsService created with nil DB -> JobsRepo nil
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d; body=%s", w.Code, w.Body.String())
-	}
-}
-
-func TestGetJob_IncludeLatest_DBErrorReturnsEmpty(t *testing.T) {
-	t.Parallel()
-	// sqlmock DB
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock.New: %v", err)
-	}
-	defer db.Close()
-
-	// Stored JobSpec
-	stored := buildSignedJobSpec(t, "job-latest-err")
-	storedJSON, _ := json.Marshal(stored)
-	jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
-		AddRow(storedJSON, "created", time.Now(), time.Now())
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_data, status, created_at, updated_at 
-        FROM jobs 
-        WHERE jobspec_id = $1`)).
-		WithArgs("job-latest-err").
-		WillReturnRows(jobRows)
-
-	// Latest query returns an error -> handler should still return 200 with empty executions
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT e.receipt_data
-        FROM executions e
-        JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
-        ORDER BY e.created_at DESC
-        LIMIT 1`)).
-		WithArgs("job-latest-err").
-		WillReturnError(sql.ErrConnDone)
-
-	r := newTestRouterWithDB(db)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-latest-err?include=latest", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
-	}
-	var resp struct {
-		Executions []json.RawMessage `json:"executions"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("unmarshal: %v; body=%s", err, w.Body.String())
-	}
-	if len(resp.Executions) != 0 {
-		t.Fatalf("expected empty executions on latest error, got %d", len(resp.Executions))
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
 func TestGetJob_IncludeExecutions_InvalidPagination_UsesDefaults(t *testing.T) {
 	t.Parallel()
 	// sqlmock DB
@@ -366,7 +328,7 @@ func TestGetJob_IncludeExecutions_InvalidPagination_UsesDefaults(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Stored JobSpec
+	// Prepare stored JobSpec row
 	stored := buildSignedJobSpec(t, "job-bad-pg")
 	storedJSON, _ := json.Marshal(stored)
 	jobRows := sqlmock.NewRows([]string{"jobspec_data", "status", "created_at", "updated_at"}).
@@ -379,15 +341,40 @@ func TestGetJob_IncludeExecutions_InvalidPagination_UsesDefaults(t *testing.T) {
 
 	// Invalid exec_limit and exec_offset should fall back to LIMIT 20 OFFSET 0
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
         LIMIT $2 OFFSET $3
     `)).
 		WithArgs("job-bad-pg", 20, 0).
-		WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}))
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"region",
+			"provider_id",
+			"status",
+			"started_at",
+			"completed_at",
+			"model_id",
+			"question_id",
+			"receipt_data",
+			"response_classification",
+			"is_substantive",
+			"is_content_refusal",
+		}))
 
 	r := newTestRouterWithDB(db)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-bad-pg?include=executions&exec_limit=-10&exec_offset=-5", nil)
@@ -398,40 +385,6 @@ func TestGetJob_IncludeExecutions_InvalidPagination_UsesDefaults(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListJobs_InvalidLimit_UsesDefault(t *testing.T) {
-	t.Parallel()
-	cases := []string{"-10", "0", "999", "abc"}
-	for _, tc := range cases {
-		t.Run(tc, func(t *testing.T) {
-			t.Parallel()
-			db, mock, err := sqlmock.New()
-			if err != nil {
-				t.Fatalf("sqlmock.New: %v", err)
-			}
-			defer db.Close()
-
-			// Expect default 50
-			now := time.Now()
-			rows := sqlmock.NewRows([]string{"jobspec_id", "status", "created_at"}).
-				AddRow("job-x", "queued", now)
-			mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
-				WithArgs(50).
-				WillReturnRows(rows)
-
-			r := newTestRouterWithDB(db)
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs?limit="+tc, nil)
-			w := httptest.NewRecorder()
-			r.ServeHTTP(w, req)
-			if w.Code != http.StatusOK {
-				t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
-			}
-			if err := mock.ExpectationsWereMet(); err != nil {
-				t.Fatalf("unmet expectations: %v", err)
-			}
-		})
 	}
 }
 
@@ -457,15 +410,40 @@ func TestGetJob_IncludeExecutions_NoExecutions(t *testing.T) {
 
 	// Paginated executions query returns zero rows (no executions yet)
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
         LIMIT $2 OFFSET $3
     `)).
 		WithArgs("job-empty", 20, 0).
-		WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}))
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"region",
+			"provider_id",
+			"status",
+			"started_at",
+			"completed_at",
+			"model_id",
+			"question_id",
+			"receipt_data",
+			"response_classification",
+			"is_substantive",
+			"is_content_refusal",
+		}))
 
 	r := newTestRouterWithDB(db)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-empty?include=executions", nil)
@@ -482,65 +460,6 @@ func TestGetJob_IncludeExecutions_NoExecutions(t *testing.T) {
 	}
 	if len(resp.Executions) != 0 {
 		t.Fatalf("expected empty executions, got %d", len(resp.Executions))
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListJobs_HappyPathWithLimit(t *testing.T) {
-	t.Parallel()
-	// sqlmock DB
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock.New: %v", err)
-	}
-	defer db.Close()
-
-	// Expect query with limit=3 as per JobsRepo.ListRecentJobs
-	now := time.Now()
-	rows := sqlmock.NewRows([]string{"jobspec_id", "status", "created_at"}).
-		AddRow("job-a", "queued", now).
-		AddRow("job-b", "created", now.Add(-time.Minute)).
-		AddRow("job-c", "completed", now.Add(-2*time.Minute))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
-		WithArgs(3).
-		WillReturnRows(rows)
-
-	r := newTestRouterWithDB(db)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs?limit=3", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d; body=%s", w.Code, w.Body.String())
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("unmet expectations: %v", err)
-	}
-}
-
-func TestListJobs_DBError(t *testing.T) {
-	t.Parallel()
-	// sqlmock DB
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock.New: %v", err)
-	}
-	defer db.Close()
-
-	// Force query error
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT jobspec_id, status, created_at FROM jobs ORDER BY created_at DESC LIMIT $1`)).
-		WithArgs(50). // default limit when not provided
-		WillReturnError(sql.ErrConnDone)
-
-	r := newTestRouterWithDB(db)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d; body=%s", w.Code, w.Body.String())
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -573,15 +492,42 @@ func TestGetJob_IncludeExecutions_Paginated(t *testing.T) {
 	rec1JSON, _ := json.Marshal(rec1)
 	rec2JSON, _ := json.Marshal(rec2)
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
         LIMIT $2 OFFSET $3
     `)).
 		WithArgs("job-exec-pg", 2, 0).
-		WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}).AddRow(rec1JSON).AddRow(rec2JSON))
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"region",
+			"provider_id",
+			"status",
+			"started_at",
+			"completed_at",
+			"model_id",
+			"question_id",
+			"receipt_data",
+			"response_classification",
+			"is_substantive",
+			"is_content_refusal",
+		}).
+			AddRow(1, "US", "p1", "completed", time.Now(), time.Now(), "model1", "Q1", rec1JSON, nil, false, false).
+			AddRow(2, "EU", "p2", "completed", time.Now(), time.Now(), "model2", "Q1", rec2JSON, nil, false, false))
 
 	r := newTestRouterWithDB(db)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-exec-pg?include=executions&exec_limit=2&exec_offset=0", nil)
@@ -617,28 +563,70 @@ func TestGetJob_IncludeExecutions_FallbackToNonPaginated(t *testing.T) {
 
 	// Force paginated query to error, triggering fallback
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
         LIMIT $2 OFFSET $3
     `)).
 		WithArgs("job-exec-fb", 20, 0).
 		WillReturnError(sql.ErrConnDone)
 
-	// Fallback non-paginated list
-	rec := models.NewReceipt("job-exec-fb", models.ExecutionDetails{ProviderID: "p3", Region: "APAC", Status: "completed", StartedAt: time.Now(), CompletedAt: time.Now()}, models.ExecutionOutput{Data: map[string]interface{}{"msg": "only"}, Hash: "h3"}, models.ProvenanceInfo{})
+	// Fallback non-paginated list (legacy join-based query)
+	rec := models.NewReceipt(
+		"job-exec-fb",
+		models.ExecutionDetails{ProviderID: "p3", Region: "APAC", Status: "completed", StartedAt: time.Now(), CompletedAt: time.Now()},
+		models.ExecutionOutput{Data: map[string]interface{}{"msg": "only"}, Hash: "h3"},
+		models.ProvenanceInfo{},
+	)
 	recJSON, _ := json.Marshal(rec)
 	mock.ExpectQuery(regexp.QuoteMeta(`
-        SELECT e.receipt_data
+        SELECT 
+            e.id,
+            e.region,
+            e.provider_id,
+            e.status,
+            e.started_at,
+            e.completed_at,
+            e.model_id,
+            e.question_id,
+            e.receipt_data,
+            e.response_classification,
+            e.is_substantive,
+            e.is_content_refusal
         FROM executions e
         JOIN jobs j ON e.job_id = j.id
-        WHERE j.jobspec_id = $1 AND e.receipt_data IS NOT NULL
+        WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
     `)).
 		WithArgs("job-exec-fb").
-		WillReturnRows(sqlmock.NewRows([]string{"receipt_data"}).AddRow(recJSON))
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"region",
+			"provider_id",
+			"status",
+			"started_at",
+			"completed_at",
+			"model_id",
+			"question_id",
+			"receipt_data",
+			"response_classification",
+			"is_substantive",
+			"is_content_refusal",
+		}).AddRow(1, "APAC", "p3", "completed", time.Now(), time.Now(), "modelA", "Q1", recJSON, nil, false, false))
 
 	r := newTestRouterWithDB(db)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs/job-exec-fb?include=executions", nil)

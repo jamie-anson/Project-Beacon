@@ -14,7 +14,8 @@
       "Utilities (errorUtils, wallet, useEffect loop detection)",
       "Diff transformations (questionId encoding/decoding, modelId validation, modelDiff, mockModelDiff)",
       "Integration flows (BiasDetectionFlow)",
-      "Regression tests (infinite loops, state stability)"
+      "Regression tests (infinite loops, state stability)",
+      "BiasDetectionResults page (LLM summary rendering, fallback UI, API error handling)"
     ],
     "ci_workflows": ["test.yml", "pr-tests.yml", "pr-checks.yml"],
     "run_command": "cd portal && npm test",
@@ -45,6 +46,7 @@
       "portal/src/lib/diffs/__tests__/modelId.test.js",
       "portal/src/lib/diffs/__tests__/modelDiffTransform.test.js",
       "portal/src/pages/__tests__/Executions.test.jsx",
+      "portal/src/pages/__tests__/BiasDetectionResults.test.jsx",
       "portal/src/pages/__tests__/infinite-loop-regression.test.js",
       "portal/src/__tests__/integration/BiasDetectionFlow.test.jsx"
     ],
@@ -57,15 +59,16 @@
     "type": "e2e",
     "runner": "playwright",
     "location": "tests/e2e/*.test.js",
-    "file_count": 6,
-    "test_count": "~28+",
+    "file_count": 7,
+    "test_count": "~32+",
     "coverage_areas": [
       "CORS integration from browser",
       "Deployment verification",
       "Wallet integration",
       "Infrastructure health checks",
       "Asset loading and static resources",
-      "Bias detection results page (full user flow, error states, navigation)"
+      "Bias detection results page (full user flow, error states, navigation)",
+      "LLM summary rendering (narrative display, fallback UI, accessibility)"
     ],
     "ci_workflows": ["test.yml", "deployment-tests.yml", "e2e-remote.yml"],
     "run_command": "npx playwright test",
@@ -76,7 +79,8 @@
       "tests/e2e/wallet-integration.test.js",
       "tests/e2e/infrastructure-health.test.js",
       "tests/e2e/asset-loading.test.js",
-      "tests/e2e/bias-detection-results.test.js"
+      "tests/e2e/bias-detection-results.test.js",
+      "tests/e2e/bias-detection-summary.test.js"
     ],
     "effective_at": "2025-10-03T12:50:00+01:00",
     "notes": "Real browser tests validating production-like behavior including CORS, deployments, infrastructure, and bias detection results page with 8 comprehensive tests covering happy path, error states, navigation, and API integration"
@@ -420,13 +424,15 @@
     ],
     "test_breakdown": {
       "llm_summary_test": {
-        "tests": 18,
-        "coverage": "~85%",
+        "tests": 21,
+        "coverage": "~90%",
         "areas": [
           "Generator initialization with/without API key",
+          "Functional options (WithBaseURL, WithHTTPClient) for test configurability",
           "OpenAI API request formatting (model, temperature, max_tokens)",
           "Response parsing and content extraction",
-          "Error handling for API failures (401, 500, etc.)",
+          "Error handling for API failures (429, 500, etc.) via httptest.Server",
+          "Empty choices response handling",
           "Prompt building with all metrics (bias, censorship, regions)",
           "Percentage formatting and null data handling",
           "Required prompt sections validation"
@@ -458,11 +464,14 @@
         ]
       },
       "bias_analysis_handler": {
-        "tests": 9,
-        "coverage": "~90%",
+        "tests": 10,
+        "coverage": "~92%",
         "areas": [
           "GET /api/v2/jobs/{jobId}/bias-analysis endpoint",
           "Response structure validation (job_id, analysis, region_scores)",
+          "Persisted summary retrieval from CrossRegionAnalysisRecord",
+          "DB-backed bias scores via ExecutionsRepo (sqlmock integration)",
+          "Fallback to region_results.scoring when DB unavailable",
           "404 when job/analysis not found",
           "500 when region results fetch fails",
           "Regions without scoring data handling",
@@ -472,8 +481,8 @@
       }
     },
     "mocking_strategy": {
-      "openai_api": "httptest.NewServer for HTTP mocking",
-      "database": "Repository mocks for unit tests, real DB for integration",
+      "openai_api": "httptest.NewServer for HTTP mocking with functional options (WithBaseURL, WithHTTPClient)",
+      "database": "Repository mocks for unit tests, sqlmock for DB-backed handler tests, real DB for integration",
       "handlers": "MockCrossRegionRepo and MockDiffEngine interfaces"
     },
     "run_commands": {
@@ -487,7 +496,7 @@
     },
     "dependencies": {
       "testing_frameworks": ["testing", "testify/assert", "testify/require"],
-      "mocking": ["httptest", "gin testmode"],
+      "mocking": ["httptest", "gin testmode", "DATA-DOG/go-sqlmock"],
       "external_apis": ["OpenAI GPT-4o-mini"]
     },
     "documentation": "runner-app/BIAS_DETECTION_TEST_SUITE.md",

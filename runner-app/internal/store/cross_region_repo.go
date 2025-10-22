@@ -73,6 +73,7 @@ type CrossRegionAnalysisRecord struct {
 	KeyDifferences          []models.KeyDifference   `json:"key_differences,omitempty"`
 	RiskAssessment          []models.RiskAssessment  `json:"risk_assessment,omitempty"`
 	Summary                 *string                  `json:"summary,omitempty"`
+	SummarySource           *string                  `json:"summary_source,omitempty"`
 	Recommendation          *string                  `json:"recommendation,omitempty"`
 	CreatedAt               time.Time                `json:"created_at"`
 	UpdatedAt               time.Time                `json:"updated_at"`
@@ -254,21 +255,21 @@ func (r *CrossRegionRepo) CreateCrossRegionAnalysis(ctx context.Context, crossRe
 	query := `
 		INSERT INTO cross_region_analyses (
 			id, cross_region_execution_id, bias_variance, censorship_rate, factual_consistency,
-			narrative_divergence, key_differences, risk_assessment, summary, recommendation
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			narrative_divergence, key_differences, risk_assessment, summary, summary_source, recommendation
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, cross_region_execution_id, bias_variance, censorship_rate, factual_consistency,
-				  narrative_divergence, summary, recommendation, created_at, updated_at
+				  narrative_divergence, summary, summary_source, recommendation, created_at, updated_at
 	`
 	
 	var record CrossRegionAnalysisRecord
 	var biasVariance, censorshipRate, factualConsistency, narrativeDivergence sql.NullFloat64
-	var summary, recommendation sql.NullString
+	var summary, summarySource, recommendation sql.NullString
 	
 	err = r.db.QueryRowContext(ctx, query, id, crossRegionExecID, analysis.BiasVariance, analysis.CensorshipRate,
 		analysis.FactualConsistency, analysis.NarrativeDivergence, keyDifferencesJSON, riskAssessmentJSON,
-		analysis.Summary, analysis.Recommendation).Scan(
+		analysis.Summary, analysis.SummarySource, analysis.Recommendation).Scan(
 		&record.ID, &record.CrossRegionExecutionID, &biasVariance, &censorshipRate, &factualConsistency,
-		&narrativeDivergence, &summary, &recommendation, &record.CreatedAt, &record.UpdatedAt,
+		&narrativeDivergence, &summary, &summarySource, &recommendation, &record.CreatedAt, &record.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cross-region analysis: %w", err)
@@ -292,6 +293,9 @@ func (r *CrossRegionRepo) CreateCrossRegionAnalysis(ctx context.Context, crossRe
 	}
 	if summary.Valid {
 		record.Summary = &summary.String
+	}
+	if summarySource.Valid {
+		record.SummarySource = &summarySource.String
 	}
 	if recommendation.Valid {
 		record.Recommendation = &recommendation.String
@@ -447,7 +451,7 @@ func (r *CrossRegionRepo) GetByJobSpecID(ctx context.Context, jobSpecID string) 
 func (r *CrossRegionRepo) GetCrossRegionAnalysisByExecutionID(ctx context.Context, execID string) (*CrossRegionAnalysisRecord, error) {
 	query := `
 		SELECT id, cross_region_execution_id, bias_variance, censorship_rate, factual_consistency,
-			   narrative_divergence, key_differences, risk_assessment, summary, recommendation,
+			   narrative_divergence, key_differences, risk_assessment, summary, summary_source, recommendation,
 			   created_at, updated_at
 		FROM cross_region_analyses 
 		WHERE cross_region_execution_id = $1
@@ -458,12 +462,12 @@ func (r *CrossRegionRepo) GetCrossRegionAnalysisByExecutionID(ctx context.Contex
 	var record CrossRegionAnalysisRecord
 	var biasVariance, censorshipRate, factualConsistency, narrativeDivergence sql.NullFloat64
 	var keyDifferencesJSON, riskAssessmentJSON sql.NullString
-	var summary, recommendation sql.NullString
+	var summary, summarySource, recommendation sql.NullString
 	
 	err := r.db.QueryRowContext(ctx, query, execID).Scan(
 		&record.ID, &record.CrossRegionExecutionID, &biasVariance, &censorshipRate,
 		&factualConsistency, &narrativeDivergence, &keyDifferencesJSON, &riskAssessmentJSON,
-		&summary, &recommendation, &record.CreatedAt, &record.UpdatedAt,
+		&summary, &summarySource, &recommendation, &record.CreatedAt, &record.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -486,6 +490,9 @@ func (r *CrossRegionRepo) GetCrossRegionAnalysisByExecutionID(ctx context.Contex
 	}
 	if summary.Valid {
 		record.Summary = &summary.String
+	}
+	if summarySource.Valid {
+		record.SummarySource = &summarySource.String
 	}
 	if recommendation.Valid {
 		record.Recommendation = &recommendation.String

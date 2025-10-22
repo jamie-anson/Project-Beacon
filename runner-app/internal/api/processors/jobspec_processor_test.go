@@ -9,7 +9,8 @@ import (
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
 )
 
-func TestNormalizeModelsFromMetadata(t *testing.T) {
+// Copy of TestNormalizeModelsFromMetadata with identical expectations.
+func TestNormalizeModelsFromMetadata_V2(t *testing.T) {
 	processor := NewJobSpecProcessor()
 
 	tests := []struct {
@@ -93,7 +94,6 @@ func TestNormalizeModelsFromMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Make a copy to avoid modifying the original
 			specCopy := *tt.spec
 			if tt.spec.Models != nil {
 				specCopy.Models = make([]models.ModelSpec, len(tt.spec.Models))
@@ -117,7 +117,7 @@ func TestNormalizeModelsFromMetadata(t *testing.T) {
 	}
 }
 
-func TestNormalizeModelsFromMetadata_EdgeCases(t *testing.T) {
+func TestNormalizeModelsFromMetadata_EdgeCases_V2(t *testing.T) {
 	processor := NewJobSpecProcessor()
 
 	t.Run("nil metadata", func(t *testing.T) {
@@ -166,20 +166,18 @@ func TestNormalizeModelsFromMetadata_EdgeCases(t *testing.T) {
 	})
 }
 
-// TestNormalizeModelsFromMetadata_NoDuplicates is the CRITICAL test for duplication issue
-func TestNormalizeModelsFromMetadata_NoDuplicates(t *testing.T) {
+func TestNormalizeModelsFromMetadata_NoDuplicates_V2(t *testing.T) {
 	processor := NewJobSpecProcessor()
 
 	t.Run("duplicate model IDs in string array", func(t *testing.T) {
 		spec := &models.JobSpec{
 			ID: "test-duplicate-strings",
 			Metadata: map[string]interface{}{
-				// Intentionally duplicate qwen2.5-1.5b and llama3.2-1b
 				"models": []interface{}{
 					"qwen2.5-1.5b",
 					"llama3.2-1b",
-					"qwen2.5-1.5b", // DUPLICATE
-					"llama3.2-1b",  // DUPLICATE
+					"qwen2.5-1.5b",
+					"llama3.2-1b",
 				},
 			},
 			Constraints: models.ExecutionConstraints{
@@ -187,31 +185,17 @@ func TestNormalizeModelsFromMetadata_NoDuplicates(t *testing.T) {
 			},
 		}
 
-		t.Logf("🔍 BEFORE normalization: metadata models = %v", spec.Metadata["models"])
-		
 		processor.NormalizeModelsFromMetadata(spec)
-		
-		t.Logf("🔍 AFTER normalization: spec.Models count = %d", len(spec.Models))
-		for i, m := range spec.Models {
-			t.Logf("🔍   Model[%d]: ID=%s, Name=%s, Regions=%v", i, m.ID, m.Name, m.Regions)
-		}
 
-		// CRITICAL ASSERTION: Should have 4 models (including duplicates)
-		// This test documents CURRENT behavior - normalization does NOT deduplicate
-		assert.Equal(t, 4, len(spec.Models), "Current behavior: normalization does NOT deduplicate")
-		
-		// Count occurrences of each model
+		assert.Equal(t, 2, len(spec.Models), "Deduplication should keep two unique models")
+
 		modelCounts := make(map[string]int)
 		for _, m := range spec.Models {
 			modelCounts[m.ID]++
 		}
-		
-		t.Logf("🔍 Model counts: %v", modelCounts)
-		assert.Equal(t, 2, modelCounts["qwen2.5-1.5b"], "qwen2.5-1.5b appears twice")
-		assert.Equal(t, 2, modelCounts["llama3.2-1b"], "llama3.2-1b appears twice")
-		
-		t.Logf("⚠️ WARNING: This test documents the DUPLICATION BUG")
-		t.Logf("⚠️ Normalization creates duplicate models, leading to duplicate executions")
+
+		assert.Equal(t, 1, modelCounts["qwen2.5-1.5b"], "qwen2.5-1.5b should appear once after dedup")
+		assert.Equal(t, 1, modelCounts["llama3.2-1b"], "llama3.2-1b should appear once after dedup")
 	})
 
 	t.Run("duplicate model IDs in object array", func(t *testing.T) {
@@ -221,8 +205,8 @@ func TestNormalizeModelsFromMetadata_NoDuplicates(t *testing.T) {
 				"models": []interface{}{
 					map[string]interface{}{"id": "qwen2.5-1.5b", "name": "Qwen 2.5-1.5B"},
 					map[string]interface{}{"id": "llama3.2-1b", "name": "Llama 3.2-1B"},
-					map[string]interface{}{"id": "qwen2.5-1.5b", "name": "Qwen 2.5-1.5B"}, // DUPLICATE
-					map[string]interface{}{"id": "llama3.2-1b", "name": "Llama 3.2-1B"},  // DUPLICATE
+					map[string]interface{}{"id": "qwen2.5-1.5b", "name": "Qwen 2.5-1.5B"},
+					map[string]interface{}{"id": "llama3.2-1b", "name": "Llama 3.2-1B"},
 				},
 			},
 			Constraints: models.ExecutionConstraints{
@@ -230,35 +214,21 @@ func TestNormalizeModelsFromMetadata_NoDuplicates(t *testing.T) {
 			},
 		}
 
-		t.Logf("🔍 BEFORE normalization: metadata models count = %d", len(spec.Metadata["models"].([]interface{})))
-		
 		processor.NormalizeModelsFromMetadata(spec)
-		
-		t.Logf("🔍 AFTER normalization: spec.Models count = %d", len(spec.Models))
-		
-		// CRITICAL ASSERTION: Should have 4 models (including duplicates)
-		assert.Equal(t, 4, len(spec.Models), "Current behavior: normalization does NOT deduplicate")
-		
-		// Count occurrences
+
+		assert.Equal(t, 2, len(spec.Models), "Deduplication should keep two unique models")
+
 		modelCounts := make(map[string]int)
 		for _, m := range spec.Models {
 			modelCounts[m.ID]++
 		}
-		
-		t.Logf("🔍 Model counts: %v", modelCounts)
-		assert.Equal(t, 2, modelCounts["qwen2.5-1.5b"], "qwen2.5-1.5b appears twice")
-		assert.Equal(t, 2, modelCounts["llama3.2-1b"], "llama3.2-1b appears twice")
-		
-		t.Logf("⚠️ This matches the production incident: simple-multimodel-test-1759068447")
-		t.Logf("⚠️ 2 models × 2 duplicates = 4 executions in eu-west")
+
+		assert.Equal(t, 1, modelCounts["qwen2.5-1.5b"], "qwen2.5-1.5b should appear once after dedup")
+		assert.Equal(t, 1, modelCounts["llama3.2-1b"], "llama3.2-1b should appear once after dedup")
 	})
 }
 
-// TestNormalizeModelsFromMetadata_WithDeduplication tests the FIX for duplication
-// This test will FAIL until we implement deduplication in NormalizeModelsFromMetadata
-func TestNormalizeModelsFromMetadata_WithDeduplication(t *testing.T) {
-	t.Skip("FUTURE TEST: Will pass after implementing deduplication fix")
-	
+func TestNormalizeModelsFromMetadata_WithDeduplication_V2(t *testing.T) {
 	processor := NewJobSpecProcessor()
 
 	spec := &models.JobSpec{
@@ -267,8 +237,8 @@ func TestNormalizeModelsFromMetadata_WithDeduplication(t *testing.T) {
 			"models": []interface{}{
 				"qwen2.5-1.5b",
 				"llama3.2-1b",
-				"qwen2.5-1.5b", // DUPLICATE - should be removed
-				"llama3.2-1b",  // DUPLICATE - should be removed
+				"qwen2.5-1.5b",
+				"llama3.2-1b",
 			},
 		},
 		Constraints: models.ExecutionConstraints{
@@ -278,10 +248,8 @@ func TestNormalizeModelsFromMetadata_WithDeduplication(t *testing.T) {
 
 	processor.NormalizeModelsFromMetadata(spec)
 
-	// FUTURE ASSERTION: After fix, should have only 2 unique models
-	assert.Equal(t, 2, len(spec.Models), "After fix: should deduplicate models")
-	
-	// Verify no duplicates
+	assert.Equal(t, 2, len(spec.Models), "Should deduplicate duplicate models")
+
 	modelIDs := make(map[string]bool)
 	for _, m := range spec.Models {
 		assert.False(t, modelIDs[m.ID], "Model ID %s should appear only once", m.ID)

@@ -61,7 +61,6 @@ func (m *MockExecutor) GetExecutions() map[string]ExecutionResult {
 
 // MockExecRepo for testing database operations
 type MockExecRepo struct {
-	mock.Mock
 	insertedExecutions []ExecutionRecord
 	mu                 sync.Mutex
 }
@@ -79,27 +78,12 @@ func (m *MockExecRepo) InsertExecution(ctx context.Context, jobID string, provid
 }
 
 func (m *MockExecRepo) InsertExecutionWithModel(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string) (int64, error) {
-	args := m.Called(ctx, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID)
-
-	// Track inserted executions
-	m.mu.Lock()
-	m.insertedExecutions = append(m.insertedExecutions, ExecutionRecord{
-		JobID:      jobID,
-		ProviderID: providerID,
-		Region:     region,
-		Status:     status,
-		ModelID:    modelID,
-	})
-	m.mu.Unlock()
-
-	return args.Get(0).(int64), args.Error(1)
+	return m.InsertExecutionWithModelAndQuestion(ctx, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, "")
 }
 
 func (m *MockExecRepo) InsertExecutionWithModelAndQuestion(ctx context.Context, jobID string, providerID string, region string, status string, startedAt time.Time, completedAt time.Time, outputJSON []byte, receiptJSON []byte, modelID string, questionID string) (int64, error) {
-	args := m.Called(ctx, jobID, providerID, region, status, startedAt, completedAt, outputJSON, receiptJSON, modelID, questionID)
-
-	// Track inserted executions
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.insertedExecutions = append(m.insertedExecutions, ExecutionRecord{
 		JobID:      jobID,
 		ProviderID: providerID,
@@ -107,14 +91,11 @@ func (m *MockExecRepo) InsertExecutionWithModelAndQuestion(ctx context.Context, 
 		Status:     status,
 		ModelID:    modelID,
 	})
-	m.mu.Unlock()
-
-	return args.Get(0).(int64), args.Error(1)
+	return int64(len(m.insertedExecutions)), nil
 }
 
 func (m *MockExecRepo) UpdateRegionVerification(ctx context.Context, executionID int64, regionClaimed sql.NullString, regionObserved sql.NullString, regionVerified sql.NullBool, verificationMethod sql.NullString, evidenceRef sql.NullString) error {
-	args := m.Called(ctx, executionID, regionClaimed, regionObserved, regionVerified, verificationMethod, evidenceRef)
-	return args.Error(0)
+	return nil
 }
 
 func (m *MockExecRepo) GetInsertedExecutions() []ExecutionRecord {
@@ -190,9 +171,6 @@ func TestExecuteMultiModelJob(t *testing.T) {
 				}
 			}
 
-			// Setup repo expectations
-			mockExecRepo.On("InsertExecutionWithModel", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
-
 			// Create JobRunner with bounded concurrency
 			runner := &JobRunner{
 				ExecRepo:      mockExecRepo,
@@ -239,7 +217,6 @@ func TestExecuteMultiModelJob(t *testing.T) {
 
 			// Verify all mocks were called as expected
 			mockExecutor.AssertExpectations(t)
-			mockExecRepo.AssertExpectations(t)
 		})
 	}
 }
@@ -361,14 +338,6 @@ func TestExecuteMultiModelJob_SequentialQuestions(t *testing.T) {
 		mockExecutor.On("Execute", mock.Anything, mock.Anything, mock.Anything).
 			Return("test-provider", "completed", []byte(`{"response":"test"}`), []byte(`{"id":"test-receipt"}`), nil)
 
-		// Setup repo expectations
-		mockExecRepo.On(
-			"InsertExecutionWithModelAndQuestion",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-			mock.Anything,
-		).Return(int64(1), nil)
-
 		// Create JobRunner
 		runner := &JobRunner{
 			ExecRepo:      mockExecRepo,
@@ -404,7 +373,7 @@ func TestExecuteMultiModelJob_SequentialQuestions(t *testing.T) {
 
 		// Verify executions were called correct number of times
 		mockExecutor.AssertNumberOfCalls(t, "Execute", 12)
-		mockExecRepo.AssertNumberOfCalls(t, "InsertExecutionWithModelAndQuestion", 12)
+		assert.Equal(t, 12, len(mockExecRepo.GetInsertedExecutions()), "expected 12 execution inserts")
 	})
 }
 
@@ -437,13 +406,6 @@ func TestExecuteMultiModelJob_QuestionBatchTiming(t *testing.T) {
 				}
 			}).
 			Return("test-provider", "completed", []byte(`{}`), []byte(`{}`), nil)
-
-		mockExecRepo.On(
-			"InsertExecutionWithModelAndQuestion",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-			mock.Anything,
-		).Return(int64(1), nil)
 
 		runner := &JobRunner{
 			ExecRepo:      mockExecRepo,
@@ -507,9 +469,6 @@ func TestExecuteMultiModelJob_BoundedConcurrencyPerQuestion(t *testing.T) {
 			}).
 			Return("test-provider", "completed", []byte(`{}`), []byte(`{}`), nil)
 
-		mockExecRepo.On("InsertExecutionWithModel", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
-
 		runner := &JobRunner{
 			ExecRepo:      mockExecRepo,
 			maxConcurrent: 5, // Limit to 5 concurrent
@@ -562,9 +521,6 @@ func TestExecuteMultiModelJob_ContextCancellation(t *testing.T) {
 				}
 			}).
 			Return("test-provider", "completed", []byte(`{}`), []byte(`{}`), nil)
-
-		mockExecRepo.On("InsertExecutionWithModel", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
 
 		runner := &JobRunner{
 			ExecRepo:      mockExecRepo,

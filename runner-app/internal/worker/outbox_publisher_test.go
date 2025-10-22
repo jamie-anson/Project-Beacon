@@ -61,7 +61,7 @@ func TestOutboxPublisher_PublishesAndMarks(t *testing.T) {
     emptyRows := sqlmock.NewRows([]string{"id", "topic", "payload"})
     metricsRows := sqlmock.NewRows([]string{"count", "oldest_age_seconds"}).AddRow(0, 0)
     
-    // Set up multiple potential queries to handle adaptive polling
+    // Set up multiple potential queries to handle adaptive polling (fetch + metrics)
     for i := 0; i < 10; i++ {
         mock.ExpectQuery(fetchQuery).
             WithArgs(100).

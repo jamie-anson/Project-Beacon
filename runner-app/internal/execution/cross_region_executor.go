@@ -85,6 +85,7 @@ type CrossRegionAnalysis struct {
 	KeyDifferences      []KeyDifference            `json:"key_differences"`
 	RiskAssessment      []RiskAssessment           `json:"risk_assessment"`
 	Summary             string                     `json:"summary"`
+	SummarySource       string                     `json:"summary_source,omitempty"`
 	JobID               string                     `json:"job_id,omitempty"`
 	ProjectPurpose      string                     `json:"project_purpose,omitempty"`
 	BenchmarkName       string                     `json:"benchmark_name,omitempty"`
@@ -584,8 +585,7 @@ func (cre *CrossRegionExecutor) analyzeCrossRegionDifferences(result *CrossRegio
 	)
 	
 	// Include recommendation in summary
-	summaryWithRec := fmt.Sprintf("**Risk Level: %s**\n\n", recommendation)
-	summaryWithRec += summaryGen.GenerateSummary(
+	summaryBody, summarySource := summaryGen.GenerateSummary(
 		biasVariance,
 		censorshipRate,
 		factualConsistency,
@@ -593,6 +593,8 @@ func (cre *CrossRegionExecutor) analyzeCrossRegionDifferences(result *CrossRegio
 		keyDifferences,
 		riskAssessments,
 	)
+	summaryWithRec := fmt.Sprintf("**Risk Level: %s**\n\n", recommendation)
+	summaryWithRec += summaryBody
 
 	cre.logger.Info("Cross-region analysis completed",
 		"key_differences", len(keyDifferences),
@@ -607,6 +609,7 @@ func (cre *CrossRegionExecutor) analyzeCrossRegionDifferences(result *CrossRegio
 		KeyDifferences:      keyDifferences,
 		RiskAssessment:      riskAssessments,
 		Summary:             summaryWithRec,
+		SummarySource:       summarySource,
 	}
 
 	analysis.JobID = result.JobSpecID

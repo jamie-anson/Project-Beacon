@@ -10,6 +10,8 @@ export default function BiasDetectionResults() {
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
+  const [pollCount, setPollCount] = useState(0);
+  const [isPolling, setIsPolling] = useState(false);
 
   useEffect(() => {
     if (jobId) {
@@ -18,25 +20,90 @@ export default function BiasDetectionResults() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  async function loadAnalysis() {
+  // Polling effect - check every 5 seconds if analysis is still loading
+  useEffect(() => {
+    if (!isPolling || analysis || error) {
+      return;
+    }
+
+    // Stop polling after 24 attempts (2 minutes)
+    if (pollCount >= 24) {
+      setError('Analysis is taking longer than expected. Please check back later or view the comparison results.');
+      setIsPolling(false);
+      setLoading(false);
+      return;
+    }
+
+    const pollTimer = setTimeout(() => {
+      setPollCount(prev => prev + 1);
+      loadAnalysis(true); // Silent reload
+    }, 5000);
+
+    return () => clearTimeout(pollTimer);
+  }, [isPolling, pollCount, analysis, error]);
+
+  async function loadAnalysis(silent = false) {
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       const data = await getBiasAnalysis(jobId);
       setAnalysis(data);
+      setIsPolling(false); // Stop polling once we have data
     } catch (err) {
       console.error('Failed to load bias analysis:', err);
-      setError(err.message || 'Failed to load bias analysis');
+      
+      // Check if this is a 404 (analysis not ready yet)
+      const isNotFound = err.message?.includes('404') || err.message?.includes('not found');
+      
+      if (isNotFound && !silent) {
+        // Start polling if this is the first load and analysis isn't ready
+        setIsPolling(true);
+        setPollCount(0);
+      } else if (!isNotFound) {
+        // Real error, not just "not ready yet"
+        setError(err.message || 'Failed to load bias analysis');
+        setIsPolling(false);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
-  if (loading) {
+  if (loading || isPolling) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-100">Bias Detection Results</h1>
+            <p className="text-gray-400 mt-2">Job: {jobId}</p>
+          </div>
+          <Link
+            to="/portal/executions"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded transition"
+          >
+            Back to Executions
+          </Link>
+        </div>
+
+        {/* Loading Summary with polling indicator */}
+        <SummaryCard loading={true} />
+
+        {isPolling && (
+          <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-4 text-center">
+            <p className="text-blue-300 text-sm">
+              Analysis is being generated... Checking again in a few seconds. 
+              {pollCount > 0 && ` (Attempt ${pollCount + 1}/24)`}
+            </p>
+          </div>
+        )}
+
+        {/* Skeleton for other sections */}
         <div className="animate-pulse space-y-8">
-          <div className="h-8 bg-gray-700 rounded w-1/3"></div>
           <div className="h-64 bg-gray-700 rounded"></div>
           <div className="h-48 bg-gray-700 rounded"></div>
         </div>
@@ -146,6 +213,7 @@ export default function BiasDetectionResults() {
         <SummaryCard
           summary={analysis.analysis.summary}
           recommendation={analysis.analysis.recommendation}
+          summarySource={analysis.analysis.summary_source}
         />
       )}
 

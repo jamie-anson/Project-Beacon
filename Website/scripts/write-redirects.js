@@ -78,6 +78,7 @@ const lines = [
   `/backend-diffs/* ${REDIRECT_DIFFS_BASE}/:splat 200!`,
   
   // 2. API and health proxies (force)
+  `/api/v2/* ${REDIRECT_RUNNER_BASE}/api/v2/:splat 200!`,
   `/api/v1/* ${REDIRECT_RUNNER_BASE}/api/v1/:splat 200!`,
   `/health ${REDIRECT_RUNNER_BASE}/health 200!`,
   `/hybrid/* ${REDIRECT_HYBRID_BASE}/:splat 200!`,

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
 	"github.com/jamie-anson/project-beacon-runner/pkg/models"
@@ -108,6 +110,82 @@ func TestGetJobBiasAnalysis(t *testing.T) {
 		usEast := regionScores["us_east"].(map[string]interface{})
 		assert.Equal(t, 0.15, usEast["bias_score"])
 		assert.Equal(t, false, usEast["censorship_detected"])
+	})
+
+	t.Run("returns bias analysis with persisted summary and db bias scores", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		mock.ExpectQuery(`SELECT\s+region,\s+receipt->'output'->'data'->'bias_score'\s+as\s+bias_score\s+FROM\s+executions`).
+			WithArgs("job-with-summary").
+			WillReturnRows(sqlmock.NewRows([]string{"region", "bias_score"}).
+				AddRow("us_east", []byte(`{"score":0.42,"censorship_detected":false}`)).
+				AddRow("asia_pacific", []byte(`{"score":0.91,"censorship_detected":true}`)))
+
+		summaryText := "Cross-region analysis executive summary"
+		biasVariance := 0.68
+		censorshipRate := 0.42
+
+		mockRepo := &MockCrossRegionRepo{
+			GetByJobSpecIDFunc: func(ctx context.Context, jobSpecID string) (*store.CrossRegionExecution, error) {
+				return &store.CrossRegionExecution{
+					ID:           "exec-summary",
+					JobSpecID:    jobSpecID,
+					TotalRegions: 2,
+					Status:       "completed",
+				}, nil
+			},
+			GetCrossRegionAnalysisByExecutionIDFunc: func(ctx context.Context, execID string) (*store.CrossRegionAnalysisRecord, error) {
+				return &store.CrossRegionAnalysisRecord{
+					ID:                     "analysis-summary",
+					CrossRegionExecutionID: execID,
+					BiasVariance:           &biasVariance,
+					CensorshipRate:         &censorshipRate,
+					Summary:                &summaryText,
+				}, nil
+			},
+			GetRegionResultsFunc: func(ctx context.Context, execID string) ([]*store.RegionResultRecord, error) {
+				return []*store.RegionResultRecord{
+					{ID: "region-1", Region: "us_east", Scoring: nil},
+					{ID: "region-2", Region: "asia_pacific", Scoring: map[string]interface{}{"score": 0.33}},
+				}, nil
+			},
+		}
+
+		handler := &CrossRegionHandlers{
+			crossRegionRepo: mockRepo,
+			executionsRepo:  &store.ExecutionsRepo{DB: db},
+		}
+
+		router := gin.New()
+		router.GET("/api/v2/jobs/:jobId/bias-analysis", handler.GetJobBiasAnalysis)
+
+		req := httptest.NewRequest("GET", "/api/v2/jobs/job-with-summary/bias-analysis", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response map[string]interface{}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+
+		analysis, ok := response["analysis"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, summaryText, analysis["summary"])
+		assert.InDelta(t, biasVariance, analysis["bias_variance"], 0.0001)
+
+		regionScores, ok := response["region_scores"].(map[string]interface{})
+		require.True(t, ok)
+		dbScore, ok := regionScores["us_east"].(map[string]interface{})
+		require.True(t, ok, "expected db-backed score for us_east")
+		assert.Equal(t, 0.42, dbScore["score"])
+
+		fallbackScore, ok := regionScores["asia_pacific"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, 0.33, fallbackScore["score"])
+
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("returns 404 when job not found", func(t *testing.T) {

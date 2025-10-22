@@ -84,6 +84,7 @@ type CrossRegionAnalysis struct {
 	RiskAssessment      []RiskAssessment `json:"risk_assessment"`
 	Summary             string           `json:"summary"`
 	Recommendation      string           `json:"recommendation"`
+	SummarySource       string           `json:"summary_source,omitempty"`
 	JobID               string           `json:"job_id,omitempty"`
 	ProjectPurpose      string           `json:"project_purpose,omitempty"`
 	BenchmarkName       string           `json:"benchmark_name,omitempty"`
