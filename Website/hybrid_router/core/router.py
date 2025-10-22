@@ -261,7 +261,7 @@ class HybridRouter:
             if provider.max_concurrent > 0:  # Simplified capacity check
                 logger.info(
                     f"Provider selected: {provider.name} (region={provider.region}, "
-                    f"type={provider.endpoint_type}, region_locked={bool(request.region_preference)})"
+                    f"type={provider.type.value}, region_locked={bool(request.region_preference)})"
                 )
                 return provider
         
@@ -270,7 +270,7 @@ class HybridRouter:
         if selected:
             logger.info(
                 f"Provider selected (fallback): {selected.name} (region={selected.region}, "
-                f"type={selected.endpoint_type}, region_locked={bool(request.region_preference)})"
+                f"type={selected.type.value}, region_locked={bool(request.region_preference)})"
             )
         return selected
     
