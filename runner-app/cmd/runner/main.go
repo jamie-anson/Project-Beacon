@@ -71,22 +71,32 @@ func main() {
 					return nil
 				}
 				
-				// Add SQL query context if available
-				if hint != nil && hint.Context != nil {
-					if sqlQuery, ok := hint.Context["sql_query"].(string); ok {
+				// Add SQL query context if available from event Extra
+				if event.Extra != nil {
+					if sqlQuery, ok := event.Extra["sql_query"].(string); ok {
+						// Already in Extra, just ensure it's visible
 						event.Extra["sql_query"] = sqlQuery
 					}
-					if dbError, ok := hint.Context["db_error"].(string); ok {
+					if dbError, ok := event.Extra["db_error"].(string); ok {
 						event.Extra["db_error"] = dbError
 					}
-					if jobID, ok := hint.Context["job_id"].(string); ok {
-						event.SetTag("job_id", jobID)
+					if jobID, ok := event.Extra["job_id"].(string); ok {
+						if event.Tags == nil {
+							event.Tags = make(map[string]string)
+						}
+						event.Tags["job_id"] = jobID
 					}
-					if region, ok := hint.Context["region"].(string); ok {
-						event.SetTag("region", region)
+					if region, ok := event.Extra["region"].(string); ok {
+						if event.Tags == nil {
+							event.Tags = make(map[string]string)
+						}
+						event.Tags["region"] = region
 					}
-					if modelID, ok := hint.Context["model_id"].(string); ok {
-						event.SetTag("model_id", modelID)
+					if modelID, ok := event.Extra["model_id"].(string); ok {
+						if event.Tags == nil {
+							event.Tags = make(map[string]string)
+						}
+						event.Tags["model_id"] = modelID
 					}
 				}
 				
