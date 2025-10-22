@@ -197,10 +197,9 @@ class HybridRouter:
                         "temperature": 0.1,
                         "max_tokens": 5
                     }
-                    # Modal endpoints need /inference path appended
-                    endpoint_url = f"{provider.endpoint}/inference" if provider.type == ProviderType.MODAL else provider.endpoint
+                    # Use provider endpoint directly (Modal endpoints are at root path)
                     response = await self.client.post(
-                        endpoint_url,
+                        provider.endpoint,
                         json=test_payload,
                         timeout=30.0  # Longer timeout for cold starts and network latency
                     )
@@ -459,10 +458,9 @@ class HybridRouter:
                 logger.debug(f"[{request_id}] Attempt {attempt + 1}/3 starting")
                 
                 # Make the POST request with explicit timeout handling
-                # Modal endpoints need /inference path appended
-                endpoint_url = f"{provider.endpoint}/inference" if provider.type == ProviderType.MODAL else provider.endpoint
+                # Use provider endpoint directly (Modal endpoints are at root path)
                 response = await self.client.post(
-                    endpoint_url, 
+                    provider.endpoint, 
                     json=payload, 
                     headers=headers
                 )
