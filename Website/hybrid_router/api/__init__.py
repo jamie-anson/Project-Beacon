@@ -5,6 +5,7 @@ from .inference import router as inference_router
 from .providers import router as providers_router
 from .websocket import router as websocket_router
 from .queue import router as queue_router
+from .debug import router as debug_router
 import logging
 
 try:
@@ -13,4 +14,4 @@ except Exception as e:
     logging.getLogger(__name__).warning("Maps router unavailable: %s", e)
     maps_router = None
 
-__all__ = ["health_router", "inference_router", "providers_router", "websocket_router", "queue_router", "maps_router"]
+__all__ = ["health_router", "inference_router", "providers_router", "websocket_router", "queue_router", "maps_router", "debug_router"]
