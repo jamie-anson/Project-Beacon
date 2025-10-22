@@ -188,33 +188,30 @@ class HybridRouter:
                 provider.healthy = response.status_code == 200
             
             elif provider.type == ProviderType.MODAL:
-                # Modal health check - use actual inference endpoint
-                # Send a minimal test request to verify the endpoint is responsive
+                # Modal health check - use dedicated health endpoint
+                # This is faster and doesn't trigger inference (saves Modal credits)
                 try:
-                    test_payload = {
-                        "model": "llama3.2-1b",
-                        "prompt": "test",
-                        "temperature": 0.1,
-                        "max_tokens": 5
-                    }
-                    # Use provider endpoint directly (Modal endpoints are at root path)
-                    # Use client's default timeout (600s) to handle Modal cold starts (can be 2-3 minutes)
-                    response = await self.client.post(
-                        provider.endpoint,
-                        json=test_payload
+                    # Modal deploys health as separate function: replace 'inference' with 'health' in URL
+                    # Example: jamie-anson--project-beacon-hf-us-inference.modal.run
+                    #       -> jamie-anson--project-beacon-hf-us-health.modal.run
+                    health_url = provider.endpoint.replace("-inference.modal.run", "-health.modal.run")
+                    
+                    response = await self.client.get(
+                        health_url,
+                        timeout=10.0  # Health checks should be fast
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        # Check if response has success field
-                        has_success = data.get("success", False)
-                        provider.healthy = has_success
-                        logger.info(f"✅ [HEALTH_CHECK] {provider.name} response: status={response.status_code}, success={has_success}, data_keys={list(data.keys())}")
+                        # Modal health endpoint returns status field
+                        is_healthy = data.get("status") == "healthy"
+                        provider.healthy = is_healthy
+                        logger.info(f"✅ [HEALTH_CHECK] {provider.name} health endpoint: status={data.get('status')}, models_ready={data.get('models_ready_count', 0)}")
                     else:
                         provider.healthy = False
-                        logger.warning(f"❌ [HEALTH_CHECK] {provider.name} returned status {response.status_code}")
+                        logger.warning(f"❌ [HEALTH_CHECK] {provider.name} health endpoint returned status {response.status_code}")
                 except Exception as health_err:
                     logger.error(
-                        f"❌ [HEALTH_CHECK] {provider.name} failed: {type(health_err).__name__}: {str(health_err)}",
+                        f"❌ [HEALTH_CHECK] {provider.name} health endpoint failed: {type(health_err).__name__}: {str(health_err)}",
                         exc_info=True
                     )
                     provider.healthy = False
