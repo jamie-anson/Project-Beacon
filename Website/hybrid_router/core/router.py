@@ -198,10 +198,10 @@ class HybridRouter:
                         "max_tokens": 5
                     }
                     # Use provider endpoint directly (Modal endpoints are at root path)
+                    # Use client's default timeout (600s) to handle Modal cold starts (can be 2-3 minutes)
                     response = await self.client.post(
                         provider.endpoint,
-                        json=test_payload,
-                        timeout=30.0  # Longer timeout for cold starts and network latency
+                        json=test_payload
                     )
                     if response.status_code == 200:
                         data = response.json()
