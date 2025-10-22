@@ -36,7 +36,7 @@ func NewOpenAISummaryGenerator(opts ...Option) *OpenAISummaryGenerator {
 	gen := &OpenAISummaryGenerator{
 		apiKey: os.Getenv("OPENAI_API_KEY"),
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 90 * time.Second, // Increased from 30s for GPT-5-nano reasoning + multi-region latency
 		},
 		baseURL: strings.TrimRight(baseURL, "/"),
 	}
