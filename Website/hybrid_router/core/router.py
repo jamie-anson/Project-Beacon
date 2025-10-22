@@ -180,6 +180,7 @@ class HybridRouter:
     
     async def _check_provider_health(self, provider: Provider):
         """Check individual provider health"""
+        logger.info(f"🔍 [HEALTH_CHECK] Starting health check for {provider.name}")
         try:
             if provider.type == ProviderType.GOLEM:
                 # Simple ping for Golem providers
@@ -205,10 +206,12 @@ class HybridRouter:
                         data = response.json()
                         # Check if response has success field
                         provider.healthy = data.get("success", False)
+                        logger.info(f"✅ [HEALTH_CHECK] {provider.name} is HEALTHY (success={data.get('success')})")
                     else:
                         provider.healthy = False
+                        logger.warning(f"❌ [HEALTH_CHECK] {provider.name} returned status {response.status_code}")
                 except Exception as health_err:
-                    logger.warning(f"Modal health check failed for {provider.name}: {health_err}")
+                    logger.error(f"❌ [HEALTH_CHECK] {provider.name} failed: {health_err}")
                     provider.healthy = False
             
             # elif provider.type == ProviderType.RUNPOD:
@@ -229,7 +232,18 @@ class HybridRouter:
         # Filter healthy providers
         healthy_providers = [p for p in self.providers if p.healthy]
         
+        # 🔍 DEBUG: Log provider health status
+        logger.error(
+            f"[SELECT_PROVIDER] Total providers: {len(self.providers)}, "
+            f"Healthy: {len(healthy_providers)}, "
+            f"Provider health: {[(p.name, p.healthy, p.last_health_check) for p in self.providers]}"
+        )
+        
         if not healthy_providers:
+            logger.error(
+                f"[SELECT_PROVIDER] NO HEALTHY PROVIDERS! "
+                f"All providers: {[(p.name, p.healthy) for p in self.providers]}"
+            )
             return None
         
         # STRICT region matching when region is specified
