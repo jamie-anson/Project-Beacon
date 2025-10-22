@@ -704,15 +704,55 @@
     "notes": "Comprehensive diagnostic tooling for router health issues. Includes 6 debug API endpoints and automated testing script with 8 tests. Provides real-time provider status, health check timing, manual health check triggering, and detailed inference diagnostics. Makes it easy to spot health check failures, timing issues, and provider connectivity problems."
   },
   {
+    "id": "test-suite-0017",
+    "name": "Regional Routing Tests",
+    "type": "integration",
+    "runner": "pytest/python",
+    "location": "tests/test_regional_routing.py",
+    "file_count": 1,
+    "test_count": 6,
+    "coverage_areas": [
+      "US-East regional routing verification",
+      "EU-West regional routing verification",
+      "Asia-Pacific regional routing verification",
+      "Fallback behavior when region unavailable",
+      "Parallel region testing",
+      "Receipt consistency with routing decision"
+    ],
+    "test_cases": [
+      "test_us_east_routing - Verifies requests with region_preference='us-east' route to modal-us-east",
+      "test_eu_west_routing - Verifies requests with region_preference='eu-west' route to modal-eu-west",
+      "test_asia_pacific_routing - Verifies requests with region_preference='asia-pacific' route to modal-apac or fallback",
+      "test_fallback_when_region_unavailable - Verifies fallback to healthy region when preferred unavailable",
+      "test_all_regions_parallel - Tests all regions simultaneously for routing consistency",
+      "test_receipt_consistency - Validates receipt data matches routing decision"
+    ],
+    "validation_points": [
+      "provider_used field matches expected regional provider",
+      "metadata.region matches requested region",
+      "receipt.execution_details.region matches requested region",
+      "receipt.execution_details.provider_id matches provider_used",
+      "Fallback provider is valid when preferred region unavailable"
+    ],
+    "run_commands": {
+      "pytest": "pytest tests/test_regional_routing.py -v",
+      "standalone": "python3 tests/test_regional_routing.py",
+      "specific_test": "pytest tests/test_regional_routing.py::TestRegionalRouting::test_us_east_routing -v"
+    },
+    "dependencies": ["pytest", "httpx", "asyncio"],
+    "effective_at": "2025-10-22T23:18:00+01:00",
+    "notes": "Critical integration test ensuring region_preference parameter correctly routes requests to the appropriate Modal provider. Validates that US jobs go to US Modal, EU jobs go to EU Modal, and APAC jobs go to APAC Modal (or fallback). Prevents routing regressions where requests might be sent to wrong regional providers. Test results: ✅ US-East verified, ✅ EU-West verified, ⚠️ APAC not configured yet (expected)."
+  },
+  {
     "id": "test-coverage-summary",
     "type": "summary",
-    "total_test_suites": 16,
-    "total_test_files": "~82+",
-    "total_test_count": "~568+",
+    "total_test_suites": 17,
+    "total_test_files": "~83+",
+    "total_test_count": "~574+",
     "total_workflows": 18,
     "test_types": {
       "unit": "~291+ tests (170 portal + 51 backend + 70 bias analysis)",
-      "integration": "~50+ tests",
+      "integration": "~56+ tests (50 existing + 6 regional routing)",
       "e2e": "~28+ tests (20 existing + 8 bias detection)",
       "validation": "~100+ checks",
       "regression": "~40+ tests",

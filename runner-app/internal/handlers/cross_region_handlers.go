@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/analysis"
 	"github.com/jamie-anson/project-beacon-runner/internal/execution"
@@ -106,14 +107,24 @@ type CrossRegionSummary struct {
 
 // SubmitCrossRegionJob handles POST /api/v1/jobs/cross-region
 func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
+	// Start Sentry transaction for distributed tracing
+	span := sentry.StartSpan(c.Request.Context(), "job.submit_cross_region")
+	defer span.Finish()
+	
 	var req CrossRegionJobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		span.Status = sentry.SpanStatusInvalidArgument
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
 		return
 	}
+	
+	// Add job context to span
+	span.SetTag("job_id", req.JobSpec.ID)
+	span.SetTag("region_count", fmt.Sprintf("%d", len(req.TargetRegions)))
+	span.SetTag("model_count", fmt.Sprintf("%d", len(req.JobSpec.Models)))
 
 	// DEBUG: Log what we received
 	logger := logging.FromContext(c.Request.Context())
@@ -274,6 +285,39 @@ func (h *CrossRegionHandlers) SubmitCrossRegionJob(c *gin.Context) {
 					Str("model", result.ModelID).
 					Str("question", result.QuestionID).
 					Msg("Failed to create execution record in real-time")
+				
+				// Capture in Sentry with full context
+				hub := sentry.GetHubFromContext(execCtx)
+				if hub == nil {
+					hub = sentry.CurrentHub().Clone()
+				}
+				hub.WithScope(func(scope *sentry.Scope) {
+					// Add tags for filtering
+					scope.SetTag("job_id", jobID)
+					scope.SetTag("region", region)
+					scope.SetTag("model_id", result.ModelID)
+					scope.SetTag("question_id", result.QuestionID)
+					scope.SetTag("error_type", "database_insert_failed")
+					
+					// Add context data
+					scope.SetContext("database", map[string]interface{}{
+						"operation":   "InsertExecutionWithModelAndQuestion",
+						"job_id":      jobID,
+						"provider_id": providerID,
+						"region":      region,
+						"model_id":    result.ModelID,
+						"question_id": result.QuestionID,
+						"status":      result.Status,
+						"error":       err.Error(),
+					})
+					
+					// Add extra data for debugging
+					scope.SetExtra("db_error", err.Error())
+					scope.SetExtra("started_at", startedAt)
+					scope.SetExtra("completed_at", completedAt)
+					
+					hub.CaptureException(err)
+				})
 			} else {
 				logger.Info().
 					Str("job_id", jobID).
