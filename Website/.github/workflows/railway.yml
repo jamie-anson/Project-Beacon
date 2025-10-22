@@ -1,4 +1,4 @@
-name: Hybrid Router CI (Railway Preflight)
+name: Router CI
 
 on:
   push:
