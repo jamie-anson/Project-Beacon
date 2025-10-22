@@ -24,7 +24,16 @@ from .core import HybridRouter
 from .core.region_queue import queue_manager
 from .api import health_router, inference_router, providers_router, websocket_router, maps_router, queue_router, debug_router
 from .config import CORS_ORIGINS, get_port, HOST
-from .tracing import DBTracer, create_db_pool
+
+# Tracing (optional - requires asyncpg)
+try:
+    from .tracing import DBTracer, create_db_pool
+    TRACING_AVAILABLE = True
+except ImportError:
+    TRACING_AVAILABLE = False
+    DBTracer = None
+    create_db_pool = None
+    logger.warning("tracing module not available - distributed tracing disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +71,13 @@ async def lifespan(app: FastAPI):
     port = get_port()
     logger.info("Binding to %s:%s", HOST, port)
 
-    # Initialize database tracing
-    db_pool = await create_db_pool()
-    db_tracer = DBTracer(db_pool)
-    app.state.db_tracer = db_tracer
+    # Initialize database tracing (if available)
+    if TRACING_AVAILABLE:
+        db_pool = await create_db_pool()
+        db_tracer = DBTracer(db_pool)
+        app.state.db_tracer = db_tracer
+    else:
+        app.state.db_tracer = None
 
     try:
         # Run provider checks in the background so startup does NOT block
