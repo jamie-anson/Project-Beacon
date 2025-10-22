@@ -234,20 +234,17 @@ class HybridRouter:
             
             if not region_providers:
                 # NO FALLBACK - return None to trigger error
+                available_regions = list(set(p.region for p in healthy_providers))
                 logger.error(
-                    f"No healthy providers available for region {request.region_preference}",
-                    extra={
-                        "requested_region": request.region_preference,
-                        "healthy_providers": [p.region for p in healthy_providers],
-                        "available_regions": list(set(p.region for p in healthy_providers))
-                    }
+                    f"No healthy providers available for region {request.region_preference}. "
+                    f"Available regions: {available_regions}"
                 )
                 return None
             
             healthy_providers = region_providers
             logger.info(
-                f"Region-locked provider selection: {request.region_preference}",
-                extra={"provider_count": len(region_providers)}
+                f"Region-locked provider selection: {request.region_preference} "
+                f"(provider_count={len(region_providers)})"
             )
         
         # Sort by cost priority or performance priority
@@ -263,14 +260,8 @@ class HybridRouter:
             # Simple capacity check (in real implementation, track active requests)
             if provider.max_concurrent > 0:  # Simplified capacity check
                 logger.info(
-                    f"Provider selected",
-                    extra={
-                        "provider": provider.name,
-                        "region": provider.region,
-                        "endpoint_type": provider.endpoint_type,
-                        "requested_region": request.region_preference,
-                        "region_locked": bool(request.region_preference)
-                    }
+                    f"Provider selected: {provider.name} (region={provider.region}, "
+                    f"type={provider.endpoint_type}, region_locked={bool(request.region_preference)})"
                 )
                 return provider
         
@@ -278,14 +269,8 @@ class HybridRouter:
         selected = healthy_providers[0] if healthy_providers else None
         if selected:
             logger.info(
-                f"Provider selected (fallback)",
-                extra={
-                    "provider": selected.name,
-                    "region": selected.region,
-                    "endpoint_type": selected.endpoint_type,
-                    "requested_region": request.region_preference,
-                    "region_locked": bool(request.region_preference)
-                }
+                f"Provider selected (fallback): {selected.name} (region={selected.region}, "
+                f"type={selected.endpoint_type}, region_locked={bool(request.region_preference)})"
             )
         return selected
     
