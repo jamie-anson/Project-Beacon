@@ -943,8 +943,11 @@ func (w *JobRunner) executeQuestion(ctx context.Context, jobID string, spec *mod
 		},
 	})
 
+	// Propagate distributed tracing: attach trace ID to context so hybrid client forwards X-Trace-Id
+	ctxWithTrace := hybrid.WithTraceID(ctx, traceID.String())
+
 	// Execute job in this region
-	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctx, &singleQuestionSpec, region)
+	providerID, status, outputJSON, receiptJSON, err := executor.Execute(ctxWithTrace, &singleQuestionSpec, region)
 
 	executionEnd := time.Now()
 	executionDuration := executionEnd.Sub(executionStart)

@@ -21,6 +21,27 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// trace context key and helpers
+type traceIDKey struct{}
+
+// WithTraceID returns a context carrying the provided trace ID
+func WithTraceID(ctx context.Context, traceID string) context.Context {
+	if traceID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, traceIDKey{}, traceID)
+}
+
+// getTraceID extracts a trace ID from context, if present
+func getTraceID(ctx context.Context) string {
+	if v := ctx.Value(traceIDKey{}); v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 func New(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "https://project-beacon-production.up.railway.app"
@@ -145,6 +166,10 @@ func (c *Client) postInference(ctx context.Context, url string, req InferenceReq
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
+    // Propagate distributed trace id if present in context
+    if tid := getTraceID(ctx); tid != "" {
+        httpReq.Header.Set("X-Trace-Id", tid)
+    }
 
 	res, err := c.httpClient.Do(httpReq)
 	if err != nil {
