@@ -491,6 +491,12 @@ class HybridRouter:
 
         token = os.getenv("MODAL_API_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+        # Propagate distributed trace header to Modal if available
+        try:
+            if getattr(request, "trace_id", None):
+                headers["X-Trace-Id"] = str(request.trace_id)
+        except Exception:
+            pass
 
         # Log request initiation with timing
         request_start = time.time()
@@ -507,6 +513,26 @@ class HybridRouter:
         )
 
         response = None
+        # DB tracing: start modal_call span if tracer is attached
+        modal_span_id = None
+        trace_id_val = getattr(request, "trace_id", None) or str(uuid.uuid4())
+        db_tracer = getattr(self, "db_tracer", None)
+        if db_tracer:
+            try:
+                modal_span_id = await db_tracer.start_span(
+                    trace_id=trace_id_val,
+                    parent_span_id=None,
+                    service="router",
+                    operation="modal_call",
+                    metadata={
+                        "provider": provider.name,
+                        "endpoint": provider.endpoint,
+                        "region": provider.region,
+                        "model": request.model,
+                    },
+                )
+            except Exception:
+                modal_span_id = None
         last_error = None
         
         for attempt in range(3):
@@ -622,6 +648,12 @@ class HybridRouter:
                 f"[{request_id}] All Modal attempts failed after {total_duration:.2f}s",
                 extra={"request_id": request_id, "total_duration_seconds": total_duration}
             )
+            # complete modal_call span as failed
+            if db_tracer and modal_span_id:
+                try:
+                    await db_tracer.complete_span(modal_span_id, "failed", error_message=str(last_error), error_type=type(last_error).__name__ if last_error else None)
+                except Exception:
+                    pass
             failure = self._build_failure(
                 code="MODAL_REQUEST_FAILED",
                 stage="modal_request",
@@ -718,6 +750,12 @@ class HybridRouter:
                     transient=True,
                     extra={k: v for k, v in failure_payload.items() if k not in {"code", "stage", "message"}},
                 )
+                # complete modal_call span as failed
+                if db_tracer and modal_span_id:
+                    try:
+                        await db_tracer.complete_span(modal_span_id, "failed", error_message=str(error_msg or "provider execution failed"))
+                    except Exception:
+                        pass
                 return {
                     "success": False,
                     "error": error_msg,
@@ -738,6 +776,12 @@ class HybridRouter:
                     "region": provider.region
                 }
             )
+            # complete modal_call span as completed
+            if db_tracer and modal_span_id:
+                try:
+                    await db_tracer.complete_span(modal_span_id, "completed")
+                except Exception:
+                    pass
             return {
                 "success": bool(success),
                 "response": resp_text,

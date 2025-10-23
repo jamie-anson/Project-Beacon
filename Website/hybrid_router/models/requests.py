@@ -11,6 +11,7 @@ class InferenceRequest(BaseModel):
     max_tokens: int = 500
     region_preference: Optional[str] = None
     cost_priority: bool = True
+    trace_id: Optional[str] = None
 
 
 class InferenceResponse(BaseModel):

@@ -1,6 +1,6 @@
 """Inference endpoints"""
 
-from fastapi import APIRouter, BackgroundTasks, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Query, Request, Header
 from typing import Optional
 import uuid
 import logging
@@ -21,7 +21,12 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/inference", response_model=InferenceResponse)
-async def inference_endpoint(inference_request: InferenceRequest, background_tasks: BackgroundTasks, request: Request):
+async def inference_endpoint(
+    inference_request: InferenceRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    x_trace_id: Optional[str] = Header(default=None, alias="X-Trace-Id"),
+):
     """Main inference endpoint"""
     # Get router_instance and tracer from app state
     router_instance = request.app.state.router_instance
@@ -47,8 +52,8 @@ async def inference_endpoint(inference_request: InferenceRequest, background_tas
             }
         )
     
-    # 🔍 TRACING: Start span
-    trace_id = str(uuid.uuid4())
+    # 🔍 TRACING: Start span - prefer incoming header, then body, else new
+    trace_id = x_trace_id or inference_request.trace_id or str(uuid.uuid4())
     span_id = None
     if db_tracer:
         span_id = await db_tracer.start_span(
@@ -66,6 +71,8 @@ async def inference_endpoint(inference_request: InferenceRequest, background_tas
     background_tasks.add_task(router_instance.health_check_providers)
     
     try:
+        # propagate trace id down to core (attach to request model)
+        inference_request.trace_id = trace_id
         result = await router_instance.run_inference(inference_request)
         
         # 🔍 TRACING: Complete span

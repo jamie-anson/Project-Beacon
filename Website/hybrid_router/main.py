@@ -77,6 +77,11 @@ async def lifespan(app: FastAPI):
         db_pool = await create_db_pool()
         db_tracer = DBTracer(db_pool)
         app.state.db_tracer = db_tracer
+        # Attach tracer to router core for lower-level spans (e.g., modal_call)
+        try:
+            router_instance.db_tracer = db_tracer
+        except Exception:
+            pass
     else:
         app.state.db_tracer = None
 
