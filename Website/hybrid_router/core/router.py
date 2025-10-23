@@ -8,6 +8,12 @@ import uuid
 from typing import Dict, Any, List, Optional
 
 import httpx
+try:
+    import sentry_sdk  # optional
+    _SENTRY_AVAILABLE = True
+except Exception:
+    sentry_sdk = None
+    _SENTRY_AVAILABLE = False
 from fastapi import HTTPException
 from datetime import datetime
 
@@ -268,6 +274,22 @@ class HybridRouter:
                 f"[SELECT_PROVIDER] NO HEALTHY PROVIDERS! "
                 f"All providers: {[(p.name, p.healthy) for p in self.providers]}"
             )
+            if _SENTRY_AVAILABLE:
+                sentry_sdk.capture_message(
+                    "router.no_healthy_providers",
+                    level="error",
+                )
+                with sentry_sdk.push_scope() as scope:
+                    scope.set_tag("component", "hybrid_router")
+                    scope.set_tag("stage", "provider_selection")
+                    scope.set_extra("providers", [
+                        {"name": p.name, "region": p.region, "healthy": p.healthy}
+                        for p in self.providers
+                    ])
+                    scope.set_extra("healthy_count", 0)
+                    scope.set_extra("requested_region", request.region_preference)
+                    scope.set_extra("model", request.model)
+                    sentry_sdk.capture_event({"message": "No healthy providers available"})
             return None
         
         # Region matching when region is specified (with alias normalization)
@@ -282,6 +304,20 @@ class HybridRouter:
                     f"No healthy providers available for region {request.region_preference} (normalized={normalized_region}). "
                     f"Available regions: {available_regions}"
                 )
+                if _SENTRY_AVAILABLE:
+                    with sentry_sdk.push_scope() as scope:
+                        scope.set_tag("component", "hybrid_router")
+                        scope.set_tag("stage", "provider_selection")
+                        scope.set_tag("reason", "region_mismatch")
+                        scope.set_extra("requested_region", request.region_preference)
+                        scope.set_extra("normalized_region", normalized_region)
+                        scope.set_extra("available_regions", available_regions)
+                        scope.set_extra("providers", [
+                            {"name": p.name, "region": p.region, "healthy": p.healthy}
+                            for p in healthy_providers
+                        ])
+                        scope.set_extra("model", request.model)
+                        sentry_sdk.capture_message("router.no_healthy_providers_for_region", level="error")
                 return None
             
             healthy_providers = region_providers
