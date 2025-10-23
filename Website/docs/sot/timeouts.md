@@ -540,3 +540,94 @@ Q2 Timeout:   00:14:27  (207 seconds)
 ---
 
 **Status**: 🟢 IMPROVED - Goroutine coordination fixed, timeout mysteries remain
+
+---
+
+## 🔴 CRITICAL ISSUE: Database Connection Timeout (2025-10-23)
+
+**Date Discovered**: 2025-10-23 00:18 UTC  
+**Status**: 🔴 ACTIVE - All jobs failing immediately
+
+### Symptom:
+All job submissions fail within 11ms with error:
+```
+Failed to create execution record in real-time
+error="failed to lookup job: failed to connect to `user=neondb_owner database=neondb`:
+  dial tcp [IP]:5432: operation was canceled"
+```
+
+### Root Cause:
+**Runner cannot connect to Neon database** - all connection attempts timeout.
+
+**Error Details**:
+- 6 connection attempts (3 IPv6 + 3 IPv4) all fail
+- Error: `dial tcp [IP]:5432: operation was canceled`
+- Database: Neon PostgreSQL (eu-west-2)
+- Runner: Fly.io (London region)
+
+### Current Configuration:
+
+**Location**: `/runner-app/internal/config/config.go` (line 104)
+
+```go
+DBTimeout: time.Duration(getInt("DB_TIMEOUT_MS", 4000)) * time.Millisecond
+```
+
+**Default**: 4000ms (4 seconds)  
+**Environment Variable**: `DB_TIMEOUT_MS`
+
+### Issue:
+**4 seconds is too short** for Fly.io (London) → Neon (eu-west-2) connection establishment.
+
+Network path includes:
+1. Fly.io London → Internet
+2. Internet → AWS eu-west-2
+3. AWS → Neon connection pooler
+4. Pooler → Actual database
+
+With network latency + connection pooler overhead, 4s is insufficient.
+
+### Fix:
+
+**Increase database timeout to 30 seconds:**
+
+```bash
+fly secrets set DB_TIMEOUT_MS=30000 -a beacon-runner-production
+```
+
+**Rationale**:
+- Allows time for network latency (Fly.io → Neon)
+- Handles connection pooler warm-up
+- Matches industry standard for remote database connections
+- Still fails fast enough (30s) to not block job queue
+
+### Related Timeouts:
+
+**Redis Timeout** (also in config.go):
+```go
+RedisTimeout: time.Duration(getInt("REDIS_TIMEOUT_MS", 2000)) * time.Millisecond
+```
+
+**Default**: 2000ms (2 seconds)  
+**Status**: May also need increase if Redis connection issues occur
+
+### Impact:
+- ❌ **All jobs fail immediately** (0 executions created)
+- ❌ **Portal shows "Job Failed" instantly**
+- ❌ **No execution records in database**
+- ❌ **Sentry shows database connection errors**
+
+### Timeline:
+- **00:08 UTC**: Job `bias-detection-1761174483524` failed
+- **00:18 UTC**: Job `bias-detection-1761175099849` failed
+- **00:18 UTC**: Root cause identified via Fly logs
+- **00:22 UTC**: Neon console verified - database active
+- **00:25 UTC**: Fix documented, awaiting deployment
+
+### Verification After Fix:
+1. Submit test job through Portal
+2. Check Fly logs for successful database connection
+3. Verify execution records created in database
+4. Confirm job completes successfully
+
+---

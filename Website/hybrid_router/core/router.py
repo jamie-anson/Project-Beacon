@@ -170,6 +170,28 @@ class HybridRouter:
             return "asia-pacific"
         return "unknown"
     
+    def _normalize_region_alias(self, region: Optional[str]) -> Optional[str]:
+        """Normalize common region aliases to canonical router regions.
+        Maps inputs like 'US' -> 'us-east', 'EU' -> 'eu-west', 'APAC'/'ASIA' -> 'asia-pacific'.
+        Returns the original value if no mapping applies.
+        """
+        if not region:
+            return region
+        r = str(region).strip().lower()
+        alias_map = {
+            "us": "us-east",
+            "usa": "us-east",
+            "na": "us-east",
+            "eu": "eu-west",
+            "europe": "eu-west",
+            "apac": "asia-pacific",
+            "asia": "asia-pacific",
+            "asia-pacific": "asia-pacific",
+            "us-east": "us-east",
+            "eu-west": "eu-west",
+        }
+        return alias_map.get(r, region)
+    
     async def health_check_providers(self):
         """Check health of all providers"""
         tasks = []
@@ -248,22 +270,23 @@ class HybridRouter:
             )
             return None
         
-        # STRICT region matching when region is specified
+        # Region matching when region is specified (with alias normalization)
         if request.region_preference:
-            region_providers = [p for p in healthy_providers if p.region == request.region_preference]
+            normalized_region = self._normalize_region_alias(request.region_preference)
+            region_providers = [p for p in healthy_providers if p.region == normalized_region]
             
             if not region_providers:
                 # NO FALLBACK - return None to trigger error
                 available_regions = list(set(p.region for p in healthy_providers))
                 logger.error(
-                    f"No healthy providers available for region {request.region_preference}. "
+                    f"No healthy providers available for region {request.region_preference} (normalized={normalized_region}). "
                     f"Available regions: {available_regions}"
                 )
                 return None
             
             healthy_providers = region_providers
             logger.info(
-                f"Region-locked provider selection: {request.region_preference} "
+                f"Region-locked provider selection: {normalized_region} "
                 f"(provider_count={len(region_providers)})"
             )
         

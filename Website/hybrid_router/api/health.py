@@ -1,5 +1,6 @@
 """Health check endpoints"""
 
+import os
 import time
 from fastapi import APIRouter
 
@@ -21,6 +22,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": time.time(),
+        "version": os.getenv("GIT_SHA", "not_provided"),
         "providers_total": len(router_instance.providers),
         "providers_healthy": len(healthy_providers),
         "regions": list(set(p.region for p in healthy_providers))

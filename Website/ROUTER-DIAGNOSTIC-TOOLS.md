@@ -563,3 +563,101 @@ curl -X POST https://jamie-anson--project-beacon-hf-us-inference.modal.run/infer
 ```
 
 ---
+
+## 🆕 **Known Issues & Resolutions** (Updated 2025-10-23)
+
+### **Issue: "No Healthy Providers" Despite Healthy Status**
+
+**Discovered**: 2025-10-23 00:29 UTC  
+**Status**: 🔴 ACTIVE
+
+**Symptoms**:
+- `/debug/providers` shows: `healthy_count: 2`, both providers `healthy: true`
+- `/health` shows: `status: "healthy"`, `providers_healthy: 2`
+- Force health check: Completes in 0.5s, all providers pass
+- **BUT**: Runner gets `"No healthy providers available"` error
+
+**Evidence**:
+```bash
+# Router reports healthy
+curl /debug/providers
+→ {"healthy_count": 2, "providers": [{"healthy": true}, ...]}
+
+# Runner logs show failure
+ERR Execution failed error="No healthy providers available"
+```
+
+**Root Cause**: Provider selection logic bug (under investigation)
+
+**Possible Causes**:
+1. Race condition in provider health state
+2. Region-specific filtering broken
+3. Provider capacity check failing incorrectly
+4. Stale provider state during request
+
+**Diagnostic Commands**:
+```bash
+# 1. Check provider state during failure
+curl /debug/providers | jq '.providers[] | {name, healthy, last_check_ago}'
+
+# 2. Test direct inference (bypass runner)
+curl -X POST https://project-beacon-production.up.railway.app/inference \
+  -H "Content-Type: application/json" \
+  -d '{"model":"llama3.2-1b","prompt":"test","max_tokens":5}' | jq '.'
+
+# 3. Check Railway logs for provider selection
+# Look for: "[SELECT_PROVIDER]" log messages
+
+# 4. Force health check and immediately test
+curl -X POST /debug/force-health-check && \
+curl -X POST /inference -d '{"model":"llama3.2-1b","prompt":"test","max_tokens":5}'
+```
+
+**Workaround**: None currently - investigating root cause
+
+---
+
+### **Issue: Database Connection Timeout** ✅ FIXED
+
+**Discovered**: 2025-10-23 00:18 UTC  
+**Status**: ✅ RESOLVED
+
+**Symptoms**:
+- All jobs fail within 11ms
+- Error: `"failed to connect to database: dial tcp [IP]:5432: operation was canceled"`
+- 6 connection attempts (3 IPv6 + 3 IPv4) all timeout
+
+**Root Cause**: 
+- Default `DB_TIMEOUT_MS`: 4000ms (4 seconds)
+- Network path Fly.io London → Neon eu-west-2 takes >4s
+
+**Fix Applied**:
+```bash
+fly secrets set DB_TIMEOUT_MS=30000 -a beacon-runner-production
+```
+
+**Result**: Database connections now succeed
+
+---
+
+### **Issue: Modal Health Check Path** ✅ FIXED
+
+**Discovered**: 2025-10-22 17:00 UTC  
+**Status**: ✅ RESOLVED
+
+**Symptoms**:
+- Health checks timing out after 30s
+- Modal endpoints working but router reports unhealthy
+- Health checks hitting `/inference` path instead of root
+
+**Root Cause**: 
+- Router was appending `/inference` to Modal health check URLs
+- Modal health endpoint is at root path, not `/inference`
+
+**Fix Applied**: 
+- Use Modal's dedicated `/health` endpoint
+- URL: `https://jamie-anson--project-beacon-hf-{region}-health.modal.run`
+
+**Result**: Health checks now complete in 0.5s
+
+---
