@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { retryQuestion } from '../lib/api/runner/executions';
+import { retryQuestion, getExecution } from '../lib/api/runner/executions';
 import { useToast } from '../state/toast';
 
 /**
@@ -32,6 +32,26 @@ export function useRetryExecution(refetchActive) {
     setRetryingQuestions(prev => new Set(prev).add(retryKey));
     
     try {
+      // Preflight: reconcile current execution status before retrying
+      // If already completed (e.g., provider finished but UI is stale),
+      // skip creating a new retry and just refresh.
+      try {
+        const current = await getExecution(executionId);
+        const status = String(current?.status || current?.state || '').toLowerCase();
+        const alreadyDone = status === 'completed' || (!!current?.output && !current?.error && !current?.failure_reason);
+        if (alreadyDone) {
+          addToast({
+            message: 'Result already completed. Refreshing…',
+            type: 'success'
+          });
+          if (refetchActive) setTimeout(() => refetchActive(), 500);
+          return;
+        }
+      } catch (e) {
+        // Non-fatal: if lookup fails, proceed with retry
+        // console.debug('Preflight check failed, proceeding with retry', e);
+      }
+
       await retryQuestion(executionId, region, questionIndex);
       
       addToast({
