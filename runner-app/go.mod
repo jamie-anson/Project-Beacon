@@ -3,7 +3,7 @@ module github.com/jamie-anson/project-beacon-runner
 go 1.24.6
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-migrate/migrate/v4 v4.18.3
