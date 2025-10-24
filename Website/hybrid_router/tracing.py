@@ -2,6 +2,7 @@
 
 import os
 import logging
+import json
 from typing import Optional, Dict, Any
 from uuid import UUID, uuid4
 from datetime import datetime
@@ -38,18 +39,20 @@ class DBTracer:
         
         try:
             async with self.db_pool.acquire() as conn:
-                await conn.execute("""
+                # Serialize metadata payload explicitly to JSON and cast to JSONB
+                await conn.execute(
+                    """
                     INSERT INTO trace_spans 
                     (trace_id, span_id, parent_span_id, service, operation, 
                      started_at, status, metadata)
-                    VALUES ($1, $2, $3, $4, $5, NOW(), 'started', $6)
-                """, 
+                    VALUES ($1, $2, $3, $4, $5, NOW(), 'started', $6::jsonb)
+                    """,
                     trace_id,
                     span_id,
                     parent_span_id,
                     service,
                     operation,
-                    metadata or {}
+                    json.dumps(metadata or {})
                 )
             logger.debug("✅ Span started: %s/%s", service, operation)
         except Exception as e:
