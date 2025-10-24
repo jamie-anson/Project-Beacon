@@ -229,3 +229,15 @@ async def startup_status(request: Request):
             p.name for p in router_instance.providers if p.last_health_check == 0
         ],
     }
+
+
+@router.get("/debug/tracing-status")
+async def tracing_status(request: Request):
+    """Report distributed tracing runtime status"""
+    db_tracer = getattr(request.app.state, "db_tracer", None)
+    enabled = bool(getattr(db_tracer, "enabled", False)) if db_tracer else False
+    has_pool = bool(getattr(db_tracer, "db_pool", None)) if db_tracer else False
+    return {
+        "enabled": enabled,
+        "has_pool": has_pool,
+    }
