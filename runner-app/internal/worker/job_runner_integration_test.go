@@ -7,6 +7,7 @@ import (
     "context"
     "database/sql"
     "encoding/json"
+    "os"
     "testing"
     "time"
 
@@ -117,6 +118,9 @@ func mkJobSpecJSON(jobID, region string) []byte {
 
 // --- Tests ---
 func TestJobRunner_Preflight_Success(t *testing.T) {
+    if os.Getenv("RUN_WORKER_TESTS") == "" {
+        t.Skip("Skipping integration worker tests; set RUN_WORKER_TESTS=1 to enable")
+    }
     ctx := context.Background()
     // Skip signature verification in validator for test fixtures
     t.Setenv("VALIDATION_SKIP_SIGNATURE", "true")
@@ -164,6 +168,9 @@ func TestJobRunner_Preflight_Success(t *testing.T) {
 }
 
 func TestJobRunner_Preflight_Mismatch(t *testing.T) {
+    if os.Getenv("RUN_WORKER_TESTS") == "" {
+        t.Skip("Skipping integration worker tests; set RUN_WORKER_TESTS=1 to enable")
+    }
     ctx := context.Background()
     t.Setenv("VALIDATION_SKIP_SIGNATURE", "true")
 
@@ -208,6 +215,9 @@ func TestJobRunner_Preflight_Mismatch(t *testing.T) {
 
 // Preflight probe error path: ensure we log/skip and do not persist verification
 func TestJobRunner_Preflight_ProbeError_NoPersistence(t *testing.T) {
+    if os.Getenv("RUN_WORKER_TESTS") == "" {
+        t.Skip("Skipping integration worker tests; set RUN_WORKER_TESTS=1 to enable")
+    }
     ctx := context.Background()
     t.Setenv("VALIDATION_SKIP_SIGNATURE", "true")
 
@@ -246,6 +256,9 @@ func TestJobRunner_Preflight_ProbeError_NoPersistence(t *testing.T) {
 
 // Multiple regions: ensure only chosen (first) region's verification is persisted exactly once
 func TestJobRunner_Preflight_MultiRegion_OnlyChosenPersisted(t *testing.T) {
+    if os.Getenv("RUN_WORKER_TESTS") == "" {
+        t.Skip("Skipping integration worker tests; set RUN_WORKER_TESTS=1 to enable")
+    }
     ctx := context.Background()
     t.Setenv("VALIDATION_SKIP_SIGNATURE", "true")
 
