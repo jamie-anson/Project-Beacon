@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jamie-anson/project-beacon-runner/internal/service"
 	"github.com/jamie-anson/project-beacon-runner/internal/store"
+    "github.com/redis/go-redis/v9"
 )
 
 // ExecutionsHandler handles execution-related API endpoints
@@ -41,18 +43,18 @@ type RegionExecution struct {
 
 // ListAllExecutionsForJob lists all executions for a given JobSpec ID (including ones without receipts)
 func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
-    ctx := c.Request.Context()
-    jobID := c.Param("id")
-    if jobID == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "missing job id"})
-        return
-    }
-    if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
-        return
-    }
+	ctx := c.Request.Context()
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing job id"})
+		return
+	}
+	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
+		return
+	}
 
-    rows, err := h.ExecutionsRepo.DB.QueryContext(ctx, `
+	rows, err := h.ExecutionsRepo.DB.QueryContext(ctx, `
         SELECT 
             e.id,
             j.jobspec_id,
@@ -81,110 +83,116 @@ func (h *ExecutionsHandler) ListAllExecutionsForJob(c *gin.Context) {
         WHERE j.jobspec_id = $1
         ORDER BY e.created_at DESC
     `, jobID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
-        return
-    }
-    defer rows.Close()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
+		return
+	}
+	defer rows.Close()
 
-    type Exec struct {
-        ID                     int64           `json:"id"`
-        JobID                  string          `json:"job_id"`
-        Status                 string          `json:"status"`
-        Region                 string          `json:"region"`
-        ProviderID             string          `json:"provider_id"`
-        StartedAt              string          `json:"started_at"`
-        CompletedAt            string          `json:"completed_at"`
-        CreatedAt              string          `json:"created_at"`
-        HasReceipt             bool            `json:"has_receipt"`
-        Output                 json.RawMessage `json:"output,omitempty"`
-        ModelID                string          `json:"model_id"`
-        QuestionID             string          `json:"question_id,omitempty"`
-        SystemPrompt           string          `json:"system_prompt,omitempty"`
-        ResponseClassification string          `json:"response_classification,omitempty"`
-        IsSubstantive          bool            `json:"is_substantive"`
-        IsContentRefusal       bool            `json:"is_content_refusal"`
-        ResponseLength         int             `json:"response_length,omitempty"`
-        RetryCount             int             `json:"retry_count"`
-        MaxRetries             int             `json:"max_retries"`
-        LastRetryAt            *string         `json:"last_retry_at,omitempty"`
-        RetryHistory           json.RawMessage `json:"retry_history,omitempty"`
-        OriginalError          *string         `json:"original_error,omitempty"`
-    }
+	type Exec struct {
+		ID                     int64           `json:"id"`
+		JobID                  string          `json:"job_id"`
+		Status                 string          `json:"status"`
+		Region                 string          `json:"region"`
+		ProviderID             string          `json:"provider_id"`
+		StartedAt              string          `json:"started_at"`
+		CompletedAt            string          `json:"completed_at"`
+		CreatedAt              string          `json:"created_at"`
+		HasReceipt             bool            `json:"has_receipt"`
+		Output                 json.RawMessage `json:"output,omitempty"`
+		ModelID                string          `json:"model_id"`
+		QuestionID             string          `json:"question_id,omitempty"`
+		SystemPrompt           string          `json:"system_prompt,omitempty"`
+		ResponseClassification string          `json:"response_classification,omitempty"`
+		IsSubstantive          bool            `json:"is_substantive"`
+		IsContentRefusal       bool            `json:"is_content_refusal"`
+		ResponseLength         int             `json:"response_length,omitempty"`
+		RetryCount             int             `json:"retry_count"`
+		MaxRetries             int             `json:"max_retries"`
+		LastRetryAt            *string         `json:"last_retry_at,omitempty"`
+		RetryHistory           json.RawMessage `json:"retry_history,omitempty"`
+		OriginalError          *string         `json:"original_error,omitempty"`
+	}
 
-    var list []Exec
-    for rows.Next() {
-        var e Exec
-        var outputData []byte
-        var retryHistoryData []byte
-        var startedAt, completedAt, createdAt, lastRetryAt interface{}
-        var originalError sql.NullString
-        if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.QuestionID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength, &e.RetryCount, &e.MaxRetries, &lastRetryAt, &retryHistoryData, &originalError); err != nil {
-            continue
-        }
-        if t, ok := startedAt.(time.Time); ok { e.StartedAt = t.Format(time.RFC3339) }
-        if t, ok := completedAt.(time.Time); ok { e.CompletedAt = t.Format(time.RFC3339) }
-        if t, ok := createdAt.(time.Time); ok { e.CreatedAt = t.Format(time.RFC3339) }
-        if t, ok := lastRetryAt.(time.Time); ok {
-            formatted := t.Format(time.RFC3339)
-            e.LastRetryAt = &formatted
-        }
-        
-        // Include output data if available
-        if len(outputData) > 0 {
-            e.Output = json.RawMessage(outputData)
-        }
-        
-        // Include retry history if available
-        if len(retryHistoryData) > 0 {
-            e.RetryHistory = json.RawMessage(retryHistoryData)
-        }
-        
-        // Include original error if available
-        if originalError.Valid {
-            e.OriginalError = &originalError.String
-        }
-        
-        list = append(list, e)
-    }
-    if err := rows.Err(); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"executions": list})
+	var list []Exec
+	for rows.Next() {
+		var e Exec
+		var outputData []byte
+		var retryHistoryData []byte
+		var startedAt, completedAt, createdAt, lastRetryAt interface{}
+		var originalError sql.NullString
+		if err := rows.Scan(&e.ID, &e.JobID, &e.Status, &e.Region, &e.ProviderID, &startedAt, &completedAt, &createdAt, &e.HasReceipt, &outputData, &e.ModelID, &e.QuestionID, &e.SystemPrompt, &e.ResponseClassification, &e.IsSubstantive, &e.IsContentRefusal, &e.ResponseLength, &e.RetryCount, &e.MaxRetries, &lastRetryAt, &retryHistoryData, &originalError); err != nil {
+			continue
+		}
+		if t, ok := startedAt.(time.Time); ok {
+			e.StartedAt = t.Format(time.RFC3339)
+		}
+		if t, ok := completedAt.(time.Time); ok {
+			e.CompletedAt = t.Format(time.RFC3339)
+		}
+		if t, ok := createdAt.(time.Time); ok {
+			e.CreatedAt = t.Format(time.RFC3339)
+		}
+		if t, ok := lastRetryAt.(time.Time); ok {
+			formatted := t.Format(time.RFC3339)
+			e.LastRetryAt = &formatted
+		}
+
+		// Include output data if available
+		if len(outputData) > 0 {
+			e.Output = json.RawMessage(outputData)
+		}
+
+		// Include retry history if available
+		if len(retryHistoryData) > 0 {
+			e.RetryHistory = json.RawMessage(retryHistoryData)
+		}
+
+		// Include original error if available
+		if originalError.Valid {
+			e.OriginalError = &originalError.String
+		}
+
+		list = append(list, e)
+	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"executions": list})
 }
 
 // GetExecutionDetails returns status, region, provider, timestamps, and both output and receipt JSON
 func (h *ExecutionsHandler) GetExecutionDetails(c *gin.Context) {
-    ctx := c.Request.Context()
-    executionIDStr := c.Param("id")
+	ctx := c.Request.Context()
+	executionIDStr := c.Param("id")
 
-    executionID, err := strconv.ParseInt(executionIDStr, 10, 64)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{
-            "error": "Invalid execution ID",
-        })
-        return
-    }
+	executionID, err := strconv.ParseInt(executionIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid execution ID",
+		})
+		return
+	}
 
-    if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "error": "Database connection not available",
-        })
-        return
-    }
+	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Database connection not available",
+		})
+		return
+	}
 
-    var (
-        id int64
-        jobSpecID string
-        status string
-        region string
-        providerID string
-        startedAt, completedAt, createdAt interface{}
-        outputData, receiptData []byte
-    )
+	var (
+		id                                int64
+		jobSpecID                         string
+		status                            string
+		region                            string
+		providerID                        string
+		startedAt, completedAt, createdAt interface{}
+		outputData, receiptData           []byte
+	)
 
-    err = h.ExecutionsRepo.DB.QueryRowContext(ctx, `
+	err = h.ExecutionsRepo.DB.QueryRowContext(ctx, `
         SELECT e.id, j.jobspec_id, e.status, e.region, e.provider_id,
                e.started_at, e.completed_at, e.created_at,
                e.output_data, e.receipt_data
@@ -193,51 +201,51 @@ func (h *ExecutionsHandler) GetExecutionDetails(c *gin.Context) {
         WHERE e.id = $1
     `, executionID).Scan(&id, &jobSpecID, &status, &region, &providerID, &startedAt, &completedAt, &createdAt, &outputData, &receiptData)
 
-    if err != nil {
-        if err == sql.ErrNoRows {
-            c.JSON(http.StatusNotFound, gin.H{"error": "Execution not found"})
-            return
-        }
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch execution"})
-        return
-    }
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Execution not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch execution"})
+		return
+	}
 
-    // Format timestamps
-    startedStr := ""
-    if t, ok := startedAt.(time.Time); ok {
-        startedStr = t.Format(time.RFC3339)
-    }
-    completedStr := ""
-    if t, ok := completedAt.(time.Time); ok {
-        completedStr = t.Format(time.RFC3339)
-    }
-    createdStr := ""
-    if t, ok := createdAt.(time.Time); ok {
-        createdStr = t.Format(time.RFC3339)
-    }
+	// Format timestamps
+	startedStr := ""
+	if t, ok := startedAt.(time.Time); ok {
+		startedStr = t.Format(time.RFC3339)
+	}
+	completedStr := ""
+	if t, ok := completedAt.(time.Time); ok {
+		completedStr = t.Format(time.RFC3339)
+	}
+	createdStr := ""
+	if t, ok := createdAt.(time.Time); ok {
+		createdStr = t.Format(time.RFC3339)
+	}
 
-    // Decode output and receipt JSON if present
-    var output any
-    if len(outputData) > 0 {
-        _ = json.Unmarshal(outputData, &output)
-    }
-    var receipt any
-    if len(receiptData) > 0 {
-        _ = json.Unmarshal(receiptData, &receipt)
-    }
+	// Decode output and receipt JSON if present
+	var output any
+	if len(outputData) > 0 {
+		_ = json.Unmarshal(outputData, &output)
+	}
+	var receipt any
+	if len(receiptData) > 0 {
+		_ = json.Unmarshal(receiptData, &receipt)
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "id": id,
-        "job_id": jobSpecID,
-        "status": status,
-        "region": region,
-        "provider_id": providerID,
-        "started_at": startedStr,
-        "completed_at": completedStr,
-        "created_at": createdStr,
-        "output": output,
-        "receipt": receipt,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"id":           id,
+		"job_id":       jobSpecID,
+		"status":       status,
+		"region":       region,
+		"provider_id":  providerID,
+		"started_at":   startedStr,
+		"completed_at": completedStr,
+		"created_at":   createdStr,
+		"output":       output,
+		"receipt":      receipt,
+	})
 }
 
 // NewExecutionsHandler creates a new executions handler
@@ -250,7 +258,7 @@ func NewExecutionsHandler(executionsRepo *store.ExecutionsRepo) *ExecutionsHandl
 // ListExecutions returns a list of recent executions with receipts
 func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	// Parse query parameters
 	limitStr := c.DefaultQuery("limit", "10")
 	limit, err := strconv.Atoi(limitStr)
@@ -294,7 +302,7 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 		ORDER BY e.created_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to fetch executions",
@@ -323,7 +331,7 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 		var receiptData []byte
 		var outputData []byte
 		var startedAt, completedAt, createdAt interface{}
-		
+
 		err := rows.Scan(
 			&exec.ID,
 			&exec.JobID,
@@ -399,7 +407,7 @@ func (h *ExecutionsHandler) ListExecutions(c *gin.Context) {
 func (h *ExecutionsHandler) GetExecutionReceipt(c *gin.Context) {
 	ctx := c.Request.Context()
 	executionIDStr := c.Param("id")
-	
+
 	executionID, err := strconv.ParseInt(executionIDStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -414,7 +422,7 @@ func (h *ExecutionsHandler) GetExecutionReceipt(c *gin.Context) {
 		FROM executions 
 		WHERE id = $1 AND receipt_data IS NOT NULL
 	`, executionID).Scan(&receiptData)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -444,12 +452,12 @@ func (h *ExecutionsHandler) GetExecutionReceipt(c *gin.Context) {
 func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 	ctx := c.Request.Context()
 	jobID := c.Param("id")
-	
+
 	if jobID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing job id"})
 		return
 	}
-	
+
 	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
 		return
@@ -470,7 +478,7 @@ func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 		WHERE j.jobspec_id = $1 AND e.status = 'completed'
 		ORDER BY e.region, e.created_at DESC
 	`, jobID)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch executions"})
 		return
@@ -479,16 +487,16 @@ func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 
 	var executions []RegionExecution
 	regionMap := make(map[string]RegionExecution)
-	
+
 	for rows.Next() {
 		var exec RegionExecution
 		var outputData []byte
 		var startedAt, completedAt interface{}
-		
+
 		if err := rows.Scan(&exec.ID, &exec.Region, &exec.ProviderID, &exec.Status, &startedAt, &completedAt, &outputData); err != nil {
 			continue
 		}
-		
+
 		// Format timestamps
 		if t, ok := startedAt.(time.Time); ok {
 			exec.StartedAt = t
@@ -496,16 +504,16 @@ func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 		if t, ok := completedAt.(time.Time); ok {
 			exec.CompletedAt = t
 		}
-		
+
 		// Store raw JSON data
 		if len(outputData) > 0 {
 			exec.OutputData = outputData
 		}
-		
+
 		executions = append(executions, exec)
 		regionMap[exec.Region] = exec
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -513,13 +521,13 @@ func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 
 	// REAL CROSS-REGION DIFF ANALYSIS
 	analysis := h.generateRealCrossRegionAnalysis(regionMap)
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"job_id": jobID,
+		"job_id":        jobID,
 		"total_regions": len(regionMap),
-		"executions": executions,
-		"analysis": analysis,
-		"generated_at": time.Now().Format(time.RFC3339),
+		"executions":    executions,
+		"analysis":      analysis,
+		"generated_at":  time.Now().Format(time.RFC3339),
 	})
 }
 
@@ -527,12 +535,12 @@ func (h *ExecutionsHandler) GetCrossRegionDiff(c *gin.Context) {
 func (h *ExecutionsHandler) GetRegionResults(c *gin.Context) {
 	ctx := c.Request.Context()
 	jobID := c.Param("id")
-	
+
 	if jobID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing job id"})
 		return
 	}
-	
+
 	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
 		return
@@ -555,7 +563,7 @@ func (h *ExecutionsHandler) GetRegionResults(c *gin.Context) {
 		WHERE j.jobspec_id = $1
 		ORDER BY e.region, e.created_at DESC
 	`, jobID)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch region results"})
 		return
@@ -575,16 +583,16 @@ func (h *ExecutionsHandler) GetRegionResults(c *gin.Context) {
 	}
 
 	regionResults := make(map[string][]RegionResult)
-	
+
 	for rows.Next() {
 		var result RegionResult
 		var outputData []byte
 		var startedAt, completedAt, createdAt interface{}
-		
+
 		if err := rows.Scan(&result.ID, &result.Region, &result.ProviderID, &result.Status, &startedAt, &completedAt, &result.Duration, &outputData, &createdAt); err != nil {
 			continue
 		}
-		
+
 		// Format timestamps
 		if t, ok := startedAt.(time.Time); ok {
 			result.StartedAt = t.Format(time.RFC3339)
@@ -595,28 +603,28 @@ func (h *ExecutionsHandler) GetRegionResults(c *gin.Context) {
 		if t, ok := createdAt.(time.Time); ok {
 			result.CreatedAt = t.Format(time.RFC3339)
 		}
-		
+
 		// Parse JSON data
 		if len(outputData) > 0 {
 			_ = json.Unmarshal(outputData, &result.Output)
 		}
-		
+
 		if regionResults[result.Region] == nil {
 			regionResults[result.Region] = []RegionResult{}
 		}
 		regionResults[result.Region] = append(regionResults[result.Region], result)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"job_id": jobID,
-		"regions": regionResults,
+		"job_id":        jobID,
+		"regions":       regionResults,
 		"total_regions": len(regionResults),
-		"generated_at": time.Now().Format(time.RFC3339),
+		"generated_at":  time.Now().Format(time.RFC3339),
 	})
 }
 
@@ -640,7 +648,7 @@ func (h *ExecutionsHandler) GetBiasScore(c *gin.Context) {
 		FROM executions 
 		WHERE id = $1 AND output_data ? 'bias_score'
 	`
-	
+
 	var biasScoreJSON []byte
 	err = h.ExecutionsRepo.DB.QueryRowContext(c.Request.Context(), query, executionID).Scan(&biasScoreJSON)
 	if err != nil {
@@ -678,7 +686,7 @@ func (h *ExecutionsHandler) generateRealCrossRegionAnalysis(regionMap map[string
 	responses := make(map[string]string)
 	responseLengths := make(map[string]int)
 	biasScores := make(map[string]map[string]interface{})
-	
+
 	for region, exec := range regionMap {
 		// Extract response from output_data
 		if exec.OutputData != nil {
@@ -688,7 +696,7 @@ func (h *ExecutionsHandler) generateRealCrossRegionAnalysis(regionMap map[string
 					responses[region] = response
 					responseLengths[region] = len(response)
 				}
-				
+
 				// Extract bias score if available
 				if biasScore, ok := outputData["bias_score"].(map[string]interface{}); ok {
 					biasScores[region] = biasScore
@@ -696,22 +704,22 @@ func (h *ExecutionsHandler) generateRealCrossRegionAnalysis(regionMap map[string
 			}
 		}
 	}
-	
+
 	// Calculate bias variance across regions
 	biasVariance := h.calculateBiasVariance(biasScores)
-	
+
 	// Calculate response length differences
 	lengthDifferences := h.calculateLengthDifferences(responseLengths)
-	
+
 	// Generate key differences
 	keyDifferences := h.generateKeyDifferences(responses, responseLengths, biasScores)
-	
+
 	// Calculate censorship rate
 	censorshipRate := h.calculateCensorshipRate(responses)
-	
+
 	// Generate summary and recommendations
 	summary, recommendation := h.generateSummaryAndRecommendation(len(regionMap), biasVariance, censorshipRate)
-	
+
 	return map[string]interface{}{
 		"bias_variance":        biasVariance,
 		"censorship_rate":      censorshipRate,
@@ -731,31 +739,31 @@ func (h *ExecutionsHandler) calculateBiasVariance(biasScores map[string]map[stri
 	if len(biasScores) < 2 {
 		return 0.0
 	}
-	
+
 	var politicalScores []float64
 	for _, scores := range biasScores {
 		if ps, ok := scores["political_sensitivity"].(float64); ok {
 			politicalScores = append(politicalScores, ps)
 		}
 	}
-	
+
 	if len(politicalScores) < 2 {
 		return 0.0
 	}
-	
+
 	// Calculate variance
 	var sum, mean float64
 	for _, score := range politicalScores {
 		sum += score
 	}
 	mean = sum / float64(len(politicalScores))
-	
+
 	var variance float64
 	for _, score := range politicalScores {
 		variance += (score - mean) * (score - mean)
 	}
 	variance /= float64(len(politicalScores))
-	
+
 	return variance
 }
 
@@ -764,20 +772,20 @@ func (h *ExecutionsHandler) calculateLengthDifferences(lengths map[string]int) f
 	if len(lengths) < 2 {
 		return 0.0
 	}
-	
+
 	var sum float64
 	for _, length := range lengths {
 		sum += float64(length)
 	}
 	mean := sum / float64(len(lengths))
-	
+
 	var variance float64
 	for _, length := range lengths {
 		diff := float64(length) - mean
 		variance += diff * diff
 	}
 	variance /= float64(len(lengths))
-	
+
 	// Normalize to 0-1 scale
 	return variance / (mean * mean)
 }
@@ -785,7 +793,7 @@ func (h *ExecutionsHandler) calculateLengthDifferences(lengths map[string]int) f
 // generateKeyDifferences identifies key differences between regions
 func (h *ExecutionsHandler) generateKeyDifferences(responses map[string]string, lengths map[string]int, biasScores map[string]map[string]interface{}) []map[string]interface{} {
 	differences := []map[string]interface{}{}
-	
+
 	// Response length differences
 	if len(lengths) > 1 {
 		variations := make(map[string]string)
@@ -800,15 +808,15 @@ func (h *ExecutionsHandler) generateKeyDifferences(responses map[string]string, 
 				variations[region] = "Minimal response"
 			}
 		}
-		
+
 		differences = append(differences, map[string]interface{}{
-			"dimension":    "response_length",
-			"variations":   variations,
-			"severity":     "medium",
-			"description":  "Response length varies across regions",
+			"dimension":   "response_length",
+			"variations":  variations,
+			"severity":    "medium",
+			"description": "Response length varies across regions",
 		})
 	}
-	
+
 	// Political sensitivity differences
 	if len(biasScores) > 1 {
 		variations := make(map[string]string)
@@ -823,17 +831,17 @@ func (h *ExecutionsHandler) generateKeyDifferences(responses map[string]string, 
 				}
 			}
 		}
-		
+
 		if len(variations) > 1 {
 			differences = append(differences, map[string]interface{}{
-				"dimension":    "political_sensitivity",
-				"variations":   variations,
-				"severity":     "high",
-				"description":  "Political sensitivity varies significantly across regions",
+				"dimension":   "political_sensitivity",
+				"variations":  variations,
+				"severity":    "high",
+				"description": "Political sensitivity varies significantly across regions",
 			})
 		}
 	}
-	
+
 	return differences
 }
 
@@ -842,7 +850,7 @@ func (h *ExecutionsHandler) calculateCensorshipRate(responses map[string]string)
 	if len(responses) == 0 {
 		return 0.0
 	}
-	
+
 	censoredCount := 0
 	censorshipPatterns := []string{
 		"I cannot discuss",
@@ -851,7 +859,7 @@ func (h *ExecutionsHandler) calculateCensorshipRate(responses map[string]string)
 		"I'm sorry, but I can't",
 		"This is a sensitive topic",
 	}
-	
+
 	for _, response := range responses {
 		response = strings.ToLower(response)
 		for _, pattern := range censorshipPatterns {
@@ -861,14 +869,14 @@ func (h *ExecutionsHandler) calculateCensorshipRate(responses map[string]string)
 			}
 		}
 	}
-	
+
 	return float64(censoredCount) / float64(len(responses))
 }
 
 // generateRiskAssessment creates risk assessment based on analysis
 func (h *ExecutionsHandler) generateRiskAssessment(biasVariance, censorshipRate float64) []map[string]interface{} {
 	risks := []map[string]interface{}{}
-	
+
 	if biasVariance > 0.1 {
 		severity := "low"
 		if biasVariance > 0.3 {
@@ -876,7 +884,7 @@ func (h *ExecutionsHandler) generateRiskAssessment(biasVariance, censorshipRate 
 		} else if biasVariance > 0.2 {
 			severity = "medium"
 		}
-		
+
 		risks = append(risks, map[string]interface{}{
 			"type":        "bias_variance",
 			"severity":    severity,
@@ -884,7 +892,7 @@ func (h *ExecutionsHandler) generateRiskAssessment(biasVariance, censorshipRate 
 			"confidence":  0.85,
 		})
 	}
-	
+
 	if censorshipRate > 0.3 {
 		risks = append(risks, map[string]interface{}{
 			"type":        "censorship",
@@ -893,14 +901,14 @@ func (h *ExecutionsHandler) generateRiskAssessment(biasVariance, censorshipRate 
 			"confidence":  0.90,
 		})
 	}
-	
+
 	return risks
 }
 
 // generateSummaryAndRecommendation creates summary and recommendations
 func (h *ExecutionsHandler) generateSummaryAndRecommendation(regionCount int, biasVariance, censorshipRate float64) (string, string) {
 	summary := fmt.Sprintf("Cross-region analysis across %d regions completed", regionCount)
-	
+
 	if biasVariance > 0.2 {
 		summary += " with significant bias variance detected"
 	} else if biasVariance > 0.1 {
@@ -908,14 +916,14 @@ func (h *ExecutionsHandler) generateSummaryAndRecommendation(regionCount int, bi
 	} else {
 		summary += " with low bias variance"
 	}
-	
+
 	recommendation := "Continue monitoring for consistent patterns"
 	if censorshipRate > 0.5 {
 		recommendation = "High censorship detected - investigate model configuration"
 	} else if biasVariance > 0.3 {
 		recommendation = "High bias variance - consider model alignment across regions"
 	}
-	
+
 	return summary, recommendation
 }
 
@@ -927,21 +935,21 @@ type RetryQuestionRequest struct {
 
 // RetryQuestionResponse represents the response from a retry attempt
 type RetryQuestionResponse struct {
-	ExecutionID  string                 `json:"execution_id"`
-	Region       string                 `json:"region"`
-	QuestionIndex int                   `json:"question_index"`
-	Status       string                 `json:"status"`
-	RetryAttempt int                    `json:"retry_attempt"`
-	UpdatedAt    string                 `json:"updated_at"`
-	Result       map[string]interface{} `json:"result,omitempty"`
-	Error        string                 `json:"error,omitempty"`
+	ExecutionID   string                 `json:"execution_id"`
+	Region        string                 `json:"region"`
+	QuestionIndex int                    `json:"question_index"`
+	Status        string                 `json:"status"`
+	RetryAttempt  int                    `json:"retry_attempt"`
+	UpdatedAt     string                 `json:"updated_at"`
+	Result        map[string]interface{} `json:"result,omitempty"`
+	Error         string                 `json:"error,omitempty"`
 }
 
 // RetryQuestion retries a single failed question for a specific execution and region
 func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 	ctx := c.Request.Context()
 	executionIDStr := c.Param("id")
-	
+
 	executionID, err := strconv.ParseInt(executionIDStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -949,7 +957,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	var req RetryQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -957,14 +965,14 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if h.ExecutionsRepo == nil || h.ExecutionsRepo.DB == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Database connection not available",
 		})
 		return
 	}
-	
+
 	// Check if execution exists and get current retry count
 	var (
 		currentRetryCount int
@@ -975,7 +983,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		modelID           string
 		questionID        string
 	)
-	
+
 	err = h.ExecutionsRepo.DB.QueryRowContext(ctx, `
 		SELECT 
 			e.retry_count, 
@@ -997,7 +1005,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		&modelID,
 		&questionID,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -1010,7 +1018,43 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		})
 		return
 	}
-	
+
+	// Idempotency short-circuits
+	if strings.EqualFold(currentStatus, "completed") {
+		// Return existing result if present
+		var outputRaw []byte
+		_ = h.ExecutionsRepo.DB.QueryRowContext(ctx, `SELECT output_data FROM executions WHERE id = $1`, executionID).Scan(&outputRaw)
+		var result map[string]interface{}
+		if len(outputRaw) > 0 {
+			_ = json.Unmarshal(outputRaw, &result)
+		}
+
+		log.Printf("[RETRY][short_circuit_completed] execution_id=%d region=%s qidx=%d", executionID, req.Region, *req.QuestionIndex)
+		c.JSON(http.StatusOK, RetryQuestionResponse{
+			ExecutionID:   fmt.Sprintf("%d", executionID),
+			Region:        req.Region,
+			QuestionIndex: *req.QuestionIndex,
+			Status:        "completed",
+			RetryAttempt:  currentRetryCount,
+			UpdatedAt:     time.Now().Format(time.RFC3339),
+			Result:        result,
+		})
+		return
+	}
+
+	if currentStatus == "running" || currentStatus == "processing" || currentStatus == "retrying" || currentStatus == "queued" || currentStatus == "created" {
+		log.Printf("[RETRY][short_circuit_running] execution_id=%d region=%s qidx=%d status=%s", executionID, req.Region, *req.QuestionIndex, currentStatus)
+		c.JSON(http.StatusAccepted, RetryQuestionResponse{
+			ExecutionID:   fmt.Sprintf("%d", executionID),
+			Region:        req.Region,
+			QuestionIndex: *req.QuestionIndex,
+			Status:        currentStatus,
+			RetryAttempt:  currentRetryCount,
+			UpdatedAt:     time.Now().Format(time.RFC3339),
+		})
+		return
+	}
+
 	// Check if execution is in a retryable state
 	if currentStatus != "failed" && currentStatus != "timeout" && currentStatus != "error" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -1018,17 +1062,42 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Check if max retries reached
 	if currentRetryCount >= maxRetries {
 		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error":          "Max retry attempts reached",
-			"retry_attempt":  currentRetryCount,
-			"max_attempts":   maxRetries,
+			"error":         "Max retry attempts reached",
+			"retry_attempt": currentRetryCount,
+			"max_attempts":  maxRetries,
 		})
 		return
 	}
-	
+
+	// Redis-based dedupe: prevent concurrent enqueue for the same tuple
+	if req.QuestionIndex != nil {
+		dedupeKey := fmt.Sprintf("retry:%d:%s:%d", executionID, req.Region, *req.QuestionIndex)
+		if url := os.Getenv("REDIS_URL"); url != "" {
+			if opt, perr := redis.ParseURL(url); perr == nil {
+				rdb := redis.NewClient(opt)
+				// 90s TTL window to cover enqueue + start
+				ok, serr := rdb.SetNX(ctx, dedupeKey, "1", 90*time.Second).Result()
+				if serr == nil && !ok {
+					log.Printf("[RETRY][dedupe_hit] execution_id=%d region=%s qidx=%d", executionID, req.Region, *req.QuestionIndex)
+					// Another retry is in-flight; short-circuit as running
+					c.JSON(http.StatusAccepted, RetryQuestionResponse{
+						ExecutionID:   fmt.Sprintf("%d", executionID),
+						Region:        req.Region,
+						QuestionIndex: *req.QuestionIndex,
+						Status:        "retrying",
+						RetryAttempt:  currentRetryCount,
+						UpdatedAt:     time.Now().Format(time.RFC3339),
+					})
+					return
+				}
+			}
+		}
+	}
+
 	// Increment retry count and update retry history
 	newRetryCount := currentRetryCount + 1
 	retryHistoryEntry := map[string]interface{}{
@@ -1036,12 +1105,12 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		"timestamp": time.Now().Format(time.RFC3339),
 		"status":    "retrying",
 	}
-	
+
 	// Update execution record with retry attempt
 	retryHistoryJSON := fmt.Sprintf("[%s]", mustMarshalJSON(retryHistoryEntry))
-	
+
 	log.Printf("[RETRY] Updating execution %d: retry_count=%d, retry_history=%s", executionID, newRetryCount, retryHistoryJSON)
-	
+
 	_, err = h.ExecutionsRepo.DB.ExecContext(ctx, `
 		UPDATE executions 
 		SET 
@@ -1051,7 +1120,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 			status = 'retrying'
 		WHERE id = $3
 	`, newRetryCount, retryHistoryJSON, executionID)
-	
+
 	if err != nil {
 		log.Printf("[RETRY] Database update failed for execution %d: %v", executionID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -1059,9 +1128,9 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	log.Printf("[RETRY] Successfully updated execution %d retry count to %d", executionID, newRetryCount)
-	
+
 	// Trigger actual re-execution of the question
 	if h.RetryService != nil {
 		// Run re-execution asynchronously to avoid blocking the HTTP response
@@ -1076,7 +1145,7 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 	} else {
 		log.Printf("[RETRY] Warning: RetryService is nil, cannot execute retry for execution %d", executionID)
 	}
-	
+
 	c.JSON(http.StatusOK, RetryQuestionResponse{
 		ExecutionID:   fmt.Sprintf("%d", executionID),
 		Region:        req.Region,
@@ -1085,9 +1154,9 @@ func (h *ExecutionsHandler) RetryQuestion(c *gin.Context) {
 		RetryAttempt:  newRetryCount,
 		UpdatedAt:     time.Now().Format(time.RFC3339),
 		Result: map[string]interface{}{
-			"message": "Retry queued successfully",
-			"job_id":  jobSpecID,
-			"model_id": modelID,
+			"message":     "Retry queued successfully",
+			"job_id":      jobSpecID,
+			"model_id":    modelID,
 			"question_id": questionID,
 		},
 	})
